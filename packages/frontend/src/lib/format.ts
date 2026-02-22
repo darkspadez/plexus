@@ -99,11 +99,15 @@ export function formatTPS(tps: number): string {
  * Format energy in kWh with human-readable sub-units.
  */
 export function formatEnergy(kwh: number): string {
+  if (kwh >= 1) return `${kwh.toFixed(3)} kWh`;
+
   const wh = kwh * 1000;
-  if (wh >= 1) return `${wh.toFixed(2)} Wh`;
+  if (wh >= 1) return `${wh.toFixed(3)} Wh`;
+
   const mwh = wh * 1000;
-  if (mwh >= 1) return `${mwh.toFixed(2)} mWh`;
-  return `${(mwh * 1000).toFixed(2)} µWh`;
+  if (mwh >= 0.01) return `${mwh.toFixed(3)} mWh`;
+
+  return `${(mwh * 1000).toFixed(3)} µWh`;
 }
 
 /**

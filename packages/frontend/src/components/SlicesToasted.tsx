@@ -14,17 +14,9 @@ interface SlicesToastedProps {
 }
 
 const SLICES_PER_LOAF = 20;
-const DEFAULT_SLICE_LAYOUT_THRESHOLD = 30;
-const DEFAULT_MAX_LOAVES_TO_RENDER = 8;
+const SLICE_LAYOUT_THRESHOLD = 30;
+const MAX_LOAVES_TO_RENDER = 8;
 const TOAST_COLUMNS = 6;
-
-const readDebugNumber = (key: string, fallback: number): number => {
-  if (typeof window === 'undefined') return fallback;
-  const raw = window.localStorage.getItem(key);
-  if (!raw) return fallback;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
 
 const formatSlices = (slices: number): string => {
   if (slices < 1) return slices.toFixed(2);
@@ -52,19 +44,9 @@ const buildUnits = (value: number): number[] => {
 };
 
 export function SlicesToasted({ data }: SlicesToastedProps) {
-  const displayMultiplier = Math.max(0, readDebugNumber('plexus.slicesToasted.multiplier', 1));
-  const sliceLayoutThreshold = Math.max(
-    1,
-    readDebugNumber('plexus.slicesToasted.sliceLayoutThreshold', DEFAULT_SLICE_LAYOUT_THRESHOLD)
-  );
-  const maxLoavesToRender = Math.max(
-    1,
-    readDebugNumber('plexus.slicesToasted.maxLoavesToRender', DEFAULT_MAX_LOAVES_TO_RENDER)
-  );
-
   const totalKwh = data.reduce((sum, point) => sum + (point.kwhUsed || 0), 0);
-  const totalSlices = (totalKwh / KWH_PER_SLICE) * displayMultiplier;
-  const useLoaves = totalSlices > sliceLayoutThreshold;
+  const totalSlices = totalKwh / KWH_PER_SLICE;
+  const useLoaves = totalSlices > SLICE_LAYOUT_THRESHOLD;
 
   const toastImages = {
     full: toastFull,
@@ -81,8 +63,8 @@ export function SlicesToasted({ data }: SlicesToastedProps) {
 
   const slicesEquivalent = formatSlices(totalSlices);
   const units = buildUnits(useLoaves ? totalSlices / SLICES_PER_LOAF : totalSlices);
-  const displayedUnits = useLoaves ? units.slice(0, maxLoavesToRender) : units;
-  const hasOverflowLoaves = useLoaves && units.length > maxLoavesToRender;
+  const displayedUnits = useLoaves ? units.slice(0, MAX_LOAVES_TO_RENDER) : units;
+  const hasOverflowLoaves = useLoaves && units.length > MAX_LOAVES_TO_RENDER;
 
   return (
     <div className="space-y-3">
@@ -109,7 +91,7 @@ export function SlicesToasted({ data }: SlicesToastedProps) {
             <img
               key={`toast-${index}`}
               src={getQuartileImage(fraction, toastImages)}
-              alt="Toast slice"
+              alt=""
               style={{ width: 48, height: 48, objectFit: 'contain' }}
             />
           ))}
@@ -132,7 +114,7 @@ export function SlicesToasted({ data }: SlicesToastedProps) {
               <img
                 key={`loaf-${index}`}
                 src={getQuartileImage(fraction, loafImages)}
-                alt="Loaf equivalent"
+                alt=""
                 style={{ width: 150, height: 'auto', objectFit: 'contain' }}
               />
             ))}
