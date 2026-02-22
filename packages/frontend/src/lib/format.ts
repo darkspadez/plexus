@@ -1,5 +1,7 @@
 import humanFormat from 'human-format';
 
+export const KWH_PER_SLICE = 0.01;
+
 /**
  * Format a duration in seconds to human-readable format (e.g., "2h 30m", "45m", "30s", "3mo 2w", "1y 2mo")
  */
@@ -91,6 +93,17 @@ export function formatMs(ms: number): string {
 export function formatTPS(tps: number): string {
   if (tps === 0) return '0';
   return tps.toFixed(1);
+}
+
+/**
+ * Format energy in kWh with human-readable sub-units.
+ */
+export function formatEnergy(kwh: number): string {
+  const wh = kwh * 1000;
+  if (wh >= 1) return `${wh.toFixed(2)} Wh`;
+  const mwh = wh * 1000;
+  if (mwh >= 1) return `${mwh.toFixed(2)} mWh`;
+  return `${(mwh * 1000).toFixed(2)} µWh`;
 }
 
 /**

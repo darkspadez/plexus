@@ -1,4 +1,5 @@
 import { UsageData } from '../lib/api';
+import { KWH_PER_SLICE, formatEnergy } from '../lib/format';
 import toastFull from '../assets/toast/toast-full.png';
 import toast75 from '../assets/toast/toast-75.png';
 import toast50 from '../assets/toast/toast-50.png';
@@ -12,23 +13,23 @@ interface SlicesToastedProps {
   data: UsageData[];
 }
 
-const KWH_PER_SLICE = 0.01;
 const SLICES_PER_LOAF = 20;
-const SLICE_LAYOUT_THRESHOLD = 18;
+const DEFAULT_SLICE_LAYOUT_THRESHOLD = 30;
+const DEFAULT_MAX_LOAVES_TO_RENDER = 8;
 const TOAST_COLUMNS = 6;
+
+const readDebugNumber = (key: string, fallback: number): number => {
+  if (typeof window === 'undefined') return fallback;
+  const raw = window.localStorage.getItem(key);
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
 
 const formatSlices = (slices: number): string => {
   if (slices < 1) return slices.toFixed(2);
   if (slices < 10) return slices.toFixed(1);
   return Math.round(slices).toLocaleString();
-};
-
-const formatEnergy = (kwh: number): string => {
-  const wh = kwh * 1000;
-  if (wh >= 1) return `${wh.toFixed(2)} Wh`;
-  const mwh = wh * 1000;
-  if (mwh >= 1) return `${mwh.toFixed(2)} mWh`;
-  return `${(mwh * 1000).toFixed(2)} µWh`;
 };
 
 const getQuartileImage = (fraction: number, images: Record<string, string>) => {
@@ -51,9 +52,19 @@ const buildUnits = (value: number): number[] => {
 };
 
 export function SlicesToasted({ data }: SlicesToastedProps) {
+  const displayMultiplier = Math.max(0, readDebugNumber('plexus.slicesToasted.multiplier', 1));
+  const sliceLayoutThreshold = Math.max(
+    1,
+    readDebugNumber('plexus.slicesToasted.sliceLayoutThreshold', DEFAULT_SLICE_LAYOUT_THRESHOLD)
+  );
+  const maxLoavesToRender = Math.max(
+    1,
+    readDebugNumber('plexus.slicesToasted.maxLoavesToRender', DEFAULT_MAX_LOAVES_TO_RENDER)
+  );
+
   const totalKwh = data.reduce((sum, point) => sum + (point.kwhUsed || 0), 0);
-  const totalSlices = totalKwh / KWH_PER_SLICE;
-  const useLoaves = totalSlices > SLICE_LAYOUT_THRESHOLD;
+  const totalSlices = (totalKwh / KWH_PER_SLICE) * displayMultiplier;
+  const useLoaves = totalSlices > sliceLayoutThreshold;
 
   const toastImages = {
     full: toastFull,
@@ -70,6 +81,8 @@ export function SlicesToasted({ data }: SlicesToastedProps) {
 
   const slicesEquivalent = formatSlices(totalSlices);
   const units = buildUnits(useLoaves ? totalSlices / SLICES_PER_LOAF : totalSlices);
+  const displayedUnits = useLoaves ? units.slice(0, maxLoavesToRender) : units;
+  const hasOverflowLoaves = useLoaves && units.length > maxLoavesToRender;
 
   return (
     <div className="space-y-3">
@@ -77,18 +90,22 @@ export function SlicesToasted({ data }: SlicesToastedProps) {
         {slicesEquivalent} slices equivalent ({formatEnergy(totalKwh)})
       </div>
 
-      {units.length === 0 && <div className="text-sm text-text-secondary">No usage yet.</div>}
+      {displayedUnits.length === 0 && (
+        <div className="text-sm text-text-secondary text-center">No usage yet.</div>
+      )}
 
-      {!useLoaves && units.length > 0 && (
+      {!useLoaves && displayedUnits.length > 0 && (
         <div
           className="grid gap-2"
           style={{
             gridTemplateColumns: `repeat(${TOAST_COLUMNS}, minmax(0, 1fr))`,
-            justifyItems: 'start',
+            justifyItems: 'center',
             alignItems: 'center',
+            width: 'fit-content',
+            margin: '0 auto',
           }}
         >
-          {units.map((fraction, index) => (
+          {displayedUnits.map((fraction, index) => (
             <img
               key={`toast-${index}`}
               src={getQuartileImage(fraction, toastImages)}
@@ -99,16 +116,30 @@ export function SlicesToasted({ data }: SlicesToastedProps) {
         </div>
       )}
 
-      {useLoaves && units.length > 0 && (
-        <div className="flex flex-col gap-3">
-          {units.map((fraction, index) => (
-            <img
-              key={`loaf-${index}`}
-              src={getQuartileImage(fraction, loafImages)}
-              alt="Loaf equivalent"
-              style={{ width: 180, height: 'auto', objectFit: 'contain' }}
-            />
-          ))}
+      {useLoaves && displayedUnits.length > 0 && (
+        <div className="space-y-3">
+          <div
+            className="grid gap-3"
+            style={{
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              justifyItems: 'center',
+              alignItems: 'center',
+              width: 'fit-content',
+              margin: '0 auto',
+            }}
+          >
+            {displayedUnits.map((fraction, index) => (
+              <img
+                key={`loaf-${index}`}
+                src={getQuartileImage(fraction, loafImages)}
+                alt="Loaf equivalent"
+                style={{ width: 150, height: 'auto', objectFit: 'contain' }}
+              />
+            ))}
+          </div>
+          {hasOverflowLoaves && (
+            <div className="text-sm text-text-secondary text-center">You are a bad person.</div>
+          )}
         </div>
       )}
     </div>

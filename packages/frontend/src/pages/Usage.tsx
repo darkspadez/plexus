@@ -290,7 +290,7 @@ export const Usage = () => {
           <div style={{ height: 300, marginTop: '12px' }}>{renderPieChart('tokens', keyData)}</div>
         </Card>
 
-        <Card className="min-w-0" style={{ minWidth: '350px' }} title="Slices toasted">
+        <Card className="min-w-0" style={{ minWidth: '350px' }} title="Slices of bread toasted">
           {renderTimeControls()}
           <div style={{ marginTop: '12px' }}>
             <SlicesToasted data={data} />
