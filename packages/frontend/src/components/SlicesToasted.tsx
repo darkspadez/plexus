@@ -1,5 +1,5 @@
 import { UsageData } from '../lib/api';
-import { KWH_PER_SLICE, formatEnergy } from '../lib/format';
+import { KWH_PER_SLICE, formatEnergy, formatSlices } from '../lib/format';
 import toastFull from '../assets/toast/toast-full.png';
 import toast75 from '../assets/toast/toast-75.png';
 import toast50 from '../assets/toast/toast-50.png';
@@ -16,18 +16,11 @@ interface SlicesToastedProps {
 const SLICES_PER_LOAF = 20;
 const SLICE_LAYOUT_THRESHOLD = 30;
 const MAX_LOAVES_TO_RENDER = 8;
-const TOAST_COLUMNS = 6;
-
-const formatSlices = (slices: number): string => {
-  if (slices < 1) return slices.toFixed(2);
-  if (slices < 10) return slices.toFixed(1);
-  return Math.round(slices).toLocaleString();
-};
 
 const getQuartileImage = (fraction: number, images: Record<string, string>) => {
-  if (fraction >= 0.75) return images.full;
-  if (fraction >= 0.5) return images.seventyFive;
-  if (fraction >= 0.25) return images.half;
+  if (fraction > 0.75) return images.full;
+  if (fraction > 0.5) return images.seventyFive;
+  if (fraction > 0.25) return images.half;
   return images.quarter;
 };
 
@@ -77,22 +70,13 @@ export function SlicesToasted({ data }: SlicesToastedProps) {
       )}
 
       {!useLoaves && displayedUnits.length > 0 && (
-        <div
-          className="grid gap-2"
-          style={{
-            gridTemplateColumns: `repeat(${TOAST_COLUMNS}, minmax(0, 1fr))`,
-            justifyItems: 'center',
-            alignItems: 'center',
-            width: 'fit-content',
-            margin: '0 auto',
-          }}
-        >
+        <div className="grid grid-cols-6 gap-2 justify-items-center items-center w-fit mx-auto">
           {displayedUnits.map((fraction, index) => (
             <img
               key={`toast-${index}`}
               src={getQuartileImage(fraction, toastImages)}
               alt=""
-              style={{ width: 48, height: 48, objectFit: 'contain' }}
+              className="w-12 h-12 object-contain"
             />
           ))}
         </div>
@@ -100,22 +84,13 @@ export function SlicesToasted({ data }: SlicesToastedProps) {
 
       {useLoaves && displayedUnits.length > 0 && (
         <div className="space-y-3">
-          <div
-            className="grid gap-3"
-            style={{
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              justifyItems: 'center',
-              alignItems: 'center',
-              width: 'fit-content',
-              margin: '0 auto',
-            }}
-          >
+          <div className="grid [grid-template-columns:repeat(2,minmax(0,1fr))] gap-3 justify-items-center items-center w-fit mx-auto">
             {displayedUnits.map((fraction, index) => (
               <img
                 key={`loaf-${index}`}
                 src={getQuartileImage(fraction, loafImages)}
                 alt=""
-                style={{ width: 150, height: 'auto', objectFit: 'contain' }}
+                className="w-[150px] h-auto object-contain"
               />
             ))}
           </div>

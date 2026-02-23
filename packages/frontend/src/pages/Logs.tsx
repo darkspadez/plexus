@@ -5,7 +5,7 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { CostToolTip } from '../components/ui/CostToolTip';
 import { api, UsageRecord, formatLargeNumber } from '../lib/api';
-import { KWH_PER_SLICE, formatCost, formatEnergy, formatMs, formatTPS } from '../lib/format';
+import { KWH_PER_SLICE, formatCost, formatEnergy, formatMs, formatSlices, formatTPS } from '../lib/format';
 import {
   ChevronLeft,
   ChevronRight,
@@ -735,7 +735,7 @@ export const Logs = () => {
                       className="px-2 py-1.5 text-center border-b border-border-glass text-text align-middle"
                       title={
                         log.kwhUsed != null && log.kwhUsed > 0
-                          ? `Energy: ${formatEnergy(log.kwhUsed)} ≈ ${(log.kwhUsed / KWH_PER_SLICE).toFixed(2)} toast slices`
+                          ? `Energy: ${formatEnergy(log.kwhUsed)} ≈ ${formatSlices(log.kwhUsed / KWH_PER_SLICE)} toast slices`
                           : undefined
                       }
                       style={

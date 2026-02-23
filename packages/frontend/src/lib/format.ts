@@ -111,6 +111,15 @@ export function formatEnergy(kwh: number): string {
 }
 
 /**
+ * Format a number of toast-slices with appropriate precision.
+ */
+export function formatSlices(slices: number): string {
+  if (slices < 1) return slices.toFixed(2);
+  if (slices < 10) return slices.toFixed(1);
+  return Math.round(slices).toLocaleString();
+}
+
+/**
  * Convert string to Title Case (e.g., "hello-world" -> "Hello World")
  */
 export function toTitleCase(str: string): string {

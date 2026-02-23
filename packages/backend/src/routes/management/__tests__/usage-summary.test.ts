@@ -73,6 +73,8 @@ describe('Usage summary route', () => {
 
     const body = response.json() as {
       series: Array<{ bucketStartMs: number; kwhUsed: number }>;
+      stats: { totalKwhUsed: number };
+      today: { kwhUsed: number };
     };
 
     const expectedBucketOneStartMs = Math.floor(bucketOneA / 60_000) * 60_000;
@@ -90,5 +92,7 @@ describe('Usage summary route', () => {
 
     const totalFromSeries = body.series.reduce((sum, point) => sum + point.kwhUsed, 0);
     expect(totalFromSeries).toBeCloseTo(0.06, 8);
+    expect(body.stats.totalKwhUsed).toBeCloseTo(0.06, 8);
+    expect(body.today.kwhUsed).toBeCloseTo(0.06, 8);
   });
 });

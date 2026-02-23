@@ -118,6 +118,7 @@ export interface TodayMetrics {
   reasoningTokens: number;
   cachedTokens: number;
   cacheWriteTokens: number;
+  kwhUsed: number;
   totalCost: number;
 }
 
@@ -339,6 +340,7 @@ interface UsageSummaryResponse {
   stats: {
     totalRequests: number;
     totalTokens: number;
+    totalKwhUsed: number;
     avgDurationMs: number;
   };
   today: TodayMetrics;
@@ -969,6 +971,7 @@ export const api = {
           reasoningTokens: 0,
           cachedTokens: 0,
           cacheWriteTokens: 0,
+          kwhUsed: 0,
           totalCost: 0,
         },
       };
@@ -1009,6 +1012,7 @@ export const api = {
           'tokensReasoning',
           'tokensCached',
           'tokensCacheWrite',
+          'kwhUsed',
           'costTotal',
         ],
         cache: true,
@@ -1021,6 +1025,7 @@ export const api = {
         reasoningTokens: 0,
         cachedTokens: 0,
         cacheWriteTokens: 0,
+        kwhUsed: 0,
         totalCost: 0,
       };
 
@@ -1031,6 +1036,7 @@ export const api = {
         metrics.reasoningTokens += r.tokensReasoning || 0;
         metrics.cachedTokens += r.tokensCached || 0;
         metrics.cacheWriteTokens += r.tokensCacheWrite || 0;
+        metrics.kwhUsed += r.kwhUsed || 0;
         metrics.totalCost += r.costTotal || 0;
       });
 
@@ -1044,6 +1050,7 @@ export const api = {
         reasoningTokens: 0,
         cachedTokens: 0,
         cacheWriteTokens: 0,
+        kwhUsed: 0,
         totalCost: 0,
       };
     }

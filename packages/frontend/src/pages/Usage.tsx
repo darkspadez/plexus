@@ -292,7 +292,7 @@ export const Usage = () => {
 
         <Card className="min-w-0" style={{ minWidth: '350px' }} title="Slices of bread toasted">
           {renderTimeControls()}
-          <div style={{ marginTop: '12px' }}>
+          <div style={{ marginTop: '12px', height: 300 }}>
             <SlicesToasted data={data} />
           </div>
         </Card>
