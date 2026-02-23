@@ -222,7 +222,7 @@ describe('agentic boost in auto routing', () => {
       buildAutoConfig({
         agentic_boost_threshold: 1,
         options: { agentic_boost_threshold: 0.1 },
-      } as any)
+      })
     );
 
     const result = await Router.resolve(
