@@ -3,7 +3,11 @@ import { Activity, AlertTriangle, Clock, Database, RefreshCw, Signal, Zap } from
 import {
   AreaChart,
   Area,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -13,14 +17,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { api, type Cooldown, type UsageRecord } from '../lib/api';
-import {
-  formatCost,
-  formatMs,
-  formatNumber,
-  formatPercent,
-  formatTimeAgo,
-  formatTokens,
-} from '../lib/format';
+import { formatCost, formatMs, formatNumber, formatTimeAgo, formatTokens } from '../lib/format';
 
 type MinuteBucket = {
   time: string;
@@ -29,11 +26,48 @@ type MinuteBucket = {
   tokens: number;
 };
 
+type PulseRow = {
+  label: string;
+  requests: number;
+  successRate: number;
+};
+
 const LIVE_WINDOW_MINUTES = 5;
 const LIVE_WINDOW_MS = LIVE_WINDOW_MINUTES * 60 * 1000;
 const POLL_INTERVAL_MS = 10000;
 const RECENT_REQUEST_LIMIT = 200;
 const POLL_INTERVAL_OPTIONS = [5000, 10000, 30000] as const;
+
+const PulseList: React.FC<{ rows: PulseRow[]; emptyText: string }> = ({ rows, emptyText }) => {
+  if (rows.length === 0) {
+    return <div className="text-text-secondary text-sm py-2">{emptyText}</div>;
+  }
+  return (
+    <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+      {rows.map((row) => (
+        <div
+          key={row.label}
+          className="rounded-md border border-border-glass bg-bg-glass px-3 py-2"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span
+              className="text-sm text-text font-medium truncate max-w-[240px]"
+              title={row.label}
+            >
+              {row.label}
+            </span>
+            <span className="text-xs text-text-secondary">
+              {formatNumber(row.requests, 0)} requests
+            </span>
+          </div>
+          <div className="mt-1 text-xs text-text-secondary">
+            Success: {row.successRate.toFixed(1)}%
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export const LiveMetrics = () => {
   const [cooldowns, setCooldowns] = useState<Cooldown[]>([]);
@@ -232,7 +266,36 @@ export const LiveMetrics = () => {
         totalCost: row.totalCost,
       }))
       .sort((a, b) => b.requests - a.requests)
-      .slice(0, 6);
+      .sort((a, b) => b.requests - a.requests);
+  }, [liveRequests]);
+
+  const velocitySeries = useMemo(() => {
+    return minuteSeries.map((bucket) => ({
+      time: bucket.time,
+      velocity: bucket.requests,
+    }));
+  }, [minuteSeries]);
+
+  const modelPulseRows = useMemo(() => {
+    const rows = new Map<string, { requests: number; success: number }>();
+    for (const request of liveRequests) {
+      const model = request.selectedModelName || request.incomingModelAlias || 'unknown';
+      const row = rows.get(model) || { requests: 0, success: 0 };
+      row.requests += 1;
+      if ((request.responseStatus || '').toLowerCase() === 'success') {
+        row.success += 1;
+      }
+      rows.set(model, row);
+    }
+
+    return Array.from(rows.entries())
+      .map(([label, row]) => ({
+        label,
+        requests: row.requests,
+        successRate: row.requests > 0 ? (row.success / row.requests) * 100 : 0,
+      }))
+      .sort((a, b) => b.requests - a.requests)
+      .slice(0, 8);
   }, [liveRequests]);
 
   const handleClearCooldowns = async () => {
@@ -458,7 +521,7 @@ export const LiveMetrics = () => {
                     </span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary">
-                    <span>Success: {formatPercent(row.successRate)}</span>
+                    <span>Success: {row.successRate.toFixed(1)}%</span>
                     <span>Avg latency: {formatMs(row.avgLatency)}</span>
                     <span>Cost: {formatCost(row.totalCost, 6)}</span>
                   </div>
@@ -466,6 +529,128 @@ export const LiveMetrics = () => {
               ))}
             </div>
           )}
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-4 flex-col lg:flex-row">
+        <Card
+          title="Request Velocity (Last 5 Minutes)"
+          extra={<span className="text-xs text-text-secondary">Minute-over-minute delta</span>}
+        >
+          {velocitySeries.length === 0 ? (
+            <div className="h-56 flex items-center justify-center text-text-secondary">
+              No velocity data available
+            </div>
+          ) : (
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={velocitySeries}
+                  margin={{ top: 10, right: 16, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+                  <XAxis
+                    dataKey="time"
+                    stroke="var(--color-text-secondary)"
+                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                  />
+                  <YAxis
+                    stroke="var(--color-text-secondary)"
+                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--color-bg-card)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '8px',
+                    }}
+                    labelStyle={{ color: 'var(--color-text)' }}
+                    formatter={(value) => [formatNumber(Number(value || 0), 0), 'Velocity']}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="velocity"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={{ r: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </Card>
+
+        <Card
+          title="Provider Pulse (5m)"
+          extra={<span className="text-xs text-text-secondary">Top 8 providers</span>}
+        >
+          {providerRows.length === 0 ? (
+            <div className="h-56 flex items-center justify-center text-text-secondary">
+              No provider traffic in the selected live window.
+            </div>
+          ) : (
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={providerRows
+                    .slice(0, 6)
+                    .map((r) => ({ label: r.provider, requests: r.requests }))}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+                  <XAxis
+                    dataKey="label"
+                    stroke="var(--color-text-secondary)"
+                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                    interval={0}
+                    angle={-20}
+                    textAnchor="end"
+                    height={56}
+                  />
+                  <YAxis
+                    stroke="var(--color-text-secondary)"
+                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--color-bg-card)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '8px',
+                    }}
+                    labelStyle={{ color: 'var(--color-text)' }}
+                    formatter={(value) => [formatNumber(Number(value || 0), 0), 'Requests']}
+                  />
+                  <Bar dataKey="requests" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-4 flex-col lg:flex-row">
+        <Card
+          title="Provider Pulse Details (5m)"
+          extra={<span className="text-xs text-text-secondary">Requests + success rate</span>}
+        >
+          <PulseList
+            rows={providerRows.slice(0, 8).map((r) => ({
+              label: r.provider,
+              requests: r.requests,
+              successRate: r.successRate,
+            }))}
+            emptyText="No provider traffic in the selected live window."
+          />
+        </Card>
+
+        <Card
+          title="Model Pulse (5m)"
+          extra={<span className="text-xs text-text-secondary">Top 8 models</span>}
+        >
+          <PulseList
+            rows={modelPulseRows}
+            emptyText="No model traffic in the selected live window."
+          />
         </Card>
       </div>
 
