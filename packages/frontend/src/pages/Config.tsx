@@ -2,20 +2,87 @@ import { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { api } from '../lib/api';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { Save, RotateCcw, AlertTriangle } from 'lucide-react';
+import { parse, stringify } from 'yaml';
+
+interface AutoOptionsFormState {
+  agenticBoostThreshold: string;
+  classifierJson: string;
+}
+
+const DEFAULT_AUTO_OPTIONS_FORM: AutoOptionsFormState = {
+  agenticBoostThreshold: '',
+  classifierJson: '{}',
+};
 
 export const Config = () => {
   const [config, setConfig] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [autoOptionsForm, setAutoOptionsForm] =
+    useState<AutoOptionsFormState>(DEFAULT_AUTO_OPTIONS_FORM);
+  const [autoOptionsError, setAutoOptionsError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getConfig().then(setConfig);
+    api.getConfig().then((rawConfig) => {
+      setConfig(rawConfig);
+      syncAutoOptionsForm(rawConfig);
+    });
   }, []);
 
   const [validationErrors, setValidationErrors] = useState<Array<{
     path: string;
     message: string;
   }> | null>(null);
+
+  const syncAutoOptionsForm = (yamlConfig: string) => {
+    try {
+      const parsed = (parse(yamlConfig) ?? {}) as Record<string, any>;
+      const options = parsed.auto?.options ?? {};
+      setAutoOptionsForm({
+        agenticBoostThreshold:
+          options.agentic_boost_threshold !== undefined
+            ? String(options.agentic_boost_threshold)
+            : '',
+        classifierJson: JSON.stringify(options.classifier ?? {}, null, 2),
+      });
+      setAutoOptionsError(null);
+    } catch {
+      setAutoOptionsForm(DEFAULT_AUTO_OPTIONS_FORM);
+      setAutoOptionsError('Fix YAML in editor to enable Auto Router options form.');
+    }
+  };
+
+  const updateAutoOptionsInConfig = (nextForm: AutoOptionsFormState) => {
+    setAutoOptionsForm(nextForm);
+
+    try {
+      const parsed = (parse(config) ?? {}) as Record<string, any>;
+      parsed.auto ??= {};
+      parsed.auto.options ??= {};
+
+      if (nextForm.agenticBoostThreshold.trim() === '') {
+        delete parsed.auto.options.agentic_boost_threshold;
+      } else {
+        const value = Number(nextForm.agenticBoostThreshold);
+        if (!Number.isFinite(value) || value < 0 || value > 1) {
+          setAutoOptionsError('Agentic boost threshold must be a number between 0 and 1.');
+          return;
+        }
+        parsed.auto.options.agentic_boost_threshold = value;
+      }
+
+      const classifierValue = JSON.parse(nextForm.classifierJson || '{}');
+      parsed.auto.options.classifier = classifierValue;
+
+      setConfig(stringify(parsed));
+      setAutoOptionsError(null);
+    } catch {
+      setAutoOptionsError(
+        'Unable to apply Auto Router options. Ensure YAML and classifier JSON are valid.'
+      );
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -56,7 +123,10 @@ export const Config = () => {
               variant="secondary"
               size="sm"
               onClick={() => {
-                api.getConfig().then(setConfig);
+                api.getConfig().then((rawConfig) => {
+                  setConfig(rawConfig);
+                  syncAutoOptionsForm(rawConfig);
+                });
                 setValidationErrors(null);
               }}
               leftIcon={<RotateCcw size={14} />}
@@ -93,6 +163,46 @@ export const Config = () => {
             </div>
           </div>
         )}
+        <div className="px-6 py-4 border-b border-border-glass bg-bg-hover/40">
+          <h4 className="font-heading text-sm font-semibold text-text m-0 mb-2">
+            Auto Router Options
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="font-body text-[13px] font-medium text-text-secondary">
+                agentic_boost_threshold
+              </label>
+              <Input
+                value={autoOptionsForm.agenticBoostThreshold}
+                onChange={(e) =>
+                  updateAutoOptionsInConfig({
+                    ...autoOptionsForm,
+                    agenticBoostThreshold: e.target.value,
+                  })
+                }
+                placeholder="0.8"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="font-body text-[13px] font-medium text-text-secondary">
+                classifier (JSON)
+              </label>
+              <textarea
+                className="w-full rounded-md border border-border-glass bg-bg-surface px-3 py-2 text-xs font-mono text-text"
+                rows={5}
+                value={autoOptionsForm.classifierJson}
+                onChange={(e) =>
+                  updateAutoOptionsInConfig({
+                    ...autoOptionsForm,
+                    classifierJson: e.target.value,
+                  })
+                }
+                placeholder="{}"
+              />
+            </div>
+          </div>
+          {autoOptionsError && <p className="text-danger text-xs mt-2 mb-0">{autoOptionsError}</p>}
+        </div>
         <div className="h-[500px] rounded-sm overflow-hidden">
           <Editor
             height="100%"
