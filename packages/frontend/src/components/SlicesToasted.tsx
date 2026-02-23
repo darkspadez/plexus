@@ -17,7 +17,14 @@ const SLICES_PER_LOAF = 20;
 const SLICE_LAYOUT_THRESHOLD = 30;
 const MAX_LOAVES_TO_RENDER = 8;
 
-const getQuartileImage = (fraction: number, images: Record<string, string>) => {
+interface QuartileImages {
+  full: string;
+  seventyFive: string;
+  half: string;
+  quarter: string;
+}
+
+const getQuartileImage = (fraction: number, images: QuartileImages) => {
   if (fraction > 0.75) return images.full;
   if (fraction > 0.5) return images.seventyFive;
   if (fraction > 0.25) return images.half;
