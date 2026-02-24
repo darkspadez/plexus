@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { clsx } from 'clsx';
 import { Wallet, AlertTriangle, RefreshCw } from 'lucide-react';
-import { formatCost, formatPoints, toTitleCase } from '../../lib/format';
+import { formatCost, formatPointsFull, toTitleCase } from '../../lib/format';
 import type { QuotaCheckerInfo } from '../../types/quota';
 import { Button } from '../ui/Button';
 import { BalanceHistoryModal } from './BalanceHistoryModal';
@@ -87,7 +87,7 @@ export const CombinedBalancesCard: React.FC<CombinedBalancesCardProps> = ({
     const unit = subscriptionWindow?.unit;
 
     const formatBalance = (value: number) => {
-      if (unit === 'points') return `${formatPoints(value)} pts`;
+      if (unit === 'points') return `${formatPointsFull(value)} pts`;
       return formatCost(value);
     };
 

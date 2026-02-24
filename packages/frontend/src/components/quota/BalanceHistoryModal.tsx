@@ -12,7 +12,7 @@ import { clsx } from 'clsx';
 import { X, Clock, Calendar, Wallet, TrendingDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { api } from '../../lib/api';
-import { formatCost, formatPoints } from '../../lib/format';
+import { formatCost, formatPointsFull } from '../../lib/format';
 import type { QuotaCheckerInfo, QuotaSnapshot } from '../../types/quota';
 
 type TimeRange = '1h' | '3h' | '6h' | '12h' | '24h' | '1w' | '4w';
@@ -154,7 +154,7 @@ export const BalanceHistoryModal: React.FC<BalanceHistoryModalProps> = ({
   }, [history]);
 
   const formatValue = (value: number) => {
-    if (isPointsUnit) return `${formatPoints(value)} pts`;
+    if (isPointsUnit) return `${formatPointsFull(value)} pts`;
     return formatCost(value);
   };
 

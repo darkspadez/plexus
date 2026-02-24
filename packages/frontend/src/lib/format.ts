@@ -92,6 +92,14 @@ export function formatPoints(n: number): string {
 }
 
 /**
+ * Format point balances with full precision and comma separators (e.g., 4948499 -> "4,948,499")
+ * Use this everywhere except compact sidebar displays.
+ */
+export function formatPointsFull(n: number): string {
+  return Math.round(n).toLocaleString();
+}
+
+/**
  * Format milliseconds to seconds with appropriate precision
  */
 export function formatMs(ms: number): string {

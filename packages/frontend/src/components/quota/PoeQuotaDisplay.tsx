@@ -1,7 +1,7 @@
 import React from 'react';
 import { clsx } from 'clsx';
 import { Wallet, AlertTriangle } from 'lucide-react';
-import { formatPoints } from '../../lib/format';
+import { formatPointsFull } from '../../lib/format';
 import type { QuotaCheckResult } from '../../types/quota';
 
 interface PoeQuotaDisplayProps {
@@ -45,7 +45,7 @@ export const PoeQuotaDisplay: React.FC<PoeQuotaDisplayProps> = ({ result, isColl
         <div className="flex items-baseline gap-2">
           <span className="text-xs font-semibold text-text-secondary">Points</span>
           <span className="text-xs font-semibold text-info ml-auto">
-            {formatPoints(balance)} pts
+            {formatPointsFull(balance)} pts
           </span>
         </div>
       )}
