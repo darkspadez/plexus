@@ -13,6 +13,7 @@ import {
 import { Router } from './router';
 import { TransformerFactory } from './transformer-factory';
 import { logger } from '../utils/logger';
+import { QUOTA_ERROR_PATTERNS } from '../utils/constants';
 import { CooldownManager } from './cooldown-manager';
 import { RouteResult } from './router';
 import { DebugManager } from './debug-manager';
@@ -955,9 +956,21 @@ export class Dispatcher {
 
     const cooldownManager = CooldownManager.getInstance();
 
-    // Trigger cooldown for all provider errors except 413 (payload too large) and 422
-    // (unprocessable entity), which indicate a bad request from the caller, not a provider failure.
-    const isCallerError = response.status === 413 || response.status === 422;
+    // 400s are ambiguous: they can be caller errors (bad prompt, invalid params) OR provider-side
+    // quota/balance exhaustion. Only trigger cooldown for the latter.
+    const isQuota400 =
+      response.status === 400 &&
+      QUOTA_ERROR_PATTERNS.some((p) => errorText.toLowerCase().includes(p.toLowerCase()));
+
+    if (isQuota400) {
+      logger.warn(`Detected quota/balance error in 400 response from ${route.provider}/${route.model}`);
+    }
+
+    // Trigger cooldown for all provider errors except:
+    // - 413 (payload too large) and 422 (unprocessable entity): caller errors, not provider failures
+    // - 400 without a quota pattern: likely a request validation error, not a provider failure
+    const isCallerError =
+      response.status === 413 || response.status === 422 || (response.status === 400 && !isQuota400);
 
     if (!isCallerError) {
       let cooldownDuration: number | undefined;
