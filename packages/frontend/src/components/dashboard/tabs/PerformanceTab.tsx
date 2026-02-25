@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart3, Gauge, TimerReset, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
-import { api, type ProviderPerformanceData } from '../lib/api';
-import { formatMs, formatNumber } from '../lib/format';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
+import { api, type ProviderPerformanceData } from '../../../lib/api';
+import { formatMs, formatNumber } from '../../../lib/format';
+import { Card } from '../../ui/Card';
+import { Button } from '../../ui/Button';
 
 const BAR_COLORS = [
   '#c26134',
@@ -123,7 +123,7 @@ const PerformanceBarChart = ({
   );
 };
 
-export const Performance = () => {
+export const PerformanceTab = () => {
   const [rows, setRows] = useState<ProviderPerformanceData[]>([]);
   const [selectedModel, setSelectedModel] = useState('');
   const [loading, setLoading] = useState(false);
@@ -186,7 +186,7 @@ export const Performance = () => {
   );
 
   return (
-    <div className="min-h-screen p-6 transition-all duration-300 bg-gradient-to-br from-bg-deep to-bg-surface">
+    <div className="p-6 transition-all duration-300">
       <div className="mb-8">
         <h1 className="font-heading text-3xl font-bold text-text m-0 mb-2">Performance</h1>
         <p className="text-[15px] text-text-secondary m-0">
@@ -199,7 +199,7 @@ export const Performance = () => {
           <select
             value={selectedModel}
             onChange={(e) => setSelectedModel(e.target.value)}
-            className="bg-bg-glass text-text border border-border-glass rounded-md px-3 py-2 text-sm min-w-[240px]"
+            className="bg-bg-glass text-text border border-border-glass rounded-md px-3 py-2 text-sm min-w-60"
           >
             {models.length === 0 ? (
               <option value="">No models available</option>

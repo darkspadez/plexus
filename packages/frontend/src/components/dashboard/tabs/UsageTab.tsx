@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { api, UsageData, PieChartDataPoint } from '../lib/api';
-import { formatNumber, formatTokens } from '../lib/format';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { SlicesToasted } from '../components/SlicesToasted';
+import { api, UsageData, PieChartDataPoint } from '../../../lib/api';
+import { formatNumber, formatTokens } from '../../../lib/format';
+import { Card } from '../../ui/Card';
+import { Button } from '../../ui/Button';
+import { SlicesToasted } from '../../SlicesToasted';
+import { TimeRangeSelector } from '../TimeRangeSelector';
 import {
   AreaChart,
   Area,
@@ -20,19 +21,23 @@ import {
 
 type TimeRange = 'hour' | 'day' | 'week' | 'month';
 
-export const Usage = () => {
+interface UsageTabProps {
+  timeRange: TimeRange;
+  onTimeRangeChange: (range: TimeRange) => void;
+}
+
+export const UsageTab: React.FC<UsageTabProps> = ({ timeRange, onTimeRangeChange }) => {
   const [data, setData] = useState<UsageData[]>([]);
   const [modelData, setModelData] = useState<PieChartDataPoint[]>([]);
   const [providerData, setProviderData] = useState<PieChartDataPoint[]>([]);
   const [keyData, setKeyData] = useState<PieChartDataPoint[]>([]);
-  const [range, setRange] = useState<TimeRange>('week');
 
   useEffect(() => {
-    api.getUsageData(range).then(setData);
-    api.getUsageByModel(range).then(setModelData);
-    api.getUsageByProvider(range).then(setProviderData);
-    api.getUsageByKey(range).then(setKeyData);
-  }, [range]);
+    api.getUsageData(timeRange).then(setData);
+    api.getUsageByModel(timeRange).then(setModelData);
+    api.getUsageByProvider(timeRange).then(setProviderData);
+    api.getUsageByKey(timeRange).then(setKeyData);
+  }, [timeRange]);
 
   const COLORS = [
     '#8b5cf6',
@@ -44,22 +49,6 @@ export const Usage = () => {
     '#ec4899',
     '#f97316',
   ];
-
-  const renderTimeControls = () => (
-    <div style={{ display: 'flex', gap: '8px' }}>
-      {(['hour', 'day', 'week', 'month'] as TimeRange[]).map((r) => (
-        <Button
-          key={r}
-          size="sm"
-          variant={range === r ? 'primary' : 'secondary'}
-          onClick={() => setRange(r)}
-          style={{ textTransform: 'capitalize' }}
-        >
-          {r}
-        </Button>
-      ))}
-    </div>
-  );
 
   const renderPieChart = (dataKey: 'requests' | 'tokens', data: PieChartDataPoint[]) => {
     const CustomTooltip = ({ active, payload }: any) => {
@@ -128,12 +117,16 @@ export const Usage = () => {
   };
 
   return (
-    <div className="min-h-screen p-6 transition-all duration-300 bg-gradient-to-br from-bg-deep to-bg-surface">
+    <div className="p-6 transition-all duration-300">
       <div className="mb-8">
-        <h1 className="font-heading text-3xl font-bold text-text m-0 mb-2">Usage Overview</h1>
+        <h1 className="font-heading text-3xl font-bold text-text m-0 mb-2">Usage Analytics</h1>
         <p className="text-[15px] text-text-secondary m-0">
           Token usage and request statistics over time.
         </p>
+      </div>
+
+      <div className="mb-4">
+        <TimeRangeSelector value={timeRange} onChange={onTimeRangeChange} />
       </div>
 
       {/* All Charts in 4-Column Grid */}
@@ -143,7 +136,6 @@ export const Usage = () => {
       >
         {/* Time Series - Requests */}
         <Card className="min-w-0" style={{ minWidth: '350px' }} title="Requests over Time">
-          {renderTimeControls()}
           <div style={{ height: 300, marginTop: '12px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data}>
@@ -171,7 +163,6 @@ export const Usage = () => {
 
         {/* Time Series - Tokens */}
         <Card className="min-w-0" style={{ minWidth: '350px' }} title="Token Usage">
-          {renderTimeControls()}
           <div style={{ height: 300, marginTop: '12px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data}>
@@ -238,7 +229,6 @@ export const Usage = () => {
           style={{ minWidth: '350px' }}
           title="Usage by Model Alias (Requests)"
         >
-          {renderTimeControls()}
           <div style={{ height: 300, marginTop: '12px' }}>
             {renderPieChart('requests', modelData)}
           </div>
@@ -250,7 +240,6 @@ export const Usage = () => {
           style={{ minWidth: '350px' }}
           title="Usage by Model Alias (Tokens)"
         >
-          {renderTimeControls()}
           <div style={{ height: 300, marginTop: '12px' }}>
             {renderPieChart('tokens', modelData)}
           </div>
@@ -262,7 +251,6 @@ export const Usage = () => {
           style={{ minWidth: '350px' }}
           title="Usage by Provider (Requests)"
         >
-          {renderTimeControls()}
           <div style={{ height: 300, marginTop: '12px' }}>
             {renderPieChart('requests', providerData)}
           </div>
@@ -270,7 +258,6 @@ export const Usage = () => {
 
         {/* Provider Distribution - Tokens */}
         <Card className="min-w-0" style={{ minWidth: '350px' }} title="Usage by Provider (Tokens)">
-          {renderTimeControls()}
           <div style={{ height: 300, marginTop: '12px' }}>
             {renderPieChart('tokens', providerData)}
           </div>
@@ -278,7 +265,6 @@ export const Usage = () => {
 
         {/* API Key Distribution - Requests */}
         <Card className="min-w-0" style={{ minWidth: '350px' }} title="Usage by API Key (Requests)">
-          {renderTimeControls()}
           <div style={{ height: 300, marginTop: '12px' }}>
             {renderPieChart('requests', keyData)}
           </div>
@@ -286,12 +272,10 @@ export const Usage = () => {
 
         {/* API Key Distribution - Tokens */}
         <Card className="min-w-0" style={{ minWidth: '350px' }} title="Usage by API Key (Tokens)">
-          {renderTimeControls()}
           <div style={{ height: 300, marginTop: '12px' }}>{renderPieChart('tokens', keyData)}</div>
         </Card>
 
         <Card className="min-w-0" style={{ minWidth: '350px' }} title="Slices of bread toasted">
-          {renderTimeControls()}
           <div style={{ marginTop: '12px', height: 300 }}>
             <SlicesToasted data={data} />
           </div>

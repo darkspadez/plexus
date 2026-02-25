@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Activity,
-  Gauge,
   Settings,
   Server,
   Box,
@@ -17,7 +15,6 @@ import {
   ChevronRight,
   PieChart,
   Plug,
-  Zap,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { api } from '../../lib/api';
@@ -337,19 +334,6 @@ export const Sidebar: React.FC = () => {
           {(mainExpanded || isCollapsed) && (
             <>
               <NavItem to="/" icon={LayoutDashboard} label="Dashboard" isCollapsed={isCollapsed} />
-              <NavItem
-                to="/live-metrics"
-                icon={Zap}
-                label="Live Metrics"
-                isCollapsed={isCollapsed}
-              />
-              <NavItem to="/usage" icon={Activity} label="Usage" isCollapsed={isCollapsed} />
-              <NavItem
-                to="/performance"
-                icon={Gauge}
-                label="Performance"
-                isCollapsed={isCollapsed}
-              />
               <NavItem to="/logs" icon={FileText} label="Logs" isCollapsed={isCollapsed} />
               <NavItem to="/quotas" icon={PieChart} label="Quotas" isCollapsed={isCollapsed} />
             </>
