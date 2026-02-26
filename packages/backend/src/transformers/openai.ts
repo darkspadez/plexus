@@ -25,15 +25,66 @@ export class OpenAITransformer implements Transformer {
   }
 
   async transformRequest(request: UnifiedChatRequest): Promise<any> {
-    return {
+    // Prepend systemInstruction as a system message if present
+    const messages =
+      request.systemInstruction && request.systemInstruction.content
+        ? [{ role: 'system', content: request.systemInstruction.content }, ...request.messages]
+        : request.messages;
+
+    // Normalize tools: map parametersJsonSchema -> parameters for OpenAI format.
+    const normalizedTools =
+      request.tools && request.tools.length > 0
+        ? request.tools.map((t: any) => {
+            if (t.type !== 'function' || !t.function) return t;
+            const fn = t.function;
+            // If parametersJsonSchema is present, prefer it over parameters
+            const parameters = fn.parametersJsonSchema ?? fn.parameters;
+            return {
+              type: 'function',
+              function: {
+                name: fn.name,
+                description: fn.description,
+                parameters,
+              },
+            };
+          })
+        : undefined;
+
+    const out: any = {
       model: request.model,
-      messages: request.messages,
+      messages,
       max_tokens: request.max_tokens,
       temperature: request.temperature,
       stream: request.stream,
-      tools: request.tools,
+      tools: normalizedTools && normalizedTools.length > 0 ? normalizedTools : undefined,
       tool_choice: request.tool_choice,
     };
+
+    if (request.response_format) {
+      if (request.response_format.type === 'json_schema' && request.response_format.json_schema) {
+        // OpenAI json_schema mode requires {name, schema, strict} wrapping
+        out.response_format = {
+          type: 'json_schema',
+          json_schema: {
+            name: 'response_schema',
+            schema: request.response_format.json_schema,
+            strict: true,
+          },
+        };
+      } else {
+        out.response_format = request.response_format;
+      }
+    }
+
+    if (request.reasoning) {
+      out.reasoning = request.reasoning;
+    }
+
+    if (request.parallel_tool_calls !== undefined) {
+      out.parallel_tool_calls = request.parallel_tool_calls;
+    }
+
+    return out;
   }
 
   async transformResponse(response: any): Promise<UnifiedChatResponse> {

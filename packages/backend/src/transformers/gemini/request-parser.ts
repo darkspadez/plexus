@@ -2,7 +2,7 @@ import { Content } from '@google/genai';
 import { MessageContent, UnifiedChatRequest, UnifiedMessage } from '../../types/unified';
 import { convertGeminiPartsToUnified } from './part-mapper';
 import { logger } from '../../utils/logger';
-import { isValidThoughtSignature } from './utils';
+import { isValidThoughtSignature, normalizeJsonSchemaTypes } from './utils';
 
 /**
  * Parses a Gemini API request and converts it to unified format.
@@ -60,7 +60,9 @@ export async function parseGeminiRequest(input: any): Promise<UnifiedChatRequest
   if (generationConfig.responseMimeType === 'application/json') {
     unifiedChatRequest.response_format = {
       type: generationConfig.responseJsonSchema ? 'json_schema' : 'json_object',
-      json_schema: generationConfig.responseJsonSchema,
+      json_schema: generationConfig.responseJsonSchema
+        ? normalizeJsonSchemaTypes(generationConfig.responseJsonSchema)
+        : undefined,
     };
   }
 
