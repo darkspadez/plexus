@@ -52,3 +52,4 @@ sampledata/*.db
 auth.json
 packages/backend/config/
 research_and_plans/
+packages/logs.txt

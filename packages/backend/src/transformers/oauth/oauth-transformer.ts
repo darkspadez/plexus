@@ -183,7 +183,9 @@ export class OAuthTransformer implements Transformer {
       for await (const event of source) {
         const provider =
           event.partial?.provider || event.message?.provider || event.error?.provider;
-        const chunk = piAiEventToChunk(event, event.partial?.model || 'unknown', provider);
+        const eventModel =
+          event.partial?.model || event.message?.model || event.error?.model || 'unknown';
+        const chunk = piAiEventToChunk(event, eventModel, provider);
         if (chunk) {
           yield chunk;
         }

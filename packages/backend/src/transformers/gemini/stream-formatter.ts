@@ -103,10 +103,24 @@ export function formatGeminiStream(stream: ReadableStream): ReadableStream {
         } as any);
       if (chunk.delta?.tool_calls) {
         chunk.delta.tool_calls.forEach((tc: any) => {
+          let parsedArgs: Record<string, unknown> = {};
+          const rawArgs = tc.function?.arguments;
+
+          if (typeof rawArgs === 'string' && rawArgs.trim().length > 0) {
+            try {
+              parsedArgs = JSON.parse(rawArgs);
+            } catch {
+              // Tool arguments can arrive as partial JSON during streaming.
+              parsedArgs = {};
+            }
+          } else if (rawArgs && typeof rawArgs === 'object') {
+            parsedArgs = rawArgs;
+          }
+
           parts.push({
             functionCall: {
               name: tc.function.name,
-              args: JSON.parse(tc.function.arguments || '{}'),
+              args: parsedArgs,
             },
           });
         });

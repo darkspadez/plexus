@@ -382,8 +382,12 @@ export function piAiEventToChunk(
         usage: piAiUsageToUnified(event.message.usage),
       };
     case 'error':
+      const errorMessage = extractPiAiErrorMessage(event.error);
       return {
         ...baseChunk,
+        delta: {
+          content: errorMessage || 'OAuth provider error',
+        },
         finish_reason: event.reason === 'aborted' ? 'aborted' : 'error',
         usage: piAiUsageToUnified(event.error.usage),
       };
@@ -395,6 +399,22 @@ export function piAiEventToChunk(
     default:
       return null;
   }
+}
+
+function extractPiAiErrorMessage(error: any): string | undefined {
+  if (!error) return undefined;
+  if (typeof error === 'string') return error;
+  if (typeof error.message === 'string' && error.message.trim()) return error.message;
+  if (typeof error.error === 'string' && error.error.trim()) return error.error;
+
+  // Some providers nest error details under an `error` object.
+  if (typeof error.error === 'object' && error.error) {
+    if (typeof error.error.message === 'string' && error.error.message.trim()) {
+      return error.error.message;
+    }
+  }
+
+  return undefined;
 }
 
 function piAiUsageToUnified(usage: Usage): UnifiedUsage {
