@@ -56,9 +56,9 @@ describe('formatGeminiStream', () => {
           cache_creation_tokens: 0,
           upstream_inference_cost: 0.001,
           upstream_inference_prompt_cost: 0.0004,
-          upstream_inference_completions_cost: 0.0006
-        } as any
-      }
+          upstream_inference_completions_cost: 0.0006,
+        } as any,
+      },
     ];
 
     const inputStream = new ReadableStream({
@@ -67,7 +67,7 @@ describe('formatGeminiStream', () => {
           controller.enqueue(chunk);
         }
         controller.close();
-      }
+      },
     });
 
     const formattedStream = formatGeminiStream(inputStream);
@@ -102,9 +102,9 @@ describe('formatGeminiStream', () => {
           cache_creation_tokens: 0,
           upstream_inference_cost: 0.001,
           upstream_inference_prompt_cost: 0.0004,
-          upstream_inference_completions_cost: 0.0006
-        } as any
-      }
+          upstream_inference_completions_cost: 0.0006,
+        } as any,
+      },
     ];
 
     const inputStream = new ReadableStream({
@@ -113,7 +113,7 @@ describe('formatGeminiStream', () => {
           controller.enqueue(chunk);
         }
         controller.close();
-      }
+      },
     });
 
     const formattedStream = formatGeminiStream(inputStream);
