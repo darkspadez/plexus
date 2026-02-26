@@ -21,7 +21,9 @@ import type {
 export function unifiedToContext(request: UnifiedChatRequest): Context {
   const context: Context = {
     messages: [],
-    tools: request.tools ? request.tools.map(unifiedToolToPiAi) : undefined,
+    tools: request.tools
+      ? request.tools.filter((tool) => tool.function).map(unifiedToolToPiAi)
+      : undefined,
   };
 
   for (const msg of request.messages) {
@@ -211,14 +213,19 @@ function mapPropertyValue(value: any): any {
 }
 
 function unifiedToolToPiAi(tool: UnifiedTool): PiAiTool {
+  if (!tool.function) {
+    // Skip tools without function declarations (e.g., Google built-in tools)
+    throw new Error(`Tool is missing function declaration: ${tool.type}`);
+  }
+
   const parameters = Type.Object(
     Object.fromEntries(
-      Object.entries(tool.function.parameters.properties || {}).map(
+      Object.entries(tool.function.parameters?.properties || {}).map(
         ([key, value]: [string, any]) => [key, mapPropertyValue(value)]
       )
     ),
     {
-      additionalProperties: tool.function.parameters.additionalProperties ?? false,
+      additionalProperties: tool.function.parameters?.additionalProperties ?? false,
     }
   );
 
