@@ -356,26 +356,9 @@ export function piAiEventToChunk(
           thinking: { content: event.delta },
         },
       };
-    case 'toolcall_start': {
-      const toolCall = event.partial?.content?.[event.contentIndex];
-      const { callId } = parseToolCallIds((toolCall as any)?.id);
-      return {
-        ...baseChunk,
-        delta: {
-          tool_calls: [
-            {
-              index: event.contentIndex,
-              id: callId || '',
-              type: 'function',
-              function: {
-                name: stripProxyPrefix((toolCall as any)?.name) || '',
-                arguments: '',
-              },
-            },
-          ],
-        },
-      };
-    }
+    case 'toolcall_start':
+      // Gemini doesn't need start events with empty args which cause parsing errors in formatter
+      return null;
     case 'toolcall_delta': {
       const toolCall = event.partial?.content?.[event.contentIndex];
       if (toolCall && toolCall.type === 'toolCall') {
@@ -461,7 +444,7 @@ function mapStopReason(reason: string): string {
     case 'length':
       return 'length';
     case 'toolUse':
-      return 'tool_calls';
+      return 'stop';
     case 'error':
       return 'error';
     case 'aborted':
