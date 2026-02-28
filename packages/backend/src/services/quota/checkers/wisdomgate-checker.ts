@@ -14,7 +14,7 @@ export class WisdomGateQuotaChecker extends QuotaChecker {
   async checkQuota(): Promise<QuotaCheckResult> {
     const apiKey = this.requireOption<string>('apiKey');
     const endpoint =
-      this.getOption<string>('endpoint', '') ??
+      this.getOption<string>('endpoint', 'https://wisdom-gate.juheapi.com/v1/users/me/balance') ||
       'https://wisdom-gate.juheapi.com/v1/users/me/balance';
 
     try {
