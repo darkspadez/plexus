@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.17.14 - 2026-03-01
+
+### v0.17.14: Analytics Drill-downs, Concurrency Management, and DND Card Reordering
+
+### Main Features
+- **Advanced Analytics**: Introduced a comprehensive `DetailedUsage` analytics page and drill-down capabilities via the new `AnalyzeButton` component and API utilities. ([4f5f6dc](https://github.com/mcowger/plexus/commit/4f5f6dc), [49cf506](https://github.com/mcowger/plexus/commit/49cf506))
+- **Concurrency Control**: Added a new management endpoint and visual usage monitoring for concurrency tracking. ([48b295d](https://github.com/mcowger/plexus/commit/48b295d))
+- **Interactive UI Components**: Integrated `@dnd-kit` for drag-and-drop card reordering in the live view, supplemented by JSON import/export functionality for card layout configurations. ([4bb89c9](https://github.com/mcowger/plexus/commit/4bb89c9), [8699585](https://github.com/mcowger/plexus/commit/8699585), [763d8d8](https://github.com/mcowger/plexus/commit/763d8d8))
+
+### Minor Changes and Bug Fixes
+- **Type Definitions**: Updated card definitions to better support metrics and alerts. ([e07c542](https://github.com/mcowger/plexus/commit/e07c542))
+- **Log Formatting**: Added safe date formatting utilities to the Logs component. ([39b26c7](https://github.com/mcowger/plexus/commit/39b26c7))
+- **Code Quality**: Refactored `LiveTab` and `UsageTab` to remove unused imports and streamline logic. ([28cc3d5](https://github.com/mcowger/plexus/commit/28cc3d5))
+- **Tooling Fix**: Resolved an issue handling optional function properties during tool mapping and response transformations. ([11a18c4](https://github.com/mcowger/plexus/commit/11a18c4))
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
 ## v0.17.13 - 2026-03-01
 
 ### v0.17.13: Assistant Message Thinking Block Ordering Fix and Regression Tests
