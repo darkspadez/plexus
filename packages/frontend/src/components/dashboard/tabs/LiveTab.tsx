@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  AlertTriangle,
-  Clock,
-  Info,
-  RefreshCw,
-  Signal,
-  X,
-} from 'lucide-react';
+import { AlertTriangle, Clock, Info, RefreshCw, Signal, X } from 'lucide-react';
 import {
   AreaChart,
   Area,

@@ -276,6 +276,20 @@ export const Logs = () => {
   const totalPages = Math.ceil(total / limit);
   const currentPage = Math.floor(offset / limit) + 1;
 
+  const formatDateSafely = (dateStr: string | undefined | null) => {
+    if (!dateStr) return { time: '-', date: '-' };
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return { time: 'Invalid', date: 'Date' };
+      return {
+        time: d.toLocaleTimeString(),
+        date: d.toISOString().split('T')[0],
+      };
+    } catch (e) {
+      return { time: 'Error', date: 'Date' };
+    }
+  };
+
   return (
     <div className="min-h-screen p-6 transition-all duration-300 bg-linear-to-br from-bg-deep to-bg-surface">
       <div className="mb-4">
@@ -413,18 +427,23 @@ export const Logs = () => {
                   >
                     <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle whitespace-nowrap">
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontWeight: '500' }}>
-                          {new Date(log.date).toLocaleTimeString()}
-                        </span>
-                        <span
-                          style={{
-                            color: 'var(--color-text-secondary)',
-                            fontSize: '0.85em',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {new Date(log.date).toISOString().split('T')[0]}
-                        </span>
+                        {(() => {
+                          const formatted = formatDateSafely(log.date);
+                          return (
+                            <>
+                              <span style={{ fontWeight: '500' }}>{formatted.time}</span>
+                              <span
+                                style={{
+                                  color: 'var(--color-text-secondary)',
+                                  fontSize: '0.85em',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {formatted.date}
+                              </span>
+                            </>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle">
