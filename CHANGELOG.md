@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.17.13 - 2026-03-01
+
+### v0.17.13: Assistant Message Thinking Block Ordering Fix and Regression Tests
+
+### Main Features
+
+- **Improved Thinking Block Management**: Resolved issues related to the sequence of thinking blocks within assistant messages, ensuring logical consistency and proper delivery of model reasoning steps.
+
+### Minor Changes
+
+- feat: add fix and regression tests for thinking block ordering in assistant messages ([090d1df](https://github.com/mcowger/plexus/commit/090d1df))
+
+---
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
 ## v0.17.12 - 2026-03-01
 
 ### Plexus v0.17.12: Copilot Integration Maintenance
