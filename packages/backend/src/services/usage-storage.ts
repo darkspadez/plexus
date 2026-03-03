@@ -99,13 +99,10 @@ export class UsageStorageService extends EventEmitter {
       };
 
       // Use upsert: insert new record or update existing one based on requestId
-      await this.ensureDb()
-        .insert(this.schema.requestUsage)
-        .values(values)
-        .onConflictDoUpdate({
-          target: this.schema.requestUsage.requestId,
-          set: values,
-        });
+      await this.ensureDb().insert(this.schema.requestUsage).values(values).onConflictDoUpdate({
+        target: this.schema.requestUsage.requestId,
+        set: values,
+      });
 
       logger.debug(`Usage record saved for request ${record.requestId}`);
       // Emit both 'created' and 'completed' for backward compatibility
