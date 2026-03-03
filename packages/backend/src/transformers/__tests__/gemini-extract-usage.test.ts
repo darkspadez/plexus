@@ -73,7 +73,7 @@ describe('GeminiTransformer extractUsage', () => {
     const usage = transformer.extractUsage(dataStr);
 
     expect(usage).toBeDefined();
-    expect(usage!.input_tokens).toBe(100);
+    expect(usage!.input_tokens).toBe(75);
     expect(usage!.output_tokens).toBe(50);
     expect(usage!.cached_tokens).toBe(25);
     expect(usage!.reasoning_tokens).toBe(0);

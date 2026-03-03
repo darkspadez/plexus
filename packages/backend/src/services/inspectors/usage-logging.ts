@@ -5,7 +5,11 @@ import { UsageRecord } from '../../types/usage';
 import { calculateCosts } from '../../utils/calculate-costs';
 import { DebugManager } from '../debug-manager';
 import { estimateTokensFromReconstructed, estimateInputTokens } from '../../utils/estimate-tokens';
-import { normalizeOpenAIChatUsage } from '../../utils/usage-normalizer';
+import {
+  normalizeGeminiUsage,
+  normalizeOpenAIChatUsage,
+  normalizeOpenAIResponsesUsage,
+} from '../../utils/usage-normalizer';
 import { estimateKwhUsed } from '../inference-energy';
 
 export class UsageInspector extends PassThrough {
@@ -16,6 +20,7 @@ export class UsageInspector extends PassThrough {
   private startTime: number;
   private shouldEstimateTokens: boolean;
   private apiType: string;
+  private incomingApiType: string;
   private originalRequest?: any;
   private firstChunk = true;
 
@@ -28,6 +33,7 @@ export class UsageInspector extends PassThrough {
     startTime: number,
     shouldEstimateTokens: boolean = false,
     apiType: string = 'chat',
+    incomingApiType?: string,
     originalRequest?: any
   ) {
     super();
@@ -38,6 +44,7 @@ export class UsageInspector extends PassThrough {
     this.startTime = startTime;
     this.shouldEstimateTokens = shouldEstimateTokens;
     this.apiType = apiType;
+    this.incomingApiType = incomingApiType || apiType;
     this.originalRequest = originalRequest;
   }
 
@@ -97,7 +104,7 @@ export class UsageInspector extends PassThrough {
         }
 
         if (this.originalRequest && stats.inputTokens === 0) {
-          stats.inputTokens = estimateInputTokens(this.originalRequest, this.apiType);
+          stats.inputTokens = estimateInputTokens(this.originalRequest, this.incomingApiType);
         }
 
         this.usageRecord.tokensInput = stats.inputTokens;
@@ -123,18 +130,34 @@ export class UsageInspector extends PassThrough {
       // Estimate energy consumption
       this.usageRecord.kwhUsed = estimateKwhUsed(stats.inputTokens, stats.outputTokens);
 
-      this.usageStorage.saveRequest(this.usageRecord as UsageRecord);
+      // Fire-and-forget: saveRequest is async but _flush is synchronous
+      // Attach error handler to prevent unhandled promise rejections
+      this.usageStorage.saveRequest(this.usageRecord as UsageRecord).catch((err) => {
+        logger.error(
+          `[Inspector:Usage] Failed to save usage record for ${this.usageRecord.requestId}:`,
+          err
+        );
+      });
 
       if (this.usageRecord.provider && this.usageRecord.selectedModelName) {
-        this.usageStorage.updatePerformanceMetrics(
-          this.usageRecord.provider,
-          this.usageRecord.selectedModelName,
-          this.usageRecord.canonicalModelName ?? null,
-          this.usageRecord.ttftMs || null,
-          stats.outputTokens > 0 ? stats.outputTokens : null,
-          this.usageRecord.durationMs,
-          this.usageRecord.requestId!
-        );
+        // Fire-and-forget: updatePerformanceMetrics is async but _flush is synchronous
+        // Attach error handler to prevent unhandled promise rejections
+        this.usageStorage
+          .updatePerformanceMetrics(
+            this.usageRecord.provider,
+            this.usageRecord.selectedModelName,
+            this.usageRecord.canonicalModelName ?? null,
+            this.usageRecord.ttftMs || null,
+            stats.outputTokens > 0 ? stats.outputTokens : null,
+            this.usageRecord.durationMs,
+            this.usageRecord.requestId!
+          )
+          .catch((err) => {
+            logger.error(
+              `[Inspector:Usage] Failed to update performance metrics for ${this.usageRecord.requestId}:`,
+              err
+            );
+          });
       }
 
       logger.debug(
@@ -168,15 +191,17 @@ export class UsageInspector extends PassThrough {
           };
         }
       case 'responses':
-        return reconstructed.usage
-          ? {
-              inputTokens: reconstructed.usage.input_tokens || 0,
-              outputTokens: reconstructed.usage.output_tokens || 0,
-              cachedTokens: reconstructed.usage.input_tokens_details?.cached_tokens || 0,
-              cacheWriteTokens: 0,
-              reasoningTokens: reconstructed.usage.output_tokens_details?.reasoning_tokens || 0,
-            }
-          : null;
+        if (!reconstructed.usage) return null;
+        {
+          const usage = normalizeOpenAIResponsesUsage(reconstructed.usage);
+          return {
+            inputTokens: usage.input_tokens,
+            outputTokens: usage.output_tokens,
+            cachedTokens: usage.cached_tokens,
+            cacheWriteTokens: usage.cache_creation_tokens,
+            reasoningTokens: usage.reasoning_tokens,
+          };
+        }
       case 'messages':
         return reconstructed.usage
           ? {
@@ -188,15 +213,17 @@ export class UsageInspector extends PassThrough {
             }
           : null;
       case 'gemini':
-        return reconstructed.usageMetadata
-          ? {
-              inputTokens: reconstructed.usageMetadata.promptTokenCount || 0,
-              outputTokens: reconstructed.usageMetadata.candidatesTokenCount || 0,
-              cachedTokens: reconstructed.usageMetadata.cachedContentTokenCount || 0,
-              cacheWriteTokens: 0,
-              reasoningTokens: 0,
-            }
-          : null;
+        if (!reconstructed.usageMetadata) return null;
+        {
+          const usage = normalizeGeminiUsage(reconstructed.usageMetadata);
+          return {
+            inputTokens: usage.input_tokens,
+            outputTokens: usage.output_tokens,
+            cachedTokens: usage.cached_tokens,
+            cacheWriteTokens: usage.cache_creation_tokens,
+            reasoningTokens: usage.reasoning_tokens,
+          };
+        }
       case 'oauth':
         return reconstructed.usage
           ? {
@@ -222,11 +249,54 @@ export class UsageInspector extends PassThrough {
 
     switch (apiType) {
       case 'chat': {
-        // OpenAI format: tool_calls are in choices[0].delta.tool_calls
+        // OpenAI format: tool_calls are in choices[0].delta.tool_calls in the reconstructed snapshot
+        // or choices[0].message.tool_calls in a full non-streaming response.
         const choice = reconstructed.choices?.[0];
-        const toolCalls = choice?.delta?.tool_calls;
-        const finishReason = choice?.finish_reason ?? null;
-        const toolCallsCount = toolCalls?.length ?? 0;
+        const toolCalls =
+          choice?.delta?.tool_calls ||
+          choice?.message?.tool_calls ||
+          choice?.tool_calls ||
+          reconstructed.tool_calls ||
+          choice?.message?.function_call ||
+          reconstructed.function_call;
+        let finishReason = choice?.finish_reason || choice?.finishReason || null;
+
+        // Fallback for Gemini-style content in OpenAI-compatible response (some providers do this)
+        let toolCallsCount = Array.isArray(toolCalls) ? toolCalls.filter(Boolean).length : 0;
+        if (
+          toolCallsCount === 0 &&
+          (choice?.message?.function_call || reconstructed.function_call)
+        ) {
+          toolCallsCount = 1;
+        }
+
+        // Deep search fallback for any field named 'tool_calls' or 'functionCall'
+        if (toolCallsCount === 0) {
+          toolCallsCount = this.deepSearchToolCalls(reconstructed);
+        }
+
+        if (toolCallsCount === 0 && reconstructed.candidates?.[0]) {
+          const candidate = reconstructed.candidates[0];
+          if (candidate.content?.parts && Array.isArray(candidate.content.parts)) {
+            toolCallsCount = candidate.content.parts.filter(
+              (part: any) => part.functionCall
+            ).length;
+          }
+          if (!finishReason) {
+            finishReason = candidate.finishReason || null;
+          }
+        }
+
+        // Normalize finish reason
+        if (finishReason) {
+          finishReason = finishReason.toLowerCase();
+          if ((finishReason === 'stop' || finishReason === 'end_turn') && toolCallsCount > 0) {
+            finishReason = this.incomingApiType === 'messages' ? 'tool_use' : 'tool_calls';
+          }
+        } else if (toolCallsCount > 0) {
+          finishReason = this.incomingApiType === 'messages' ? 'tool_use' : 'tool_calls';
+        }
+
         return { toolCallsCount: toolCallsCount > 0 ? toolCallsCount : null, finishReason };
       }
       case 'responses': {
@@ -249,7 +319,7 @@ export class UsageInspector extends PassThrough {
             (block: any) => block.type === 'tool_use'
           ).length;
         }
-        const finishReason = reconstructed.stop_reason ?? null;
+        const finishReason = reconstructed.stop_reason || reconstructed.finish_reason || null;
         return { toolCallsCount: toolCallsCount > 0 ? toolCallsCount : null, finishReason };
       }
       case 'gemini': {
@@ -259,7 +329,36 @@ export class UsageInspector extends PassThrough {
         if (candidate?.content?.parts && Array.isArray(candidate.content.parts)) {
           toolCallsCount = candidate.content.parts.filter((part: any) => part.functionCall).length;
         }
-        const finishReason = candidate?.finishReason ?? null;
+
+        // Fallback for OpenAI-style tool_calls or deep search if direct part check fails
+        if (toolCallsCount === 0) {
+          toolCallsCount = this.deepSearchToolCalls(reconstructed);
+        }
+
+        let finishReason = candidate?.finishReason || null;
+
+        // Fallback for OpenAI-style tool_calls in a Gemini-identified response
+        if (toolCallsCount === 0 && reconstructed.choices?.[0]) {
+          const choice = reconstructed.choices[0];
+          const toolCalls = choice.delta?.tool_calls || choice.message?.tool_calls;
+          if (Array.isArray(toolCalls)) {
+            toolCallsCount = toolCalls.filter(Boolean).length;
+          }
+          if (!finishReason) {
+            finishReason = choice.finish_reason || null;
+          }
+        }
+
+        // Normalize finish reason
+        if (finishReason) {
+          finishReason = finishReason.toLowerCase();
+          if (finishReason === 'stop' && toolCallsCount > 0) {
+            finishReason = this.incomingApiType === 'messages' ? 'tool_use' : 'tool_calls';
+          }
+        } else if (toolCallsCount > 0) {
+          finishReason = this.incomingApiType === 'messages' ? 'tool_use' : 'tool_calls';
+        }
+
         return { toolCallsCount: toolCallsCount > 0 ? toolCallsCount : null, finishReason };
       }
       case 'oauth': {
@@ -267,8 +366,46 @@ export class UsageInspector extends PassThrough {
         const finishReason = reconstructed.finishReason ?? null;
         return { toolCallsCount: toolCallsCount > 0 ? toolCallsCount : null, finishReason };
       }
-      default:
-        return { toolCallsCount: null, finishReason: null };
+      default: {
+        // Generic fallback
+        const toolCalls = reconstructed.tool_calls || reconstructed.choices?.[0]?.tool_calls;
+        const toolCallsCount = Array.isArray(toolCalls) ? toolCalls.length : 0;
+        const finishReason =
+          reconstructed.finish_reason || reconstructed.choices?.[0]?.finish_reason || null;
+        return { toolCallsCount: toolCallsCount > 0 ? toolCallsCount : null, finishReason };
+      }
     }
+  }
+
+  private deepSearchToolCalls(obj: any): number {
+    if (!obj || typeof obj !== 'object') return 0;
+
+    let count = 0;
+
+    // Check common field names
+    if (Array.isArray(obj.tool_calls)) {
+      count = Math.max(count, obj.tool_calls.filter(Boolean).length);
+    }
+    if (obj.functionCall) {
+      count = Math.max(count, 1);
+    }
+    if (Array.isArray(obj.parts)) {
+      const functionCalls = obj.parts.filter((p: any) => p.functionCall).length;
+      count = Math.max(count, functionCalls);
+    }
+
+    // Recurse into common containers
+    if (Array.isArray(obj.choices)) {
+      for (const choice of obj.choices) {
+        count = Math.max(count, this.deepSearchToolCalls(choice.message || choice.delta || choice));
+      }
+    }
+    if (Array.isArray(obj.candidates)) {
+      for (const candidate of obj.candidates) {
+        count = Math.max(count, this.deepSearchToolCalls(candidate.content || candidate));
+      }
+    }
+
+    return count;
   }
 }

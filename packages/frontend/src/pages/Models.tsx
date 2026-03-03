@@ -1,6 +1,8 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { api, Alias, AliasMetadata, AliasBehavior, Provider, Model, Cooldown } from '../lib/api';
+import { api, Alias, AliasMetadata, AliasBehavior, Provider, Model } from '../lib/api';
+import { useModels } from '../hooks/useModels';
+import { AliasTableRow } from '../components/models/AliasTableRow';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -10,40 +12,44 @@ import {
   Search,
   Plus,
   Trash2,
-  Edit2,
-  GripVertical,
-  Play,
-  CheckCircle,
-  XCircle,
   Loader2,
-  Clock,
   Zap,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
   BookOpen,
   X,
+  CheckCircle,
+  GripVertical,
+  Save,
+  Eye,
 } from 'lucide-react';
 
-const EMPTY_ALIAS: Alias = {
-  id: '',
-  aliases: [],
-  selector: 'random',
-  priority: 'selector',
-  targets: [],
-};
-
 export const Models = () => {
-  const [aliases, setAliases] = useState<Alias[]>([]);
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [availableModels, setAvailableModels] = useState<Model[]>([]);
-  const [cooldowns, setCooldowns] = useState<Cooldown[]>([]);
-  const [search, setSearch] = useState('');
+  const {
+    aliases,
+    providers,
+    availableModels,
+    cooldowns,
+    search,
+    setSearch,
+    isModalOpen,
+    setIsModalOpen,
+    editingAlias,
+    setEditingAlias,
+    originalId,
+    isSaving,
+    testStates,
+    handleEdit,
+    handleAddNew,
+    handleSave: hookSave,
+    handleDelete: hookDelete,
+    handleDeleteAll: hookDeleteAll,
+    handleToggleTarget,
+    handleTestTarget,
+  } = useModels();
 
   // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingAlias, setEditingAlias] = useState<Alias>(EMPTY_ALIAS);
-  const [originalId, setOriginalId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isMetadataOpen, setIsMetadataOpen] = useState(false);
 
@@ -75,71 +81,44 @@ export const Models = () => {
   );
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
 
-  // Test State - track by alias id + target index
-  const [testStates, setTestStates] = useState<
-    Record<
-      string,
-      { loading: boolean; result?: 'success' | 'error'; message?: string; showResult: boolean }
-    >
-  >({});
+  // Drag and Drop State
+  const [dragSourceIndex, setDragSourceIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Global Descriptor State
+  const [globalDescriptorModel, setGlobalDescriptorModel] = useState('');
+  const [isSavingDescriptor, setIsSavingDescriptor] = useState(false);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 10000); // Poll every 10s for cooldowns
-    return () => clearInterval(interval);
+    const fetchVFConfig = async () => {
+      try {
+        const config = await api.getVisionFallthroughConfig();
+        if (config?.descriptor_model) {
+          setGlobalDescriptorModel(config.descriptor_model);
+        }
+      } catch (e) {
+        console.error('Failed to load VF config', e);
+      }
+    };
+    fetchVFConfig();
   }, []);
 
-  const loadData = async () => {
+  const handleSaveDescriptor = async () => {
+    setIsSavingDescriptor(true);
     try {
-      const [a, p, m, c] = await Promise.all([
-        api.getAliases(),
-        api.getProviders(),
-        api.getModels(),
-        api.getCooldowns(),
-      ]);
-      setAliases(a);
-      setProviders(p);
-      setAvailableModels(m);
-      setCooldowns(c);
+      await api.updateVisionFallthroughConfig({
+        descriptor_model: globalDescriptorModel,
+      });
     } catch (e) {
-      console.error('Failed to load data', e);
+      console.error('Failed to save descriptor model', e);
+    } finally {
+      setIsSavingDescriptor(false);
     }
-  };
-
-  const handleEdit = (alias: Alias) => {
-    setOriginalId(alias.id);
-    // Deep copy to avoid mutating state directly
-    setEditingAlias(JSON.parse(JSON.stringify(alias)));
-    // Reset metadata search UI state; populate search box if metadata is already configured
-    setMetadataQuery(alias.metadata?.source_path ?? '');
-    setMetadataResults([]);
-    setShowMetadataDropdown(false);
-    setIsModalOpen(true);
-  };
-
-  const handleAddNew = () => {
-    setOriginalId(null);
-    setEditingAlias({ ...EMPTY_ALIAS, targets: [] });
-    setMetadataQuery('');
-    setMetadataResults([]);
-    setShowMetadataDropdown(false);
-    setIsModalOpen(true);
   };
 
   const handleSave = async () => {
     if (!editingAlias.id) return;
-
-    setIsSaving(true);
-    try {
-      await api.saveAlias(editingAlias, originalId || undefined);
-      await loadData();
-      setIsModalOpen(false);
-    } catch (e) {
-      console.error('Failed to save alias', e);
-      alert('Failed to save alias');
-    } finally {
-      setIsSaving(false);
-    }
+    await hookSave(editingAlias, originalId);
   };
 
   const handleDeleteClick = (alias: Alias) => {
@@ -149,115 +128,22 @@ export const Models = () => {
 
   const handleConfirmDelete = async () => {
     if (!aliasToDelete) return;
-
     setIsDeleting(true);
-    try {
-      await api.deleteAlias(aliasToDelete.id);
-      await loadData();
+    const success = await hookDelete(aliasToDelete.id);
+    if (success) {
       setIsDeleteModalOpen(false);
       setAliasToDelete(null);
-    } catch (e) {
-      console.error('Failed to delete alias', e);
-      alert('Failed to delete alias');
-    } finally {
-      setIsDeleting(false);
     }
+    setIsDeleting(false);
   };
 
   const handleConfirmDeleteAll = async () => {
     setIsDeletingAll(true);
-    try {
-      await api.deleteAllAliases();
-      await loadData();
+    const success = await hookDeleteAll();
+    if (success) {
       setIsDeleteAllModalOpen(false);
-    } catch (e) {
-      console.error('Failed to delete all aliases', e);
-      alert('Failed to delete all aliases');
-    } finally {
-      setIsDeletingAll(false);
     }
-  };
-
-  const handleToggleTarget = async (alias: Alias, targetIndex: number, newState: boolean) => {
-    // Create a copy of the alias with updated target
-    const updatedAlias = JSON.parse(JSON.stringify(alias));
-    updatedAlias.targets[targetIndex].enabled = newState;
-
-    // Update local state immediately for responsiveness
-    const updatedAliases = aliases.map((a) => (a.id === alias.id ? updatedAlias : a));
-    setAliases(updatedAliases);
-
-    try {
-      await api.saveAlias(updatedAlias, alias.id);
-    } catch (e) {
-      console.error('Toggle error', e);
-      alert('Failed to update target status: ' + e);
-      loadData(); // Reload on error
-    }
-  };
-
-  const handleTestTarget = async (
-    aliasId: string,
-    targetIndex: number,
-    provider: string,
-    model: string,
-    apiTypes: string[]
-  ) => {
-    const testKey = `${aliasId}-${targetIndex}`;
-
-    // Set loading state
-    setTestStates((prev) => ({
-      ...prev,
-      [testKey]: { loading: true, showResult: true },
-    }));
-
-    try {
-      // Test each supported API type
-      const results = await Promise.all(
-        apiTypes.map((apiType) => api.testModel(provider, model, apiType))
-      );
-
-      // Check if all tests succeeded
-      const allSuccess = results.every((r) => r.success);
-      const firstError = results.find((r) => !r.success);
-
-      // Calculate total duration
-      const totalDuration = results.reduce((sum, r) => sum + r.durationMs, 0);
-      const avgDuration = Math.round(totalDuration / results.length);
-
-      setTestStates((prev) => ({
-        ...prev,
-        [testKey]: {
-          loading: false,
-          result: allSuccess ? 'success' : 'error',
-          message: allSuccess
-            ? `Success (${avgDuration}ms avg, ${apiTypes.length} API${apiTypes.length > 1 ? 's' : ''})`
-            : `Failed via ${firstError?.apiType || 'unknown'}: ${firstError?.error || 'Test failed'}`,
-          showResult: true,
-        },
-      }));
-
-      // Auto-hide success results after 3 seconds
-      if (allSuccess) {
-        setTimeout(() => {
-          setTestStates((prev) => ({
-            ...prev,
-            [testKey]: { ...prev[testKey], showResult: false },
-          }));
-        }, 3000);
-      }
-    } catch (e) {
-      console.error('Test error', e);
-      setTestStates((prev) => ({
-        ...prev,
-        [testKey]: {
-          loading: false,
-          result: 'error',
-          message: String(e),
-          showResult: true,
-        },
-      }));
-    }
+    setIsDeletingAll(false);
   };
 
   const updateTarget = (
@@ -278,6 +164,16 @@ export const Models = () => {
     } else if (field === 'model') {
       newTargets[index] = { ...newTargets[index], model: value as string };
     }
+    setEditingAlias({ ...editingAlias, targets: newTargets });
+  };
+
+  const moveTarget = (index: number, direction: 'up' | 'down') => {
+    const newTargets = [...editingAlias.targets];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= newTargets.length) return;
+
+    const [movedItem] = newTargets.splice(index, 1);
+    newTargets.splice(newIndex, 0, movedItem);
     setEditingAlias({ ...editingAlias, targets: newTargets });
   };
 
@@ -446,16 +342,28 @@ export const Models = () => {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', index.toString());
+    setDragSourceIndex(index);
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDragSourceIndex(null);
+    setDragOverIndex(null);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
     e.preventDefault();
     const dragIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+
+    setDragSourceIndex(null);
+    setDragOverIndex(null);
 
     if (dragIndex === dropIndex) return;
 
@@ -469,10 +377,44 @@ export const Models = () => {
   const filteredAliases = aliases.filter((a) => a.id.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="min-h-screen p-6 transition-all duration-300 bg-gradient-to-br from-bg-deep to-bg-surface">
+    <div className="min-h-screen p-6 transition-all duration-300 bg-linear-to-br from-bg-deep to-bg-surface">
       <div className="mb-6">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 className="font-heading text-3xl font-bold text-text m-0">Models</h1>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <h1 className="font-heading text-3xl font-bold text-text m-0">Models</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-bg-glass border border-border-glass">
+                <Eye size={14} className="text-text-secondary" />
+                <span className="text-xs font-medium text-text-secondary">
+                  Vision Fall Through Model:
+                </span>
+                <select
+                  className="bg-transparent border-none text-xs text-text outline-none focus:ring-0 cursor-pointer"
+                  value={globalDescriptorModel}
+                  onChange={(e) => setGlobalDescriptorModel(e.target.value)}
+                >
+                  <option value="">(None)</option>
+                  {aliases.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.id}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleSaveDescriptor}
+                  disabled={isSavingDescriptor}
+                  className="ml-1 text-text-secondary hover:text-primary transition-colors disabled:opacity-50"
+                  title="Save descriptor model"
+                >
+                  {isSavingDescriptor ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Save size={14} />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ position: 'relative', width: '280px' }}>
               <Search
@@ -540,330 +482,17 @@ export const Models = () => {
             </thead>
             <tbody>
               {filteredAliases.map((alias) => (
-                <tr key={alias.id} className="hover:bg-bg-hover">
-                  <td
-                    className="px-4 py-3 text-left border-b border-border-glass text-text"
-                    style={{ fontWeight: 600, paddingLeft: '24px' }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '8px',
-                      }}
-                    >
-                      <div
-                        onClick={() => handleEdit(alias)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          cursor: 'pointer',
-                          flex: 1,
-                        }}
-                      >
-                        <Edit2 size={12} style={{ opacity: 0.5 }} />
-                        {alias.id}
-                      </div>
-                      <button
-                        onClick={() => handleDeleteClick(alias)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: '4px',
-                          borderRadius: '4px',
-                          color: 'var(--color-danger)',
-                          opacity: 0.6,
-                          transition: 'opacity 0.2s',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-                        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
-                        title="Delete alias"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-left border-b border-border-glass text-text">
-                    <span
-                      className="inline-flex items-center rounded px-2 py-1 text-xs font-medium border border-border-glass"
-                      style={{
-                        fontSize: '10px',
-                        backgroundColor:
-                          alias.type === 'embeddings'
-                            ? '#10b981'
-                            : alias.type === 'transcriptions'
-                              ? '#a855f7'
-                              : alias.type === 'speech'
-                                ? '#f97316'
-                                : alias.type === 'image'
-                                  ? '#d946ef'
-                                  : alias.type === 'responses'
-                                    ? '#06b6d4'
-                                    : '#ebebeb',
-                        color:
-                          alias.type === 'embeddings' ||
-                          alias.type === 'transcriptions' ||
-                          alias.type === 'speech' ||
-                          alias.type === 'image' ||
-                          alias.type === 'responses'
-                            ? 'white'
-                            : '#333',
-                        border: 'none',
-                      }}
-                    >
-                      {alias.type || 'chat'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-left border-b border-border-glass text-text">
-                    {alias.aliases && alias.aliases.length > 0 ? (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                        {alias.aliases.map((a) => (
-                          <span
-                            key={a}
-                            className="inline-flex items-center rounded px-2 py-1 text-xs font-medium border border-border-glass text-text-secondary"
-                            style={{ fontSize: '10px' }}
-                          >
-                            {a}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>
-                        -
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-left border-b border-border-glass text-text">
-                    <span
-                      className="inline-flex items-center rounded px-2 py-1 text-xs font-medium border-border-glass text-text-secondary"
-                      style={{ fontSize: '11px', textTransform: 'capitalize' }}
-                    >
-                      {alias.selector || 'random'} / {alias.priority || 'selector'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-left border-b border-border-glass text-text">
-                    {alias.metadata ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <BookOpen size={11} className="text-primary" />
-                        <span
-                          className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border-glass text-primary"
-                          style={{ textTransform: 'capitalize' }}
-                        >
-                          {alias.metadata.source}
-                        </span>
-                      </div>
-                    ) : (
-                      <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>
-                        -
-                      </span>
-                    )}
-                  </td>
-                  <td
-                    className="px-4 py-3 text-left border-b border-border-glass text-text"
-                    style={{ paddingRight: '24px' }}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {alias.targets.map((t, i) => {
-                        const provider = providers.find((p) => p.id === t.provider);
-                        const isProviderDisabled = provider?.enabled === false;
-                        const isTargetDisabled = t.enabled === false;
-                        const isDisabled = isProviderDisabled || isTargetDisabled;
-                        const testKey = `${alias.id}-${i}`;
-                        const testState = testStates[testKey];
-
-                        // Check if this specific provider+model is on cooldown
-                        const cooldown = cooldowns.find(
-                          (c) => c.provider === t.provider && c.model === t.model && !c.accountId // Only show provider-level cooldowns here
-                        );
-                        const isCoolingDown = !!cooldown;
-                        const cooldownMinutes = cooldown
-                          ? Math.ceil(cooldown.timeRemainingMs / 60000)
-                          : 0;
-
-                        return (
-                          <div
-                            key={i}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              fontSize: '12px',
-                              color: isDisabled
-                                ? 'var(--color-danger)'
-                                : 'var(--color-text-secondary)',
-                              textDecoration: isDisabled ? 'line-through' : 'none',
-                              opacity: isDisabled ? 0.7 : 1,
-                            }}
-                          >
-                            {isCoolingDown && (
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  color: 'var(--color-warning)',
-                                  fontSize: '11px',
-                                  fontWeight: 500,
-                                }}
-                                title={`On cooldown for ${cooldownMinutes} minute${cooldownMinutes !== 1 ? 's' : ''}`}
-                              >
-                                <Clock size={12} />
-                                <span>{cooldownMinutes}m</span>
-                              </div>
-                            )}
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                if (!isDisabled) {
-                                  let testApiTypes: string[] = ['chat'];
-                                  if (alias.type === 'embeddings') {
-                                    testApiTypes = ['embeddings'];
-                                  } else if (alias.type === 'transcriptions') {
-                                    alert(
-                                      'Cannot test transcriptions API via test button - requires file upload. Use actual /v1/audio/transcriptions endpoint.'
-                                    );
-                                    return;
-                                  } else if (alias.type === 'speech') {
-                                    alert(
-                                      'Cannot test speech API via test button - requires file upload. Use actual /v1/audio/speech endpoint.'
-                                    );
-                                    return;
-                                  } else if (alias.type === 'image') {
-                                    testApiTypes = ['images'];
-                                  } else if (alias.type === 'responses') {
-                                    testApiTypes = ['responses'];
-                                  }
-                                  handleTestTarget(alias.id, i, t.provider, t.model, testApiTypes);
-                                }
-                              }}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                cursor: isDisabled ? 'not-allowed' : 'pointer',
-                                opacity: isDisabled ? 0.5 : 1,
-                                transition: 'opacity 0.2s',
-                                pointerEvents: 'auto',
-                                marginRight: '16px',
-                              }}
-                            >
-                              {testState?.loading ? (
-                                <Loader2
-                                  size={14}
-                                  style={{
-                                    color: 'var(--color-text-secondary)',
-                                    animation: 'spin 1s linear infinite',
-                                  }}
-                                />
-                              ) : testState?.showResult && testState.result === 'success' ? (
-                                <CheckCircle size={14} style={{ color: 'var(--color-success)' }} />
-                              ) : testState?.showResult && testState.result === 'error' ? (
-                                <XCircle size={14} style={{ color: 'var(--color-danger)' }} />
-                              ) : (
-                                <Play
-                                  size={14}
-                                  style={{
-                                    color: 'var(--color-primary)',
-                                    opacity: isDisabled ? 0 : 0.6,
-                                  }}
-                                />
-                              )}
-                            </div>
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              style={{ display: 'flex', alignItems: 'center' }}
-                            >
-                              <Switch
-                                checked={t.enabled !== false}
-                                onChange={(val) => handleToggleTarget(alias, i, val)}
-                                size="sm"
-                                disabled={isProviderDisabled}
-                              />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                              {t.provider} &rarr; {t.model}
-                              {t.apiType && t.apiType.length > 0 && (
-                                <span
-                                  style={{
-                                    textDecoration: 'none',
-                                    display: 'inline-block',
-                                    marginLeft: '8px',
-                                    fontSize: '10px',
-                                    color: 'var(--color-text-secondary)',
-                                    opacity: 0.7,
-                                  }}
-                                >
-                                  [{(() => {
-                                    const chatApis = ['chat', 'messages', 'gemini', 'responses'];
-                                    if (alias.type === 'embeddings') {
-                                      return 'embeddings';
-                                    } else if (alias.type === 'transcriptions') {
-                                      return 'transcriptions';
-                                    } else if (alias.type === 'speech') {
-                                      return 'speech';
-                                    } else if (alias.type === 'image') {
-                                      return 'images';
-                                    } else if (alias.type === 'responses') {
-                                      return 'responses';
-                                    }
-
-                                    const apiTypes = t.apiType || [];
-                                    if (apiTypes.includes('oauth')) {
-                                      const oauthLabel = provider?.oauthProvider
-                                        ? `oauth:${provider.oauthProvider}`
-                                        : 'oauth';
-                                      const filtered = apiTypes.filter(
-                                        (a: string) => a !== 'oauth' && chatApis.includes(a)
-                                      );
-                                      return [oauthLabel, ...filtered].join(', ');
-                                    }
-
-                                    const filtered = apiTypes.filter((a: string) =>
-                                      chatApis.includes(a)
-                                    );
-                                    return (filtered.length ? filtered : apiTypes).join(', ');
-                                  })()}]
-                                </span>
-                              )}
-                              {isProviderDisabled && (
-                                <span
-                                  style={{
-                                    textDecoration: 'none',
-                                    display: 'inline-block',
-                                    marginLeft: '4px',
-                                    fontStyle: 'italic',
-                                  }}
-                                >
-                                  (provider disabled)
-                                </span>
-                              )}
-                              {testState?.showResult && testState.message && (
-                                <span
-                                  style={{
-                                    textDecoration: 'none',
-                                    display: 'inline-block',
-                                    marginLeft: '8px',
-                                    fontSize: '11px',
-                                    fontStyle: 'italic',
-                                    color:
-                                      testState.result === 'success'
-                                        ? 'var(--color-success)'
-                                        : 'var(--color-danger)',
-                                  }}
-                                >
-                                  {testState.message}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </td>
-                </tr>
+                <AliasTableRow
+                  key={alias.id}
+                  alias={alias}
+                  providers={providers}
+                  cooldowns={cooldowns}
+                  testStates={testStates}
+                  onEdit={handleEdit}
+                  onDelete={handleDeleteClick}
+                  onToggleTarget={handleToggleTarget}
+                  onTestTarget={handleTestTarget}
+                />
               ))}
               {filteredAliases.length === 0 && (
                 <tr>
@@ -1023,6 +652,23 @@ export const Models = () => {
                     <Switch
                       checked={getBehavior('strip_adaptive_thinking')}
                       onChange={(val) => setBehavior('strip_adaptive_thinking', val)}
+                      size="sm"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between py-1">
+                    <div>
+                      <span className="font-body text-[13px] text-text">Vision Fallthrough</span>
+                      <p className="font-body text-[11px] text-text-muted mt-0.5">
+                        If the request contains images and the target model is text-only, use the
+                        descriptor model to convert images to text.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={editingAlias.use_image_fallthrough || false}
+                      onChange={(val) =>
+                        setEditingAlias({ ...editingAlias, use_image_fallthrough: val })
+                      }
                       size="sm"
                     />
                   </div>
@@ -1285,94 +931,179 @@ export const Models = () => {
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {editingAlias.targets.map((target, idx) => (
-                <div
-                  key={idx}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, idx)}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(e, idx)}
-                  style={{
-                    display: 'flex',
-                    gap: '6px',
-                    alignItems: 'center',
-                    padding: '4px 8px',
-                    backgroundColor: 'var(--color-bg-subtle)',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--color-border-glass)',
-                    cursor: 'grab',
-                  }}
-                  onDragStartCapture={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.opacity = '0.5';
-                    (e.currentTarget as HTMLDivElement).style.cursor = 'grabbing';
-                  }}
-                  onDragEndCapture={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.opacity = '1';
-                    (e.currentTarget as HTMLDivElement).style.cursor = 'grab';
-                  }}
-                >
+              {editingAlias.targets.map((target, idx) => {
+                const isDragging = dragSourceIndex === idx;
+                const isDragOver = dragOverIndex === idx && !isDragging;
+
+                return (
                   <div
+                    key={idx}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDragEnd={handleDragEnd}
+                    onDrop={(e) => handleDrop(e, idx)}
                     style={{
-                      cursor: 'grab',
-                      color: 'var(--color-text-secondary)',
                       display: 'flex',
+                      gap: '6px',
                       alignItems: 'center',
+                      padding: '4px 8px',
+                      backgroundColor: isDragging
+                        ? 'transparent'
+                        : isDragOver
+                          ? 'rgba(245, 158, 11, 0.05)'
+                          : 'var(--color-bg-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: isDragging
+                        ? '1px dashed var(--color-border-glass)'
+                        : isDragOver
+                          ? '2px solid var(--color-primary)'
+                          : '1px solid var(--color-border-glass)',
+                      cursor: 'grab',
+                      opacity: isDragging ? 0.4 : 1,
+                      transform: isDragOver ? 'translateY(2px)' : 'none',
+                      transition: 'all 0.2s ease',
+                      position: 'relative',
+                    }}
+                    onDragStartCapture={(e) => {
+                      (e.currentTarget as HTMLDivElement).style.cursor = 'grabbing';
+                    }}
+                    onDragEndCapture={(e) => {
+                      (e.currentTarget as HTMLDivElement).style.cursor = 'grab';
                     }}
                   >
-                    <GripVertical size={16} />
-                  </div>
-                  <div style={{ flex: '0 0 120px', maxWidth: '120px' }}>
-                    <select
-                      className="w-full font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
-                      style={{ padding: '4px 8px', height: '28px' }}
-                      value={target.provider}
-                      onChange={(e) => updateTarget(idx, 'provider', e.target.value)}
+                    {isDragOver && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: dragSourceIndex !== null && dragSourceIndex < idx ? 'auto' : -2,
+                          bottom: dragSourceIndex !== null && dragSourceIndex > idx ? 'auto' : -2,
+                          left: 0,
+                          right: 0,
+                          height: '2px',
+                          backgroundColor: 'var(--color-primary)',
+                          zIndex: 20,
+                        }}
+                      />
+                    )}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        color: 'var(--color-text-secondary)',
+                        opacity: 0.8,
+                        marginRight: '4px',
+                        visibility: isDragging ? 'hidden' : 'visible',
+                      }}
                     >
-                      <option value="">Select Provider...</option>
-                      {providers.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <select
-                      className="w-full font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
-                      style={{ padding: '4px 8px', height: '28px' }}
-                      value={target.model}
-                      onChange={(e) => updateTarget(idx, 'model', e.target.value)}
-                      disabled={!target.provider}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          moveTarget(idx, 'up');
+                        }}
+                        disabled={idx === 0}
+                        className="hover:scale-110 hover:text-primary disabled:opacity-30 disabled:hover:scale-100 transition-all duration-200"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px',
+                          cursor: idx === 0 ? 'default' : 'pointer',
+                        }}
+                        title="Move Up"
+                      >
+                        <ChevronUp size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          moveTarget(idx, 'down');
+                        }}
+                        disabled={idx === editingAlias.targets.length - 1}
+                        className="hover:scale-110 hover:text-primary disabled:opacity-30 disabled:hover:scale-100 transition-all duration-200"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px',
+                          cursor: idx === editingAlias.targets.length - 1 ? 'default' : 'pointer',
+                        }}
+                        title="Move Down"
+                      >
+                        <ChevronDown size={16} />
+                      </button>
+                    </div>
+                    <div
+                      style={{
+                        cursor: 'grab',
+                        color: 'var(--color-text-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        visibility: isDragging ? 'hidden' : 'visible',
+                      }}
                     >
-                      <option value="">Select Model...</option>
-                      {availableModels
-                        .filter((m) => m.providerId === target.provider)
-                        .map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.name}
+                      <GripVertical size={16} />
+                    </div>
+                    <div
+                      style={{
+                        flex: '0 0 120px',
+                        maxWidth: '120px',
+                        visibility: isDragging ? 'hidden' : 'visible',
+                      }}
+                    >
+                      <select
+                        className="w-full font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
+                        style={{ padding: '4px 8px', height: '28px' }}
+                        value={target.provider}
+                        onChange={(e) => updateTarget(idx, 'provider', e.target.value)}
+                      >
+                        <option value="">Select Provider...</option>
+                        {providers.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
                           </option>
                         ))}
-                    </select>
+                      </select>
+                    </div>
+                    <div style={{ flex: 1, visibility: isDragging ? 'hidden' : 'visible' }}>
+                      <select
+                        className="w-full font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
+                        style={{ padding: '4px 8px', height: '28px' }}
+                        value={target.model}
+                        onChange={(e) => updateTarget(idx, 'model', e.target.value)}
+                        disabled={!target.provider}
+                      >
+                        <option value="">Select Model...</option>
+                        {availableModels
+                          .filter((m) => m.providerId === target.provider)
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div style={{ visibility: isDragging ? 'hidden' : 'visible' }}>
+                      <Switch
+                        checked={target.enabled !== false}
+                        onChange={(val) => updateTarget(idx, 'enabled', val)}
+                        size="sm"
+                      />
+                    </div>
+                    <div style={{ visibility: isDragging ? 'hidden' : 'visible' }}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeTarget(idx)}
+                        style={{ color: 'var(--color-danger)', padding: '4px', minHeight: 'auto' }}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <Switch
-                      checked={target.enabled !== false}
-                      onChange={(val) => updateTarget(idx, 'enabled', val)}
-                      size="sm"
-                    />
-                  </div>
-                  <div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeTarget(idx)}
-                      style={{ color: 'var(--color-danger)', padding: '4px', minHeight: 'auto' }}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

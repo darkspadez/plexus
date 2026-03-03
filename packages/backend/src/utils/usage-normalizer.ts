@@ -39,15 +39,46 @@ export function normalizeOpenAIChatUsage(usage: any): UsageSubset {
 }
 
 export function normalizeOpenAIResponsesUsage(usage: any): UsageSubset {
-  const inputTokens = safeToken(usage?.input_tokens);
+  const reportedInputTokens = safeToken(usage?.input_tokens);
   const cachedTokens = safeToken(usage?.input_tokens_details?.cached_tokens);
   const outputTokens = safeToken(usage?.output_tokens);
   const reasoningTokens = safeToken(usage?.output_tokens_details?.reasoning_tokens);
+
+  // Responses payloads may appear in two shapes depending on source:
+  // - total input tokens with cached included
+  // - uncached input tokens with cached reported separately
+  const inputTokens =
+    cachedTokens > reportedInputTokens
+      ? reportedInputTokens
+      : Math.max(0, reportedInputTokens - cachedTokens);
 
   return {
     input_tokens: inputTokens,
     output_tokens: outputTokens,
     total_tokens: safeToken(usage?.total_tokens) || inputTokens + cachedTokens + outputTokens,
+    reasoning_tokens: reasoningTokens,
+    cached_tokens: cachedTokens,
+    cache_creation_tokens: 0,
+  };
+}
+
+export function normalizeGeminiUsage(usageMetadata: any): UsageSubset {
+  const promptTokens = safeToken(usageMetadata?.promptTokenCount);
+  const cachedTokens = safeToken(usageMetadata?.cachedContentTokenCount);
+  const outputTokens = safeToken(usageMetadata?.candidatesTokenCount);
+  const reasoningTokens = safeToken(usageMetadata?.thoughtsTokenCount);
+  const toolUsePromptTokens = safeToken(usageMetadata?.toolUsePromptTokenCount);
+
+  // Vertex/Gemini promptTokenCount includes cached content when present.
+  const inputTokens =
+    cachedTokens > promptTokens ? promptTokens : Math.max(0, promptTokens - cachedTokens);
+
+  return {
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    total_tokens:
+      safeToken(usageMetadata?.totalTokenCount) ||
+      promptTokens + outputTokens + toolUsePromptTokens + reasoningTokens,
     reasoning_tokens: reasoningTokens,
     cached_tokens: cachedTokens,
     cache_creation_tokens: 0,

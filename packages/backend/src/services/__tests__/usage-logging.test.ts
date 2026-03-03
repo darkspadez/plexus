@@ -317,5 +317,56 @@ describe('UsageInspector', () => {
       expect(capturedRecord).not.toBeNull();
       expect(capturedRecord!.tokensReasoning).toBe(25);
     });
+
+    it('should estimate input tokens using incoming API type when provider API type differs', async () => {
+      const requestId = 'test-input-estimation-incoming-api-type';
+      const startTime = Date.now() - 100;
+      const originalRequest = {
+        messages: [{ role: 'user', content: 'Count these words for input estimation.' }],
+      };
+
+      const inspector = new UsageInspector(
+        requestId,
+        mockStorage,
+        { requestId } as Partial<UsageRecord>,
+        mockPricing,
+        undefined,
+        startTime,
+        true,
+        'gemini',
+        'chat',
+        originalRequest
+      );
+
+      const debugManager = DebugManager.getInstance();
+      debugManager.setEnabled(true);
+      debugManager.startLog(requestId, originalRequest);
+
+      // Simulate reconstructed provider response with no prompt/input token count available.
+      // This should trigger input fallback estimation from original request.
+      debugManager.addReconstructedRawResponse(requestId, {
+        usageMetadata: {
+          promptTokenCount: 0,
+          candidatesTokenCount: 12,
+        },
+      });
+
+      const mockStream = new PassThrough();
+
+      let capturedRecord: UsageRecord | null = null;
+      spyOn(mockStorage, 'saveRequest').mockImplementation(async (record: UsageRecord) => {
+        capturedRecord = record;
+        return Promise.resolve();
+      });
+
+      mockStream.pipe(inspector);
+      mockStream.end();
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(capturedRecord).not.toBeNull();
+      expect(capturedRecord!.tokensInput).toBeGreaterThan(0);
+      expect(capturedRecord!.tokensEstimated).toBe(1);
+    });
   });
 });

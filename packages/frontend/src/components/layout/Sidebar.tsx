@@ -196,12 +196,15 @@ export const Sidebar: React.FC = () => {
       };
     }
 
-    // Get unique window types
+    // Get unique windows; key on windowType+description to preserve multiple windows of the same type
     const windowsByType = new Map<string, (typeof quota.latest)[0]>();
     for (const snapshot of quota.latest) {
-      const existing = windowsByType.get(snapshot.windowType);
+      const key = snapshot.description
+        ? `${snapshot.windowType}:${snapshot.description}`
+        : snapshot.windowType;
+      const existing = windowsByType.get(key);
       if (!existing || snapshot.checkedAt > existing.checkedAt) {
-        windowsByType.set(snapshot.windowType, snapshot);
+        windowsByType.set(key, snapshot);
       }
     }
 
@@ -257,6 +260,8 @@ export const Sidebar: React.FC = () => {
     'copilot',
     'wisdomgate',
     'minimax-coding',
+    'gemini-cli',
+    'antigravity',
   ];
   const rateLimitQuotas = quotas.filter((quota) => {
     const checkerType = (quota.checkerType || quota.checkerId).toLowerCase();

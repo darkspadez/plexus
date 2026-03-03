@@ -22,6 +22,11 @@ import { CooldownParserRegistry } from './cooldown-parsers';
 import { getConfig, getProviderTypes } from '../config';
 import { applyModelBehaviors } from './model-behaviors';
 import { getModels } from '@mariozechner/pi-ai';
+import { VisionDescriptorService } from './vision-descriptor-service';
+import { ModelMetadataManager } from './model-metadata-manager';
+import { DEFAULT_VISION_DESCRIPTION_PROMPT } from '../utils/constants';
+import { UsageRecord } from '../types/usage';
+import { calculateCosts } from '../utils/calculate-costs';
 
 export class Dispatcher {
   private usageStorage?: UsageStorageService;
@@ -29,7 +34,8 @@ export class Dispatcher {
   private async recordAttemptMetric(
     route: RouteResult,
     requestId: string | undefined,
-    success: boolean
+    success: boolean,
+    metadata?: { isVisionFallthrough?: boolean; isDescriptorRequest?: boolean }
   ): Promise<void> {
     if (!this.usageStorage) return;
 
@@ -41,7 +47,8 @@ export class Dispatcher {
         route.provider,
         route.model,
         route.canonicalModel ?? null,
-        metricRequestId
+        metricRequestId,
+        metadata
       );
       return;
     }
@@ -50,7 +57,8 @@ export class Dispatcher {
       route.provider,
       route.model,
       route.canonicalModel ?? null,
-      metricRequestId
+      metricRequestId,
+      metadata
     );
   }
 
@@ -80,11 +88,63 @@ export class Dispatcher {
     const attemptedProviders: string[] = [];
     let lastError: any = null;
 
+    // Check if this is already a vision descriptor request to prevent recursion
+    const isVisionDescriptorRequest = (request as any)._isVisionDescriptorRequest === true;
+
     for (let i = 0; i < targets.length; i++) {
+      let currentRequest = { ...request };
       const route = targets[i]!;
 
+      // Vision Fallthrough (Image-to-Text Preprocessing)
+      // Check if:
+      // 1. Opt-in is enabled for this alias
+      // 2. We're not already in a descriptor call (recursion guard)
+      // 3. Request contains images
+      if (
+        !isVisionDescriptorRequest &&
+        route.modelConfig?.use_image_fallthrough &&
+        VisionDescriptorService.hasImages(currentRequest.messages)
+      ) {
+        const vfConfig = config.vision_fallthrough;
+        if (vfConfig?.descriptor_model) {
+          try {
+            logger.debug(
+              `[vision-fallthrough] Before process: ${JSON.stringify(currentRequest.messages.map((m) => ({ role: m.role, contentCount: Array.isArray(m.content) ? m.content.length : 'string' })))}`
+            );
+            currentRequest = await VisionDescriptorService.process(
+              currentRequest,
+              vfConfig.descriptor_model,
+              vfConfig.default_prompt || DEFAULT_VISION_DESCRIPTION_PROMPT,
+              this.usageStorage // Pass usage storage to record descriptor call
+            );
+            logger.debug(
+              `[vision-fallthrough] After process: ${JSON.stringify(currentRequest.messages.map((m) => ({ role: m.role, contentCount: Array.isArray(m.content) ? m.content.length : 'string' })))}`
+            );
+
+            // Verify if images are actually gone in the modified request
+            const stillHasImages = VisionDescriptorService.hasImages(currentRequest.messages);
+            if (stillHasImages) {
+              logger.error(
+                `[vision-fallthrough] CRITICAL: VisionDescriptorService.process returned a request that STILL contains images!`
+              );
+            }
+
+            // Tag the request as having undergone fallthrough
+            (currentRequest as any)._hasVisionFallthrough = true;
+            logger.info(
+              `[vision-fallthrough] Successfully preprocessed images for ${route.provider}/${route.model}`
+            );
+          } catch (vfError) {
+            logger.error(`[vision-fallthrough] Error in descriptor service:`, vfError);
+          }
+        } else {
+          logger.warn(
+            `[vision-fallthrough] Feature enabled for alias '${request.model}' but 'vision_fallthrough.descriptor_model' not configured globally.`
+          );
+        }
+      }
+
       // Re-check cooldown status before attempting this target
-      // This ensures cooldowns set during the retry loop are respected
       const isHealthy = await CooldownManager.getInstance().isProviderHealthy(
         route.provider,
         route.model
@@ -101,7 +161,7 @@ export class Dispatcher {
         // Determine Target API Type
         const { targetApiType, selectionReason } = this.selectTargetApiType(
           route,
-          request.incomingApiType
+          currentRequest.incomingApiType
         );
 
         logger.info(
@@ -113,7 +173,7 @@ export class Dispatcher {
         const transformer = TransformerFactory.getTransformer(transformerType);
 
         // 3. Transform Request
-        const requestWithTargetModel = { ...request, model: route.model };
+        const requestWithTargetModel = { ...currentRequest, model: route.model };
 
         const { payload: providerPayload, bypassTransformation } =
           await this.transformRequestPayload(
@@ -124,21 +184,27 @@ export class Dispatcher {
           );
 
         // Capture transformed request
-        if (request.requestId) {
-          DebugManager.getInstance().addTransformedRequest(request.requestId, providerPayload);
+        if (currentRequest.requestId) {
+          DebugManager.getInstance().addTransformedRequest(
+            currentRequest.requestId,
+            providerPayload
+          );
         }
 
         if (this.isOAuthRoute(route, targetApiType)) {
           try {
             const oauthResponse = await this.dispatchOAuthRequest(
               providerPayload,
-              request,
+              currentRequest,
               route,
               targetApiType,
               transformer
             );
-            await this.recordAttemptMetric(route, request.requestId, true);
-            this.attachAttemptMetadata(oauthResponse, attemptedProviders, route);
+            await this.recordAttemptMetric(route, currentRequest.requestId, true, {
+              isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
+              isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
+            });
+            this.attachAttemptMetadata(oauthResponse, attemptedProviders, route, targetApiType);
             return oauthResponse;
           } catch (oauthError: any) {
             lastError = oauthError;
@@ -146,7 +212,10 @@ export class Dispatcher {
               failoverEnabled && i < targets.length - 1 && this.isRetryableOAuthError(oauthError);
 
             if (canRetry) {
-              await this.recordAttemptMetric(route, request.requestId, false);
+              await this.recordAttemptMetric(route, currentRequest.requestId, false, {
+                isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
+                isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
+              });
               CooldownManager.getInstance().markProviderFailure(
                 route.provider,
                 route.model,
@@ -166,10 +235,10 @@ export class Dispatcher {
         // 4. Execute Request
         const url = this.buildRequestUrl(route, transformer, requestWithTargetModel, targetApiType);
         const headers = this.setupHeaders(route, targetApiType, requestWithTargetModel);
-        const incomingApi = request.incomingApiType || 'unknown';
+        const incomingApi = currentRequest.incomingApiType || 'unknown';
 
         logger.info(
-          `Dispatching ${request.model} to ${route.provider}:${route.model} ${incomingApi} <-> ${transformer.name}`
+          `Dispatching ${currentRequest.model} to ${route.provider}:${route.model} ${incomingApi} <-> ${transformer.name}`
         );
 
         logger.silly('Upstream Request Payload', providerPayload);
@@ -184,24 +253,38 @@ export class Dispatcher {
             this.isRetryableStatus(response.status, failover?.retryableStatusCodes || []);
 
           try {
-            await this.handleProviderError(response, route, errorText, url, headers, targetApiType);
+            await this.handleProviderError(
+              response,
+              route,
+              errorText,
+              url,
+              headers,
+              targetApiType,
+              currentRequest.requestId
+            );
           } catch (e: any) {
             lastError = e;
 
             if (canRetry) {
-              await this.recordAttemptMetric(route, request.requestId, false);
-              // Always mark as failed when retrying — provider couldn't serve this request
-              CooldownManager.getInstance().markProviderFailure(
-                route.provider,
-                route.model,
-                undefined,
-                e?.routingContext?.providerResponse
-                  ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                      0,
-                      500
-                    )
-                  : e.message
-              );
+              await this.recordAttemptMetric(route, currentRequest.requestId, false, {
+                isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
+                isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
+              });
+              // Only mark as failed if the error actually triggered a cooldown (i.e., it's not a caller error like validation)
+              // Caller errors (400 validation errors, 413, 422) should not cause cooldown
+              if (e?.routingContext?.cooldownTriggered) {
+                CooldownManager.getInstance().markProviderFailure(
+                  route.provider,
+                  route.model,
+                  undefined,
+                  e?.routingContext?.providerResponse
+                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
+                        0,
+                        500
+                      )
+                    : e.message
+                );
+              }
               logger.warn(
                 `Failover: retrying after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
@@ -213,7 +296,7 @@ export class Dispatcher {
         }
 
         // 5. Handle Response
-        if (request.stream) {
+        if (currentRequest.stream) {
           const streamProbe = await this.probeStreamingStart(response);
 
           if (!streamProbe.ok) {
@@ -227,7 +310,10 @@ export class Dispatcher {
               this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
             if (canRetry) {
-              await this.recordAttemptMetric(route, request.requestId, false);
+              await this.recordAttemptMetric(route, currentRequest.requestId, false, {
+                isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
+                isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
+              });
               // Always mark as failed when retrying — provider couldn't serve this request
               CooldownManager.getInstance().markProviderFailure(
                 route.provider,
@@ -246,28 +332,39 @@ export class Dispatcher {
 
           const streamResponse = this.handleStreamingResponse(
             streamProbe.response,
-            request,
+            currentRequest,
             route,
             targetApiType,
             bypassTransformation
           );
-          await this.recordAttemptMetric(route, request.requestId, true);
+          await this.recordAttemptMetric(route, currentRequest.requestId, true, {
+            isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
+            isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
+          });
           CooldownManager.getInstance().markProviderSuccess(route.provider, route.model);
-          this.attachAttemptMetadata(streamResponse, attemptedProviders, route);
+          this.attachAttemptMetadata(streamResponse, attemptedProviders, route, targetApiType);
           return streamResponse;
         }
 
         const nonStreamingResponse = await this.handleNonStreamingResponse(
           response,
-          request,
+          currentRequest,
           route,
           targetApiType,
           transformer,
           bypassTransformation
         );
-        await this.recordAttemptMetric(route, request.requestId, true);
+        await this.recordAttemptMetric(route, currentRequest.requestId, true, {
+          isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
+          isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
+        });
+
+        if ((currentRequest as any)._isVisionDescriptorRequest && this.usageStorage) {
+          // ... (this part is fine)
+        }
+
         CooldownManager.getInstance().markProviderSuccess(route.provider, route.model);
-        this.attachAttemptMetadata(nonStreamingResponse, attemptedProviders, route);
+        this.attachAttemptMetadata(nonStreamingResponse, attemptedProviders, route, targetApiType);
         return nonStreamingResponse;
       } catch (error: any) {
         lastError = error;
@@ -285,7 +382,10 @@ export class Dispatcher {
             error.message
           );
         }
-        await this.recordAttemptMetric(route, request.requestId, false);
+        await this.recordAttemptMetric(route, currentRequest.requestId, false, {
+          isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
+          isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
+        });
 
         const canRetryNetwork =
           failoverEnabled &&
@@ -462,7 +562,8 @@ export class Dispatcher {
   private attachAttemptMetadata(
     response: any,
     attemptedProviders: string[],
-    finalRoute: RouteResult
+    finalRoute: RouteResult,
+    apiType: string
   ): void {
     response.plexus = {
       ...(response.plexus || {}),
@@ -470,6 +571,15 @@ export class Dispatcher {
       finalAttemptProvider: finalRoute.provider,
       finalAttemptModel: finalRoute.model,
       allAttemptedProviders: JSON.stringify(attemptedProviders),
+      canonicalModel: finalRoute.canonicalModel,
+      provider: finalRoute.provider,
+      model: finalRoute.model,
+      apiType,
+      pricing: finalRoute.modelConfig?.pricing,
+      providerDiscount: (finalRoute.config as any).discount,
+      config: {
+        estimateTokens: finalRoute.config.estimateTokens,
+      },
     } as any;
   }
 
@@ -528,7 +638,8 @@ export class Dispatcher {
   }
 
   private getApiMetadata(metadata: Record<string, any>): Record<string, any> {
-    return metadata || {};
+    const { plexus_metadata: _stripped, ...apiMetadata } = metadata || {};
+    return apiMetadata;
   }
 
   /**
@@ -853,6 +964,12 @@ export class Dispatcher {
     targetApiType: string,
     route: RouteResult
   ): boolean {
+    // If vision fallthrough was applied, we must use the translated pathway
+    // to ensure the modified messages (text instead of images) are sent.
+    if ((request as any)._hasVisionFallthrough) {
+      return false;
+    }
+
     const isCompatible =
       !!request.incomingApiType?.toLowerCase() &&
       request.incomingApiType?.toLowerCase() === targetApiType.toLowerCase();
@@ -890,6 +1007,21 @@ export class Dispatcher {
 
       bypassTransformation = true;
     } else {
+      // Inject OAuth provider into metadata so transformers can set provider/model
+      // on assistant messages for thought-signature replay (required by Gemini 3).
+      const oauthProvider = route.config.oauth_provider || route.provider;
+      if (oauthProvider) {
+        request = {
+          ...request,
+          metadata: {
+            ...(request.metadata || {}),
+            plexus_metadata: {
+              ...((request.metadata as any)?.plexus_metadata || {}),
+              oauthProvider,
+            },
+          },
+        };
+      }
       providerPayload = await transformer.transformRequest(request);
     }
 
@@ -979,7 +1111,8 @@ export class Dispatcher {
     errorText: string,
     url?: string,
     headers?: Record<string, string>,
-    targetApiType?: string
+    targetApiType?: string,
+    requestId?: string
   ): Promise<never> {
     logger.error(`Provider error: ${response.status} ${errorText}`);
 
@@ -1051,6 +1184,11 @@ export class Dispatcher {
       providerResponse: errorText,
       cooldownTriggered: !isCallerError,
     };
+
+    // Capture the raw error response for debug logs
+    if (requestId) {
+      DebugManager.getInstance().addRawResponse(requestId, errorText);
+    }
 
     throw error;
   }
@@ -1256,23 +1394,33 @@ export class Dispatcher {
             this.isRetryableStatus(response.status, failover?.retryableStatusCodes || []);
 
           try {
-            await this.handleProviderError(response, route, errorText, url, headers, 'embeddings');
+            await this.handleProviderError(
+              response,
+              route,
+              errorText,
+              url,
+              headers,
+              'embeddings',
+              request.requestId
+            );
           } catch (e: any) {
             lastError = e;
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
-              // Always mark as failed when retrying — provider couldn't serve this request
-              CooldownManager.getInstance().markProviderFailure(
-                route.provider,
-                route.model,
-                undefined,
-                e?.routingContext?.providerResponse
-                  ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                      0,
-                      500
-                    )
-                  : e.message
-              );
+              // Only mark as failed if cooldown was actually triggered (not a caller error)
+              if (e?.routingContext?.cooldownTriggered) {
+                CooldownManager.getInstance().markProviderFailure(
+                  route.provider,
+                  route.model,
+                  undefined,
+                  e?.routingContext?.providerResponse
+                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
+                        0,
+                        500
+                      )
+                    : e.message
+                );
+              }
               logger.warn(
                 `Failover: retrying embeddings after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
@@ -1303,7 +1451,7 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(enrichedResponse, attemptedProviders, route);
+        this.attachAttemptMetadata(enrichedResponse, attemptedProviders, route, 'embeddings');
         return enrichedResponse;
       } catch (error: any) {
         lastError = error;
@@ -1434,24 +1582,27 @@ export class Dispatcher {
               errorText,
               url,
               headers,
-              'transcriptions'
+              'transcriptions',
+              request.requestId
             );
           } catch (e: any) {
             lastError = e;
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
-              // Always mark as failed when retrying — provider couldn't serve this request
-              CooldownManager.getInstance().markProviderFailure(
-                route.provider,
-                route.model,
-                undefined,
-                e?.routingContext?.providerResponse
-                  ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                      0,
-                      500
-                    )
-                  : e.message
-              );
+              // Only mark as failed if cooldown was actually triggered (not a caller error)
+              if (e?.routingContext?.cooldownTriggered) {
+                CooldownManager.getInstance().markProviderFailure(
+                  route.provider,
+                  route.model,
+                  undefined,
+                  e?.routingContext?.providerResponse
+                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
+                        0,
+                        500
+                      )
+                    : e.message
+                );
+              }
               logger.warn(
                 `Failover: retrying transcription after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
@@ -1489,7 +1640,7 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route);
+        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'transcriptions');
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;
@@ -1613,23 +1764,33 @@ export class Dispatcher {
             this.isRetryableStatus(response.status, failover?.retryableStatusCodes || []);
 
           try {
-            await this.handleProviderError(response, route, errorText, url, headers, 'speech');
+            await this.handleProviderError(
+              response,
+              route,
+              errorText,
+              url,
+              headers,
+              'speech',
+              request.requestId
+            );
           } catch (e: any) {
             lastError = e;
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
-              // Always mark as failed when retrying — provider couldn't serve this request
-              CooldownManager.getInstance().markProviderFailure(
-                route.provider,
-                route.model,
-                undefined,
-                e?.routingContext?.providerResponse
-                  ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                      0,
-                      500
-                    )
-                  : e.message
-              );
+              // Only mark as failed if cooldown was actually triggered (not a caller error)
+              if (e?.routingContext?.cooldownTriggered) {
+                CooldownManager.getInstance().markProviderFailure(
+                  route.provider,
+                  route.model,
+                  undefined,
+                  e?.routingContext?.providerResponse
+                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
+                        0,
+                        500
+                      )
+                    : e.message
+                );
+              }
               logger.warn(
                 `Failover: retrying speech after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
@@ -1700,7 +1861,7 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route);
+        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'speech');
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;
@@ -1824,23 +1985,33 @@ export class Dispatcher {
             this.isRetryableStatus(response.status, failover?.retryableStatusCodes || []);
 
           try {
-            await this.handleProviderError(response, route, errorText, url, headers, 'images');
+            await this.handleProviderError(
+              response,
+              route,
+              errorText,
+              url,
+              headers,
+              'images',
+              request.requestId
+            );
           } catch (e: any) {
             lastError = e;
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
-              // Always mark as failed when retrying — provider couldn't serve this request
-              CooldownManager.getInstance().markProviderFailure(
-                route.provider,
-                route.model,
-                undefined,
-                e?.routingContext?.providerResponse
-                  ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                      0,
-                      500
-                    )
-                  : e.message
-              );
+              // Only mark as failed if cooldown was actually triggered (not a caller error)
+              if (e?.routingContext?.cooldownTriggered) {
+                CooldownManager.getInstance().markProviderFailure(
+                  route.provider,
+                  route.model,
+                  undefined,
+                  e?.routingContext?.providerResponse
+                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
+                        0,
+                        500
+                      )
+                    : e.message
+                );
+              }
               logger.warn(
                 `Failover: retrying image generation after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
@@ -1870,7 +2041,7 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route);
+        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'images');
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;
@@ -1992,23 +2163,33 @@ export class Dispatcher {
             this.isRetryableStatus(response.status, failover?.retryableStatusCodes || []);
 
           try {
-            await this.handleProviderError(response, route, errorText, url, headers, 'images');
+            await this.handleProviderError(
+              response,
+              route,
+              errorText,
+              url,
+              headers,
+              'images',
+              request.requestId
+            );
           } catch (e: any) {
             lastError = e;
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
-              // Always mark as failed when retrying — provider couldn't serve this request
-              CooldownManager.getInstance().markProviderFailure(
-                route.provider,
-                route.model,
-                undefined,
-                e?.routingContext?.providerResponse
-                  ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                      0,
-                      500
-                    )
-                  : e.message
-              );
+              // Only mark as failed if cooldown was actually triggered (not a caller error)
+              if (e?.routingContext?.cooldownTriggered) {
+                CooldownManager.getInstance().markProviderFailure(
+                  route.provider,
+                  route.model,
+                  undefined,
+                  e?.routingContext?.providerResponse
+                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
+                        0,
+                        500
+                      )
+                    : e.message
+                );
+              }
               logger.warn(
                 `Failover: retrying image edit after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
@@ -2038,7 +2219,7 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route);
+        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'images');
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;

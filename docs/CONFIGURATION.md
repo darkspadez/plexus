@@ -161,6 +161,17 @@ This section defines the upstream AI providers that Plexus will route requests t
 
 - **`disable_cooldown`**: (Optional, default: `false`) When `true`, this provider is never placed on cooldown regardless of errors. See [Disabling Cooldowns Per Provider](#disabling-cooldowns-per-provider).
 
+---
+
+### Vision Fallthrough
+
+Vision Fallthrough (Image-to-Text preprocessing) is most easily configured via the **Admin UI**. 
+
+1. Set the global **Descriptor Model** in the Dashboard Settings.
+2. Enable **Use Image Fallthrough** on individual Model Aliases.
+
+While these can be set in `plexus.yaml` (`vision_fallthrough.descriptor_model` and `models.<alias>.use_image_fallthrough`), using the UI is the recommended approach for rapid testing and configuration.
+
 #### Model Pricing Sources
 
 Each model entry can include a `pricing` block. Four sources are supported:
@@ -812,3 +823,5 @@ providers:
 Estimated counts are typically within ±15% of actual values and are flagged with `tokensEstimated = 1` in the usage database. Estimation can also be enabled per-provider in the Admin UI under **Advanced → Estimate Tokens**.
 
 → See [Token Estimation Guide](TOKEN_ESTIMATION.md) for algorithm details, accuracy characteristics, performance impact, and database schema.
+
+→ See [Token Accounting Guide](TOKEN_ACCOUNTING.md) for provider-specific usage field semantics and Plexus normalization rules.

@@ -1,4 +1,7 @@
 import { UnifiedChatResponse } from '../../types/unified';
+import { logger } from '../../utils/logger';
+import { isValidThoughtSignature } from './utils';
+import { normalizeGeminiUsage } from '../../utils/usage-normalizer';
 
 /**
  * Transforms a Gemini API response into unified format.
@@ -33,19 +36,23 @@ export async function transformGeminiResponse(response: any): Promise<UnifiedCha
         },
       });
     }
-    if (part.thoughtSignature) thoughtSignature = part.thoughtSignature;
+    // Gap 6: Validate thought signatures for base64 format
+    if (part.thoughtSignature) {
+      if (isValidThoughtSignature(part.thoughtSignature)) {
+        thoughtSignature = part.thoughtSignature;
+      } else {
+        logger.warn(
+          `[gemini] Invalid thought signature detected in response, stripping. Signature length: ${part.thoughtSignature.length}`
+        );
+        // Don't assign invalid signature - strip it
+      }
+    }
   });
 
-  const usage = response.usageMetadata
-    ? {
-        input_tokens: response.usageMetadata.promptTokenCount || 0,
-        output_tokens: response.usageMetadata.candidatesTokenCount || 0,
-        total_tokens: response.usageMetadata.totalTokenCount || 0,
-        reasoning_tokens: response.usageMetadata.thoughtsTokenCount || 0,
-        cached_tokens: response.usageMetadata.cachedContentTokenCount || 0,
-        cache_creation_tokens: 0,
-      }
-    : undefined;
+  const usage = response.usageMetadata ? normalizeGeminiUsage(response.usageMetadata) : undefined;
+
+  const rawFinishReason = candidate?.finishReason?.toLowerCase() || null;
+  const finishReason = tool_calls.length > 0 && rawFinishReason === 'stop' ? 'tool_calls' : rawFinishReason;
 
   return {
     id: response.responseId || 'gemini-' + Date.now(),
@@ -56,6 +63,7 @@ export async function transformGeminiResponse(response: any): Promise<UnifiedCha
       ? { content: reasoning_content, signature: thoughtSignature }
       : undefined,
     tool_calls: tool_calls.length > 0 ? tool_calls : undefined,
+    finishReason,
     usage,
   };
 }

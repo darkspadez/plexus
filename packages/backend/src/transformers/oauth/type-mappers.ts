@@ -17,12 +17,47 @@ import type {
   MessageContent,
   UnifiedUsage,
 } from '../../types/unified';
-
-export function unifiedToContext(request: UnifiedChatRequest): Context {
+export function unifiedToContext(
+  request: UnifiedChatRequest,
+  provider?: string,
+  modelId?: string,
+  api?: string
+): Context {
   const context: Context = {
     messages: [],
-    tools: request.tools ? request.tools.map(unifiedToolToPiAi) : undefined,
+    tools: request.tools
+      ? request.tools
+          .filter((t) => t.function)
+          .map((tool) => {
+            try {
+              return unifiedToolToPiAi(tool);
+            } catch (err) {
+              // Fall back to raw schema so the request doesn't fail entirely
+              return {
+                name: tool.function!.name,
+                description: tool.function!.description || '',
+                parameters: tool.function!.parametersJsonSchema || tool.function!.parameters || {},
+              } as PiAiTool;
+            }
+          })
+      : undefined,
   };
+
+  // Resolve provider/model/api for thought-signature replay.
+  // Pi-ai only keeps thought signatures when the replayed message comes from the
+  // same provider+api+model as the current target — otherwise Gemini 3 degrades tool
+  // calls in history to plain text, confusing the model on subsequent turns.
+  const replayProvider = provider ?? (request.metadata as any)?.plexus_metadata?.oauthProvider;
+  const replayModel = modelId ?? request.model;
+  const replayApi = api;
+
+  // Handle Gemini-style systemInstruction (stored separately from messages)
+  if (request.systemInstruction) {
+    const content = extractTextContent(request.systemInstruction.content);
+    if (content) {
+      context.systemPrompt = content;
+    }
+  }
 
   for (const msg of request.messages) {
     if (msg.role === 'system') {
@@ -36,7 +71,9 @@ export function unifiedToContext(request: UnifiedChatRequest): Context {
     if (msg.role === 'user') {
       context.messages.push(unifiedMessageToUserMessage(msg));
     } else if (msg.role === 'assistant') {
-      context.messages.push(unifiedMessageToAssistantMessage(msg));
+      context.messages.push(
+        unifiedMessageToAssistantMessage(msg, replayProvider, replayModel, replayApi)
+      );
     } else if (msg.role === 'tool') {
       context.messages.push(unifiedMessageToToolResult(msg));
     }
@@ -87,8 +124,22 @@ function unifiedMessageToUserMessage(msg: UnifiedMessage): UserMessage {
   } as UserMessage;
 }
 
-function unifiedMessageToAssistantMessage(msg: UnifiedMessage): AssistantMessage {
+function unifiedMessageToAssistantMessage(
+  msg: UnifiedMessage,
+  provider?: string,
+  model?: string,
+  api?: string
+): AssistantMessage {
   const content: any[] = [];
+
+  // Thinking must come before tool_use blocks (Anthropic API requirement)
+  if (msg.thinking) {
+    content.push({
+      type: 'thinking',
+      thinking: msg.thinking.content,
+      thinkingSignature: msg.thinking.signature,
+    } as any);
+  }
 
   if (typeof msg.content === 'string' && msg.content) {
     content.push({ type: 'text', text: msg.content });
@@ -102,29 +153,25 @@ function unifiedMessageToAssistantMessage(msg: UnifiedMessage): AssistantMessage
 
   if (msg.tool_calls && msg.tool_calls.length > 0) {
     for (const toolCall of msg.tool_calls) {
-      content.push({
+      const block: any = {
         type: 'toolCall',
         id: toolCall.id,
         name: toolCall.function.name,
         arguments: JSON.parse(toolCall.function.arguments),
-      } as any);
+      };
+      if (toolCall.thought_signature) {
+        block.thoughtSignature = toolCall.thought_signature;
+      }
+      content.push(block);
     }
-  }
-
-  if (msg.thinking) {
-    content.push({
-      type: 'thinking',
-      thinking: msg.thinking.content,
-      thinkingSignature: msg.thinking.signature,
-    } as any);
   }
 
   return {
     role: 'assistant',
     content,
-    api: 'openai-completions',
-    provider: 'unknown',
-    model: 'unknown',
+    api: api ?? 'openai-completions',
+    provider: provider ?? 'unknown',
+    model: model ?? 'unknown',
     usage: {
       input: 0,
       output: 0,
@@ -169,58 +216,87 @@ function unifiedMessageToToolResult(msg: UnifiedMessage): ToolResultMessage {
   } as ToolResultMessage;
 }
 
-function mapPropertyValue(value: any): any {
-  const description = value?.description ? { description: value.description } : undefined;
+/**
+ * Convert a raw JSON Schema node into a proper TypeBox object.
+ *
+ * Gemini 3 models follow TypeBox-style schemas (with `anyOf`+`const` for enums,
+ * `required` before `properties`) more reliably than raw JSON Schema (with `enum`
+ * arrays). This recursive converter ensures tool parameter schemas match the format
+ * that pi-coding-agent uses successfully.
+ */
+function jsonSchemaToTypeBox(schema: any): any {
+  if (!schema || typeof schema !== 'object') return Type.Any();
 
-  switch (value?.type) {
-    case 'boolean':
-      return Type.Boolean(description);
-    case 'string':
-      return Type.String(description);
-    case 'number':
-      return Type.Number(description);
-    case 'integer':
-      return Type.Integer(description);
-    case 'array': {
-      const itemSchema = value?.items ? mapPropertyValue(value.items) : Type.Any();
-      return Type.Array(itemSchema, description);
-    }
+  const opts: Record<string, any> = {};
+  if (schema.description) opts.description = schema.description;
+
+  // Handle enum → Type.Union(Type.Literal(...))
+  if (Array.isArray(schema.enum) && schema.enum.length > 0) {
+    const literals = schema.enum.map((v: any) => Type.Literal(v));
+    return literals.length === 1 ? { ...literals[0], ...opts } : Type.Union(literals, opts);
+  }
+
+  // Handle anyOf / oneOf passthrough (already in the right format)
+  if (Array.isArray(schema.anyOf)) {
+    return { anyOf: schema.anyOf.map(jsonSchemaToTypeBox), ...opts };
+  }
+  if (Array.isArray(schema.oneOf)) {
+    return { oneOf: schema.oneOf.map(jsonSchemaToTypeBox), ...opts };
+  }
+
+  switch (schema.type) {
     case 'object': {
-      if (value?.properties) {
-        const nestedProps = Object.fromEntries(
-          Object.entries(value.properties).map(([k, v]: [string, any]) => [k, mapPropertyValue(v)])
-        );
-        // TypeBox auto-generates required from all properties; use Type.Unsafe to
-        // pass the reconstructed schema verbatim so required/additionalProperties
-        // from the original JSON Schema are preserved exactly.
-        return Type.Unsafe({
-          type: 'object' as const,
-          properties: nestedProps,
-          ...(value.required ? { required: value.required } : {}),
-          ...(value.additionalProperties !== undefined
-            ? { additionalProperties: value.additionalProperties }
-            : {}),
-          ...description,
-        });
+      const props: Record<string, any> = {};
+      if (schema.properties) {
+        for (const [key, val] of Object.entries(schema.properties)) {
+          props[key] = jsonSchemaToTypeBox(val);
+        }
       }
-      return Type.Any(description);
+      const obj = Type.Object(props, opts);
+      // TypeBox sets required to all keys by default; override with the schema's required
+      if (Array.isArray(schema.required)) {
+        obj.required = schema.required;
+      } else {
+        delete obj.required;
+      }
+      if (schema.additionalProperties !== undefined) {
+        obj.additionalProperties = schema.additionalProperties;
+      }
+      return obj;
     }
+    case 'array': {
+      const items = schema.items ? jsonSchemaToTypeBox(schema.items) : Type.Any();
+      return Type.Array(items, opts);
+    }
+    case 'string':
+      return Type.String(opts);
+    case 'number':
+      return Type.Number(opts);
+    case 'integer':
+      return Type.Integer(opts);
+    case 'boolean':
+      return Type.Boolean(opts);
     default:
-      return Type.Any(description);
+      // Fallback: wrap as-is for unknown/complex schemas
+      return Type.Unsafe(schema);
   }
 }
 
 function unifiedToolToPiAi(tool: UnifiedTool): PiAiTool {
-  const parameters = Type.Object(
-    Object.fromEntries(
-      Object.entries(tool.function.parameters.properties || {}).map(
-        ([key, value]: [string, any]) => [key, mapPropertyValue(value)]
-      )
-    ),
-    {
-      additionalProperties: tool.function.parameters.additionalProperties ?? false,
-    }
-  );
+  if (!tool.function) {
+    // Skip tools without function declarations (e.g., Google built-in tools)
+    throw new Error(`Tool is missing function declaration: ${tool.type}`);
+  }
+
+  // Convert the raw JSON Schema into proper TypeBox objects so that Gemini 3
+  // sees the `anyOf`+`const` enum pattern and `required`-before-`properties`
+  // ordering that it follows more reliably.
+  const rawSchema = tool.function.parametersJsonSchema || tool.function.parameters || {};
+
+  const parameters = jsonSchemaToTypeBox({
+    type: 'object',
+    ...rawSchema,
+  });
 
   return {
     name: tool.function.name,
@@ -253,6 +329,7 @@ export function piAiMessageToUnified(
         thinkingContent = (thinkingContent || '') + block.thinking;
       } else if (block.type === 'toolCall') {
         const { callId } = parseToolCallIds((block as any).id);
+        const thoughtSignature = (block as any).thoughtSignature;
         toolCalls.push({
           id: callId || block.id,
           type: 'function',
@@ -260,6 +337,7 @@ export function piAiMessageToUnified(
             name: stripProxyPrefix(block.name) || block.name,
             arguments: JSON.stringify(block.arguments),
           },
+          ...(thoughtSignature ? { thinking: { signature: thoughtSignature } } : {}),
         });
       }
     }
@@ -323,30 +401,15 @@ export function piAiEventToChunk(
           thinking: { content: event.delta },
         },
       };
-    case 'toolcall_start': {
-      const toolCall = event.partial?.content?.[event.contentIndex];
-      const { callId } = parseToolCallIds((toolCall as any)?.id);
-      return {
-        ...baseChunk,
-        delta: {
-          tool_calls: [
-            {
-              index: event.contentIndex,
-              id: callId || '',
-              type: 'function',
-              function: {
-                name: stripProxyPrefix((toolCall as any)?.name) || '',
-                arguments: '',
-              },
-            },
-          ],
-        },
-      };
-    }
+    case 'toolcall_start':
+      // Gemini doesn't need start events with empty args which cause parsing errors in formatter
+      return null;
     case 'toolcall_delta': {
       const toolCall = event.partial?.content?.[event.contentIndex];
       if (toolCall && toolCall.type === 'toolCall') {
         const { callId } = parseToolCallIds((toolCall as any).id);
+        const thoughtSignature = (toolCall as any).thoughtSignature;
+
         return {
           ...baseChunk,
           delta: {
@@ -361,6 +424,13 @@ export function piAiEventToChunk(
                 },
               },
             ],
+            ...(thoughtSignature
+              ? {
+                  thinking: {
+                    signature: thoughtSignature,
+                  },
+                }
+              : {}),
           },
         };
       }
@@ -375,8 +445,12 @@ export function piAiEventToChunk(
         usage: piAiUsageToUnified(event.message.usage),
       };
     case 'error':
+      const errorMessage = extractPiAiErrorMessage(event.error);
       return {
         ...baseChunk,
+        delta: {
+          content: errorMessage || 'OAuth provider error',
+        },
         finish_reason: event.reason === 'aborted' ? 'aborted' : 'error',
         usage: piAiUsageToUnified(event.error.usage),
       };
@@ -388,6 +462,22 @@ export function piAiEventToChunk(
     default:
       return null;
   }
+}
+
+function extractPiAiErrorMessage(error: any): string | undefined {
+  if (!error) return undefined;
+  if (typeof error === 'string') return error;
+  if (typeof error.message === 'string' && error.message.trim()) return error.message;
+  if (typeof error.error === 'string' && error.error.trim()) return error.error;
+
+  // Some providers nest error details under an `error` object.
+  if (typeof error.error === 'object' && error.error) {
+    if (typeof error.error.message === 'string' && error.error.message.trim()) {
+      return error.error.message;
+    }
+  }
+
+  return undefined;
 }
 
 function piAiUsageToUnified(usage: Usage): UnifiedUsage {
@@ -408,7 +498,7 @@ function mapStopReason(reason: string): string {
     case 'length':
       return 'length';
     case 'toolUse':
-      return 'tool_calls';
+      return 'stop';
     case 'error':
       return 'error';
     case 'aborted':

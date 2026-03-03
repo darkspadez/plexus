@@ -28,6 +28,7 @@ export interface UnifiedMessage {
       name: string;
       arguments: string;
     };
+    thought_signature?: string;
   }>;
   tool_call_id?: string;
   name?: string; // Often used in 'tool' role messages or 'user' name
@@ -38,23 +39,39 @@ export interface UnifiedMessage {
     content: string;
     signature?: string;
   };
+  thought_signature?: string; // New field for direct mapping
 }
 
 // Unified Tool Types
 
-export interface UnifiedTool {
-  type: 'function';
-  function: {
-    name: string;
-    description?: string;
-    parameters: {
-      type: 'object';
-      properties: Record<string, any>;
-      required?: string[];
-      additionalProperties?: boolean;
-      $schema?: string;
-    };
+export type GoogleBuiltInToolType = 'googleSearch' | 'codeExecution' | 'urlContext';
+
+export interface UnifiedToolFunction {
+  name: string;
+  description?: string;
+  parameters?: {
+    type: 'object';
+    properties: Record<string, any>;
+    required?: string[];
+    additionalProperties?: boolean;
+    $schema?: string;
   };
+  parametersJsonSchema?: any; // Newer format supporting full JSON Schema (anyOf, oneOf, const)
+}
+
+export interface UnifiedTool {
+  type: 'function' | GoogleBuiltInToolType;
+  function?: UnifiedToolFunction;
+  // Google built-in tools don't have function declarations
+  googleSearch?: Record<string, never>;
+  codeExecution?: Record<string, never>;
+  urlContext?: Record<string, never>;
+}
+
+// Tool Configuration (for Gemini's toolConfig)
+export interface UnifiedToolConfig {
+  mode?: 'auto' | 'none' | 'any';
+  functionCallingPreference?: string;
 }
 
 export type ThinkLevel = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
@@ -75,6 +92,7 @@ export interface UnifiedChatRequest {
     | 'required'
     | string
     | { type: 'function'; function: { name: string } };
+  toolConfig?: UnifiedToolConfig; // Gemini's toolConfig (function calling configuration)
   reasoning?: {
     effort?: ThinkLevel;
     max_tokens?: number;
@@ -83,6 +101,7 @@ export interface UnifiedChatRequest {
   };
   include?: string[];
   prompt_cache_key?: string;
+  systemInstruction?: UnifiedMessage; // Gemini's systemInstruction field
   text?: {
     verbosity?: string;
     format?: {
@@ -143,6 +162,7 @@ export interface UnifiedChatResponse {
     content: string;
     signature?: string;
   };
+  thought_signature?: string; // New field for direct mapping
   usage?: UnifiedUsage;
   tool_calls?: Array<{
     id: string;
@@ -160,10 +180,32 @@ export interface UnifiedChatResponse {
   finishReason?: string | null;
 }
 
+/**
+ * Stream event types for block lifecycle management.
+ * These events signal the start, delta updates, and end of content blocks.
+ */
+export type StreamBlockEventType =
+  | 'text_start'
+  | 'text_delta'
+  | 'text_end'
+  | 'thinking_start'
+  | 'thinking_delta'
+  | 'thinking_end'
+  | 'toolcall_start'
+  | 'toolcall_delta'
+  | 'toolcall_end'
+  | 'message_start'
+  | 'message_delta'
+  | 'message_end'
+  | 'usage'
+  | 'done';
+
 export interface UnifiedChatStreamChunk {
   id: string;
   model: string;
   created: number;
+  /** Optional event type for block lifecycle management */
+  event?: StreamBlockEventType;
   delta: {
     role?: string;
     content?: string;
@@ -175,6 +217,7 @@ export interface UnifiedChatStreamChunk {
         name?: string;
         arguments?: string;
       };
+      thought_signature?: string; // New field for direct mapping
     }>;
     reasoning_content?: string | null;
     thinking?: {

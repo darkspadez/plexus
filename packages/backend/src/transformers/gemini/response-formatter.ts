@@ -8,6 +8,7 @@ import { UnifiedChatResponse } from '../../types/unified';
  * - Reconstructs Gemini parts (text, thought, functionCall)
  * - Handles thought signatures
  * - Formats usage metadata
+ * - Detects toolUse finish reason when tool calls are present
  */
 export async function formatGeminiResponse(response: UnifiedChatResponse): Promise<any> {
   const parts: Part[] = [];
@@ -28,23 +29,38 @@ export async function formatGeminiResponse(response: UnifiedChatResponse): Promi
           args: JSON.parse(tc.function.arguments),
         },
       };
-      if (index === 0 && response.thinking?.signature && !response.reasoning_content) {
+
+      // Check for signature in the tool call itself (preferred) or fall back to global thinking signature
+      const sig = (tc as any).thinking?.signature || (tc as any).thought_signature;
+      if (sig) {
+        part.thoughtSignature = sig;
+      } else if (index === 0 && response.thinking?.signature && !response.reasoning_content) {
         part.thoughtSignature = response.thinking.signature;
       }
+
       parts.push(part);
     });
   }
 
-  return {
-    candidates: [{ content: { role: 'model', parts }, finishReason: 'STOP', index: 0 }],
+  // Determine finish reason: if there are tool calls, use 'TOOL_USE' instead of 'STOP'
+  const hasToolCalls = response.tool_calls && response.tool_calls.length > 0;
+  const finishReason = hasToolCalls ? 'TOOL_USE' : 'STOP';
+
+  const result: any = {
+    candidates: [{ content: { role: 'model', parts }, finishReason, index: 0 }],
     usageMetadata: response.usage
       ? {
-          promptTokenCount: response.usage.input_tokens,
+          promptTokenCount: response.usage.input_tokens + (response.usage.cached_tokens || 0),
           candidatesTokenCount: response.usage.output_tokens,
           totalTokenCount: response.usage.total_tokens,
           thoughtsTokenCount: response.usage.reasoning_tokens,
+          cachedContentTokenCount: response.usage.cached_tokens,
         }
       : undefined,
     modelVersion: response.model,
   };
+
+  if (response.id) result.responseId = response.id;
+
+  return result;
 }

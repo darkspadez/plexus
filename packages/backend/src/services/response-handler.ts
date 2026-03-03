@@ -163,6 +163,7 @@ export async function handleResponse(
       startTime,
       shouldEstimateTokens,
       providerApiType,
+      apiType,
       originalRequest
     );
 

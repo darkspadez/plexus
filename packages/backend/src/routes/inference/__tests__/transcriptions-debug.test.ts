@@ -81,6 +81,8 @@ describe('Transcriptions Debug Logging', () => {
       saveRequest: mock(),
       saveError: mock(),
       updatePerformanceMetrics: mock(),
+      emitStarted: mock(),
+      emitUpdated: mock(),
       saveDebugLog: mock((log: any) => {
         savedDebugLogs.push(log);
       }),
@@ -97,6 +99,7 @@ describe('Transcriptions Debug Logging', () => {
           api_key: 'sk-test',
           api_base_url: 'https://api.openai.com/v1',
           estimateTokens: false,
+          disable_cooldown: false,
           models: {
             'whisper-1': {
               type: 'transcriptions',

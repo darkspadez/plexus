@@ -1,5 +1,5 @@
 import { Content, Part, Tool } from '@google/genai';
-import { UnifiedChatRequest } from '../../types/unified';
+import { UnifiedChatRequest, GoogleBuiltInToolType } from '../../types/unified';
 import { convertUnifiedPartsToGemini } from './part-mapper';
 
 export interface GenerateContentRequest {
@@ -32,6 +32,10 @@ export interface GenerateContentRequest {
  * - Thinking content mapping
  * - Tool call reconstruction
  * - Function response handling
+ * - systemInstruction handling (Gap 1)
+ * - toolConfig handling (Gap 3)
+ * - parametersJsonSchema support (Gap 4)
+ * - Google built-in tools support (Gap 5)
  */
 export async function buildGeminiRequest(
   request: UnifiedChatRequest
@@ -39,9 +43,32 @@ export async function buildGeminiRequest(
   const contents: Content[] = [];
   const tools: Tool[] = [];
 
+  // Gap 1: Handle systemInstruction - use explicit systemInstruction field if available
+  let systemInstructionContent: Content | undefined;
+
+  if (request.systemInstruction) {
+    const sysMsg = request.systemInstruction;
+    const sysParts: Part[] = [];
+
+    if (typeof sysMsg.content === 'string') {
+      sysParts.push({ text: sysMsg.content });
+    } else if (Array.isArray(sysMsg.content)) {
+      sysParts.push(...convertUnifiedPartsToGemini(sysMsg.content));
+    }
+
+    if (sysParts.length > 0) {
+      systemInstructionContent = { role: 'system', parts: sysParts };
+    }
+  }
+
   for (const msg of request.messages) {
     let role = '';
     const parts: Part[] = [];
+
+    // Skip system messages if we have explicit systemInstruction (Gap 1)
+    if (msg.role === 'system' && request.systemInstruction) {
+      continue;
+    }
 
     if (msg.role === 'system') {
       role = 'user';
@@ -94,24 +121,97 @@ export async function buildGeminiRequest(
     if (role && parts.length > 0) contents.push({ role, parts });
   }
 
-  // Transform Unified tools to Gemini function declarations
+  // Gap 4 & 5: Transform Unified tools to Gemini function declarations or built-in tools
   if (request.tools && request.tools.length > 0) {
-    tools.push({
-      functionDeclarations: request.tools.map((t) => ({
-        name: t.function.name,
-        description: t.function.description,
-        parameters: t.function.parameters as any,
-      })),
-    });
+    const functionDeclarations = [];
+    const googleSearches: any[] = [];
+    const codeExecutions: any[] = [];
+    const urlContexts: any[] = [];
+
+    for (const t of request.tools) {
+      if (t.type === 'function' && t.function) {
+        // Gap 4: Prefer parametersJsonSchema if available, fallback to parameters
+        const funcDecl: any = {
+          name: t.function.name,
+          description: t.function.description,
+        };
+
+        if (t.function.parametersJsonSchema) {
+          funcDecl.parametersJsonSchema = t.function.parametersJsonSchema;
+        } else if (t.function.parameters) {
+          funcDecl.parameters = t.function.parameters;
+        }
+
+        functionDeclarations.push(funcDecl);
+      } else if (t.type === 'googleSearch') {
+        // Gap 5: Google built-in tools
+        googleSearches.push({});
+      } else if (t.type === 'codeExecution') {
+        codeExecutions.push({});
+      } else if (t.type === 'urlContext') {
+        urlContexts.push({});
+      }
+    }
+
+    if (functionDeclarations.length > 0) {
+      tools.push({ functionDeclarations });
+    }
+    if (googleSearches.length > 0) {
+      tools.push({ googleSearch: {} });
+    }
+    if (codeExecutions.length > 0) {
+      tools.push({ codeExecution: {} });
+    }
+    if (urlContexts.length > 0) {
+      tools.push({ urlContext: {} });
+    }
+  }
+
+  // Gap 3: Handle toolConfig
+  let toolConfig: any;
+  if (request.toolConfig) {
+    toolConfig = {
+      functionCallingConfig: {
+        mode: request.toolConfig.mode,
+        ...(request.toolConfig.functionCallingPreference && {
+          functionCallingPreference: request.toolConfig.functionCallingPreference,
+        }),
+      },
+    };
+  }
+
+  const generationConfig: GenerateContentRequest['generationConfig'] = {
+    maxOutputTokens: request.max_tokens,
+    temperature: request.temperature,
+  };
+
+  // Pass through response format settings
+  if (request.response_format) {
+    if (
+      request.response_format.type === 'json_object' ||
+      request.response_format.type === 'json_schema'
+    ) {
+      generationConfig.responseMimeType = 'application/json';
+      if (request.response_format.json_schema) {
+        generationConfig.responseJsonSchema = request.response_format.json_schema;
+      }
+    }
+  }
+
+  // Pass through thinking config
+  if (request.reasoning) {
+    generationConfig.thinkingConfig = {
+      includeThoughts: request.reasoning.enabled,
+      thinkingBudget: request.reasoning.max_tokens,
+    };
   }
 
   const req: GenerateContentRequest = {
     contents,
     tools: tools.length > 0 ? tools : undefined,
-    generationConfig: {
-      maxOutputTokens: request.max_tokens,
-      temperature: request.temperature,
-    },
+    systemInstruction: systemInstructionContent,
+    toolConfig,
+    generationConfig,
   };
 
   return req;

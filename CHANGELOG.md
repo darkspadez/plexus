@@ -1,5 +1,183 @@
 # Changelog
 
+## v0.18.0 - 2026-03-02
+
+### v0.18.0: Vision Descriptor Service and Image Processing Integration
+
+### Main Features
+
+* **Vision Descriptor Service**: Introduced a dedicated service for vision descriptors along with unit tests to support image processing workflows. ([96496c2](https://github.com/mcowger/plexus/commit/96496c2))
+
+### Smaller Changes
+
+* `d96b5a1`: Documentation update providing details for the Vision Fallthrough feature in README and CONFIGURATION. ([d96b5a1](https://github.com/mcowger/plexus/commit/d96b5a1))
+* `96496c2`: Added vision descriptor service and related tests for image processing. ([96496c2](https://github.com/mcowger/plexus/commit/96496c2))
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
+## v0.17.15 - 2026-03-01
+
+### v0.17.15: Enhanced Live Dashboard Cooldown Management and UI Formatting
+
+## v0.17.15
+
+### New Features
+
+- **Live Dashboard Granular Controls**: Added individual buttons to clear cooldowns for specific components, allowing for more precise state management in the live interface.
+
+### Minor Changes
+
+- **Dashboard UI Refactoring**: Improved formatting and layout consistency of various dashboard components. [[c791d3c](https://github.com/mcowger/plexus/commit/c791d3c)]
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
+## v0.17.14 - 2026-03-01
+
+### v0.17.14: Analytics Drill-downs, Concurrency Management, and DND Card Reordering
+
+### Main Features
+- **Advanced Analytics**: Introduced a comprehensive `DetailedUsage` analytics page and drill-down capabilities via the new `AnalyzeButton` component and API utilities. ([4f5f6dc](https://github.com/mcowger/plexus/commit/4f5f6dc), [49cf506](https://github.com/mcowger/plexus/commit/49cf506))
+- **Concurrency Control**: Added a new management endpoint and visual usage monitoring for concurrency tracking. ([48b295d](https://github.com/mcowger/plexus/commit/48b295d))
+- **Interactive UI Components**: Integrated `@dnd-kit` for drag-and-drop card reordering in the live view, supplemented by JSON import/export functionality for card layout configurations. ([4bb89c9](https://github.com/mcowger/plexus/commit/4bb89c9), [8699585](https://github.com/mcowger/plexus/commit/8699585), [763d8d8](https://github.com/mcowger/plexus/commit/763d8d8))
+
+### Minor Changes and Bug Fixes
+- **Type Definitions**: Updated card definitions to better support metrics and alerts. ([e07c542](https://github.com/mcowger/plexus/commit/e07c542))
+- **Log Formatting**: Added safe date formatting utilities to the Logs component. ([39b26c7](https://github.com/mcowger/plexus/commit/39b26c7))
+- **Code Quality**: Refactored `LiveTab` and `UsageTab` to remove unused imports and streamline logic. ([28cc3d5](https://github.com/mcowger/plexus/commit/28cc3d5))
+- **Tooling Fix**: Resolved an issue handling optional function properties during tool mapping and response transformations. ([11a18c4](https://github.com/mcowger/plexus/commit/11a18c4))
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
+## v0.17.13 - 2026-03-01
+
+### v0.17.13: Assistant Message Thinking Block Ordering Fix and Regression Tests
+
+### Main Features
+
+- **Improved Thinking Block Management**: Resolved issues related to the sequence of thinking blocks within assistant messages, ensuring logical consistency and proper delivery of model reasoning steps.
+
+### Minor Changes
+
+- feat: add fix and regression tests for thinking block ordering in assistant messages ([090d1df](https://github.com/mcowger/plexus/commit/090d1df))
+
+---
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
+## v0.17.12 - 2026-03-01
+
+### Plexus v0.17.12: Copilot Integration Maintenance
+
+## v0.17.12
+
+This release addresses functional issues discovered in the Copilot subsystem to ensure improved reliability.
+
+### Bug Fixes and Minor Changes
+- Resolved logic errors and stability issues within the Copilot integration ([ff94b20](https://github.com/mcowger/plexus/commit/ff94b20))
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
+## v0.17.11 - 2026-03-01
+
+### v0.17.11: Enhanced Copilot Quota Metrics and Fallback Logic
+
+## New Features
+
+- **Enhanced Copilot Quota Display**: Added detailed usage metrics and implemented robust fallback logic for quota reporting. [[a670930](https://github.com/mcowger/plexus/commit/a670930)]
+
+## Changes
+
+- feat: enhance Copilot quota display with detailed usage metrics and fallback logic ([a670930](https://github.com/mcowger/plexus/commit/a670930))
+
+---
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
+## v0.17.10 - 2026-03-01
+
+### v0.17.10: Enhanced Reasoning Options, Gemini 3 Integration, and Antigravity Quota Management
+
+## Main Features
+
+*   **Cross-Model Reasoning Support**: Implemented `buildThinkingOptions` to enable enhanced reasoning capabilities across supported models. ([f89107f](https://github.com/mcowger/plexus/commit/f89107f))
+*   **Antigravity Quota Monitoring**: Introduced a new Antigravity quota checker with support for multi-model displays and improved component architecture. ([adf8a00](https://github.com/mcowger/plexus/commit/adf8a00), [6575b92](https://github.com/mcowger/plexus/commit/6575b92))
+*   **Gemini 3 Integration**: Enhanced message handling protocols specifically for Gemini 3 models. ([92d210e](https://github.com/mcowger/plexus/commit/92d210e))
+
+## Minor Changes and Bug Fixes
+
+*   **stream-formatter**: Fixed an issue to ensure non-empty parts arrays for model content streams. ([aba0851](https://github.com/mcowger/plexus/commit/aba0851))
+*   **Quota Handling**: Improved handling of multiple windows and enhanced logging within Antigravity quota components. ([5d52f6e](https://github.com/mcowger/plexus/commit/5d52f6e))
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
+## v0.17.9 - 2026-02-28
+
+### v0.17.9: Quota Checker Enhancements and Codebase Refactoring
+
+### Release Notes - v0.17.9
+
+This release introduces improvements to quota management implementations and general codebase maintenance.
+
+#### Improvements and Bug Fixes
+- **Quota Services**:
+  - Finalized the `gemini-cli` checker implementation and corrected an issue with the authentication header ([5706bd0](https://github.com/mcowger/plexus/commit/5706bd0)).
+  - Configured a default endpoint for the `WisdomGateQuotaChecker` ([beb6479](https://github.com/mcowger/plexus/commit/beb6479)).
+- **Maintenance**:
+  - Refactored various project files to improve readability and ensure architectural consistency across the codebase ([382415e](https://github.com/mcowger/plexus/commit/382415e)).
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
+## v0.17.8 - 2026-02-27
+
+### v0.17.8: Gemini Stream Optimization, Token Accounting, and Anthropic Header Isolation
+
+### Main Features
+
+- **Enhanced Gemini Integration**: Significant improvements to Gemini support, including thought signature handling, `systemInstruction` support in the OAuthTransformer, and improved toolcall handling for stream formatters. ([f8d9837](https://github.com/mcowger/plexus/commit/f8d9837), [80d14ca](https://github.com/mcowger/plexus/commit/80d14ca), [55e74ce](https://github.com/mcowger/plexus/commit/55e74ce))
+- **Advanced Token Accounting**: Implemented detailed token estimation and normalization for both Gemini and OpenAI APIs, including support for cached tokens and usage-only chunks in streaming responses. ([e7634ea](https://github.com/mcowger/plexus/commit/e7634ea), [895ef74](https://github.com/mcowger/plexus/commit/895ef74), [f402689](https://github.com/mcowger/plexus/commit/f402689), [88fdd53](https://github.com/mcowger/plexus/commit/88fdd53))
+- **Gemini Quota Management**: Added a new CLI quota checker and related components for monitoring and managing Gemini API quotas. ([742954e](https://github.com/mcowger/plexus/commit/742954e), [7da1fde](https://github.com/mcowger/plexus/commit/7da1fde))
+- **Request Lifecycle Observability**: Introduced event emission for the request lifecycle within usage storage and expanded metadata handling to include `plexus_metadata` across client headers. ([388ee8b](https://github.com/mcowger/plexus/commit/388ee8b), [bd9c11b](https://github.com/mcowger/plexus/commit/bd9c11b))
+
+### Smaller Changes
+
+- **Fix**: Prevented Claude Code billing headers from leaking into all Anthropic translation-path requests. ([c422cce](https://github.com/mcowger/plexus/commit/c422cce))
+- **Fix**: Forced the correct GitHub Copilot endpoint for business accounts in OAuth configurations. ([6c14914](https://github.com/mcowger/plexus/commit/6c14914))
+- **Refactor**: Improved the Models component UI using custom hooks and standardized `AliasTableRow` for better maintainability. ([e7634ea](https://github.com/mcowger/plexus/commit/e7634ea))
+- **Logging**: Enhanced error logging by flushing the debug manager and capturing raw responses in the Dispatcher. ([a6fa855](https://github.com/mcowger/plexus/commit/a6fa855))
+- **Infrastructure**: Updated Bun and Bun-types dependencies to version 1.3.10. ([96298bf](https://github.com/mcowger/plexus/commit/96298bf))
+- **Logic**: Added input normalization helpers for standardized response formats and refined tool filtering by function declaration. ([c77c70b](https://github.com/mcowger/plexus/commit/c77c70b), [5a292ed](https://github.com/mcowger/plexus/commit/5a292ed))
+- **Housekeeping**: Removed deprecated `.vscode/mcp.json` and updated `.gitignore`. ([38040c8](https://github.com/mcowger/plexus/commit/38040c8), [17cba04](https://github.com/mcowger/plexus/commit/17cba04))
+- **OAuth**: Enhanced error handling in the OAuth transformer with added regression tests. ([9e25125](https://github.com/mcowger/plexus/commit/9e25125))
+- **Storage**: Added error handling for asynchronous usage logging operations. ([d3d1210](https://github.com/mcowger/plexus/commit/d3d1210))
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
+## v0.17.7 - 2026-02-26
+
+### v0.17.7: JSON Schema Normalization, Enhanced Gemini Support, and Authentication Updates
+
+## Main Features
+
+### JSON Schema Normalization and OpenAI Enhancements
+- Added JSON Schema normalization utility to improve OpenAI request transformation ([d690ec4](https://github.com/mcowger/plexus/commit/d690ec4))
+
+### Gemini Provider Improvements
+- Enhanced Gemini request and response handling with improved configuration and metadata support ([161e033](https://github.com/mcowger/plexus/commit/161e033))
+- Updated Gemini stream transformer and response formatter to handle `toolUse` finish reason ([7402edc](https://github.com/mcowger/plexus/commit/7402edc))
+- Enhanced Gemini stream transformer with block lifecycle event handling and comprehensive test coverage ([904ade8](https://github.com/mcowger/plexus/commit/904ade8))
+
+### Authentication Updates
+- Replaced WisdomGate cookie authentication with Bearer token authentication and added new balance endpoint ([a27aab2](https://github.com/mcowger/plexus/commit/a27aab2))
+
+## Additional Changes
+
+- Implemented thought signature validation and sanitization utilities ([0c4ce92](https://github.com/mcowger/plexus/commit/0c4ce92))
+- Enhanced Dispatcher error handling and cooldown management ([a27aab2](https://github.com/mcowger/plexus/commit/a27aab2))
+- Updated `.gitignore` to include `research_and_plans` directory and removed obsolete Gemini documentation files ([e469228](https://github.com/mcowger/plexus/commit/e469228))
+
+---
+
+The Docker image for this release has been updated and is available at `ghcr.io/mcowger/plexus:latest`
+
 ## v0.17.6 - 2026-02-25
 
 ### v0.17.6: Enhanced Provider Cooldown Management and Dashboard Consolidation

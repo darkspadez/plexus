@@ -90,6 +90,20 @@ export const CopilotQuotaDisplay: React.FC<CopilotQuotaDisplayProps> = ({
               {Math.round(monthlyWindow.utilizationPercent)}%
             </div>
           </div>
+          {monthlyWindow.used !== undefined &&
+            monthlyWindow.limit !== undefined &&
+            monthlyWindow.unit === 'requests' && (
+              <div className="text-[10px] text-text-muted">
+                {Number.isInteger(monthlyWindow.used)
+                  ? monthlyWindow.used
+                  : monthlyWindow.used.toFixed(1)}{' '}
+                /{' '}
+                {Number.isInteger(monthlyWindow.limit)
+                  ? monthlyWindow.limit
+                  : monthlyWindow.limit.toFixed(1)}{' '}
+                requests
+              </div>
+            )}
         </div>
       )}
     </div>

@@ -86,6 +86,31 @@ describe('estimateInputTokens', () => {
     expect(estimate).toBeGreaterThan(10);
   });
 
+  test('should estimate tokens from Responses API array input', () => {
+    const body = {
+      instructions: 'You are a helpful assistant.',
+      input: [
+        {
+          type: 'message',
+          role: 'user',
+          content: [{ type: 'input_text', text: 'Hello, how are you?' }],
+        },
+      ],
+    };
+
+    const estimate = estimateInputTokens(body, 'responses');
+    expect(estimate).toBeGreaterThan(10);
+  });
+
+  test('should estimate tokens from Responses API string input', () => {
+    const body = {
+      input: 'Explain the difference between SSE and WebSocket in two sentences.',
+    };
+
+    const estimate = estimateInputTokens(body, 'responses');
+    expect(estimate).toBeGreaterThan(5);
+  });
+
   test('should return 0 for malformed input', () => {
     const estimate = estimateInputTokens({}, 'chat');
     expect(estimate).toBe(0);

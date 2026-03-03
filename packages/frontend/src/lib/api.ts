@@ -122,6 +122,28 @@ export interface TodayMetrics {
   totalCost: number;
 }
 
+/**
+ * Represents a single data point in the concurrency time series.
+ *
+ * Each entry describes how many requests were active (in-flight) for a specific
+ * provider and model during a 1-minute time bucket. The backend computes this by
+ * grouping request records whose startTime falls within the same 60-second window,
+ * then counting them per provider+model combination.
+ *
+ * Used by the "Concurrency" card on the Live Metrics dashboard to render
+ * time-series charts showing request volume per provider over time.
+ */
+export interface ConcurrencyData {
+  /** The LLM provider name, e.g., "anthropic", "openai", "google" */
+  provider: string;
+  /** The canonical model name as resolved by the router, e.g., "claude-sonnet-4-20250514" */
+  model: string;
+  /** Number of requests that started within this 1-minute bucket */
+  count: number;
+  /** Start of the 1-minute bucket as epoch milliseconds (floored to nearest 60000ms) */
+  timestamp: number;
+}
+
 export interface DashboardData {
   stats: Stat[];
   usageData: UsageData[];
@@ -239,6 +261,7 @@ export interface Alias {
   targets: Array<{ provider: string; model: string; apiType?: string[]; enabled?: boolean }>;
   advanced?: AliasBehavior[];
   metadata?: AliasMetadata;
+  use_image_fallthrough?: boolean;
 }
 
 export interface InferenceError {
@@ -315,6 +338,9 @@ export interface UsageRecord {
   finishReason?: string;
   // Retry metadata
   attemptCount?: number;
+  // Vision Fallthrough metadata
+  isVisionFallthrough?: boolean;
+  isDescriptorRequest?: boolean;
   // Energy estimation
   kwhUsed?: number;
 }
@@ -1474,6 +1500,28 @@ export const api = {
     await api.saveConfig(newYaml);
   },
 
+  getVisionFallthroughConfig: async (): Promise<{
+    descriptor_model?: string;
+    default_prompt?: string;
+  }> => {
+    const res = await fetchWithAuth(`${API_BASE}/v0/management/config/vision-fallthrough`);
+    if (!res.ok) throw new Error('Failed to fetch vision fallthrough config');
+    return res.json();
+  },
+
+  updateVisionFallthroughConfig: async (updates: {
+    descriptor_model?: string;
+    default_prompt?: string;
+  }): Promise<any> => {
+    const res = await fetchWithAuth(`${API_BASE}/v0/management/config/vision-fallthrough`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error('Failed to update vision fallthrough config');
+    return res.json();
+  },
+
   deleteProvider: async (
     providerId: string,
     cascade?: boolean
@@ -1544,6 +1592,7 @@ export const api = {
       selector: alias.selector,
       priority: alias.priority || 'selector',
       additional_aliases: alias.aliases,
+      use_image_fallthrough: alias.use_image_fallthrough || false,
       ...(alias.type && { type: alias.type }),
       ...(alias.advanced && alias.advanced.length > 0 && { advanced: alias.advanced }),
       ...(alias.metadata && { metadata: alias.metadata }),
@@ -1639,6 +1688,7 @@ export const api = {
             selector: val.selector,
             priority: val.priority,
             type: val.type,
+            use_image_fallthrough: val.use_image_fallthrough || false,
             advanced: val.advanced || [],
             targets,
             metadata: val.metadata,
@@ -2420,6 +2470,35 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Unknown error' }));
       throw new Error(err.error?.message || err.error || 'Failed to clear quota');
+    }
+  },
+
+  /**
+   * Fetches concurrency data from the backend for the Live Metrics dashboard.
+   *
+   * Calls GET /v0/management/concurrency with an optional timeRange query parameter.
+   * The backend returns request counts grouped by provider, model, and 1-minute time
+   * buckets, which the frontend uses to render concurrency charts.
+   *
+   * On failure, logs the error and returns an empty array so the UI degrades
+   * gracefully (shows an empty chart rather than crashing).
+   *
+   * @param timeRange - How far back to look: 'hour' (default), 'day', 'week', or 'month'
+   * @returns Array of {@link ConcurrencyData} entries, or an empty array on error
+   */
+  getConcurrencyData: async (
+    timeRange: 'hour' | 'day' | 'week' | 'month' = 'hour'
+  ): Promise<ConcurrencyData[]> => {
+    try {
+      const res = await fetchWithAuth(
+        `${API_BASE}/v0/management/concurrency?timeRange=${timeRange}`
+      );
+      if (!res.ok) throw new Error('Failed to fetch concurrency data');
+      const data = (await res.json()) as { data: ConcurrencyData[] };
+      return data.data || [];
+    } catch (e) {
+      console.error('API Error getConcurrencyData', e);
+      return [];
     }
   },
 };

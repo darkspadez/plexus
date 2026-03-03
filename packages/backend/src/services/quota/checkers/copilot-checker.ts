@@ -70,25 +70,45 @@ export class CopilotQuotaChecker extends QuotaChecker {
 
       const data: CopilotUsageResponse = await response.json();
 
+      logger.silly(`[copilot-checker] API response: ${JSON.stringify(data, null, 2)}`);
+
       const windows: QuotaWindow[] = [];
       const resetDate = data.quota_reset_date_utc ? new Date(data.quota_reset_date_utc) : undefined;
 
       if (data.quota_snapshots?.premium_interactions) {
         const pi = data.quota_snapshots.premium_interactions;
-        const percentRemaining = pi.percent_remaining ?? 0;
-        const usedPercent = Math.max(0, 100 - percentRemaining);
 
-        windows.push(
-          this.createWindow(
-            'monthly',
-            100,
-            usedPercent,
-            percentRemaining,
-            'percentage',
-            resetDate,
-            'GitHub Copilot premium interactions'
-          )
-        );
+        if (pi.entitlement !== undefined && pi.remaining !== undefined) {
+          const limit = pi.entitlement;
+          const remaining = pi.remaining;
+          const used = Math.max(0, limit - remaining);
+          windows.push(
+            this.createWindow(
+              'monthly',
+              limit,
+              used,
+              remaining,
+              'requests',
+              resetDate,
+              'GitHub Copilot premium interactions'
+            )
+          );
+        } else {
+          // Fallback to percentage when counts are unavailable
+          const percentRemaining = pi.percent_remaining ?? 0;
+          const usedPercent = Math.max(0, 100 - percentRemaining);
+          windows.push(
+            this.createWindow(
+              'monthly',
+              100,
+              usedPercent,
+              percentRemaining,
+              'percentage',
+              resetDate,
+              'GitHub Copilot premium interactions'
+            )
+          );
+        }
       }
 
       if (windows.length === 0) {

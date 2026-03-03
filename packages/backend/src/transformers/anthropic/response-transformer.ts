@@ -34,9 +34,13 @@ export async function transformAnthropicResponse(response: any): Promise<Unified
   }
 
   const inputTokens = response.usage?.input_tokens || 0;
-  const totalOutputTokens = response.usage?.output_tokens || 0;
   const cacheReadTokens = response.usage?.cache_read_input_tokens || 0;
   const cacheCreationTokens = response.usage?.cache_creation_input_tokens || 0;
+  const totalOutputTokens = response.usage?.output_tokens || 0;
+
+  // Anthropic input_tokens is already the uncached portion, but Plexus unified
+  // usage expects input_tokens (uncached) and cached_tokens separately.
+  // Gemini/OpenAI promptTokenCount includes cache, but Anthropic does NOT.
 
   let realOutputTokens = totalOutputTokens;
   let imputedThinkingTokens = 0;
@@ -55,6 +59,7 @@ export async function transformAnthropicResponse(response: any): Promise<Unified
     content: text || null,
     reasoning_content: reasoning || null,
     tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+    finishReason: response.stop_reason || null,
     usage: {
       input_tokens: inputTokens,
       output_tokens: realOutputTokens,

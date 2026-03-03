@@ -216,12 +216,17 @@ export class QuotaScheduler {
 
       const results = (await Promise.race([queryPromise, timeoutPromise])) as any[];
 
-      // Get only the most recent snapshot per window type
+      // Get only the most recent snapshot per window type + description combination
+      // Using description as part of the key supports checkers (like antigravity) that emit
+      // multiple windows with the same windowType but different per-model descriptions.
       const latestByWindowType = new Map<string, any>();
       for (const snapshot of results) {
-        const existing = latestByWindowType.get(snapshot.windowType);
+        const key = snapshot.description
+          ? `${snapshot.windowType}:${snapshot.description}`
+          : snapshot.windowType;
+        const existing = latestByWindowType.get(key);
         if (!existing || snapshot.checkedAt > existing.checkedAt) {
-          latestByWindowType.set(snapshot.windowType, snapshot);
+          latestByWindowType.set(key, snapshot);
         }
       }
 

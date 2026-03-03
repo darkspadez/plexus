@@ -20,6 +20,91 @@ import { OAuthAuthManager } from '../../services/oauth-auth-manager';
 import { unifiedToContext, piAiMessageToUnified, piAiEventToChunk } from './type-mappers';
 import { logger } from '../../utils/logger';
 
+/**
+ * Returns the pi-ai request options needed to enable thinking/reasoning for a given
+ * model API and effort level.  Each pi-ai stream implementation uses different field
+ * names:
+ *
+ * - anthropic-messages  → thinkingEnabled + (effort | thinkingBudgetTokens)
+ * - openai-responses /
+ *   openai-codex-responses → reasoningEffort
+ * - google-gemini-cli Gemini 3   → thinking.level
+ * - everything else (Gemini 2.x) → thinking.budgetTokens
+ *
+ * `reasoning` is always included for streamSimple* compatibility.
+ */
+function buildThinkingOptions(
+  modelApi: string | undefined,
+  modelId: string | undefined,
+  effort: string,
+  maxTokens?: number,
+  summary?: string,
+  textVerbosity?: string
+): Record<string, any> {
+  const BUDGET: Record<string, number> = {
+    minimal: 1024,
+    low: 2048,
+    medium: 8192,
+    high: 16384,
+  };
+
+  // streamSimple compatibility — always included regardless of API type
+  const base: Record<string, any> = { reasoning: effort };
+
+  if (
+    modelApi === 'openai-responses' ||
+    modelApi === 'openai-codex-responses' ||
+    modelApi === 'openai-completions'
+  ) {
+    // streamOpenAIResponses / streamOpenAICodexResponses / streamOpenAICompletions
+    // all check `options.reasoningEffort` when called via stream()
+    base.reasoningEffort = effort;
+    if (summary) base.reasoningSummary = summary;
+    if (textVerbosity) base.textVerbosity = textVerbosity;
+    return base;
+  }
+
+  if (modelApi === 'anthropic-messages') {
+    // streamAnthropic checks `options.thinkingEnabled` (boolean) plus either
+    // `options.effort` (adaptive models) or `options.thinkingBudgetTokens` (older models)
+    const isAdaptive =
+      modelId?.includes('opus-4-6') ||
+      modelId?.includes('opus-4.6') ||
+      modelId?.includes('sonnet-4-6') ||
+      modelId?.includes('sonnet-4.6');
+
+    base.thinkingEnabled = true;
+    if (isAdaptive) {
+      const effortMap: Record<string, string> = {
+        minimal: 'low',
+        low: 'low',
+        medium: 'medium',
+        high: 'high',
+        xhigh: modelId?.includes('opus-4-6') || modelId?.includes('opus-4.6') ? 'max' : 'high',
+      };
+      base.effort = effortMap[effort] ?? 'high';
+    } else {
+      base.thinkingBudgetTokens = maxTokens ?? BUDGET[effort] ?? 16384;
+    }
+    return base;
+  }
+
+  // Gemini providers use `options.thinking` object
+  const isGemini3 = modelId?.includes('3-pro') || modelId?.includes('3-flash');
+  if (isGemini3) {
+    const levelMap: Record<string, string> = {
+      minimal: 'MINIMAL',
+      low: 'LOW',
+      medium: 'MEDIUM',
+      high: 'HIGH',
+    };
+    base.thinking = { enabled: true, level: levelMap[effort] ?? 'HIGH' };
+  } else {
+    base.thinking = { enabled: true, budgetTokens: maxTokens ?? BUDGET[effort] ?? 16384 };
+  }
+  return base;
+}
+
 function streamFromAsyncIterable<T>(iterable: AsyncIterable<T>): ReadableStream<T> {
   const iterator = iterable[Symbol.asyncIterator]();
   let closed = false;
@@ -105,21 +190,56 @@ export class OAuthTransformer implements Transformer {
   }
 
   async transformRequest(request: UnifiedChatRequest): Promise<any> {
-    const context = unifiedToContext(request);
+    const oauthProvider = (request.metadata as any)?.plexus_metadata?.oauthProvider;
+
+    // Resolve the pi-ai model's `api` field so that replayed assistant messages
+    // carry the correct api value.  pi-ai's transformMessages checks provider+api+model
+    // and strips thoughtSignatures when any field doesn't match.
+    let modelApi: string | undefined;
+    let modelSupportsReasoning = false;
+    if (oauthProvider && request.model) {
+      try {
+        const piModel = this.getPiAiModel(oauthProvider as any, request.model);
+        modelApi = piModel.api;
+        modelSupportsReasoning = !!(piModel as any).reasoning;
+      } catch {
+        // Model lookup can fail for unknown providers/models; fall back gracefully
+      }
+    }
+
+    const context = unifiedToContext(request, oauthProvider, request.model, modelApi);
     const options: Record<string, any> = {};
-    const clientHeaders = request.metadata?.clientHeaders;
+    const clientHeaders = (request.metadata as any)?.plexus_metadata?.clientHeaders;
     if (clientHeaders && typeof clientHeaders === 'object') {
       options.clientHeaders = clientHeaders;
     }
 
-    if (request.reasoning?.effort) {
-      options.reasoningEffort = request.reasoning.effort;
+    // Determine the desired thinking effort level
+    let thinkingEffort: string | undefined;
+    if (request.reasoning?.enabled || request.reasoning?.effort) {
+      thinkingEffort = request.reasoning.effort ?? 'high';
+    } else if (modelSupportsReasoning) {
+      // Client didn't request reasoning (e.g. Copilot doesn't send thinking params),
+      // but the model supports it — enable it at high effort by default so the model
+      // reasons correctly and produces schema-compliant tool call arguments.
+      logger.debug(
+        `${this.name}: Model supports reasoning but client did not request it; defaulting to 'high'`
+      );
+      thinkingEffort = 'high';
     }
-    if (request.reasoning?.summary) {
-      options.reasoningSummary = request.reasoning.summary;
-    }
-    if (request.text?.verbosity) {
-      options.textVerbosity = request.text.verbosity;
+
+    if (thinkingEffort) {
+      Object.assign(
+        options,
+        buildThinkingOptions(
+          modelApi,
+          request.model,
+          thinkingEffort,
+          request.reasoning?.max_tokens,
+          request.reasoning?.summary,
+          request.text?.verbosity
+        )
+      );
     }
     if (request.prompt_cache_key) {
       options.sessionId = request.prompt_cache_key;
@@ -183,7 +303,9 @@ export class OAuthTransformer implements Transformer {
       for await (const event of source) {
         const provider =
           event.partial?.provider || event.message?.provider || event.error?.provider;
-        const chunk = piAiEventToChunk(event, event.partial?.model || 'unknown', provider);
+        const eventModel =
+          event.partial?.model || event.message?.model || event.error?.model || 'unknown';
+        const chunk = piAiEventToChunk(event, eventModel, provider);
         if (chunk) {
           yield chunk;
         }
@@ -238,7 +360,20 @@ export class OAuthTransformer implements Transformer {
   ): Promise<any> {
     const authManager = OAuthAuthManager.getInstance();
     const apiKey = await authManager.getApiKey(provider, accountId);
-    const model = this.getPiAiModel(provider, modelId);
+    const model = { ...this.getPiAiModel(provider, modelId) };
+
+    // GitHub Copilot Business account fix:
+    // pi-ai extracts proxy-ep from the token and incorrectly derives api.business.githubcopilot.com
+    // as the baseUrl. This endpoint only supports NES/autocomplete. Chat/Claude models must
+    // use the standard api.githubcopilot.com endpoint.
+    if (
+      provider === 'github-copilot' &&
+      apiKey.includes('proxy-ep=proxy.business.githubcopilot.com')
+    ) {
+      logger.debug(`${this.name}: GitHub Business account detected; forcing standard API endpoint`);
+      model.baseUrl = 'https://api.githubcopilot.com';
+    }
+
     const rawOptions = { ...(options ?? {}) };
     const clientHeaders = rawOptions.clientHeaders as Record<string, unknown> | undefined;
     delete rawOptions.clientHeaders;
@@ -321,6 +456,12 @@ export class OAuthTransformer implements Transformer {
         strippedParameters,
       });
     }
+
+    // Log the actual HTTP payload pi-ai sends so we can verify tool schemas
+    requestOptions.onPayload = (payload: any) => {
+      const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      logger.info(`${this.name}: FULL-OUTGOING-PAYLOAD ${payloadStr}`);
+    };
 
     logger.info(
       `${this.name}: Executing ${streaming ? 'streaming' : 'complete'} request { model: "${model.id}", provider: "${provider}", accountId: "${accountId}" }`

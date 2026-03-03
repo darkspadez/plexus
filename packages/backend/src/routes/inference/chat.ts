@@ -35,6 +35,9 @@ export async function registerChatRoute(
       responseStatus: 'pending',
     };
 
+    // Emit 'started' event immediately - this allows frontend to show in-flight requests
+    usageStorage.emitStarted(usageRecord);
+
     try {
       const body = request.body as any;
       usageRecord.incomingModelAlias = body.model;
@@ -42,6 +45,14 @@ export async function registerChatRoute(
       usageRecord.apiKey = (request as any).keyName;
       // Capture attribution if provided in the API key
       usageRecord.attribution = (request as any).attribution || null;
+
+      // Emit 'updated' event with parsed request details
+      usageStorage.emitUpdated({
+        requestId,
+        incomingModelAlias: body.model,
+        apiKey: (request as any).keyName,
+        attribution: (request as any).attribution || null,
+      });
 
       logger.silly('Incoming OpenAI Request', body);
       const transformer = new OpenAITransformer();
@@ -55,8 +66,11 @@ export async function registerChatRoute(
       if (typeof xAppHeader === 'string' && xAppHeader.trim()) {
         unifiedRequest.metadata = {
           ...(unifiedRequest.metadata || {}),
-          clientHeaders: {
-            'x-app': xAppHeader,
+          plexus_metadata: {
+            ...((unifiedRequest.metadata as any)?.plexus_metadata || {}),
+            clientHeaders: {
+              'x-app': xAppHeader,
+            },
           },
         };
       }
@@ -70,6 +84,14 @@ export async function registerChatRoute(
       }
 
       const unifiedResponse = await dispatcher.dispatch(unifiedRequest);
+
+      // Emit 'updated' event with routing decision details
+      usageStorage.emitUpdated({
+        requestId,
+        provider: unifiedResponse.plexus?.provider,
+        selectedModelName: unifiedResponse.plexus?.model,
+        canonicalModelName: unifiedResponse.plexus?.canonicalModel,
+      });
 
       // Determine if token estimation is needed
       const shouldEstimateTokens = unifiedResponse.plexus?.config?.estimateTokens || false;
@@ -110,6 +132,8 @@ export async function registerChatRoute(
       };
 
       usageStorage.saveError(requestId, e, errorDetails);
+
+      DebugManager.getInstance().flush(requestId);
 
       logger.error('Error processing OpenAI request', e);
       const statusCode = e.routingContext?.statusCode || 500;

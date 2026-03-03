@@ -43,6 +43,7 @@ const getCheckerCategory = (quota: QuotaCheckerInfo): string => {
   if (id.includes('naga')) return 'naga';
   if (id.includes('kimi-code') || id.includes('kimi')) return 'kimi';
   if (id.includes('copilot')) return 'copilot';
+  if (id.includes('gemini-cli') || id.includes('gemini')) return 'gemini-cli';
   return 'default';
 };
 
@@ -58,6 +59,7 @@ const getTypeDisplayName = (category: string): string => {
     'minimax-coding': 'MiniMax Coding',
     kimi: 'Kimi',
     copilot: 'Copilot',
+    'gemini-cli': 'Gemini CLI',
   };
   return names[category] || toTitleCase(category);
 };
@@ -83,6 +85,7 @@ const formatCheckerDisplayName = (quota: QuotaCheckerInfo): string => {
     'zai-',
     'nano-',
     'naga-',
+    'gemini-',
   ];
   for (const prefix of prefixes) {
     if (displayPart.toLowerCase().startsWith(prefix)) {
@@ -125,6 +128,8 @@ const getCheckerIcon = (category: string) => {
       return <Sparkles className={iconClass} />;
     case 'copilot':
       return <Github className={iconClass} />;
+    case 'gemini-cli':
+      return <Sparkles className={iconClass} />;
     default:
       return <Bot className={iconClass} />;
   }
@@ -154,6 +159,8 @@ const getTrackedWindowsForChecker = (category: string, windows: any[]): string[]
       return ['custom', 'five_hour'].filter((t) => availableTypes.has(t));
     case 'copilot':
       return ['monthly'].filter((t) => availableTypes.has(t));
+    case 'gemini-cli':
+      return ['five_hour'].filter((t) => availableTypes.has(t));
     default:
       return Array.from(availableTypes)
         .filter((t) => t !== 'subscription')

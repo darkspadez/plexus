@@ -34,6 +34,9 @@ export async function registerGeminiRoute(
       responseStatus: 'pending',
     };
 
+    // Emit 'started' event immediately - this allows frontend to show in-flight requests
+    usageStorage.emitStarted(usageRecord);
+
     try {
       const body = request.body as any;
       const params = request.params as any;
@@ -47,6 +50,14 @@ export async function registerGeminiRoute(
       // Capture attribution if provided in the API key
       usageRecord.attribution = (request as any).attribution || null;
 
+      // Emit 'updated' event with parsed request details
+      usageStorage.emitUpdated({
+        requestId,
+        incomingModelAlias: modelName,
+        apiKey: (request as any).keyName,
+        attribution: (request as any).attribution || null,
+      });
+
       logger.silly('Incoming Gemini Request', body);
       const transformer = new GeminiTransformer();
       const unifiedRequest = await transformer.parseRequest({ ...body, model: modelName });
@@ -59,8 +70,11 @@ export async function registerGeminiRoute(
       if (typeof xAppHeader === 'string' && xAppHeader.trim()) {
         unifiedRequest.metadata = {
           ...(unifiedRequest.metadata || {}),
-          clientHeaders: {
-            'x-app': xAppHeader,
+          plexus_metadata: {
+            ...((unifiedRequest.metadata as any)?.plexus_metadata || {}),
+            clientHeaders: {
+              'x-app': xAppHeader,
+            },
           },
         };
       }
@@ -78,6 +92,14 @@ export async function registerGeminiRoute(
       }
 
       const unifiedResponse = await dispatcher.dispatch(unifiedRequest);
+
+      // Emit 'updated' event with routing decision details
+      usageStorage.emitUpdated({
+        requestId,
+        provider: unifiedResponse.plexus?.provider,
+        selectedModelName: unifiedResponse.plexus?.model,
+        canonicalModelName: unifiedResponse.plexus?.canonicalModel,
+      });
 
       // Determine if token estimation is needed
       const shouldEstimateTokens = unifiedResponse.plexus?.config?.estimateTokens || false;
@@ -119,6 +141,8 @@ export async function registerGeminiRoute(
       };
 
       usageStorage.saveError(requestId, e, errorDetails);
+
+      DebugManager.getInstance().flush(requestId);
 
       logger.error('Error processing Gemini request', e);
       const statusCode = e.routingContext?.statusCode || 500;

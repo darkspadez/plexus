@@ -45,6 +45,9 @@ import {
   ShieldCheck,
   RotateCcw,
   PencilLine,
+  Plane,
+  Eye,
+  ScanSearch,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNavigate } from 'react-router-dom';
@@ -193,20 +196,21 @@ export const Logs = () => {
           for (const block of lines) {
             const blockLines = block.split('\n');
             let eventData = '';
-            let isLogEvent = false;
+            let eventType = '';
 
             for (const line of blockLines) {
-              if (line.startsWith('event: log')) {
-                isLogEvent = true;
-              } else if (line.startsWith('event: ping')) {
-                // Ignore ping events
-                isLogEvent = false;
+              if (line.startsWith('event: ')) {
+                eventType = line.slice(7);
               } else if (line.startsWith('data: ')) {
                 eventData = line.slice(6);
               }
             }
 
-            if (isLogEvent && eventData) {
+            // Handle different event types: started, updated, completed
+            if (
+              (eventType === 'started' || eventType === 'updated' || eventType === 'completed') &&
+              eventData
+            ) {
               try {
                 const newLog = JSON.parse(eventData);
                 const currentFilters = filtersRef.current;
@@ -230,7 +234,14 @@ export const Logs = () => {
 
                 if (matches) {
                   setLogs((prev) => {
-                    if (prev.some((l) => l.requestId === newLog.requestId)) return prev;
+                    const existingIndex = prev.findIndex((l) => l.requestId === newLog.requestId);
+                    if (existingIndex >= 0) {
+                      // Merge update into existing record (supports progressive updates)
+                      const updated = [...prev];
+                      updated[existingIndex] = { ...updated[existingIndex], ...newLog };
+                      return updated;
+                    }
+                    // New record - add to the top
                     const updated = [newLog, ...prev];
                     if (updated.length > limit) return updated.slice(0, limit);
                     return updated;
@@ -266,6 +277,20 @@ export const Logs = () => {
 
   const totalPages = Math.ceil(total / limit);
   const currentPage = Math.floor(offset / limit) + 1;
+
+  const formatDateSafely = (dateStr: string | undefined | null) => {
+    if (!dateStr) return { time: '-', date: '-' };
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return { time: 'Invalid', date: 'Date' };
+      return {
+        time: d.toLocaleTimeString(),
+        date: d.toISOString().split('T')[0],
+      };
+    } catch (e) {
+      return { time: 'Error', date: 'Date' };
+    }
+  };
 
   return (
     <div className="min-h-screen p-6 transition-all duration-300 bg-linear-to-br from-bg-deep to-bg-surface">
@@ -394,23 +419,33 @@ export const Logs = () => {
                     key={log.requestId}
                     className={clsx(
                       'group border-b border-border-glass hover:bg-bg-hover',
-                      log.requestId === newestLogId && 'animate-pulse-fade'
+                      log.requestId === newestLogId && 'animate-slide-in'
                     )}
+                    style={{
+                      height: '86px',
+                      backgroundColor:
+                        log.responseStatus === 'pending' ? 'rgba(234, 179, 8, 0.08)' : undefined,
+                    }}
                   >
                     <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle whitespace-nowrap">
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontWeight: '500' }}>
-                          {new Date(log.date).toLocaleTimeString()}
-                        </span>
-                        <span
-                          style={{
-                            color: 'var(--color-text-secondary)',
-                            fontSize: '0.85em',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {new Date(log.date).toISOString().split('T')[0]}
-                        </span>
+                        {(() => {
+                          const formatted = formatDateSafely(log.date);
+                          return (
+                            <>
+                              <span style={{ fontWeight: '500' }}>{formatted.time}</span>
+                              <span
+                                style={{
+                                  color: 'var(--color-text-secondary)',
+                                  fontSize: '0.85em',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {formatted.date}
+                              </span>
+                            </>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle">
@@ -506,6 +541,38 @@ export const Logs = () => {
                             )}
                           </div>
                         </div>
+
+                        {/* Vision Fallthrough icons */}
+                        {(log.isVisionFallthrough || log.isDescriptorRequest) && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '2px',
+                              marginTop: '2px',
+                            }}
+                          >
+                            <div
+                              style={{ width: '16px', display: 'flex', justifyContent: 'center' }}
+                            >
+                              {log.isVisionFallthrough && (
+                                <div title="Vision Fallthrough (Images converted to text)">
+                                  <ScanSearch size={12} className="text-amber-500" />
+                                </div>
+                              )}
+                            </div>
+                            <span style={{ width: '14px' }}></span>
+                            <div
+                              style={{ width: '16px', display: 'flex', justifyContent: 'center' }}
+                            >
+                              {log.isDescriptorRequest && (
+                                <div title="Descriptor Request (Generated image description)">
+                                  <Eye size={12} className="text-blue-500" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle whitespace-nowrap">
@@ -874,13 +941,19 @@ export const Logs = () => {
                               'inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-xl text-xs font-medium border',
                               log.responseStatus === 'success'
                                 ? 'text-success border-success/30 bg-emerald-500/15'
-                                : 'text-danger border-danger/30 bg-red-500/15'
+                                : log.responseStatus === 'pending'
+                                  ? 'text-warning border-warning/30 bg-yellow-500/15'
+                                  : 'text-danger border-danger/30 bg-red-500/15'
                             )}
                             style={{ width: '52px' }}
                           >
-                            <span style={{ fontWeight: 600 }}>
-                              {log.responseStatus === 'success' ? '✓' : '✗'}
-                            </span>
+                            {log.responseStatus === 'success' ? (
+                              <span style={{ fontWeight: 600 }}>✓</span>
+                            ) : log.responseStatus === 'pending' ? (
+                              <Plane size={12} className="animate-pulse" />
+                            ) : (
+                              <span style={{ fontWeight: 600 }}>✗</span>
+                            )}
                           </div>
                         )}
                       </div>

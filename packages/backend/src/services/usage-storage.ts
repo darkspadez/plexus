@@ -73,6 +73,19 @@ export class UsageStorageService extends EventEmitter {
             : 0
           : record.parallelToolCallsEnabled;
 
+      const isVisionFallthroughValue =
+        typeof record.isVisionFallthrough === 'boolean'
+          ? record.isVisionFallthrough
+            ? 1
+            : 0
+          : record.isVisionFallthrough;
+      const isDescriptorRequestValue =
+        typeof record.isDescriptorRequest === 'boolean'
+          ? record.isDescriptorRequest
+            ? 1
+            : 0
+          : record.isDescriptorRequest;
+
       await this.ensureDb()
         .insert(this.schema.requestUsage)
         .values({
@@ -80,14 +93,40 @@ export class UsageStorageService extends EventEmitter {
           isStreamed: isStreamedValue,
           isPassthrough: isPassthroughValue,
           parallelToolCallsEnabled: parallelToolCallsValue,
+          isVisionFallthrough: isVisionFallthroughValue,
+          isDescriptorRequest: isDescriptorRequestValue,
           createdAt: record.createdAt || Date.now(),
         });
 
       logger.debug(`Usage record saved for request ${record.requestId}`);
+      // Emit both 'created' and 'completed' for backward compatibility
       this.emit('created', record);
+      this.emit('completed', record);
     } catch (error) {
       logger.error('Failed to save usage record', error);
     }
+  }
+
+  /**
+   * Emit a 'started' event when a request arrives.
+   * This allows the frontend to show in-flight requests immediately.
+   * No database write is performed - only emits an event.
+   */
+  emitStarted(record: Partial<UsageRecord>): void {
+    const eventData = {
+      ...record,
+      responseStatus: 'pending',
+    };
+    this.emit('started', eventData);
+  }
+
+  /**
+   * Emit an 'updated' event with partial data as more information becomes available.
+   * This allows the frontend to progressively fill in log details.
+   * No database write is performed - only emits an event.
+   */
+  emitUpdated(record: Partial<UsageRecord>): void {
+    this.emit('updated', record);
   }
 
   async saveDebugLog(record: DebugLogRecord) {
@@ -562,8 +601,23 @@ export class UsageStorageService extends EventEmitter {
     provider: string,
     model: string,
     canonicalModelName: string | null,
-    requestId: string
+    requestId: string,
+    metadata?: { isVisionFallthrough?: boolean; isDescriptorRequest?: boolean }
   ) {
+    if (metadata) {
+      try {
+        await this.ensureDb()
+          .update(this.schema.requestUsage)
+          .set({
+            isVisionFallthrough: metadata.isVisionFallthrough ? 1 : 0,
+            isDescriptorRequest: metadata.isDescriptorRequest ? 1 : 0,
+          })
+          .where(eq(this.schema.requestUsage.requestId, requestId));
+      } catch (error) {
+        logger.error('Failed to update vision fallthrough metadata', error);
+      }
+    }
+
     await this.updatePerformanceMetrics(
       provider,
       model,
@@ -573,6 +627,39 @@ export class UsageStorageService extends EventEmitter {
       0,
       requestId,
       true
+    );
+  }
+
+  async recordFailedAttempt(
+    provider: string,
+    model: string,
+    canonicalModelName: string | null,
+    requestId: string,
+    metadata?: { isVisionFallthrough?: boolean; isDescriptorRequest?: boolean }
+  ) {
+    if (metadata) {
+      try {
+        await this.ensureDb()
+          .update(this.schema.requestUsage)
+          .set({
+            isVisionFallthrough: metadata.isVisionFallthrough ? 1 : 0,
+            isDescriptorRequest: metadata.isDescriptorRequest ? 1 : 0,
+          })
+          .where(eq(this.schema.requestUsage.requestId, requestId));
+      } catch (error) {
+        logger.error('Failed to update vision fallthrough metadata for failed attempt', error);
+      }
+    }
+
+    await this.updatePerformanceMetrics(
+      provider,
+      model,
+      canonicalModelName,
+      null,
+      null,
+      0,
+      requestId,
+      false
     );
   }
 

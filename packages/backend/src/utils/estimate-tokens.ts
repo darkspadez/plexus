@@ -102,6 +102,20 @@ export function estimateInputTokens(originalBody: any, apiType: string): number 
           textToEstimate += JSON.stringify(originalBody.systemInstruction);
         }
         break;
+
+      case 'responses':
+        // OpenAI Responses format: input can be a string or typed items array
+        if (Array.isArray(originalBody.input)) {
+          textToEstimate = JSON.stringify(originalBody.input);
+        } else if (typeof originalBody.input === 'string') {
+          textToEstimate = originalBody.input;
+        } else if (originalBody.input) {
+          textToEstimate = JSON.stringify(originalBody.input);
+        }
+        if (originalBody.instructions) {
+          textToEstimate += JSON.stringify(originalBody.instructions);
+        }
+        break;
     }
 
     return estimateTokens(textToEstimate);

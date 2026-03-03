@@ -6,6 +6,7 @@ import { transformGeminiResponse } from './response-transformer';
 import { formatGeminiResponse } from './response-formatter';
 import { transformGeminiStream } from './stream-transformer';
 import { formatGeminiStream } from './stream-formatter';
+import { normalizeGeminiUsage } from '../../utils/usage-normalizer';
 
 /**
  * GeminiTransformer
@@ -80,11 +81,13 @@ export class GeminiTransformer implements Transformer {
 
       // Gemini sends usage in usageMetadata
       if (data.usageMetadata) {
+        const usage = normalizeGeminiUsage(data.usageMetadata);
+
         return {
-          input_tokens: data.usageMetadata.promptTokenCount || 0,
-          output_tokens: data.usageMetadata.candidatesTokenCount || 0,
-          cached_tokens: data.usageMetadata.cachedContentTokenCount || 0,
-          reasoning_tokens: data.usageMetadata.thoughtsTokenCount || 0,
+          input_tokens: usage.input_tokens,
+          output_tokens: usage.output_tokens,
+          cached_tokens: usage.cached_tokens,
+          reasoning_tokens: usage.reasoning_tokens,
         };
       }
     } catch (e) {
