@@ -59,8 +59,8 @@ describe('Embeddings Endpoint', () => {
       saveRequest: mock(),
       saveError: mock(),
       updatePerformanceMetrics: mock(),
-      emitStarted: mock(),
-      emitUpdated: mock(),
+      emitStartedAsync: mock(),
+      emitUpdatedAsync: mock(),
     } as unknown as UsageStorageService;
 
     // Initialize singletons

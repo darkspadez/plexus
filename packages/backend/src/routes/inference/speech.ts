@@ -52,7 +52,7 @@ export async function registerSpeechRoute(
     };
 
     // Emit 'started' event immediately - this allows frontend to show in-flight requests
-    usageStorage.emitStarted(usageRecord);
+    usageStorage.emitStartedAsync(usageRecord);
 
     try {
       const body = request.body as any;
@@ -62,7 +62,7 @@ export async function registerSpeechRoute(
       usageRecord.attribution = (request as any).attribution || null;
 
       // Emit 'updated' event with parsed request details
-      usageStorage.emitUpdated({
+      usageStorage.emitUpdatedAsync({
         requestId,
         incomingModelAlias: body.model,
         apiKey: (request as any).keyName,
@@ -99,7 +99,7 @@ export async function registerSpeechRoute(
       const unifiedResponse = await dispatcher.dispatchSpeech(unifiedRequest);
 
       // Emit 'updated' event with routing decision details
-      usageStorage.emitUpdated({
+      usageStorage.emitUpdatedAsync({
         requestId,
         provider: unifiedResponse.plexus?.provider,
         selectedModelName: unifiedResponse.plexus?.model,
@@ -111,6 +111,7 @@ export async function registerSpeechRoute(
       usageRecord.canonicalModelName = unifiedResponse.plexus?.canonicalModel;
       usageRecord.outgoingApiType = unifiedResponse.plexus?.apiType;
       usageRecord.isPassthrough = true;
+      usageRecord.isStreamed = !!unifiedResponse.stream;
       usageRecord.durationMs = Date.now() - startTime;
       usageRecord.responseStatus = 'success';
 
@@ -118,7 +119,7 @@ export async function registerSpeechRoute(
       const providerDiscount = unifiedResponse.plexus?.providerDiscount;
       calculateCosts(usageRecord, pricing, providerDiscount);
 
-      await usageStorage.saveRequest(usageRecord as UsageRecord);
+      usageStorage.saveRequest(usageRecord as UsageRecord);
 
       DebugManager.getInstance().addTransformedResponse(requestId, {
         size: unifiedResponse.audio?.length || 0,

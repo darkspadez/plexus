@@ -81,8 +81,8 @@ describe('Transcriptions Debug Logging', () => {
       saveRequest: mock(),
       saveError: mock(),
       updatePerformanceMetrics: mock(),
-      emitStarted: mock(),
-      emitUpdated: mock(),
+      emitStartedAsync: mock(),
+      emitUpdatedAsync: mock(),
       saveDebugLog: mock((log: any) => {
         savedDebugLogs.push(log);
       }),

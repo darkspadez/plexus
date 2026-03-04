@@ -5,7 +5,6 @@ import { registerInferenceRoutes } from '../index';
 import { Dispatcher } from '../../../services/dispatcher';
 import { UsageStorageService } from '../../../services/usage-storage';
 import { mock } from 'bun:test';
-import { CooldownManager } from '../../../services/cooldown-manager';
 import { DebugManager } from '../../../services/debug-manager';
 import { SelectorFactory } from '../../../services/selectors/factory';
 
@@ -31,8 +30,8 @@ describe('Auth Middleware', () => {
       saveRequest: mock(),
       saveError: mock(),
       updatePerformanceMetrics: mock(),
-      emitStarted: mock(),
-      emitUpdated: mock(),
+      emitStartedAsync: mock(),
+      emitUpdatedAsync: mock(),
     } as unknown as UsageStorageService;
     // Initialize singletons to avoid errors
     DebugManager.getInstance().setStorage(mockUsageStorage);
@@ -209,8 +208,8 @@ describe('Key Attribution', () => {
       saveRequest: mock(),
       saveError: mock(),
       updatePerformanceMetrics: mock(),
-      emitStarted: mock(),
-      emitUpdated: mock(),
+      emitStartedAsync: mock(),
+      emitUpdatedAsync: mock(),
     } as unknown as UsageStorageService;
 
     // Initialize singletons

@@ -19,14 +19,16 @@ describe('DebugLoggingInspector Reconstruction', () => {
     const jsonResponse = {
       id: 'chatcmpl-123',
       object: 'chat.completion',
-      choices: [{ message: { content: 'hello', tool_calls: [{}, {}] }, finish_reason: 'tool_calls' }],
+      choices: [
+        { message: { content: 'hello', tool_calls: [{}, {}] }, finish_reason: 'tool_calls' },
+      ],
     };
 
     stream.write(Buffer.from(JSON.stringify(jsonResponse)));
     stream.end();
 
     // Small delay for the 'finish' event to process
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     const dm = DebugManager.getInstance();
     const snapshot = dm.getReconstructedRawResponse(requestId);
@@ -42,14 +44,17 @@ describe('DebugLoggingInspector Reconstruction', () => {
     const jsonResponse = {
       id: 'msg_123',
       role: 'assistant',
-      content: [{ type: 'text', text: 'hi' }, { type: 'tool_use', id: 't1' }],
+      content: [
+        { type: 'text', text: 'hi' },
+        { type: 'tool_use', id: 't1' },
+      ],
       stop_reason: 'tool_use',
     };
 
     stream.write(Buffer.from(JSON.stringify(jsonResponse)));
     stream.end();
 
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     const dm = DebugManager.getInstance();
     const snapshot = dm.getReconstructedRawResponse(requestId);
@@ -67,14 +72,14 @@ describe('DebugLoggingInspector Reconstruction', () => {
         {
           content: { parts: [{ text: 'thinking' }, { functionCall: { name: 'fn' } }] },
           finishReason: 'STOP',
-        }
+        },
       ],
     };
 
     stream.write(Buffer.from(JSON.stringify(jsonResponse)));
     stream.end();
 
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     const dm = DebugManager.getInstance();
     const snapshot = dm.getReconstructedRawResponse(requestId);

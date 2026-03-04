@@ -123,15 +123,13 @@ export interface TodayMetrics {
 }
 
 /**
- * Represents a single data point in the concurrency time series.
+ * Represents one concurrency point returned by the backend.
  *
- * Each entry describes how many requests were active (in-flight) for a specific
- * provider and model during a 1-minute time bucket. The backend computes this by
- * grouping request records whose startTime falls within the same 60-second window,
- * then counting them per provider+model combination.
+ * Semantics depend on query mode:
+ * - mode='timeline': count is bucketed per provider+model in 1-minute buckets.
+ * - mode='live': count is a current in-flight snapshot per provider+model.
  *
- * Used by the "Concurrency" card on the Live Metrics dashboard to render
- * time-series charts showing request volume per provider over time.
+ * Used by the Live Metrics concurrency card and usage analytics views.
  */
 export interface ConcurrencyData {
   /** The LLM provider name, e.g., "anthropic", "openai", "google" */
@@ -2474,11 +2472,11 @@ export const api = {
   },
 
   /**
-   * Fetches concurrency data from the backend for the Live Metrics dashboard.
+   * Fetches concurrency data from the backend.
    *
-   * Calls GET /v0/management/concurrency with an optional timeRange query parameter.
-   * The backend returns request counts grouped by provider, model, and 1-minute time
-   * buckets, which the frontend uses to render concurrency charts.
+   * Calls GET /v0/management/concurrency with mode and timeRange query parameters.
+   * - mode='live': returns current in-flight snapshots.
+   * - mode='timeline': returns 1-minute bucketed historical counts.
    *
    * On failure, logs the error and returns an empty array so the UI degrades
    * gracefully (shows an empty chart rather than crashing).
@@ -2487,11 +2485,12 @@ export const api = {
    * @returns Array of {@link ConcurrencyData} entries, or an empty array on error
    */
   getConcurrencyData: async (
-    timeRange: 'hour' | 'day' | 'week' | 'month' = 'hour'
+    timeRange: 'hour' | 'day' | 'week' | 'month' = 'hour',
+    mode: 'live' | 'timeline' = 'live'
   ): Promise<ConcurrencyData[]> => {
     try {
       const res = await fetchWithAuth(
-        `${API_BASE}/v0/management/concurrency?timeRange=${timeRange}`
+        `${API_BASE}/v0/management/concurrency?timeRange=${timeRange}&mode=${mode}`
       );
       if (!res.ok) throw new Error('Failed to fetch concurrency data');
       const data = (await res.json()) as { data: ConcurrencyData[] };
