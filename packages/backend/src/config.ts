@@ -1,9 +1,6 @@
 import { z } from 'zod';
-import fs from 'fs';
 import yaml from 'yaml';
-import path from 'path';
 import { logger } from './utils/logger';
-import { QuotaScheduler } from './services/quota/quota-scheduler';
 import { DEFAULT_VISION_DESCRIPTION_PROMPT } from './utils/constants';
 
 // --- Zod Schemas ---
@@ -498,10 +495,6 @@ export function getProviderTypes(provider: ProviderConfig): string[] {
   }
 }
 
-export function getAuthJsonPath(): string {
-  return process.env.AUTH_JSON || './auth.json';
-}
-
 function isValidUrlOrOAuth(value: string): boolean {
   if (value.startsWith('oauth://')) return true;
   try {
@@ -524,74 +517,6 @@ function isOAuthProviderConfig(provider: {
 // --- Loader ---
 
 let currentConfig: PlexusConfig | null = null;
-let currentConfigPath: string | null = null;
-let configWatcher: fs.FSWatcher | null = null;
-
-function logConfigStats(config: PlexusConfig) {
-  const providerCount = Object.keys(config.providers).length;
-  logger.info(`Loaded ${providerCount} Providers:`);
-  Object.entries(config.providers).forEach(([name, provider]) => {
-    let modelCount = 0;
-    if (Array.isArray(provider.models)) {
-      modelCount = provider.models.length;
-    } else if (provider.models) {
-      modelCount = Object.keys(provider.models).length;
-    }
-    logger.info(`  - ${name}: ${modelCount} models`);
-  });
-
-  const aliasCount = Object.keys(config.models).length;
-  logger.info(`Loaded ${aliasCount} Model Aliases:`);
-  Object.entries(config.models).forEach(([name, alias]) => {
-    const targetCount = alias.targets.length;
-    let msg = `  - ${name}: ${targetCount} targets`;
-    if (alias.additional_aliases && alias.additional_aliases.length > 0) {
-      msg += ` (aliases: ${alias.additional_aliases.join(', ')})`;
-    }
-    logger.info(msg);
-  });
-
-  if (config.keys) {
-    const keyCount = Object.keys(config.keys).length;
-    logger.info(`Loaded ${keyCount} API Keys:`);
-    Object.keys(config.keys).forEach((keyName) => {
-      logger.info(`  - ${keyName}`);
-    });
-  }
-
-  if (config.quotas && Array.isArray(config.quotas) && config.quotas.length > 0) {
-    logger.warn(
-      `DEPRECATED: Top-level 'quotas' array is no longer supported. Quota checkers should now be configured per-provider under providers.<name>.quota_checker. The top-level 'quotas' entries will be ignored.`
-    );
-    config.quotas.forEach((quota) => {
-      logger.warn(`  - Ignoring: ${quota.id} (${quota.type})`);
-    });
-  }
-
-  if (config.user_quotas && Object.keys(config.user_quotas).length > 0) {
-    const userQuotaCount = Object.keys(config.user_quotas).length;
-    logger.info(`Loaded ${userQuotaCount} User Quota Definitions:`);
-    Object.entries(config.user_quotas).forEach(([name, quota]) => {
-      const quotaWithType = quota as {
-        type: string;
-        limitType: string;
-        limit: number;
-        duration?: string;
-      };
-      logger.info(
-        `  - ${name}: ${quotaWithType.type} ${quotaWithType.limitType} (limit: ${quotaWithType.limit}${quotaWithType.duration ? `, duration: ${quotaWithType.duration}` : ''})`
-      );
-    });
-  }
-
-  if (config.mcpServers && Object.keys(config.mcpServers).length > 0) {
-    const mcpCount = Object.keys(config.mcpServers).length;
-    logger.info(`Loaded ${mcpCount} MCP Servers:`);
-    Object.entries(config.mcpServers).forEach(([name, server]) => {
-      logger.info(`  - ${name}: ${server.upstream_url} (enabled: ${server.enabled ?? true})`);
-    });
-  }
-}
 
 export function validateConfig(yamlContent: string): PlexusConfig {
   const parsed = yaml.parse(yamlContent);
@@ -776,90 +701,6 @@ function buildProviderQuotaConfigs(config: z.infer<typeof RawPlexusConfigSchema>
   return quotas;
 }
 
-async function parseConfigFile(filePath: string): Promise<PlexusConfig> {
-  const file = Bun.file(filePath);
-  const fileContents = await file.text();
-  const parsed = yaml.parse(fileContents);
-  const { parsed: migratedParsed, migrated, migratedProviders } = migrateOAuthAccounts(parsed);
-
-  if (migrated) {
-    const migratedYaml = yaml.stringify(migratedParsed);
-    await Bun.write(filePath, migratedYaml);
-    logger.warn(
-      `Auto-migrated OAuth provider config with oauth_account='legacy' for: ${migratedProviders.join(', ')}`
-    );
-  }
-
-  const rawConfig = RawPlexusConfigSchema.parse(migratedParsed);
-  const finalConfig = hydrateConfig(rawConfig);
-  logConfigStats(finalConfig);
-  return finalConfig;
-}
-
-function setupWatcher(filePath: string) {
-  if (configWatcher) return;
-
-  logger.info(`Watching configuration file: ${filePath}`);
-  let debounceTimer: NodeJS.Timeout | null = null;
-
-  try {
-    configWatcher = fs.watch(filePath, (eventType) => {
-      if (eventType === 'change') {
-        if (debounceTimer) clearTimeout(debounceTimer);
-
-        debounceTimer = setTimeout(async () => {
-          logger.info('Configuration file changed, reloading...');
-          try {
-            const newConfig = await parseConfigFile(filePath);
-            currentConfig = newConfig;
-            await QuotaScheduler.getInstance().reload(newConfig.quotas);
-            logger.info('Configuration reloaded successfully');
-          } catch (error) {
-            logger.error('Failed to reload configuration', { error });
-            if (error instanceof z.ZodError) {
-              logger.error('Validation errors:', error.errors);
-            }
-          }
-        }, 100);
-      }
-    });
-  } catch (err) {
-    logger.error('Failed to setup config watcher', err);
-  }
-}
-
-export async function loadConfig(configPath?: string): Promise<PlexusConfig> {
-  if (currentConfig && !configPath) return currentConfig;
-
-  // Default path assumes running from packages/backend, but we want it relative to project root
-  const projectRoot = path.resolve(process.cwd(), '../../');
-  const defaultPath = path.resolve(projectRoot, 'config/plexus.yaml');
-  const finalPath = configPath || process.env.CONFIG_FILE || defaultPath;
-
-  logger.info(`Loading configuration from ${finalPath}`);
-
-  const file = Bun.file(finalPath);
-  if (!(await file.exists())) {
-    logger.error(`Configuration file not found at ${finalPath}`);
-    throw new Error(`Configuration file not found at ${finalPath}`);
-  }
-
-  try {
-    currentConfig = await parseConfigFile(finalPath);
-    currentConfigPath = finalPath;
-    logger.info('Configuration loaded successfully');
-
-    setupWatcher(finalPath);
-
-    return currentConfig;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      logger.error('Configuration validation failed', { errors: error.errors });
-    }
-    throw error;
-  }
-}
-
 export function getConfig(): PlexusConfig {
   // Try ConfigService first (database-backed config)
   try {
@@ -867,17 +708,13 @@ export function getConfig(): PlexusConfig {
     const instance = ConfigService.getInstance();
     return instance.getConfig();
   } catch {
-    // Fall back to file-based config
+    // Fall back to in-memory config (used by tests via setConfigForTesting)
   }
 
   if (!currentConfig) {
-    throw new Error('Configuration not loaded. Call loadConfig() or initialize ConfigService first.');
+    throw new Error('Configuration not loaded. Initialize ConfigService first.');
   }
   return currentConfig;
-}
-
-export function getConfigPath(): string | null {
-  return currentConfigPath;
 }
 
 export function setConfigForTesting(config: PlexusConfig) {

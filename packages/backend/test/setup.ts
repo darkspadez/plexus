@@ -81,7 +81,6 @@ for (const path of loggerPaths) {
 }
 
 // Initialize database for tests
-import { loadConfig } from '../src/config';
 import { initializeDatabase } from '../src/db/client';
 import { runMigrations } from '../src/db/migrate';
 

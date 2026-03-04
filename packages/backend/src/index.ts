@@ -5,7 +5,7 @@ import fastifyStatic from '@fastify/static';
 import path from 'path';
 import fs from 'fs';
 import { logger } from './utils/logger';
-import { loadConfig, getConfig, getAuthJsonPath } from './config';
+import { getConfig } from './config';
 import { ConfigService } from './services/config-service';
 import { Dispatcher } from './services/dispatcher';
 import { UsageStorageService } from './services/usage-storage';
@@ -107,7 +107,7 @@ try {
     }
 
     // Import from auth.json if it exists
-    const authJsonPath = getAuthJsonPath();
+    const authJsonPath = process.env.AUTH_JSON || './auth.json';
     if (fs.existsSync(authJsonPath)) {
       const authContent = fs.readFileSync(authJsonPath, 'utf-8');
       await configService.importFromAuthJson(authContent);

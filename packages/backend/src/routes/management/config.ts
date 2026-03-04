@@ -294,12 +294,4 @@ export async function registerConfigRoutes(fastify: FastifyInstance) {
     });
   });
 
-  // Support YAML and Plain Text payloads for management API
-  fastify.addContentTypeParser(
-    ['text/plain', 'application/x-yaml', 'text/yaml'],
-    { parseAs: 'string' },
-    (req, body, done) => {
-      done(null, body);
-    }
-  );
 }

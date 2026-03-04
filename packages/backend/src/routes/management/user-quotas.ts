@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { logger } from '../../utils/logger';
-import { getConfig, QuotaDefinition } from '../../config';
+import { QuotaDefinition } from '../../config';
 import { ConfigService } from '../../services/config-service';
 
 /**
