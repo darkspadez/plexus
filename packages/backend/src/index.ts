@@ -3,8 +3,10 @@ import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
+import fs from 'fs';
 import { logger } from './utils/logger';
-import { loadConfig, getConfig } from './config';
+import { loadConfig, getConfig, getAuthJsonPath } from './config';
+import { ConfigService } from './services/config-service';
 import { Dispatcher } from './services/dispatcher';
 import { UsageStorageService } from './services/usage-storage';
 import { CooldownManager } from './services/cooldown-manager';
@@ -73,9 +75,49 @@ if (process.env.DEBUG === 'true') {
   logger.info('Debug mode auto-enabled via DEBUG=true environment variable');
 }
 
-// Bootstrap configuration and pricing data
+// --- Database Initialization ---
+// Database must be initialized BEFORE config loading (config is now DB-backed)
 try {
-  await loadConfig();
+  initializeDatabase();
+  await runMigrations();
+} catch (e) {
+  logger.error('Failed to initialize database or run migrations', e);
+  process.exit(1);
+}
+
+// --- Configuration Initialization ---
+// Use ConfigService (database-backed) with auto-import from YAML on first launch
+try {
+  const configService = ConfigService.getInstance();
+
+  if (await configService.isFirstLaunch()) {
+    logger.info('First launch detected — checking for existing config files to import');
+
+    // Import from plexus.yaml if it exists
+    const projectRoot = path.resolve(process.cwd(), '../../');
+    const defaultConfigPath = path.resolve(projectRoot, 'config/plexus.yaml');
+    const configPath = process.env.CONFIG_FILE || defaultConfigPath;
+
+    if (fs.existsSync(configPath)) {
+      const yamlContent = fs.readFileSync(configPath, 'utf-8');
+      await configService.importFromYaml(yamlContent);
+      logger.info(`Imported configuration from ${configPath} into database`);
+    } else {
+      logger.info('No plexus.yaml found — starting with empty configuration');
+    }
+
+    // Import from auth.json if it exists
+    const authJsonPath = getAuthJsonPath();
+    if (fs.existsSync(authJsonPath)) {
+      const authContent = fs.readFileSync(authJsonPath, 'utf-8');
+      await configService.importFromAuthJson(authContent);
+      logger.info(`Imported OAuth credentials from ${authJsonPath} into database`);
+    }
+  }
+
+  await configService.initialize();
+  logger.info('Configuration loaded from database');
+
   // Eagerly initialize OAuth auth manager so auth.json schema migration
   // runs during startup (instead of waiting for first OAuth request).
   OAuthAuthManager.getInstance();
@@ -91,15 +133,11 @@ try {
   process.exit(1);
 }
 
-// --- Database Initialization ---
-// Initialize database before quota checkers (which need DB access)
+// Load cooldowns from storage (requires DB to be ready)
 try {
-  initializeDatabase();
-  await runMigrations();
   await CooldownManager.getInstance().loadFromStorage();
 } catch (e) {
-  logger.error('Failed to initialize database or run migrations', e);
-  process.exit(1);
+  logger.error('Failed to load cooldowns from storage', e);
 }
 
 // Initialize quota checkers (requires DB to be ready)
