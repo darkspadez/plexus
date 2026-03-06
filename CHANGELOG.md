@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.18.4 - 2026-03-06
+
+### v0.18.4: Copilot GPT-5.4 Integration and OpenAI Codex Cooldown Management
+
+### New Features
+
+- **GPT-5.4 Copilot Support**: Updated the `pi-ai` library to facilitate support for GPT-5.4 via the Copilot interface ([5db6196](https://github.com/mcowger/plexus/commit/5db6196)).
+- **Codex Error Handling**: Implemented a new `OpenAICodexCooldownParser` to improve error handling and cooldown management specifically for OpenAI Codex model responses ([7c6ab28](https://github.com/mcowger/plexus/commit/7c6ab28)).
+
+### Infrastructure & Refactoring
+
+- Applied minor codebase updates and maintenance ([6b93657](https://github.com/mcowger/plexus/commit/6b93657)).
+
+---
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
 ## v0.18.3 - 2026-03-06
 
 ### v0.18.3: Copilot/Codex Model Filtering and OAuth Subpath Migration
