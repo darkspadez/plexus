@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.18.2 - 2026-03-06
+
+### v0.18.2: API Alias Filtering and Stream Formatting Fixes
+
+### Main Features
+
+* **Model Alias Filtering**: Updated the `/v1/models` endpoint to return only primary aliases, excluding `additional_aliases` for cleaner API responses ([0eef27b](https://github.com/mcowger/plexus/commit/0eef27b)).
+
+### Minor Changes & Bug Fixes
+
+* **Gemini & Pi-AI Updates**: Fixed formatting issues in Gemini streams and applied updates to `pi-ai` integration ([d546ba1](https://github.com/mcowger/plexus/commit/d546ba1)).
+* **Logger Serialization**: Improved logger output by ensuring `Error` objects are properly serialized ([4ae47a8](https://github.com/mcowger/plexus/commit/4ae47a8)).
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
 ## v0.18.1 - 2026-03-04
 
 ### In-flight Request Tracking and Concurrency Optimizations
