@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.18.7 - 2026-03-07
+
+### Cache Write Cost Tracking and Configuration UI Enhancements
+
+## New Features
+
 ## v0.18.6 - 2026-03-07
 
 ### v0.18.6: OAuth Probe Bookkeeping Buffer Fix
