@@ -121,8 +121,14 @@ describe('OAuth -> Anthropic stream regression', () => {
     const chunk = piAiEventToChunk(event, 'claude-sonnet-4-6', 'anthropic');
 
     expect(chunk).toBeDefined();
-    expect(chunk?.delta.tool_calls).toBeDefined();
-    expect(chunk?.delta.tool_calls![0].index).toBe(0); // MUST be 0 for OpenAI compatibility, even if it's block 1 in Anthropic
-    expect(chunk?.delta.tool_calls![0].id).toBe('toolu_123');
+    expect(chunk!.delta.tool_calls).toBeDefined();
+    expect(chunk!.delta.tool_calls).toHaveLength(1);
+    const toolCalls = chunk!.delta.tool_calls;
+    if (!toolCalls || toolCalls.length === 0) {
+      throw new Error('Expected a tool call payload');
+    }
+
+    expect(toolCalls[0]!.index).toBe(0); // MUST be 0 for OpenAI compatibility, even if it's block 1 in Anthropic
+    expect(toolCalls[0]!.id).toBe('toolu_123');
   });
 });

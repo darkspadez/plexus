@@ -210,12 +210,17 @@ pricing:
       upper_bound: 200000
       input_per_m: 3.00
       output_per_m: 15.00
+      cached_per_m: 0.30        # optional: cache read cost
+      cache_write_per_m: 3.75   # optional: cache write cost
     - lower_bound: 200001
       upper_bound: .inf
       input_per_m: 1.50
       output_per_m: 7.50
-      cached_per_m: 0.15   # optional
+      cached_per_m: 0.15        # optional
+      cache_write_per_m: 6.25   # optional: higher rate for large context caching
 ```
+
+This is particularly useful for providers like Anthropic that charge different cache write rates based on context window size (e.g., different rates for >200k token contexts).
 
 **`per_request`** — flat fee per call, independent of token usage:
 ```yaml

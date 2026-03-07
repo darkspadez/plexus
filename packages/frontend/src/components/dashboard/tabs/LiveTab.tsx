@@ -1201,26 +1201,26 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
   /** Data is considered "stale" if 3x the poll interval has elapsed without an update */
   const isStale = secondsSinceUpdate > Math.ceil((pollIntervalMs * 3) / 1000);
   const tokensPerMinute = summary.totalTokens / LIVE_WINDOW_MINUTES;
-  const costPerMinute = summary.totalCost / LIVE_WINDOW_MINUTES;
+  // const costPerMinute = summary.totalCost / LIVE_WINDOW_MINUTES; // Unused
   const avgLatency = summary.requestCount > 0 ? summary.totalLatency / summary.requestCount : 0;
-  const avgTtft = summary.requestCount > 0 ? summary.totalTtft / summary.requestCount : 0;
-  const throughputSamples = liveRequests
-    .map((request) => Number(request.tokensPerSec || 0))
-    .filter((tps) => Number.isFinite(tps) && tps > 0);
-  const avgThroughput =
-    throughputSamples.length > 0
-      ? throughputSamples.reduce((acc, tps) => acc + tps, 0) / throughputSamples.length
-      : 0;
+  // const avgTtft = summary.requestCount > 0 ? summary.totalTtft / summary.requestCount : 0; // Unused
+  // const throughputSamples = liveRequests // Unused
+  //   .map((request) => Number(request.tokensPerSec || 0))
+  //   .filter((tps) => Number.isFinite(tps) && tps > 0);
+  // const avgThroughput = // Unused
+  //   throughputSamples.length > 0
+  //     ? throughputSamples.reduce((acc, tps) => acc + tps, 0) / throughputSamples.length
+  //     : 0;
   const totalRequestsValue =
     stats.find((stat) => stat.label === STAT_LABELS.REQUESTS)?.value || formatNumber(0, 0);
   const totalTokensValue =
     stats.find((stat) => stat.label === STAT_LABELS.TOKENS)?.value || formatTokens(0);
-  const todayTokenTotal =
-    todayMetrics.inputTokens +
-    todayMetrics.outputTokens +
-    todayMetrics.reasoningTokens +
-    todayMetrics.cachedTokens +
-    todayMetrics.cacheWriteTokens;
+  // const todayTokenTotal = // Unused
+  //   todayMetrics.inputTokens +
+  //   todayMetrics.outputTokens +
+  //   todayMetrics.reasoningTokens +
+  //   todayMetrics.cachedTokens +
+  //   todayMetrics.cacheWriteTokens;
 
   /** Total in-flight requests across all providers (sum of concurrencyData counts) */
   const totalConcurrentRequests = useMemo(() => {
