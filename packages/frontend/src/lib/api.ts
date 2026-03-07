@@ -336,6 +336,7 @@ export interface UsageRecord {
   finishReason?: string;
   // Retry metadata
   attemptCount?: number;
+  retryHistory?: string | null;
   // Vision Fallthrough metadata
   isVisionFallthrough?: boolean;
   isDescriptorRequest?: boolean;

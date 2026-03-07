@@ -291,6 +291,75 @@ describe('UsageStorageService performance metrics', () => {
     expect(rows[0]?.sample_count).toBe(2);
   });
 
+  it('persists retry history on usage records', async () => {
+    const storage = new UsageStorageService();
+    const retryHistory = JSON.stringify([
+      {
+        index: 1,
+        provider: 'provider-e',
+        model: 'model-5',
+        apiType: 'chat',
+        status: 'failed',
+        reason: 'HTTP 429: rate limited',
+        statusCode: 429,
+        retryable: true,
+      },
+      {
+        index: 2,
+        provider: 'provider-f',
+        model: 'model-6',
+        apiType: 'chat',
+        status: 'success',
+        reason: 'Request completed successfully',
+        retryable: false,
+      },
+    ]);
+
+    await storage.saveRequest({
+      requestId: 'retry-history-1',
+      date: new Date().toISOString(),
+      sourceIp: null,
+      apiKey: null,
+      attribution: null,
+      incomingApiType: 'chat',
+      provider: 'provider-f',
+      attemptCount: 2,
+      retryHistory,
+      incomingModelAlias: 'alias',
+      canonicalModelName: 'canonical-model',
+      selectedModelName: 'model-6',
+      finalAttemptProvider: 'provider-f',
+      finalAttemptModel: 'model-6',
+      allAttemptedProviders: JSON.stringify(['provider-e/model-5', 'provider-f/model-6']),
+      outgoingApiType: 'chat',
+      tokensInput: 10,
+      tokensOutput: 20,
+      tokensReasoning: 0,
+      tokensCached: 0,
+      tokensCacheWrite: 0,
+      costInput: 0,
+      costOutput: 0,
+      costCached: 0,
+      costCacheWrite: 0,
+      costTotal: 0,
+      costSource: null,
+      costMetadata: null,
+      startTime: Date.now(),
+      durationMs: 100,
+      isStreamed: false,
+      isPassthrough: false,
+      responseStatus: 'success',
+      tokensEstimated: 0,
+      createdAt: Date.now(),
+    });
+
+    const result = await storage.getUsage({}, { limit: 10, offset: 0 });
+    const row = result.data.find((item) => item.requestId === 'retry-history-1');
+
+    expect(row?.retryHistory).toBe(retryHistory);
+    expect(row?.attemptCount).toBe(2);
+  });
+
   it('emitStartedAsync and emitUpdatedAsync are non-blocking and preserve task order', async () => {
     const storage = new UsageStorageService();
     const calls: string[] = [];

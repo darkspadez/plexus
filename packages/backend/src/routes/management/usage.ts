@@ -12,6 +12,8 @@ const USAGE_FIELDS = new Set([
   'attribution',
   'incomingApiType',
   'provider',
+  'attemptCount',
+  'retryHistory',
   'incomingModelAlias',
   'canonicalModelName',
   'selectedModelName',

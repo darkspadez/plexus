@@ -13,6 +13,7 @@ export const requestUsage = sqliteTable(
     incomingApiType: text('incoming_api_type'),
     provider: text('provider'),
     attemptCount: integer('attempt_count').notNull().default(1),
+    retryHistory: text('retry_history'),
     incomingModelAlias: text('incoming_model_alias'),
     canonicalModelName: text('canonical_model_name'),
     selectedModelName: text('selected_model_name'),

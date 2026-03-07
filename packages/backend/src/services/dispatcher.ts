@@ -28,6 +28,17 @@ import { DEFAULT_VISION_DESCRIPTION_PROMPT } from '../utils/constants';
 import { UsageRecord } from '../types/usage';
 import { calculateCosts } from '../utils/calculate-costs';
 
+interface RetryAttemptRecord {
+  index: number;
+  provider: string;
+  model: string;
+  apiType?: string;
+  status: 'success' | 'failed' | 'skipped';
+  reason: string;
+  statusCode?: number;
+  retryable?: boolean;
+}
+
 export class Dispatcher {
   private usageStorage?: UsageStorageService;
 
@@ -86,6 +97,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     // Check if this is already a vision descriptor request to prevent recursion
@@ -152,6 +164,11 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`
+        );
         continue;
       }
 
@@ -204,12 +221,21 @@ export class Dispatcher {
               isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
               isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
             });
-            this.attachAttemptMetadata(oauthResponse, attemptedProviders, route, targetApiType);
+            this.appendSuccessAttempt(retryHistory, route, targetApiType);
+            this.attachAttemptMetadata(
+              oauthResponse,
+              attemptedProviders,
+              retryHistory,
+              route,
+              targetApiType
+            );
             return oauthResponse;
           } catch (oauthError: any) {
             lastError = oauthError;
             const canRetry =
               failoverEnabled && i < targets.length - 1 && this.isRetryableOAuthError(oauthError);
+
+            this.appendFailureAttempt(retryHistory, route, oauthError, targetApiType, canRetry);
 
             if (canRetry) {
               await this.recordAttemptMetric(route, currentRequest.requestId, false, {
@@ -260,6 +286,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, targetApiType, canRetry);
 
             if (canRetry) {
               await this.recordAttemptMetric(route, currentRequest.requestId, false, {
@@ -310,6 +337,7 @@ export class Dispatcher {
                 isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
                 isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
               });
+              this.appendFailureAttempt(retryHistory, route, error, targetApiType, true);
               // Always mark as failed when retrying — provider couldn't serve this request
               CooldownManager.getInstance().markProviderFailure(
                 route.provider,
@@ -338,7 +366,14 @@ export class Dispatcher {
             isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
           });
           CooldownManager.getInstance().markProviderSuccess(route.provider, route.model);
-          this.attachAttemptMetadata(streamResponse, attemptedProviders, route, targetApiType);
+          this.appendSuccessAttempt(retryHistory, route, targetApiType);
+          this.attachAttemptMetadata(
+            streamResponse,
+            attemptedProviders,
+            retryHistory,
+            route,
+            targetApiType
+          );
           return streamResponse;
         }
 
@@ -360,7 +395,14 @@ export class Dispatcher {
         }
 
         CooldownManager.getInstance().markProviderSuccess(route.provider, route.model);
-        this.attachAttemptMetadata(nonStreamingResponse, attemptedProviders, route, targetApiType);
+        this.appendSuccessAttempt(retryHistory, route, targetApiType);
+        this.attachAttemptMetadata(
+          nonStreamingResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          targetApiType
+        );
         return nonStreamingResponse;
       } catch (error: any) {
         lastError = error;
@@ -388,6 +430,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, undefined, canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -395,11 +439,11 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 
   private isRetryableStatus(statusCode: number, retryableStatusCodes: number[]): boolean {
@@ -558,6 +602,7 @@ export class Dispatcher {
   private attachAttemptMetadata(
     response: any,
     attemptedProviders: string[],
+    retryHistory: RetryAttemptRecord[],
     finalRoute: RouteResult,
     apiType: string
   ): void {
@@ -567,6 +612,7 @@ export class Dispatcher {
       finalAttemptProvider: finalRoute.provider,
       finalAttemptModel: finalRoute.model,
       allAttemptedProviders: JSON.stringify(attemptedProviders),
+      retryHistory: JSON.stringify(retryHistory),
       canonicalModel: finalRoute.canonicalModel,
       provider: finalRoute.provider,
       model: finalRoute.model,
@@ -579,7 +625,69 @@ export class Dispatcher {
     } as any;
   }
 
-  private buildAllTargetsFailedError(lastError: any, attemptedProviders: string[]): Error {
+  private appendSkippedAttempt(
+    retryHistory: RetryAttemptRecord[],
+    route: RouteResult,
+    reason: string,
+    apiType?: string
+  ): void {
+    retryHistory.push({
+      index: retryHistory.length + 1,
+      provider: route.provider,
+      model: route.model,
+      apiType,
+      status: 'skipped',
+      reason,
+      retryable: false,
+    });
+  }
+
+  private appendSuccessAttempt(
+    retryHistory: RetryAttemptRecord[],
+    route: RouteResult,
+    apiType?: string
+  ): void {
+    retryHistory.push({
+      index: retryHistory.length + 1,
+      provider: route.provider,
+      model: route.model,
+      apiType,
+      status: 'success',
+      reason: 'Request completed successfully',
+      retryable: false,
+    });
+  }
+
+  private appendFailureAttempt(
+    retryHistory: RetryAttemptRecord[],
+    route: RouteResult,
+    error: any,
+    apiType?: string,
+    retryable?: boolean
+  ): void {
+    const statusCode = error?.routingContext?.statusCode ?? error?.status ?? error?.statusCode;
+    const providerResponse = error?.routingContext?.providerResponse;
+    const reason = providerResponse
+      ? String(providerResponse).slice(0, 500)
+      : error?.message || 'Unknown provider error';
+
+    retryHistory.push({
+      index: retryHistory.length + 1,
+      provider: route.provider,
+      model: route.model,
+      apiType,
+      status: 'failed',
+      reason,
+      statusCode: typeof statusCode === 'number' ? statusCode : undefined,
+      retryable,
+    });
+  }
+
+  private buildAllTargetsFailedError(
+    lastError: any,
+    attemptedProviders: string[],
+    retryHistory: RetryAttemptRecord[] = []
+  ): Error {
     const summary = attemptedProviders.length > 0 ? attemptedProviders.join(', ') : 'none';
     const baseMessage = lastError?.message || 'Unknown provider error';
     const enriched = new Error(`All targets failed: ${summary}. Last error: ${baseMessage}`) as any;
@@ -589,6 +697,7 @@ export class Dispatcher {
       ...(lastError?.routingContext || {}),
       allAttemptedProviders: attemptedProviders,
       attemptCount: attemptedProviders.length,
+      retryHistory: JSON.stringify(retryHistory),
       statusCode: lastError?.routingContext?.statusCode || 500,
     };
 
@@ -1412,6 +1521,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     for (let i = 0; i < targets.length; i++) {
@@ -1425,6 +1535,12 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`,
+          'embeddings'
+        );
         continue;
       }
 
@@ -1484,6 +1600,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, 'embeddings', canRetry);
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
               // Only mark as failed if cooldown was actually triggered (not a caller error)
@@ -1530,7 +1647,14 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(enrichedResponse, attemptedProviders, route, 'embeddings');
+        this.appendSuccessAttempt(retryHistory, route, 'embeddings');
+        this.attachAttemptMetadata(
+          enrichedResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          'embeddings'
+        );
         return enrichedResponse;
       } catch (error: any) {
         lastError = error;
@@ -1551,6 +1675,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, 'embeddings', canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying embeddings after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -1558,11 +1684,11 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 
   /**
@@ -1587,6 +1713,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     for (let i = 0; i < targets.length; i++) {
@@ -1600,6 +1727,12 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`,
+          'transcriptions'
+        );
         continue;
       }
 
@@ -1666,6 +1799,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, 'transcriptions', canRetry);
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
               // Only mark as failed if cooldown was actually triggered (not a caller error)
@@ -1719,7 +1853,14 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'transcriptions');
+        this.appendSuccessAttempt(retryHistory, route, 'transcriptions');
+        this.attachAttemptMetadata(
+          unifiedResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          'transcriptions'
+        );
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;
@@ -1740,6 +1881,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, 'transcriptions', canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying transcription after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -1747,11 +1890,11 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 
   /**
@@ -1775,6 +1918,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     for (let i = 0; i < targets.length; i++) {
@@ -1788,6 +1932,12 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`,
+          'speech'
+        );
         continue;
       }
 
@@ -1854,6 +2004,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, 'speech', canRetry);
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
               // Only mark as failed if cooldown was actually triggered (not a caller error)
@@ -1895,6 +2046,7 @@ export class Dispatcher {
 
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
+              this.appendFailureAttempt(retryHistory, route, error, 'speech', true);
               // Always mark as failed when retrying — provider couldn't serve this request
               CooldownManager.getInstance().markProviderFailure(
                 route.provider,
@@ -1940,7 +2092,14 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'speech');
+        this.appendSuccessAttempt(retryHistory, route, 'speech');
+        this.attachAttemptMetadata(
+          unifiedResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          'speech'
+        );
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;
@@ -1961,6 +2120,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, 'speech', canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying speech after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -1968,11 +2129,11 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 
   /**
@@ -1997,6 +2158,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     for (let i = 0; i < targets.length; i++) {
@@ -2010,6 +2172,12 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`,
+          'images'
+        );
         continue;
       }
 
@@ -2075,6 +2243,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, 'images', canRetry);
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
               // Only mark as failed if cooldown was actually triggered (not a caller error)
@@ -2120,7 +2289,14 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'images');
+        this.appendSuccessAttempt(retryHistory, route, 'images');
+        this.attachAttemptMetadata(
+          unifiedResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          'images'
+        );
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;
@@ -2141,6 +2317,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, 'images', canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying image generation after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -2148,11 +2326,11 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 
   /**
@@ -2176,6 +2354,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     for (let i = 0; i < targets.length; i++) {
@@ -2189,6 +2368,12 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`,
+          'images'
+        );
         continue;
       }
 
@@ -2253,6 +2438,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, 'images', canRetry);
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
               // Only mark as failed if cooldown was actually triggered (not a caller error)
@@ -2298,7 +2484,14 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'images');
+        this.appendSuccessAttempt(retryHistory, route, 'images');
+        this.attachAttemptMetadata(
+          unifiedResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          'images'
+        );
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;
@@ -2319,6 +2512,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, 'images', canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying image edit after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -2326,10 +2521,10 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 }

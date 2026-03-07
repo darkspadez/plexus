@@ -127,6 +127,13 @@
       "when": 1772404194032,
       "tag": "0017_cooing_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1772857531462,
+      "tag": "0018_giant_red_hulk",
+      "breakpoints": true
     }
   ]
 }

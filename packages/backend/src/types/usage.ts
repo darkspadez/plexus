@@ -7,6 +7,7 @@ export interface UsageRecord {
   incomingApiType: string;
   provider: string | null;
   attemptCount: number;
+  retryHistory?: string | null;
   incomingModelAlias: string | null;
   canonicalModelName: string | null;
   selectedModelName: string | null;
