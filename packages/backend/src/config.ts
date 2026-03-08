@@ -707,8 +707,12 @@ export function getConfig(): PlexusConfig {
     const { ConfigService } = require('./services/config-service');
     const instance = ConfigService.getInstance();
     return instance.getConfig();
-  } catch {
-    // Fall back to in-memory config (used by tests via setConfigForTesting)
+  } catch (e: any) {
+    // Only fall back for module-load or not-initialized scenarios
+    // Rethrow operational errors (DB failures, etc.)
+    if (e instanceof Error && e.message && !e.message.includes('not loaded') && !e.message.includes('Cannot find module')) {
+      throw e;
+    }
   }
 
   if (!currentConfig) {

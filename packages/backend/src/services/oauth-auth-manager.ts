@@ -12,9 +12,10 @@ export class OAuthAuthManager {
   private static instance: OAuthAuthManager;
   // In-memory cache for fast lookups
   private authData: Record<string, { accounts: Record<string, OAuthCredentials> }> = {};
+  private initPromise: Promise<void>;
 
   private constructor() {
-    this.loadFromDatabase();
+    this.initPromise = this.loadFromDatabaseAsync();
   }
 
   static getInstance(): OAuthAuthManager {
@@ -28,16 +29,8 @@ export class OAuthAuthManager {
     this.instance = undefined as unknown as OAuthAuthManager;
   }
 
-  private loadFromDatabase(): void {
-    try {
-      // Load synchronously isn't possible with async DB, so we load lazily on first use
-      // The in-memory cache will be populated asynchronously
-      this.loadFromDatabaseAsync().catch((error) => {
-        logger.error('OAuth: Failed to load credentials from database:', error);
-      });
-    } catch (error: any) {
-      logger.error('OAuth: Failed to initialize:', error);
-    }
+  async initialize(): Promise<void> {
+    await this.initPromise;
   }
 
   private async loadFromDatabaseAsync(): Promise<void> {
@@ -110,7 +103,7 @@ export class OAuthAuthManager {
     return null;
   }
 
-  setCredentials(provider: OAuthProvider, accountId: string, credentials: OAuthCredentials): void {
+  async setCredentials(provider: OAuthProvider, accountId: string, credentials: OAuthCredentials): Promise<void> {
     if (!accountId?.trim()) {
       throw new Error('OAuth: accountId is required to store credentials');
     }
@@ -124,8 +117,7 @@ export class OAuthAuthManager {
       ...credentials,
     } as OAuthCredentials;
 
-    // Save to database asynchronously
-    this.saveToDatabase(provider, accountId, credentials);
+    await this.saveToDatabase(provider, accountId, credentials);
   }
 
   async getApiKey(provider: OAuthProvider, accountId?: string | null): Promise<string> {
@@ -168,7 +160,7 @@ export class OAuthAuthManager {
         ...result.newCredentials,
       } as OAuthCredentials;
       // Save refreshed credentials to database
-      this.saveToDatabase(provider, resolvedAccountId, result.newCredentials);
+      await this.saveToDatabase(provider, resolvedAccountId, result.newCredentials);
     }
 
     return result.apiKey;

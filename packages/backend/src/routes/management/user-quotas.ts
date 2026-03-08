@@ -169,6 +169,44 @@ export async function registerUserQuotaRoutes(fastify: FastifyInstance) {
         }
 
         const merged = { ...existing, ...updates } as QuotaDefinition;
+
+        // Validate merged quota (same rules as POST)
+        if (!merged.type || !['rolling', 'daily', 'weekly'].includes(merged.type)) {
+          return reply.code(400).send({
+            error: {
+              message: 'Invalid or missing quota type. Must be one of: rolling, daily, weekly',
+              type: 'invalid_request_error',
+            },
+          });
+        }
+
+        if (!merged.limitType || !['requests', 'tokens'].includes(merged.limitType)) {
+          return reply.code(400).send({
+            error: {
+              message: 'Invalid or missing limitType. Must be one of: requests, tokens',
+              type: 'invalid_request_error',
+            },
+          });
+        }
+
+        if (!merged.limit || typeof merged.limit !== 'number' || merged.limit < 1) {
+          return reply.code(400).send({
+            error: {
+              message: 'Invalid or missing limit. Must be a positive number',
+              type: 'invalid_request_error',
+            },
+          });
+        }
+
+        if (merged.type === 'rolling' && (!merged.duration || typeof merged.duration !== 'string')) {
+          return reply.code(400).send({
+            error: {
+              message: 'Rolling quotas require a duration field (e.g., "1h", "30m", "1d")',
+              type: 'invalid_request_error',
+            },
+          });
+        }
+
         await configService.saveUserQuota(name, merged);
         logger.info(`[UserQuota] Quota '${name}' updated via API`);
 

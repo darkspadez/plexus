@@ -94,24 +94,35 @@ try {
     logger.info('First launch detected — checking for existing config files to import');
 
     // Import from plexus.yaml if it exists
-    const projectRoot = path.resolve(process.cwd(), '../../');
-    const defaultConfigPath = path.resolve(projectRoot, 'config/plexus.yaml');
-    const configPath = process.env.CONFIG_FILE || defaultConfigPath;
+    // Try CONFIG_FILE env var first, then check common locations
+    const configLocations = [
+      path.resolve(__dirname, '../../../config/plexus.yaml'),  // from packages/backend/src or dist
+      path.resolve(__dirname, '../../config/plexus.yaml'),     // alternate depth
+      path.resolve(process.cwd(), 'config/plexus.yaml'),       // from repo root
+      path.resolve(process.cwd(), '../../config/plexus.yaml'), // from packages/backend
+    ];
+    const configPath = process.env.CONFIG_FILE || configLocations.find(p => fs.existsSync(p));
 
-    if (fs.existsSync(configPath)) {
-      const yamlContent = fs.readFileSync(configPath, 'utf-8');
-      await configService.importFromYaml(yamlContent);
-      logger.info(`Imported configuration from ${configPath} into database`);
-    } else {
-      logger.info('No plexus.yaml found — starting with empty configuration');
-    }
+    try {
+      if (configPath && fs.existsSync(configPath)) {
+        const yamlContent = fs.readFileSync(configPath, 'utf-8');
+        await configService.importFromYaml(yamlContent);
+        logger.info(`Imported configuration from ${configPath} into database`);
+      } else {
+        logger.info('No plexus.yaml found — starting with empty configuration');
+      }
 
-    // Import from auth.json if it exists
-    const authJsonPath = process.env.AUTH_JSON || './auth.json';
-    if (fs.existsSync(authJsonPath)) {
-      const authContent = fs.readFileSync(authJsonPath, 'utf-8');
-      await configService.importFromAuthJson(authContent);
-      logger.info(`Imported OAuth credentials from ${authJsonPath} into database`);
+      // Import from auth.json if it exists
+      const authJsonPath = process.env.AUTH_JSON || './auth.json';
+      if (fs.existsSync(authJsonPath)) {
+        const authContent = fs.readFileSync(authJsonPath, 'utf-8');
+        await configService.importFromAuthJson(authContent);
+        logger.info(`Imported OAuth credentials from ${authJsonPath} into database`);
+      }
+    } catch (importError) {
+      logger.error('Failed to import config — clearing partial data for clean retry on next launch', importError);
+      await configService.clearAllData();
+      throw importError;
     }
   }
 
@@ -120,7 +131,7 @@ try {
 
   // Eagerly initialize OAuth auth manager so auth.json schema migration
   // runs during startup (instead of waiting for first OAuth request).
-  OAuthAuthManager.getInstance();
+  await OAuthAuthManager.getInstance().initialize();
   await PricingManager.getInstance().loadPricing();
   // Load model metadata from all configured sources (non-fatal on failure)
   ModelMetadataManager.getInstance()

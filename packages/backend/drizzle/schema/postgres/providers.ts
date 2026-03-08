@@ -1,4 +1,5 @@
 import { pgTable, serial, text, real, integer, boolean, bigint, jsonb, index, pgEnum } from 'drizzle-orm/pg-core';
+import { oauthCredentials } from './oauth-credentials';
 
 export const oauthProviderTypeEnum = pgEnum('oauth_provider_type', [
   'anthropic',
@@ -38,7 +39,7 @@ export const providers = pgTable(
     apiBaseUrl: jsonb('api_base_url'), // String URL or {"chat":"...","messages":"..."}
     apiKey: text('api_key'),
     oauthProviderType: oauthProviderTypeEnum('oauth_provider_type'),
-    oauthCredentialId: integer('oauth_credential_id'),
+    oauthCredentialId: integer('oauth_credential_id').references(() => oauthCredentials.id, { onDelete: 'set null' }),
     enabled: boolean('enabled').notNull().default(true),
     disableCooldown: boolean('disable_cooldown').notNull().default(false),
     discount: real('discount'),

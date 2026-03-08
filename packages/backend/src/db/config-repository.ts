@@ -64,6 +64,21 @@ export class ConfigRepository {
     return getSchema();
   }
 
+  // ─── Clear All Data (for failed bootstrap rollback) ─────────────
+
+  async clearAllData(): Promise<void> {
+    const schema = this.schema();
+    await this.db().delete(schema.modelAliasTargets);
+    await this.db().delete(schema.providerModels);
+    await this.db().delete(schema.modelAliases);
+    await this.db().delete(schema.providers);
+    await this.db().delete(schema.apiKeys);
+    await this.db().delete(schema.userQuotaDefinitions);
+    await this.db().delete(schema.mcpServers);
+    await this.db().delete(schema.oauthCredentials);
+    await this.db().delete(schema.systemSettings);
+  }
+
   // ─── Providers ───────────────────────────────────────────────────
 
   async getAllProviders(): Promise<Record<string, ProviderConfig>> {
@@ -78,7 +93,16 @@ export class ConfigRepository {
         .where(eq(schema.providerModels.providerId, row.id))
         .orderBy(schema.providerModels.sortOrder);
 
-      result[row.slug] = this.rowToProviderConfig(row, models);
+      let oauthAccountId: string | undefined;
+      if (row.oauthCredentialId) {
+        const creds = await this.db()
+          .select({ accountId: schema.oauthCredentials.accountId })
+          .from(schema.oauthCredentials)
+          .where(eq(schema.oauthCredentials.id, row.oauthCredentialId))
+          .limit(1);
+        if (creds.length > 0) oauthAccountId = creds[0]!.accountId;
+      }
+      result[row.slug] = this.rowToProviderConfig(row, models, oauthAccountId);
     }
 
     return result;
@@ -101,7 +125,16 @@ export class ConfigRepository {
       .where(eq(schema.providerModels.providerId, row.id))
       .orderBy(schema.providerModels.sortOrder);
 
-    return this.rowToProviderConfig(row, models);
+    let oauthAccountId: string | undefined;
+    if (row.oauthCredentialId) {
+      const creds = await this.db()
+        .select({ accountId: schema.oauthCredentials.accountId })
+        .from(schema.oauthCredentials)
+        .where(eq(schema.oauthCredentials.id, row.oauthCredentialId))
+        .limit(1);
+      if (creds.length > 0) oauthAccountId = creds[0]!.accountId;
+    }
+    return this.rowToProviderConfig(row, models, oauthAccountId);
   }
 
   async saveProvider(slug: string, config: ProviderConfig): Promise<void> {
@@ -259,7 +292,7 @@ export class ConfigRepository {
     }));
   }
 
-  private rowToProviderConfig(row: any, modelRows: any[]): ProviderConfig {
+  private rowToProviderConfig(row: any, modelRows: any[], oauthAccountId?: string): ProviderConfig {
     const apiBaseUrl = parseJson<string | Record<string, string>>(row.apiBaseUrl);
 
     // Reconstruct models
@@ -299,7 +332,7 @@ export class ConfigRepository {
       ...(row.displayName ? { display_name: row.displayName } : {}),
       ...(row.apiKey ? { api_key: row.apiKey } : {}),
       ...(row.oauthProviderType ? { oauth_provider: row.oauthProviderType } : {}),
-      ...(row.oauthProviderType ? { oauth_account: 'legacy' } : {}),
+      ...(oauthAccountId ? { oauth_account: oauthAccountId } : {}),
       enabled: toBool(row.enabled),
       disable_cooldown: toBool(row.disableCooldown),
       ...(row.discount !== null ? { discount: row.discount } : {}),
@@ -309,9 +342,6 @@ export class ConfigRepository {
       ...(row.extraBody ? { extraBody: parseJson(row.extraBody) } : {}),
       ...(quota_checker ? { quota_checker } : {}),
     };
-
-    // Resolve oauth_account from oauth_credentials if we have an oauthCredentialId
-    // This is done lazily - for now we use stored info
 
     return result as ProviderConfig;
   }
