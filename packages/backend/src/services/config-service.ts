@@ -361,7 +361,6 @@ export class ConfigService {
       providers,
       models,
       keys,
-      adminKey: process.env.ADMIN_KEY || '',
       failover,
       cooldown,
       quotas,
