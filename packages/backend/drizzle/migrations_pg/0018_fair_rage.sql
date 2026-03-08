@@ -122,4 +122,5 @@ CREATE TABLE "user_quota_definitions" (
 --> statement-breakpoint
 ALTER TABLE "model_alias_targets" ADD CONSTRAINT "model_alias_targets_alias_id_model_aliases_id_fk" FOREIGN KEY ("alias_id") REFERENCES "public"."model_aliases"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "provider_models" ADD CONSTRAINT "provider_models_provider_id_providers_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."providers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "providers" ADD CONSTRAINT "providers_oauth_credential_id_oauth_credentials_id_fk" FOREIGN KEY ("oauth_credential_id") REFERENCES "public"."oauth_credentials"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "idx_providers_slug" ON "providers" USING btree ("slug");

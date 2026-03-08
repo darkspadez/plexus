@@ -1259,11 +1259,6 @@ export const api = {
   },
 
   saveKey: async (keyConfig: KeyConfig, oldKeyName?: string): Promise<void> => {
-    // If key name changed, delete old key first
-    if (oldKeyName && oldKeyName !== keyConfig.key) {
-      await api.deleteKey(oldKeyName);
-    }
-
     const res = await fetchWithAuth(
       `${API_BASE}/v0/management/keys/${encodeURIComponent(keyConfig.key)}`,
       {
@@ -1279,6 +1274,11 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to save key');
+    }
+
+    // Delete old key only after new one is saved successfully
+    if (oldKeyName && oldKeyName !== keyConfig.key) {
+      await api.deleteKey(oldKeyName);
     }
   },
 
@@ -1340,11 +1340,6 @@ export const api = {
   },
 
   saveProvider: async (provider: Provider, oldId?: string): Promise<void> => {
-    // If ID changed, delete old provider first
-    if (oldId && oldId !== provider.id) {
-      await api.deleteProvider(oldId, false);
-    }
-
     const body: any = {
       api_base_url: provider.apiBaseUrl,
       display_name: provider.name,
@@ -1379,6 +1374,11 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to save provider');
+    }
+
+    // Delete old provider only after new one is saved successfully
+    if (oldId && oldId !== provider.id) {
+      await api.deleteProvider(oldId, false);
     }
   },
 
@@ -1454,11 +1454,6 @@ export const api = {
   },
 
   saveAlias: async (alias: Alias, oldId?: string): Promise<void> => {
-    // If ID changed, delete old alias first
-    if (oldId && oldId !== alias.id) {
-      await api.deleteAlias(oldId);
-    }
-
     const body: any = {
       selector: alias.selector,
       priority: alias.priority || 'selector',
@@ -1485,6 +1480,11 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to save alias');
+    }
+
+    // Delete old alias only after new one is saved successfully
+    if (oldId && oldId !== alias.id) {
+      await api.deleteAlias(oldId);
     }
   },
 

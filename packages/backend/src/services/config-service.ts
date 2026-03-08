@@ -183,6 +183,10 @@ export class ConfigService {
     return this.repo.getAllOAuthProviders();
   }
 
+  async clearAllData(): Promise<void> {
+    await this.repo.clearAllData();
+  }
+
   // ─── Import from YAML/JSON ──────────────────────────────────────
 
   /**

@@ -79,7 +79,7 @@ CREATE TABLE `providers` (
 	`api_base_url` text,
 	`api_key` text,
 	`oauth_provider_type` text,
-	`oauth_credential_id` integer,
+	`oauth_credential_id` integer REFERENCES `oauth_credentials`(`id`) ON DELETE SET NULL,
 	`enabled` integer DEFAULT 1 NOT NULL,
 	`disable_cooldown` integer DEFAULT 0 NOT NULL,
 	`discount` real,
