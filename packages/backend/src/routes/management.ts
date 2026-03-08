@@ -1,5 +1,4 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { getConfig } from '../config';
 import { logger } from '../utils/logger';
 import { UsageStorageService } from '../services/usage-storage';
 import { registerConfigRoutes } from './management/config';
@@ -22,10 +21,10 @@ import { QuotaEnforcer } from '../services/quota/quota-enforcer';
 import { McpUsageStorageService } from '../services/mcp-proxy/mcp-usage-storage';
 
 function adminKeyAuth(request: FastifyRequest, reply: FastifyReply, done: () => void) {
-  const config = getConfig();
   const providedKey = request.headers['x-admin-key'];
+  const adminKey = process.env.ADMIN_KEY;
 
-  if (!providedKey || providedKey !== config.adminKey) {
+  if (!providedKey || providedKey !== adminKey) {
     logger.silly(
       `[ADMIN AUTH] Rejected request to ${request.url} - invalid or missing x-admin-key`
     );

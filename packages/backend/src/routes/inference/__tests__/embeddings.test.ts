@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from 'bun:test';
 import Fastify, { FastifyInstance } from 'fastify';
-import { createTestConfig } from '../../../../test/test-utils';
 import { setConfigForTesting } from '../../../config';
 import { registerInferenceRoutes } from '../index';
 import { Dispatcher } from '../../../services/dispatcher';
@@ -59,7 +58,6 @@ describe('Embeddings Endpoint', () => {
     mockUsageStorage = {
       saveRequest: mock(),
       saveError: mock(),
-      saveDebugLog: mock(),
       updatePerformanceMetrics: mock(),
       emitStartedAsync: mock(),
       emitUpdatedAsync: mock(),
@@ -70,24 +68,36 @@ describe('Embeddings Endpoint', () => {
     SelectorFactory.setUsageStorage(mockUsageStorage);
 
     // Set config with embeddings models
-    setConfigForTesting(
-      createTestConfig({
-        providers: {
-          openai: {
-            api_key: 'sk-test',
-            api_base_url: 'https://api.openai.com/v1',
-            enabled: true,
-            estimateTokens: false,
-            disable_cooldown: false,
-            models: {
-              'text-embedding-3-small': {
-                pricing: { source: 'simple', input: 0.00002, output: 0 },
-              },
+    setConfigForTesting({
+      providers: {
+        openai: {
+          api_key: 'sk-test',
+          api_base_url: 'https://api.openai.com/v1',
+          estimateTokens: false,
+          disable_cooldown: false,
+          models: {
+            'text-embedding-3-small': {
+              pricing: { source: 'simple', input: 0.00002, output: 0 },
             },
           },
         },
-      })
-    );
+      },
+      models: {
+        'embeddings-small': {
+          priority: 'selector',
+          targets: [{ provider: 'openai', model: 'text-embedding-3-small' }],
+        },
+      },
+      keys: {
+        'test-key-1': { secret: 'sk-valid-key', comment: 'Test Key' },
+      },
+      failover: {
+        enabled: false,
+        retryableStatusCodes: [429, 500, 502, 503, 504],
+        retryableErrors: ['ECONNREFUSED', 'ETIMEDOUT'],
+      },
+      quotas: [],
+    });
 
     await registerInferenceRoutes(fastify, mockDispatcher, mockUsageStorage);
     await fastify.ready();
@@ -107,7 +117,7 @@ describe('Embeddings Endpoint', () => {
       },
     });
 
-    if (response.statusCode !== 200) expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(body.object).toBe('list');
     expect(body.data).toBeArray();
@@ -149,7 +159,7 @@ describe('Embeddings Endpoint', () => {
       },
     });
 
-    if (response.statusCode !== 200) expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(body.data).toHaveLength(3);
     expect(body.data[0].index).toBe(0);
@@ -172,7 +182,7 @@ describe('Embeddings Endpoint', () => {
       },
     });
 
-    if (response.statusCode !== 200) expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(200);
   });
 
   it('should accept optional dimensions parameter', async () => {
@@ -190,7 +200,7 @@ describe('Embeddings Endpoint', () => {
       },
     });
 
-    if (response.statusCode !== 200) expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(200);
   });
 
   it('should track usage correctly for embeddings', async () => {
@@ -207,7 +217,7 @@ describe('Embeddings Endpoint', () => {
       },
     });
 
-    if (response.statusCode !== 200) expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(200);
 
     const saveRequestCalls = (mockUsageStorage.saveRequest as any).mock.calls;
     const lastCall = saveRequestCalls[saveRequestCalls.length - 1];
@@ -266,7 +276,7 @@ describe('Embeddings Endpoint', () => {
       },
     });
 
-    if (response.statusCode !== 200) expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(200);
   });
 
   it('should track attribution when provided', async () => {
@@ -283,7 +293,7 @@ describe('Embeddings Endpoint', () => {
       },
     });
 
-    if (response.statusCode !== 200) expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(200);
 
     const saveRequestCalls = (mockUsageStorage.saveRequest as any).mock.calls;
     const lastCall = saveRequestCalls[saveRequestCalls.length - 1];

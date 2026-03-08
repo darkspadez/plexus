@@ -430,7 +430,6 @@ const RawPlexusConfigSchema = z
     providers: z.record(z.string(), ProviderConfigSchema),
     models: z.record(z.string(), ModelConfigSchema),
     keys: z.record(z.string(), KeyConfigSchema),
-    adminKey: z.string(),
     failover: FailoverPolicySchema.optional(),
     cooldown: CooldownPolicySchema.optional(),
     vision_fallthrough: VisionFallthroughConfigSchema.optional(),

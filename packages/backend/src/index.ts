@@ -34,6 +34,18 @@ import { runMigrations } from './db/migrate';
  * handling request transformation, load balancing, and usage tracking.
  */
 
+// --- Required Environment Variables ---
+if (!process.env.ADMIN_KEY) {
+  logger.error('ADMIN_KEY environment variable is required. Set it to a secure password for admin access.');
+  process.exit(1);
+}
+
+if (!process.env.DATABASE_URL) {
+  const dataDir = process.env.DATA_DIR || '/app/data';
+  process.env.DATABASE_URL = `sqlite://${dataDir}/plexus.db`;
+  logger.info(`DATABASE_URL not set, defaulting to ${process.env.DATABASE_URL}`);
+}
+
 const fastify = Fastify({
   logger: false, // We use a custom winston-based logger
   bodyLimit: 30 * 1024 * 1024, // 30MB to accommodate 25MB audio files + metadata
