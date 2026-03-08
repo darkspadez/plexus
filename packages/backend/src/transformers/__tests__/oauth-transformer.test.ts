@@ -66,4 +66,26 @@ describe('OAuthTransformer', () => {
 
     expect(context.tools[0]?.name).toBe('proxy_MyTool');
   });
+
+  test('throws enriched errors for pi-ai error envelope responses', async () => {
+    const transformer = new OAuthTransformer();
+    const piAiErrorResponse = {
+      type: 'error',
+      reason: 'error',
+      error: {
+        api: 'openai-codex-responses',
+        provider: 'openai-codex',
+        model: 'gpt-5.4',
+        errorMessage: 'You have hit your ChatGPT usage limit (free plan). Try again in ~9725 min.',
+      },
+    };
+
+    try {
+      await transformer.transformResponse(piAiErrorResponse);
+      throw new Error('expected transformResponse to fail');
+    } catch (error: any) {
+      expect(error.message).toContain('usage limit');
+      expect(error.piAiResponse).toEqual(piAiErrorResponse);
+    }
+  });
 });

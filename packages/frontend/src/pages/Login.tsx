@@ -21,14 +21,17 @@ export const Login: React.FC = () => {
     }
   }, [isAuthenticated, navigate, from]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!key.trim()) {
       setError('Please enter an Admin Key');
       return;
     }
-    login(key.trim());
-    // Navigation will happen via the useEffect above once isAuthenticated becomes true
+    const valid = await login(key.trim());
+    if (!valid) {
+      setError('Invalid Admin Key');
+    }
+    // On success, navigation happens via the useEffect above once isAuthenticated becomes true
   };
 
   return (

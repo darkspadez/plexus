@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { AntigravityCooldownParser, CooldownParserRegistry } from '../cooldown-parsers';
+import {
+  AntigravityCooldownParser,
+  CooldownParserRegistry,
+  OpenAICodexCooldownParser,
+} from '../cooldown-parsers';
 
 describe('AntigravityCooldownParser', () => {
   const parser = new AntigravityCooldownParser();
@@ -203,5 +207,29 @@ describe('CooldownParserRegistry', () => {
     const errorText = 'Unknown error format';
     const result = CooldownParserRegistry.parseCooldown('gemini', errorText);
     expect(result).toBe(null);
+  });
+
+  test('Returns registered parser for openai-codex provider type', () => {
+    const errorText = 'You have hit your ChatGPT usage limit (free plan). Try again in ~9725 min.';
+    const result = CooldownParserRegistry.parseCooldown('openai-codex', errorText);
+    expect(result).toBe(9725 * 60 * 1000);
+  });
+});
+
+describe('OpenAICodexCooldownParser', () => {
+  const parser = new OpenAICodexCooldownParser();
+
+  test('parses minute cooldowns from pi-ai usage limit errors', () => {
+    const errorText = 'You have hit your ChatGPT usage limit (free plan). Try again in ~9725 min.';
+    expect(parser.parseCooldownDuration(errorText)).toBe(9725 * 60 * 1000);
+  });
+
+  test('parses hour cooldowns', () => {
+    const errorText = 'ChatGPT usage limit reached. Try again in 2 hours.';
+    expect(parser.parseCooldownDuration(errorText)).toBe(2 * 60 * 60 * 1000);
+  });
+
+  test('returns null when codex cooldown text is absent', () => {
+    expect(parser.parseCooldownDuration('OAuth provider error')).toBe(null);
   });
 });

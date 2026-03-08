@@ -41,6 +41,8 @@ export async function handleResponse(
     DebugManager.getInstance().setProviderForRequest(usageRecord.requestId!, usageRecord.provider);
   }
   usageRecord.attemptCount = (unifiedResponse.plexus as any)?.attemptCount || 1;
+  usageRecord.retryHistory =
+    ((unifiedResponse.plexus as any)?.retryHistory as string | undefined) || null;
   usageRecord.finalAttemptProvider =
     ((unifiedResponse.plexus as any)?.finalAttemptProvider as string | undefined) ||
     usageRecord.provider ||

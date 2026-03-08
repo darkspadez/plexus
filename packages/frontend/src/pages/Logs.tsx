@@ -61,6 +61,39 @@ import chatLogo from '../assets/chat.svg';
 // @ts-ignore
 import geminiLogo from '../assets/gemini.svg';
 
+interface RetryAttemptDetail {
+  index: number;
+  provider: string;
+  model: string;
+  apiType?: string;
+  status: 'success' | 'failed' | 'skipped';
+  reason: string;
+  statusCode?: number;
+  retryable?: boolean;
+}
+
+const parseRetryHistory = (value?: string | null): RetryAttemptDetail[] => {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter((entry): entry is RetryAttemptDetail => {
+      return (
+        entry &&
+        typeof entry.index === 'number' &&
+        typeof entry.provider === 'string' &&
+        typeof entry.model === 'string' &&
+        typeof entry.status === 'string' &&
+        typeof entry.reason === 'string'
+      );
+    });
+  } catch {
+    return [];
+  }
+};
+
 export const Logs = () => {
   const navigate = useNavigate();
   const { adminKey } = useAuth();
@@ -91,6 +124,8 @@ export const Logs = () => {
   // Single Delete State
   const [selectedLogIdForDelete, setSelectedLogIdForDelete] = useState<string | null>(null);
   const [isSingleDeleteModalOpen, setIsSingleDeleteModalOpen] = useState(false);
+  const [selectedRetryLog, setSelectedRetryLog] = useState<UsageRecord | null>(null);
+  const [isRetryModalOpen, setIsRetryModalOpen] = useState(false);
 
   const filtersRef = useRef(filters);
 
@@ -139,6 +174,11 @@ export const Logs = () => {
   const handleDelete = (requestId: string) => {
     setSelectedLogIdForDelete(requestId);
     setIsSingleDeleteModalOpen(true);
+  };
+
+  const handleRetryDetails = (log: UsageRecord) => {
+    setSelectedRetryLog(log);
+    setIsRetryModalOpen(true);
   };
 
   const confirmDeleteSingle = async () => {
@@ -291,6 +331,8 @@ export const Logs = () => {
       return { time: 'Error', date: 'Date' };
     }
   };
+
+  const selectedRetryHistory = parseRetryHistory(selectedRetryLog?.retryHistory);
 
   return (
     <div className="min-h-screen p-6 transition-all duration-300 bg-linear-to-br from-bg-deep to-bg-surface">
@@ -886,9 +928,12 @@ export const Logs = () => {
                         {/* Row 3: Retry indicator */}
                         {log.attemptCount && log.attemptCount > 1 && (
                           <div style={{ display: 'flex', gap: '16px' }}>
-                            <div
+                            <button
+                              type="button"
+                              onClick={() => handleRetryDetails(log)}
                               style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                              className="text-orange-500"
+                              className="text-orange-500 bg-transparent border-0 p-0 cursor-pointer hover:text-orange-400 transition-colors"
+                              title="View retry history"
                             >
                               <RotateCcw size={12} />
                               <span
@@ -896,7 +941,7 @@ export const Logs = () => {
                               >
                                 {log.attemptCount}x
                               </span>
-                            </div>
+                            </button>
                           </div>
                         )}
                       </div>
@@ -996,6 +1041,67 @@ export const Logs = () => {
           </div>
         </div>
       </Card>
+
+      <Modal
+        isOpen={isRetryModalOpen}
+        onClose={() => setIsRetryModalOpen(false)}
+        title="Retry History"
+        footer={
+          <Button variant="secondary" onClick={() => setIsRetryModalOpen(false)}>
+            Close
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div className="text-sm text-text-secondary">
+            <div>
+              Request: <span className="text-text">{selectedRetryLog?.requestId || '-'}</span>
+            </div>
+            <div>
+              Attempts: <span className="text-text">{selectedRetryLog?.attemptCount || 1}</span>
+            </div>
+          </div>
+
+          {selectedRetryHistory.length === 0 ? (
+            <div className="text-sm text-text-secondary">
+              No retry history is available for this request.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 max-h-96 overflow-y-auto">
+              {selectedRetryHistory.map((attempt) => (
+                <div
+                  key={`${attempt.index}-${attempt.provider}-${attempt.model}`}
+                  className={clsx(
+                    'rounded-lg border p-3',
+                    attempt.status === 'success'
+                      ? 'border-emerald-500/30 bg-emerald-500/10'
+                      : attempt.status === 'skipped'
+                        ? 'border-yellow-500/30 bg-yellow-500/10'
+                        : 'border-red-500/30 bg-red-500/10'
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="font-medium text-sm text-text">
+                      Attempt {attempt.index}: {attempt.provider}/{attempt.model}
+                    </div>
+                    <div className="text-xs uppercase tracking-wide text-text-secondary">
+                      {attempt.status}
+                    </div>
+                  </div>
+                  <div className="text-sm text-text-secondary">
+                    <div>API: {attempt.apiType || '-'}</div>
+                    {attempt.statusCode ? <div>Status Code: {attempt.statusCode}</div> : null}
+                    {attempt.retryable !== undefined ? (
+                      <div>Retryable: {attempt.retryable ? 'yes' : 'no'}</div>
+                    ) : null}
+                    <div className="mt-2 text-text">{attempt.reason}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <Modal
         isOpen={isDeleteModalOpen}

@@ -1,0 +1,1 @@
+ALTER TABLE "request_usage" ADD COLUMN "retry_history" text;

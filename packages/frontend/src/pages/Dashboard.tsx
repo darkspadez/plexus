@@ -4,9 +4,11 @@ import { Zap, BarChart2, Gauge } from 'lucide-react';
 import { LiveTab } from '../components/dashboard/tabs/LiveTab';
 import { UsageTab } from '../components/dashboard/tabs/UsageTab';
 import { PerformanceTab } from '../components/dashboard/tabs/PerformanceTab';
+import type { CustomDateRange } from '../lib/date';
 
 type TabId = 'live' | 'usage' | 'performance';
-type TimeRange = 'hour' | 'day' | 'week' | 'month';
+type TimeRange = 'hour' | 'day' | 'week' | 'month' | 'custom';
+type LiveWindowPeriod = 5 | 15 | 30 | 1440 | 10080 | 43200; // minutes: 5m, 15m, 30m, 1d, 7d, 30d
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'live', label: 'Live Metrics', icon: <Zap size={15} /> },
@@ -15,6 +17,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 ];
 
 const DEFAULT_POLL_INTERVAL = 10000;
+const DEFAULT_LIVE_WINDOW: LiveWindowPeriod = 5;
 
 export const Dashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -22,7 +25,9 @@ export const Dashboard = () => {
   const activeTab: TabId = tabParam && TABS.some((t) => t.id === tabParam) ? tabParam : 'live';
 
   const [usageTimeRange, setUsageTimeRange] = useState<TimeRange>('day');
+  const [customDateRange, setCustomDateRange] = useState<CustomDateRange | null>(null);
   const [pollInterval, setPollInterval] = useState<number>(DEFAULT_POLL_INTERVAL);
+  const [liveWindowPeriod, setLiveWindowPeriod] = useState<LiveWindowPeriod>(DEFAULT_LIVE_WINDOW);
 
   const setTab = (id: TabId) => {
     setSearchParams(id === 'live' ? {} : { tab: id });
@@ -59,10 +64,22 @@ export const Dashboard = () => {
 
       <div className="flex-1 overflow-auto">
         {activeTab === 'live' && (
-          <LiveTab pollInterval={pollInterval} onPollIntervalChange={setPollInterval} />
+          <LiveTab
+            pollInterval={pollInterval}
+            onPollIntervalChange={setPollInterval}
+            liveWindowPeriod={liveWindowPeriod}
+            onLiveWindowPeriodChange={(period: number) =>
+              setLiveWindowPeriod(period as LiveWindowPeriod)
+            }
+          />
         )}
         {activeTab === 'usage' && (
-          <UsageTab timeRange={usageTimeRange} onTimeRangeChange={setUsageTimeRange} />
+          <UsageTab
+            timeRange={usageTimeRange}
+            onTimeRangeChange={setUsageTimeRange}
+            customDateRange={customDateRange}
+            onCustomDateRangeChange={setCustomDateRange}
+          />
         )}
         {activeTab === 'performance' && <PerformanceTab />}
       </div>

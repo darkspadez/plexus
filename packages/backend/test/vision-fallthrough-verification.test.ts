@@ -24,13 +24,13 @@ describe('VisionDescriptorService Detailed Verification', () => {
     // @ts-ignore - accessing private for testing
     const result = VisionDescriptorService.injectDescriptions(messages, descriptions);
 
-    expect(result[0].content).toHaveLength(4);
-    expect((result[0].content as any)[0].type).toBe('text');
-    expect((result[0].content as any)[1].type).toBe('text');
-    expect((result[0].content as any)[1].text).toContain('A cute cat');
-    expect((result[0].content as any)[2].type).toBe('text');
-    expect((result[0].content as any)[3].type).toBe('text');
-    expect((result[0].content as any)[3].text).toContain('A big dog');
+    expect(result[0]?.content).toHaveLength(4);
+    expect((result[0]?.content as any)[0]?.type).toBe('text');
+    expect((result[0]?.content as any)[1]?.type).toBe('text');
+    expect((result[0]?.content as any)[1]?.text).toContain('A cute cat');
+    expect((result[0]?.content as any)[2]?.type).toBe('text');
+    expect((result[0]?.content as any)[3]?.type).toBe('text');
+    expect((result[0]?.content as any)[3]?.text).toContain('A big dog');
 
     // Verify no images left
     expect(VisionDescriptorService.hasImages(result)).toBe(false);
@@ -55,8 +55,8 @@ describe('VisionDescriptorService Detailed Verification', () => {
     const result = await VisionDescriptorService.process(request, 'desc-model');
 
     expect(VisionDescriptorService.hasImages(result.messages)).toBe(false);
-    expect(result.messages[0].content).toHaveLength(1);
-    const firstContent = (result.messages[0].content as any)[0] as TextContent;
+    expect(result.messages[0]?.content).toHaveLength(1);
+    const firstContent = (result.messages[0]?.content as any)[0] as TextContent;
     expect(firstContent?.text).toContain('This is a description of an image.');
   });
 });

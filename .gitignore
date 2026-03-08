@@ -54,3 +54,4 @@ packages/backend/config/
 research_and_plans/
 packages/logs.txt
 .vscode/mcp.json
+.pi/readcache/

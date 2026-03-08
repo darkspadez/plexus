@@ -3,7 +3,7 @@ import type { ErrorInfo, ReactNode } from 'react';
 import Editor from '@monaco-editor/react';
 import { api } from '../lib/api';
 import { Button } from '../components/ui/Button';
-import { RotateCcw, AlertTriangle, Download, Upload } from 'lucide-react';
+import { RotateCcw, AlertTriangle, Download, Upload, RefreshCw } from 'lucide-react';
 import type { CardLayout } from '../types/card';
 import { DEFAULT_CARD_ORDER, LAYOUT_STORAGE_KEY } from '../types/card';
 
@@ -39,6 +39,7 @@ class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Er
 
 export const Config = () => {
   const [config, setConfig] = useState('');
+  const [isRestarting, setIsRestarting] = useState(false);
 
   const loadConfig = async () => {
     try {
@@ -136,6 +137,26 @@ export const Config = () => {
     event.target.value = '';
   };
 
+  const handleRestart = async () => {
+    if (
+      !confirm(
+        'Are you sure you want to restart Plexus? This will briefly interrupt all ongoing requests.'
+      )
+    ) {
+      return;
+    }
+
+    setIsRestarting(true);
+    try {
+      await api.restart();
+    } catch (e) {
+      const error = e as Error;
+      alert(`Restart failed:\n\n${error.message}`);
+      setIsRestarting(false);
+    }
+  };
+
+
   return (
     <div className="min-h-screen p-6 transition-all duration-300 bg-gradient-to-br from-bg-deep to-bg-surface">
       <div className="mb-8">
@@ -154,6 +175,15 @@ export const Config = () => {
               leftIcon={<RotateCcw size={14} />}
             >
               Refresh
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRestart}
+              isLoading={isRestarting}
+              leftIcon={<RefreshCw size={14} />}
+            >
+              Restart
             </Button>
             <Button
               variant="primary"

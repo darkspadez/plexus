@@ -160,34 +160,38 @@ export function formatGeminiStream(stream: ReadableStream): ReadableStream {
         });
       }
 
-      if (parts.length > 0 || chunk.finish_reason || chunk.usage) {
-        const geminiChunk: any = {
-          candidates: [
-            {
-              content: { role: 'model', parts: parts.length > 0 ? parts : [{ text: '' }] },
-              finishReason: chunk.finish_reason?.toUpperCase() || null,
-              index: 0,
-            },
-          ],
-          usageMetadata: chunk.usage
-            ? {
-                promptTokenCount: chunk.usage.input_tokens + (chunk.usage.cached_tokens || 0),
-                candidatesTokenCount: chunk.usage.output_tokens,
-                totalTokenCount: chunk.usage.total_tokens,
-                ...(chunk.usage.reasoning_tokens
-                  ? { thoughtsTokenCount: chunk.usage.reasoning_tokens }
-                  : {}),
-                ...(chunk.usage.cached_tokens
-                  ? { cachedContentTokenCount: chunk.usage.cached_tokens }
-                  : {}),
-              }
-            : undefined,
-        };
-        if (chunk.model) geminiChunk.modelVersion = chunk.model;
-        if (chunk.id) geminiChunk.responseId = chunk.id;
-        const sseMessage = encode({ data: JSON.stringify(geminiChunk) });
-        controller.enqueue(encoder.encode(sseMessage));
+      // Map OpenAI-style finish_reason to valid Gemini values
+      // TOOL_CALLS is not valid in Gemini - use STOP instead
+      let geminiFinishReason = chunk.finish_reason?.toUpperCase();
+      if (geminiFinishReason === 'TOOL_CALLS') {
+        geminiFinishReason = 'STOP';
       }
+      const geminiChunk: any = {
+        candidates: [
+          {
+            content: { role: 'model', parts: parts.length > 0 ? parts : [{ text: '' }] },
+            finishReason: geminiFinishReason || null,
+            index: 0,
+          },
+        ],
+        usageMetadata: chunk.usage
+          ? {
+              promptTokenCount: chunk.usage.input_tokens + (chunk.usage.cached_tokens || 0),
+              candidatesTokenCount: chunk.usage.output_tokens,
+              totalTokenCount: chunk.usage.total_tokens,
+              ...(chunk.usage.reasoning_tokens
+                ? { thoughtsTokenCount: chunk.usage.reasoning_tokens }
+                : {}),
+              ...(chunk.usage.cached_tokens
+                ? { cachedContentTokenCount: chunk.usage.cached_tokens }
+                : {}),
+            }
+          : undefined,
+      };
+      if (chunk.model) geminiChunk.modelVersion = chunk.model;
+      if (chunk.id) geminiChunk.responseId = chunk.id;
+      const sseMessage = encode({ data: JSON.stringify(geminiChunk) });
+      controller.enqueue(encoder.encode(sseMessage));
     },
   });
 

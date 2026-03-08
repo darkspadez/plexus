@@ -123,6 +123,8 @@ export async function registerChatRoute(
     } catch (e: any) {
       usageRecord.responseStatus = 'error';
       usageRecord.durationMs = Date.now() - startTime;
+      usageRecord.attemptCount = e.routingContext?.attemptCount || usageRecord.attemptCount || 1;
+      usageRecord.retryHistory = e.routingContext?.retryHistory || usageRecord.retryHistory || null;
       usageStorage.saveRequest(usageRecord as UsageRecord);
 
       // Extract routing context if available from enriched error

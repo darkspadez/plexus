@@ -28,8 +28,114 @@ import { DEFAULT_VISION_DESCRIPTION_PROMPT } from '../utils/constants';
 import { UsageRecord } from '../types/usage';
 import { calculateCosts } from '../utils/calculate-costs';
 
+interface RetryAttemptRecord {
+  index: number;
+  provider: string;
+  model: string;
+  apiType?: string;
+  status: 'success' | 'failed' | 'skipped';
+  reason: string;
+  statusCode?: number;
+  retryable?: boolean;
+}
+
+interface ParseFailureContext {
+  rawResponseText: string;
+  contentType?: string | null;
+}
+
+interface RetryHistoryLikeEntry {
+  reason?: unknown;
+}
+
 export class Dispatcher {
   private usageStorage?: UsageStorageService;
+
+  private extractFailureReason(value: unknown): string | undefined {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return undefined;
+      }
+
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          return this.extractFailureReason(parsed) || trimmed;
+        } catch {
+          return trimmed;
+        }
+      }
+
+      return trimmed;
+    }
+
+    if (!value || typeof value !== 'object') {
+      return undefined;
+    }
+
+    const record = value as Record<string, unknown>;
+    const nestedError =
+      record.error && typeof record.error === 'object'
+        ? (record.error as Record<string, unknown>)
+        : undefined;
+    const nestedRoutingContext =
+      record.routingContext && typeof record.routingContext === 'object'
+        ? (record.routingContext as Record<string, unknown>)
+        : undefined;
+
+    const directCandidates = [
+      record.errorMessage,
+      nestedError?.errorMessage,
+      record.message,
+      nestedError?.message,
+      record.providerResponse,
+      record.rawResponseText,
+      nestedRoutingContext?.providerResponse,
+      nestedRoutingContext?.rawResponseText,
+    ];
+
+    for (const candidate of directCandidates) {
+      const extracted = this.extractFailureReason(candidate);
+      if (extracted) {
+        return extracted;
+      }
+    }
+
+    if (typeof record.retryHistory === 'string') {
+      try {
+        const parsed = JSON.parse(record.retryHistory) as RetryHistoryLikeEntry[];
+        for (let index = parsed.length - 1; index >= 0; index--) {
+          const extracted = this.extractFailureReason(parsed[index]?.reason);
+          if (extracted) {
+            return extracted;
+          }
+        }
+      } catch {
+        // Ignore malformed retry history strings.
+      }
+    }
+
+    return undefined;
+  }
+
+  private formatFailureReason(error: any, includeStatusCode = false): string {
+    const extracted =
+      this.extractFailureReason(error?.routingContext?.providerResponse) ||
+      this.extractFailureReason(error?.routingContext?.rawResponseText) ||
+      this.extractFailureReason(error?.piAiResponse) ||
+      this.extractFailureReason(error) ||
+      error?.message ||
+      'Unknown provider error';
+
+    const statusCode = error?.routingContext?.statusCode ?? error?.status ?? error?.statusCode;
+
+    if (includeStatusCode && typeof statusCode === 'number') {
+      return `HTTP ${statusCode}: ${extracted}`.slice(0, 500);
+    }
+
+    return String(extracted).slice(0, 500);
+  }
 
   private async recordAttemptMetric(
     route: RouteResult,
@@ -86,6 +192,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     // Check if this is already a vision descriptor request to prevent recursion
@@ -152,6 +259,11 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`
+        );
         continue;
       }
 
@@ -204,30 +316,35 @@ export class Dispatcher {
               isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
               isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
             });
-            this.attachAttemptMetadata(oauthResponse, attemptedProviders, route, targetApiType);
+            this.appendSuccessAttempt(retryHistory, route, targetApiType);
+            this.attachAttemptMetadata(
+              oauthResponse,
+              attemptedProviders,
+              retryHistory,
+              route,
+              targetApiType
+            );
             return oauthResponse;
           } catch (oauthError: any) {
             lastError = oauthError;
             const canRetry =
               failoverEnabled && i < targets.length - 1 && this.isRetryableOAuthError(oauthError);
 
+            this.appendFailureAttempt(retryHistory, route, oauthError, targetApiType, canRetry);
+
             if (canRetry) {
               await this.recordAttemptMetric(route, currentRequest.requestId, false, {
                 isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
                 isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
               });
-              CooldownManager.getInstance().markProviderFailure(
-                route.provider,
-                route.model,
-                undefined,
-                oauthError.message
-              );
+              await this.markOAuthProviderFailure(route, oauthError);
               logger.warn(
                 `Failover: retrying after OAuth error from ${route.provider}/${route.model}: ${oauthError.message}`
               );
               continue;
             }
 
+            await this.markOAuthProviderFailure(route, oauthError);
             throw oauthError;
           }
         }
@@ -264,6 +381,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, targetApiType, canRetry);
 
             if (canRetry) {
               await this.recordAttemptMetric(route, currentRequest.requestId, false, {
@@ -277,12 +395,7 @@ export class Dispatcher {
                   route.provider,
                   route.model,
                   undefined,
-                  e?.routingContext?.providerResponse
-                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                        0,
-                        500
-                      )
-                    : e.message
+                  this.formatFailureReason(e, true)
                 );
               }
               logger.warn(
@@ -314,12 +427,13 @@ export class Dispatcher {
                 isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
                 isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
               });
+              this.appendFailureAttempt(retryHistory, route, error, targetApiType, true);
               // Always mark as failed when retrying — provider couldn't serve this request
               CooldownManager.getInstance().markProviderFailure(
                 route.provider,
                 route.model,
                 undefined,
-                error.message
+                this.formatFailureReason(error)
               );
               logger.warn(
                 `Failover: retrying stream before first byte after ${route.provider}/${route.model} failure: ${error.message}`
@@ -342,7 +456,14 @@ export class Dispatcher {
             isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
           });
           CooldownManager.getInstance().markProviderSuccess(route.provider, route.model);
-          this.attachAttemptMetadata(streamResponse, attemptedProviders, route, targetApiType);
+          this.appendSuccessAttempt(retryHistory, route, targetApiType);
+          this.attachAttemptMetadata(
+            streamResponse,
+            attemptedProviders,
+            retryHistory,
+            route,
+            targetApiType
+          );
           return streamResponse;
         }
 
@@ -364,7 +485,14 @@ export class Dispatcher {
         }
 
         CooldownManager.getInstance().markProviderSuccess(route.provider, route.model);
-        this.attachAttemptMetadata(nonStreamingResponse, attemptedProviders, route, targetApiType);
+        this.appendSuccessAttempt(retryHistory, route, targetApiType);
+        this.attachAttemptMetadata(
+          nonStreamingResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          targetApiType
+        );
         return nonStreamingResponse;
       } catch (error: any) {
         lastError = error;
@@ -379,7 +507,7 @@ export class Dispatcher {
             route.provider,
             route.model,
             undefined,
-            error.message
+            this.formatFailureReason(error)
           );
         }
         await this.recordAttemptMetric(route, currentRequest.requestId, false, {
@@ -392,6 +520,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, undefined, canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -399,11 +529,11 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 
   private isRetryableStatus(statusCode: number, retryableStatusCodes: number[]): boolean {
@@ -562,6 +692,7 @@ export class Dispatcher {
   private attachAttemptMetadata(
     response: any,
     attemptedProviders: string[],
+    retryHistory: RetryAttemptRecord[],
     finalRoute: RouteResult,
     apiType: string
   ): void {
@@ -571,6 +702,7 @@ export class Dispatcher {
       finalAttemptProvider: finalRoute.provider,
       finalAttemptModel: finalRoute.model,
       allAttemptedProviders: JSON.stringify(attemptedProviders),
+      retryHistory: JSON.stringify(retryHistory),
       canonicalModel: finalRoute.canonicalModel,
       provider: finalRoute.provider,
       model: finalRoute.model,
@@ -583,7 +715,66 @@ export class Dispatcher {
     } as any;
   }
 
-  private buildAllTargetsFailedError(lastError: any, attemptedProviders: string[]): Error {
+  private appendSkippedAttempt(
+    retryHistory: RetryAttemptRecord[],
+    route: RouteResult,
+    reason: string,
+    apiType?: string
+  ): void {
+    retryHistory.push({
+      index: retryHistory.length + 1,
+      provider: route.provider,
+      model: route.model,
+      apiType,
+      status: 'skipped',
+      reason,
+      retryable: false,
+    });
+  }
+
+  private appendSuccessAttempt(
+    retryHistory: RetryAttemptRecord[],
+    route: RouteResult,
+    apiType?: string
+  ): void {
+    retryHistory.push({
+      index: retryHistory.length + 1,
+      provider: route.provider,
+      model: route.model,
+      apiType,
+      status: 'success',
+      reason: 'Request completed successfully',
+      retryable: false,
+    });
+  }
+
+  private appendFailureAttempt(
+    retryHistory: RetryAttemptRecord[],
+    route: RouteResult,
+    error: any,
+    apiType?: string,
+    retryable?: boolean
+  ): void {
+    const statusCode = error?.routingContext?.statusCode ?? error?.status ?? error?.statusCode;
+    const reason = this.formatFailureReason(error);
+
+    retryHistory.push({
+      index: retryHistory.length + 1,
+      provider: route.provider,
+      model: route.model,
+      apiType,
+      status: 'failed',
+      reason,
+      statusCode: typeof statusCode === 'number' ? statusCode : undefined,
+      retryable,
+    });
+  }
+
+  private buildAllTargetsFailedError(
+    lastError: any,
+    attemptedProviders: string[],
+    retryHistory: RetryAttemptRecord[] = []
+  ): Error {
     const summary = attemptedProviders.length > 0 ? attemptedProviders.join(', ') : 'none';
     const baseMessage = lastError?.message || 'Unknown provider error';
     const enriched = new Error(`All targets failed: ${summary}. Last error: ${baseMessage}`) as any;
@@ -593,10 +784,52 @@ export class Dispatcher {
       ...(lastError?.routingContext || {}),
       allAttemptedProviders: attemptedProviders,
       attemptCount: attemptedProviders.length,
+      retryHistory: JSON.stringify(retryHistory),
       statusCode: lastError?.routingContext?.statusCode || 500,
     };
 
     return enriched;
+  }
+
+  private async parseJsonResponseBody(
+    response: Response,
+    requestId?: string,
+    route?: RouteResult,
+    targetApiType?: string
+  ): Promise<any> {
+    const responseText = await response.text();
+
+    try {
+      return JSON.parse(responseText);
+    } catch (cause) {
+      if (requestId) {
+        DebugManager.getInstance().addRawResponse(requestId, responseText);
+        DebugManager.getInstance().addReconstructedRawResponse(requestId, {
+          parseError: true,
+          rawResponseText: responseText,
+          contentType: response.headers.get('content-type'),
+          provider: route?.provider,
+          targetModel: route?.model,
+          targetApiType,
+        });
+      }
+
+      const error = new Error(
+        responseText || 'JSON Parse error: Unable to parse JSON string'
+      ) as any;
+      error.cause = cause;
+      error.routingContext = {
+        provider: route?.provider,
+        targetModel: route?.model,
+        targetApiType,
+        statusCode: response.status || 500,
+        rawResponseText: responseText,
+        providerResponse: responseText,
+        contentType: response.headers.get('content-type'),
+      } satisfies ParseFailureContext & Record<string, unknown>;
+
+      throw error;
+    }
   }
 
   setupHeaders(
@@ -761,6 +994,129 @@ export class Dispatcher {
     return !!input && typeof input.getReader === 'function';
   }
 
+  private normalizeOAuthStream(result: any): ReadableStream<any> {
+    if (this.isReadableStream(result)) {
+      return result;
+    }
+
+    if (this.isAsyncIterable(result)) {
+      return this.streamFromAsyncIterable(result);
+    }
+
+    throw new Error('OAuth provider returned an unsupported stream type');
+  }
+
+  private buildOAuthStreamEventError(event: any): Error {
+    const message =
+      event?.error?.errorMessage ||
+      event?.errorMessage ||
+      event?.error?.message ||
+      event?.message ||
+      'OAuth provider error';
+
+    const error = new Error(message) as Error & { piAiResponse?: unknown };
+    error.piAiResponse = event;
+    return error;
+  }
+
+  private async probeOAuthStreamStart(
+    stream: ReadableStream<any>
+  ): Promise<
+    { ok: true; stream: ReadableStream<any> } | { ok: false; error: Error; streamStarted: boolean }
+  > {
+    // Pi-ai streams begin with bookkeeping events (type 'start', 'text_start',
+    // 'thinking_start', etc.) that carry no content and precede any error events.
+    // If we declare ok:true on the first such event, a 429 error arriving as the
+    // SECOND event will be seen after the HTTP response is already committed —
+    // too late to retry.  Instead, buffer bookkeeping events and keep reading
+    // until we see either:
+    //   - An error event  → ok:false → dispatcher retries
+    //   - Empty stream    → ok:false → dispatcher retries (quota exhausted)
+    //   - A content event → ok:true  → replay all buffered events + rest of stream
+    const BOOKKEEPING_TYPES = new Set([
+      'start',
+      'text_start',
+      'text_end',
+      'thinking_start',
+      'thinking_end',
+      'toolcall_start',
+      'toolcall_end',
+    ]);
+
+    const reader = stream.getReader();
+    const buffered: any[] = [];
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) {
+          // Stream closed — quota exhausted (no events) or provider gave up.
+          reader.releaseLock();
+          return {
+            ok: false,
+            error: new Error('OAuth provider returned empty stream (quota exhausted)'),
+            streamStarted: false,
+          };
+        }
+
+        if (value?.type === 'error' || value?.reason === 'error') {
+          reader.releaseLock();
+          return {
+            ok: false,
+            error: this.buildOAuthStreamEventError(value),
+            streamStarted: false,
+          };
+        }
+
+        buffered.push(value);
+
+        // If this event is not pure bookkeeping, the stream is healthy.
+        // Replay all buffered events then continue from the reader.
+        if (!BOOKKEEPING_TYPES.has(value?.type)) {
+          break;
+        }
+      }
+
+      // Stream is healthy — replay buffered events then stream the rest.
+      // The replay stream takes ownership of the reader; do NOT releaseLock here.
+      const snapshot = buffered.slice();
+      const replay = new ReadableStream<any>({
+        start(controller) {
+          for (const ev of snapshot) {
+            controller.enqueue(ev);
+          }
+        },
+        async pull(controller) {
+          try {
+            const next = await reader.read();
+            if (next.done) {
+              controller.close();
+            } else {
+              controller.enqueue(next.value);
+            }
+          } catch (error) {
+            controller.error(error);
+          }
+        },
+        cancel(reason) {
+          return reader.cancel(reason);
+        },
+      });
+
+      return { ok: true, stream: replay };
+    } catch (error: any) {
+      try {
+        reader.releaseLock();
+      } catch {}
+      return {
+        ok: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+        streamStarted: false,
+      };
+    }
+  }
+
   private describeStreamResult(result: any): Record<string, any> {
     return {
       isPromise: !!result && typeof result.then === 'function',
@@ -802,6 +1158,124 @@ export class Dispatcher {
       async cancel(reason) {
         closed = true;
         await iterator.return?.(reason);
+      },
+    });
+  }
+
+  /**
+   * Wraps an OAuth pi-ai ReadableStream with a transparent monitor that detects
+   * error events and triggers a provider cooldown asynchronously.
+   *
+   * This is needed because pi-ai retries HTTP 429s internally with exponential
+   * backoff (delays of 1 s, 2 s, 4 s …), so the final error event may arrive
+   * many seconds after the 100 ms probe timeout has already declared the stream
+   * healthy.  Without this wrapper the cooldown is never triggered and the
+   * exhausted provider keeps receiving traffic.
+   */
+  private monitorOAuthStreamForErrors(
+    stream: ReadableStream<any>,
+    route: RouteResult
+  ): ReadableStream<any> {
+    const dispatcher = this;
+    let readerRef: ReadableStreamDefaultReader<any> | null = null;
+
+    return new ReadableStream<any>({
+      async start(controller) {
+        readerRef = stream.getReader();
+        let eventsEmitted = 0;
+
+        try {
+          while (true) {
+            const { value, done } = await readerRef.read();
+            if (done) {
+              // If the stream closed without emitting any events, the upstream
+              // provider silently exhausted quota (pi-ai retries 429s internally
+              // with exponential backoff and then just closes the stream — no
+              // error event is emitted).  Treat this as a provider failure so
+              // that a cooldown is triggered and the account is not hammered.
+              if (eventsEmitted === 0) {
+                logger.warn(
+                  `OAuth: Stream closed with 0 events for ${route.provider}/${route.model} — ` +
+                    `treating as quota exhaustion and triggering cooldown`
+                );
+
+                const syntheticError = new Error(
+                  'OAuth provider returned empty stream (quota exhausted)'
+                ) as Error & {
+                  piAiResponse?: unknown;
+                };
+                syntheticError.piAiResponse = {
+                  stopReason: 'error',
+                  errorMessage: 'quota exhausted',
+                };
+
+                const wrappedError = dispatcher.wrapOAuthError(
+                  syntheticError,
+                  route,
+                  'oauth'
+                ) as any;
+
+                dispatcher.markOAuthProviderFailure(route, wrappedError).catch((e) => {
+                  logger.error('OAuth: Failed to mark provider failure from empty stream', e);
+                });
+              }
+
+              controller.close();
+              break;
+            }
+
+            // Detect pi-ai error events and trigger cooldown asynchronously.
+            // The event shape is: { type: "error", reason: "error"|"aborted", error: AssistantMessage }
+            if (value?.type === 'error') {
+              const errorMessage =
+                value?.error?.errorMessage ||
+                value?.errorMessage ||
+                value?.error?.message ||
+                value?.message ||
+                'OAuth provider error';
+
+              logger.warn(
+                `OAuth: Stream error event detected for ${route.provider}/${route.model}: ${errorMessage}`
+              );
+
+              // Build a synthetic error so wrapOAuthError can determine if this
+              // is a quota exhaustion, compute cooldown duration, etc.
+              const syntheticError = new Error(errorMessage) as Error & {
+                piAiResponse?: unknown;
+              };
+              syntheticError.piAiResponse = value;
+
+              const wrappedError = dispatcher.wrapOAuthError(syntheticError, route, 'oauth') as any;
+
+              // Trigger cooldown without awaiting so the stream is not blocked.
+              dispatcher.markOAuthProviderFailure(route, wrappedError).catch((e) => {
+                logger.error('OAuth: Failed to mark provider failure from stream error', e);
+              });
+
+              // Do NOT forward the raw provider error event to the client.
+              // Close the stream cleanly so the client gets a proper termination
+              // rather than raw provider JSON leaking through as completion content.
+              // We cannot use controller.error() here because the HTTP response is
+              // already committed (message_start was already sent), and erroring an
+              // in-flight ReadableStream causes unhandled promise rejections downstream.
+              controller.close();
+              return;
+            }
+
+            eventsEmitted++;
+            controller.enqueue(value);
+          }
+        } catch (error) {
+          controller.error(error);
+        } finally {
+          readerRef.releaseLock();
+          readerRef = null;
+        }
+      },
+      cancel(reason) {
+        if (readerRef) {
+          readerRef.cancel(reason).catch(() => {});
+        }
       },
     });
   }
@@ -855,21 +1329,27 @@ export class Dispatcher {
       );
 
       if (request.stream) {
-        let rawStream: ReadableStream<any>;
+        const rawStream = this.normalizeOAuthStream(result);
+        const streamProbe = await this.probeOAuthStreamStart(rawStream);
 
-        if (this.isReadableStream(result)) {
-          rawStream = result;
-        } else if (this.isAsyncIterable(result)) {
-          rawStream = this.streamFromAsyncIterable(result);
-        } else {
-          throw new Error('OAuth provider returned an unsupported stream type');
+        if (!streamProbe.ok) {
+          throw streamProbe.error;
         }
+
         logger.debug('OAuth: Normalized stream result', this.describeStreamResult(result));
+
+        // Wrap the probed stream with an error monitor so that quota/error events
+        // arriving AFTER the 100ms probe timeout still trigger a cooldown.  This
+        // is necessary because pi-ai retries HTTP 429s with exponential backoff
+        // (1 s, 2 s, 4 s) before emitting the final error event, which takes far
+        // longer than the probe's 100 ms window.
+        const monitoredStream = this.monitorOAuthStreamForErrors(streamProbe.stream, route);
+
         const streamResponse: UnifiedChatResponse = {
           id: 'stream-' + Date.now(),
           model: request.model,
           content: null,
-          stream: rawStream,
+          stream: monitoredStream,
           bypassTransformation: false,
         };
 
@@ -905,20 +1385,46 @@ export class Dispatcher {
   }
 
   private wrapOAuthError(error: Error, route: RouteResult, targetApiType: string): Error {
+    const rawProviderResponse = this.stringifyOAuthProviderResponse((error as any)?.piAiResponse);
     const message = error?.message || 'OAuth provider error';
-    let statusCode = 500;
+    const providerResponse =
+      this.extractFailureReason((error as any)?.piAiResponse) || rawProviderResponse;
+    const errorText = providerResponse || message;
+    const isQuotaError = this.isQuotaExhaustedError(errorText);
+    let statusCode = (error as any)?.status || (error as any)?.statusCode;
 
-    if (
-      message.includes('Not authenticated') ||
-      message.includes('re-authenticate') ||
-      message.includes('expired')
-    ) {
-      statusCode = 401;
-    } else if (message.toLowerCase().includes('model') && message.toLowerCase().includes('not')) {
-      statusCode = 400;
+    if (!statusCode) {
+      statusCode = 500;
+
+      if (isQuotaError) {
+        statusCode = 429;
+      }
+
+      if (
+        message.includes('Not authenticated') ||
+        message.includes('re-authenticate') ||
+        message.includes('expired')
+      ) {
+        statusCode = 401;
+      } else if (message.toLowerCase().includes('model') && message.toLowerCase().includes('not')) {
+        statusCode = 400;
+      }
     }
 
+    const cooldownTriggered =
+      statusCode !== 413 && statusCode !== 422 && !(statusCode === 400 && !isQuotaError);
+    const cooldownDuration =
+      (statusCode === 429 || isQuotaError) && errorText
+        ? this.parseCooldownDurationForProvider(
+            this.resolveCooldownProviderType(route),
+            errorText,
+            'OAuth'
+          )
+        : undefined;
+
     const enriched = new Error(message) as any;
+    enriched.status = statusCode;
+    enriched.statusCode = statusCode;
     enriched.routingContext = {
       provider: route.provider,
       oauthProvider: route.config.oauth_provider || route.provider,
@@ -926,9 +1432,75 @@ export class Dispatcher {
       targetModel: route.model,
       targetApiType,
       statusCode,
+      providerResponse,
+      rawProviderResponse,
+      cooldownTriggered,
+      cooldownDuration,
     };
 
     return enriched;
+  }
+
+  private resolveCooldownProviderType(route: RouteResult): string | undefined {
+    if (typeof route.config.oauth_provider === 'string' && route.config.oauth_provider.trim()) {
+      return route.config.oauth_provider.trim();
+    }
+
+    const providerTypes = this.extractProviderTypes(route);
+    return providerTypes[0];
+  }
+
+  private parseCooldownDurationForProvider(
+    providerType: string | undefined,
+    errorText: string,
+    source: 'HTTP' | 'OAuth'
+  ): number | undefined {
+    if (!providerType) {
+      return undefined;
+    }
+
+    const parsedDuration = CooldownParserRegistry.parseCooldown(providerType, errorText);
+
+    if (parsedDuration !== null) {
+      logger.info(
+        `${source}: Parsed cooldown duration for ${providerType}: ${parsedDuration}ms (${parsedDuration / 1000}s)`
+      );
+      return parsedDuration;
+    }
+
+    logger.debug(`${source}: No cooldown duration parsed for ${providerType}, using default`);
+    return undefined;
+  }
+
+  private stringifyOAuthProviderResponse(response: unknown): string | undefined {
+    if (response === undefined || response === null) {
+      return undefined;
+    }
+
+    if (typeof response === 'string') {
+      return response;
+    }
+
+    try {
+      return JSON.stringify(response);
+    } catch {
+      return String(response);
+    }
+  }
+
+  private async markOAuthProviderFailure(route: RouteResult, oauthError: any): Promise<void> {
+    if (!oauthError?.routingContext?.cooldownTriggered) {
+      return;
+    }
+
+    const failureReason = this.formatFailureReason(oauthError, true);
+
+    await CooldownManager.getInstance().markProviderFailure(
+      route.provider,
+      route.model,
+      oauthError?.routingContext?.cooldownDuration,
+      failureReason
+    );
   }
 
   private resolveOAuthInstructions(
@@ -1094,6 +1666,8 @@ export class Dispatcher {
       lower.includes('credit_balance_too_low') ||
       lower.includes('account is out of credits') ||
       lower.includes('used up your points') ||
+      lower.includes('usage limit') ||
+      lower.includes('free plan') ||
       lower.includes('your credit balance') ||
       lower.includes('remaining quota') ||
       lower.includes('payment required') ||
@@ -1101,7 +1675,9 @@ export class Dispatcher {
       lower.includes('no credits') ||
       lower.includes('topup') ||
       lower.includes('top up') ||
-      lower.includes('top_up')
+      lower.includes('top_up') ||
+      lower.includes('rate limit') ||
+      lower.includes('rate_limit')
     );
   }
 
@@ -1144,22 +1720,11 @@ export class Dispatcher {
       // For 429 errors, try to parse provider-specific cooldown duration
       if (response.status === 429) {
         // Get provider type for parser lookup
-        const providerTypes = this.extractProviderTypes(route);
-        const providerType = providerTypes[0];
-
-        // Try to parse cooldown duration from error message
-        if (providerType) {
-          const parsedDuration = CooldownParserRegistry.parseCooldown(providerType, errorText);
-
-          if (parsedDuration) {
-            cooldownDuration = parsedDuration;
-            logger.info(
-              `Parsed cooldown duration: ${cooldownDuration}ms (${cooldownDuration / 1000}s)`
-            );
-          } else {
-            logger.debug(`No cooldown duration parsed from error, using default`);
-          }
-        }
+        cooldownDuration = this.parseCooldownDurationForProvider(
+          this.resolveCooldownProviderType(route),
+          errorText,
+          'HTTP'
+        );
       }
 
       // Mark provider+model as failed with optional duration
@@ -1286,7 +1851,12 @@ export class Dispatcher {
     transformer: any,
     bypassTransformation: boolean
   ): Promise<UnifiedChatResponse> {
-    const responseBody = JSON.parse(await response.text());
+    const responseBody = await this.parseJsonResponseBody(
+      response,
+      request.requestId,
+      route,
+      targetApiType
+    );
     logger.silly('Upstream Response Payload', responseBody);
 
     if (request.requestId) {
@@ -1333,6 +1903,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     for (let i = 0; i < targets.length; i++) {
@@ -1346,6 +1917,12 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`,
+          'embeddings'
+        );
         continue;
       }
 
@@ -1405,6 +1982,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, 'embeddings', canRetry);
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
               // Only mark as failed if cooldown was actually triggered (not a caller error)
@@ -1413,12 +1991,7 @@ export class Dispatcher {
                   route.provider,
                   route.model,
                   undefined,
-                  e?.routingContext?.providerResponse
-                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                        0,
-                        500
-                      )
-                    : e.message
+                  this.formatFailureReason(e, true)
                 );
               }
               logger.warn(
@@ -1451,7 +2024,14 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(enrichedResponse, attemptedProviders, route, 'embeddings');
+        this.appendSuccessAttempt(retryHistory, route, 'embeddings');
+        this.attachAttemptMetadata(
+          enrichedResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          'embeddings'
+        );
         return enrichedResponse;
       } catch (error: any) {
         lastError = error;
@@ -1462,7 +2042,7 @@ export class Dispatcher {
             route.provider,
             route.model,
             undefined,
-            error.message
+            this.formatFailureReason(error)
           );
         }
         await this.recordAttemptMetric(route, request.requestId, false);
@@ -1472,6 +2052,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, 'embeddings', canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying embeddings after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -1479,11 +2061,11 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 
   /**
@@ -1508,6 +2090,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     for (let i = 0; i < targets.length; i++) {
@@ -1521,6 +2104,12 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`,
+          'transcriptions'
+        );
         continue;
       }
 
@@ -1587,6 +2176,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, 'transcriptions', canRetry);
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
               // Only mark as failed if cooldown was actually triggered (not a caller error)
@@ -1595,12 +2185,7 @@ export class Dispatcher {
                   route.provider,
                   route.model,
                   undefined,
-                  e?.routingContext?.providerResponse
-                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                        0,
-                        500
-                      )
-                    : e.message
+                  this.formatFailureReason(e, true)
                 );
               }
               logger.warn(
@@ -1640,7 +2225,14 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'transcriptions');
+        this.appendSuccessAttempt(retryHistory, route, 'transcriptions');
+        this.attachAttemptMetadata(
+          unifiedResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          'transcriptions'
+        );
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;
@@ -1651,7 +2243,7 @@ export class Dispatcher {
             route.provider,
             route.model,
             undefined,
-            error.message
+            this.formatFailureReason(error)
           );
         }
         await this.recordAttemptMetric(route, request.requestId, false);
@@ -1661,6 +2253,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, 'transcriptions', canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying transcription after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -1668,11 +2262,11 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 
   /**
@@ -1696,6 +2290,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     for (let i = 0; i < targets.length; i++) {
@@ -1709,6 +2304,12 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`,
+          'speech'
+        );
         continue;
       }
 
@@ -1775,6 +2376,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, 'speech', canRetry);
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
               // Only mark as failed if cooldown was actually triggered (not a caller error)
@@ -1783,12 +2385,7 @@ export class Dispatcher {
                   route.provider,
                   route.model,
                   undefined,
-                  e?.routingContext?.providerResponse
-                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                        0,
-                        500
-                      )
-                    : e.message
+                  this.formatFailureReason(e, true)
                 );
               }
               logger.warn(
@@ -1816,6 +2413,7 @@ export class Dispatcher {
 
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
+              this.appendFailureAttempt(retryHistory, route, error, 'speech', true);
               // Always mark as failed when retrying — provider couldn't serve this request
               CooldownManager.getInstance().markProviderFailure(
                 route.provider,
@@ -1861,7 +2459,14 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'speech');
+        this.appendSuccessAttempt(retryHistory, route, 'speech');
+        this.attachAttemptMetadata(
+          unifiedResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          'speech'
+        );
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;
@@ -1872,7 +2477,7 @@ export class Dispatcher {
             route.provider,
             route.model,
             undefined,
-            error.message
+            this.formatFailureReason(error)
           );
         }
         await this.recordAttemptMetric(route, request.requestId, false);
@@ -1882,6 +2487,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, 'speech', canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying speech after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -1889,11 +2496,11 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 
   /**
@@ -1918,6 +2525,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     for (let i = 0; i < targets.length; i++) {
@@ -1931,6 +2539,12 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`,
+          'images'
+        );
         continue;
       }
 
@@ -1996,6 +2610,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, 'images', canRetry);
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
               // Only mark as failed if cooldown was actually triggered (not a caller error)
@@ -2004,12 +2619,7 @@ export class Dispatcher {
                   route.provider,
                   route.model,
                   undefined,
-                  e?.routingContext?.providerResponse
-                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                        0,
-                        500
-                      )
-                    : e.message
+                  this.formatFailureReason(e, true)
                 );
               }
               logger.warn(
@@ -2041,7 +2651,14 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'images');
+        this.appendSuccessAttempt(retryHistory, route, 'images');
+        this.attachAttemptMetadata(
+          unifiedResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          'images'
+        );
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;
@@ -2052,7 +2669,7 @@ export class Dispatcher {
             route.provider,
             route.model,
             undefined,
-            error.message
+            this.formatFailureReason(error)
           );
         }
         await this.recordAttemptMetric(route, request.requestId, false);
@@ -2062,6 +2679,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, 'images', canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying image generation after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -2069,11 +2688,11 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 
   /**
@@ -2097,6 +2716,7 @@ export class Dispatcher {
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
+    const retryHistory: RetryAttemptRecord[] = [];
     let lastError: any = null;
 
     for (let i = 0; i < targets.length; i++) {
@@ -2110,6 +2730,12 @@ export class Dispatcher {
       if (!isHealthy) {
         logger.warn(`Skipping ${route.provider}/${route.model} - provider is on cooldown`);
         lastError = new Error(`Provider ${route.provider}/${route.model} is on cooldown`);
+        this.appendSkippedAttempt(
+          retryHistory,
+          route,
+          `Provider ${route.provider}/${route.model} is on cooldown`,
+          'images'
+        );
         continue;
       }
 
@@ -2174,6 +2800,7 @@ export class Dispatcher {
             );
           } catch (e: any) {
             lastError = e;
+            this.appendFailureAttempt(retryHistory, route, e, 'images', canRetry);
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
               // Only mark as failed if cooldown was actually triggered (not a caller error)
@@ -2182,12 +2809,7 @@ export class Dispatcher {
                   route.provider,
                   route.model,
                   undefined,
-                  e?.routingContext?.providerResponse
-                    ? `HTTP ${e.routingContext.statusCode}: ${e.routingContext.providerResponse}`.slice(
-                        0,
-                        500
-                      )
-                    : e.message
+                  this.formatFailureReason(e, true)
                 );
               }
               logger.warn(
@@ -2219,7 +2841,14 @@ export class Dispatcher {
         };
 
         await this.recordAttemptMetric(route, request.requestId, true);
-        this.attachAttemptMetadata(unifiedResponse, attemptedProviders, route, 'images');
+        this.appendSuccessAttempt(retryHistory, route, 'images');
+        this.attachAttemptMetadata(
+          unifiedResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          'images'
+        );
         return unifiedResponse;
       } catch (error: any) {
         lastError = error;
@@ -2230,7 +2859,7 @@ export class Dispatcher {
             route.provider,
             route.model,
             undefined,
-            error.message
+            this.formatFailureReason(error)
           );
         }
         await this.recordAttemptMetric(route, request.requestId, false);
@@ -2240,6 +2869,8 @@ export class Dispatcher {
           i < targets.length - 1 &&
           this.isRetryableNetworkError(error, failover?.retryableErrors || []);
 
+        this.appendFailureAttempt(retryHistory, route, error, 'images', canRetryNetwork);
+
         if (canRetryNetwork) {
           logger.warn(
             `Failover: retrying image edit after network/transport error from ${route.provider}/${route.model}: ${error.message}`
@@ -2247,10 +2878,10 @@ export class Dispatcher {
           continue;
         }
 
-        throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+        throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
       }
     }
 
-    throw this.buildAllTargetsFailedError(lastError, attemptedProviders);
+    throw this.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
   }
 }

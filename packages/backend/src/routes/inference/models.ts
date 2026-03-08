@@ -20,23 +20,9 @@ export async function registerModelsRoute(fastify: FastifyInstance) {
     const config = getConfig();
     const metadataManager = ModelMetadataManager.getInstance();
 
-    // Map each alias ID to its parent alias ID so additional_aliases can
-    // inherit the parent's metadata configuration.
-    const aliasToParent = new Map<string, string>();
-
-    for (const [id, modelConfig] of Object.entries(config.models)) {
-      aliasToParent.set(id, id);
-      if (modelConfig.additional_aliases) {
-        for (const alias of modelConfig.additional_aliases) {
-          aliasToParent.set(alias, id);
-        }
-      }
-    }
-
     const created = Math.floor(Date.now() / 1000);
 
-    const models = Array.from(aliasToParent.entries()).map(([aliasId, parentId]) => {
-      const modelConfig = config.models[parentId];
+    const models = Object.entries(config.models).map(([aliasId, modelConfig]) => {
       const metaConfig = modelConfig?.metadata;
 
       const base = {

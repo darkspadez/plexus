@@ -161,4 +161,142 @@ describe('handleResponse - Pricing Calculation', () => {
     expect(usageRecord.costOutput).toBeCloseTo(0.00001, 8);
     expect(usageRecord.costTotal).toBeCloseTo(0.00002, 8);
   });
+
+  test("should calculate cache write costs for 'defined' pricing with ranges", async () => {
+    const unifiedResponse: UnifiedChatResponse = {
+      id: 'resp-pricing-cache-write',
+      model: 'model-pricing',
+      content: 'Hello',
+      plexus: {
+        provider: 'provider-1',
+        model: 'model-orig',
+        apiType: 'anthropic',
+        pricing: {
+          source: 'defined',
+          range: [
+            {
+              lower_bound: 0,
+              upper_bound: 200000,
+              input_per_m: 5.0,
+              output_per_m: 25.0,
+              cached_per_m: 0.5,
+              cache_write_per_m: 3.75,
+            },
+            {
+              lower_bound: 200001,
+              upper_bound: Infinity,
+              input_per_m: 10.0,
+              output_per_m: 37.5,
+              cached_per_m: 1.0,
+              cache_write_per_m: 6.25,
+            },
+          ],
+        },
+      },
+      usage: {
+        ...baseUsage,
+        input_tokens: 250000, // Falls in second range (>200k)
+        output_tokens: 1000,
+        cached_tokens: 10000,
+        cache_creation_tokens: 50000, // Cache write tokens
+        total_tokens: 310000,
+      },
+    };
+
+    const usageRecord: Partial<UsageRecord> = {
+      requestId: 'req-p-cache-write',
+    };
+
+    await handleResponse(
+      mockRequest,
+      mockReply,
+      unifiedResponse,
+      mockTransformer,
+      usageRecord,
+      mockStorage,
+      Date.now(),
+      'chat'
+    );
+
+    // Expected Cost (using second range >200k tokens):
+    // Input: 250000 / 1M * 10.0 = 2.5
+    // Output: 1000 / 1M * 37.5 = 0.0375
+    // Cached: 10000 / 1M * 1.0 = 0.01
+    // Cache Write: 50000 / 1M * 6.25 = 0.3125
+    // Total: 2.86
+    expect(usageRecord.costInput).toBeCloseTo(2.5, 8);
+    expect(usageRecord.costOutput).toBeCloseTo(0.0375, 8);
+    expect(usageRecord.costCached).toBeCloseTo(0.01, 8);
+    expect(usageRecord.costCacheWrite).toBeCloseTo(0.3125, 8);
+    expect(usageRecord.costTotal).toBeCloseTo(2.86, 8);
+  });
+
+  test("should calculate cache write costs for 'defined' pricing in lower range", async () => {
+    const unifiedResponse: UnifiedChatResponse = {
+      id: 'resp-pricing-cache-write-low',
+      model: 'model-pricing',
+      content: 'Hello',
+      plexus: {
+        provider: 'provider-1',
+        model: 'model-orig',
+        apiType: 'anthropic',
+        pricing: {
+          source: 'defined',
+          range: [
+            {
+              lower_bound: 0,
+              upper_bound: 200000,
+              input_per_m: 5.0,
+              output_per_m: 25.0,
+              cached_per_m: 0.5,
+              cache_write_per_m: 3.75,
+            },
+            {
+              lower_bound: 200001,
+              upper_bound: Infinity,
+              input_per_m: 10.0,
+              output_per_m: 37.5,
+              cached_per_m: 1.0,
+              cache_write_per_m: 6.25,
+            },
+          ],
+        },
+      },
+      usage: {
+        ...baseUsage,
+        input_tokens: 100000, // Falls in first range (<200k)
+        output_tokens: 500,
+        cached_tokens: 5000,
+        cache_creation_tokens: 20000, // Cache write tokens
+        total_tokens: 125000,
+      },
+    };
+
+    const usageRecord: Partial<UsageRecord> = {
+      requestId: 'req-p-cache-write-low',
+    };
+
+    await handleResponse(
+      mockRequest,
+      mockReply,
+      unifiedResponse,
+      mockTransformer,
+      usageRecord,
+      mockStorage,
+      Date.now(),
+      'chat'
+    );
+
+    // Expected Cost (using first range <200k tokens):
+    // Input: 100000 / 1M * 5.0 = 0.5
+    // Output: 500 / 1M * 25.0 = 0.0125
+    // Cached: 5000 / 1M * 0.5 = 0.0025
+    // Cache Write: 20000 / 1M * 3.75 = 0.075
+    // Total: 0.59
+    expect(usageRecord.costInput).toBeCloseTo(0.5, 8);
+    expect(usageRecord.costOutput).toBeCloseTo(0.0125, 8);
+    expect(usageRecord.costCached).toBeCloseTo(0.0025, 8);
+    expect(usageRecord.costCacheWrite).toBeCloseTo(0.075, 8);
+    expect(usageRecord.costTotal).toBeCloseTo(0.59, 8);
+  });
 });

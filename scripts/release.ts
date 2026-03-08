@@ -6,11 +6,11 @@ import pc from 'picocolors';
 
 const PROMPT_TEMPLATE = `You are a helpful assistant that generates release notes.
 
-Summarize the following git commit log into release notes. Call out main new features, as well as smaller changes and their commit hashes. Also propose a short headline for the release - use technical terms where appropriate, not marketing terms. 
+Summarize the following git commit log into release notes. Instead of listing every commit individually, group the changes into logical categories (e.g., New Features, Bug Fixes, Performance Improvements, Infrastructure/Refactoring) and summarize the overall impact within those categories. Call out main new features, and mention significant changes with their commit hashes included in the descriptions. Also propose a short headline for the release - use technical terms where appropriate, not marketing terms. 
 
 IMPORTANT: Your response must be a valid JSON object with EXACTLY these two keys:
 - "headline": a string containing a short technical headline.  This version is {{version}}
-- "notes": a markdown string containing the detailed release notes.  Make sure that commit hashes are included, and are linked properly with a base of https://github.com/mcowger/plexus/commit<hash>.  It should also include a mention at the very end that the docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+- "notes": a markdown string containing the detailed release notes. Make sure that significant commit hashes are included, and are linked properly with a base of https://github.com/mcowger/plexus/commit<hash>. It should also include a mention at the very end that the docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
 Do not include any other text or markdown formatting (like \`\`\`json) outside of the JSON object.
 
 Commit log:

@@ -2642,6 +2642,7 @@ export const Providers = () => {
                                               upper_bound: 0,
                                               input_per_m: 0,
                                               output_per_m: 0,
+                                              cache_write_per_m: 0,
                                             },
                                           ],
                                         },
@@ -2722,7 +2723,7 @@ export const Providers = () => {
                                         }}
                                       />
                                     </div>
-                                    <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-4 gap-4">
                                       <Input
                                         label="Input $/M"
                                         type="number"
@@ -2765,6 +2766,22 @@ export const Providers = () => {
                                           newRanges[idx] = {
                                             ...range,
                                             cached_per_m: parseFloat(e.target.value),
+                                          };
+                                          updateModelConfig(mId, {
+                                            pricing: { ...mCfg.pricing, range: newRanges },
+                                          });
+                                        }}
+                                      />
+                                      <Input
+                                        label="Cache Write $/M"
+                                        type="number"
+                                        step="0.000001"
+                                        value={range.cache_write_per_m || 0}
+                                        onChange={(e) => {
+                                          const newRanges = [...mCfg.pricing.range];
+                                          newRanges[idx] = {
+                                            ...range,
+                                            cache_write_per_m: parseFloat(e.target.value),
                                           };
                                           updateModelConfig(mId, {
                                             pricing: { ...mCfg.pricing, range: newRanges },

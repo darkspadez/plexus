@@ -6,7 +6,7 @@ This document describes all HTTP endpoints available in Plexus.
 
 ## Authentication
 
-All inference endpoints (`/v1/*`, `/v1beta/*`) require authentication. Management endpoints (`/v0/*`) do not require API key auth.
+All inference endpoints (`/v1/*`, `/v1beta/*`) require a Plexus API key. Management endpoints (`/v0/*`) require a separate **Admin Key** passed via `x-admin-key`.
 
 ### Accepted Credentials
 
@@ -45,6 +45,28 @@ Failed auth returns HTTP `401`:
   }
 }
 ```
+
+### Admin Key Authentication (Management API)
+
+All `/v0/management/*` and `/v0/quotas/*` endpoints require an `x-admin-key` header matching the `adminKey` field in `plexus.yaml`:
+
+```
+x-admin-key: your-admin-key-here
+```
+
+Requests with a missing or incorrect key receive HTTP `401`:
+
+```json
+{
+  "error": {
+    "message": "Unauthorized",
+    "type": "auth_error",
+    "code": 401
+  }
+}
+```
+
+Use `GET /v0/management/auth/verify` to test a candidate key before storing it (see [Management APIs](#management-apis-v0management) below).
 
 ### Public Endpoints (No Auth Required)
 
@@ -276,7 +298,16 @@ All inference endpoints below require authentication (see above). Requests are r
 ---
 ## Management APIs (`/v0/management`)
 
-Management endpoints do **not** require API key authentication. They are intended for administrative use and should be network-restricted in production.
+All management endpoints require the `x-admin-key` header (see [Admin Key Authentication](#admin-key-authentication-management-api) above). They are intended for administrative use and should be network-restricted in production.
+
+### Auth Verify
+
+#### Verify Admin Key
+- **Endpoint:** `GET /v0/management/auth/verify`
+- **Description:** Validates the provided `x-admin-key` against the configured `adminKey`. Used by the dashboard login page to confirm a key before storing it.
+- **Responses:**
+  - `200 OK`: `{ "ok": true }` — key is valid.
+  - `401 Unauthorized`: Key is missing or incorrect.
 
 ### Configuration
 

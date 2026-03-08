@@ -186,6 +186,8 @@ export async function registerTranscriptionsRoute(
     } catch (e: any) {
       usageRecord.responseStatus = 'error';
       usageRecord.durationMs = Date.now() - startTime;
+      usageRecord.attemptCount = e.routingContext?.attemptCount || usageRecord.attemptCount || 1;
+      usageRecord.retryHistory = e.routingContext?.retryHistory || usageRecord.retryHistory || null;
       usageStorage.saveRequest(usageRecord as UsageRecord);
 
       const errorDetails = {

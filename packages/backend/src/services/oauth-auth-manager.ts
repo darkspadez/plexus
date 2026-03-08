@@ -1,5 +1,9 @@
 import { logger } from '../utils/logger';
-import { getOAuthApiKey, type OAuthProvider, type OAuthCredentials } from '@mariozechner/pi-ai';
+import {
+  getOAuthApiKey,
+  type OAuthProvider,
+  type OAuthCredentials,
+} from '@mariozechner/pi-ai/oauth';
 import { ConfigService } from './config-service';
 
 const LEGACY_ACCOUNT_ID = 'legacy';

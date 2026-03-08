@@ -32,6 +32,7 @@
 // IMPORTS -- React core
 //
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 //
 // IMPORTS -- Drag-and-Drop (@dnd-kit)
@@ -165,26 +166,32 @@ type ModelTimelineBucket = Record<string, string | number> & {
 /** Filter for the request stream card: show all, only successes, or only errors */
 type StreamFilter = 'all' | 'success' | 'error';
 
+/** Available live window periods in minutes */
+const LIVE_WINDOW_OPTIONS = [
+  { value: 5, label: '5m' },
+  { value: 15, label: '15m' },
+  { value: 30, label: '30m' },
+  { value: 1440, label: '1d' },
+  { value: 10080, label: '7d' },
+  { value: 43200, label: '30d' },
+] as const;
+
 /** Props passed to LiveTab from the parent dashboard layout */
 interface LiveTabProps {
   /** Current polling interval in milliseconds (5000 / 10000 / 30000) */
   pollInterval: number;
   /** Callback to propagate poll interval changes to the parent (for persistence) */
   onPollIntervalChange: (interval: number) => void;
+  /** Current live window period in minutes (5 / 15 / 30 / 1440 / 10080 / 43200) */
+  liveWindowPeriod?: number;
+  /** Callback to propagate live window period changes to the parent */
+  onLiveWindowPeriodChange?: (period: number) => void;
 }
 
 //
 // CONSTANTS
 //
 
-/** Rolling window size for the "live" view -- all charts and summaries use this */
-const LIVE_WINDOW_MINUTES = 5;
-/** Pre-computed millisecond equivalent of LIVE_WINDOW_MINUTES for date filtering */
-const LIVE_WINDOW_MS = LIVE_WINDOW_MINUTES * 60 * 1000;
-
-/** Maximum number of recent requests fetched from the API per poll cycle */
-
-const RECENT_REQUEST_LIMIT = 200;
 /** Available polling intervals shown as toggle buttons in the toolbar */
 const POLL_INTERVAL_OPTIONS = [5000, 10000, 30000] as const;
 /** Maximum number of distinct models shown in the model-stack chart */
@@ -443,18 +450,49 @@ const CooldownRow: React.FC<CooldownRowProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const infoButtonRef = useRef<HTMLButtonElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<{ top: number; right: number } | null>(null);
+
+  const updatePopoverPosition = useCallback(() => {
+    const button = infoButtonRef.current;
+    if (!button) {
+      return;
+    }
+
+    const rect = button.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const popoverWidth = 288;
+    const gutter = 12;
+    const right = Math.max(gutter, viewportWidth - rect.right);
+    const clampedRight = Math.min(right, Math.max(gutter, viewportWidth - popoverWidth - gutter));
+
+    setPopoverStyle({
+      top: rect.bottom + 8,
+      right: clampedRight,
+    });
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    updatePopoverPosition();
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+    window.addEventListener('resize', updatePopoverPosition);
+    window.addEventListener('scroll', updatePopoverPosition, true);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      window.removeEventListener('resize', updatePopoverPosition);
+      window.removeEventListener('scroll', updatePopoverPosition, true);
+    };
+  }, [open, updatePopoverPosition]);
 
   return (
-    <div className="px-3 py-2 flex items-center gap-2 bg-warning/5">
+    <div
+      className="px-3 py-2 flex items-center gap-2 bg-warning/5"
+      onClick={(e) => e.stopPropagation()}
+    >
       <AlertTriangle size={12} className="text-warning shrink-0" />
       <span className="text-xs font-medium text-text">{provider}</span>
       <span className="text-xs text-text-muted truncate">
@@ -472,41 +510,53 @@ const CooldownRow: React.FC<CooldownRowProps> = ({
           <X size={13} />
         </button>
         <button
-          onClick={() => setOpen((v) => !v)}
+          ref={infoButtonRef}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((v) => !v);
+          }}
           className="text-text-muted hover:text-text transition-colors"
           aria-label="Show cooldown details"
         >
           <Info size={13} />
         </button>
-        {open && (
-          <div
-            className="absolute right-0 top-5 z-50 w-72 rounded-md border border-border shadow-lg p-3 text-xs space-y-2"
-            style={{ backgroundColor: 'rgb(15, 23, 42)' }}
-          >
-            <div className="flex items-center gap-1.5 font-semibold text-warning">
-              <AlertTriangle size={12} />
-              Cooldown Details
-            </div>
-            {lastError && (
-              <div>
-                <span className="text-text-muted font-medium">Error:</span>
-                <p className="mt-0.5 text-text wrap-break-word whitespace-pre-wrap font-mono text-[11px] bg-bg-hover rounded p-1.5 max-h-32 overflow-y-auto">
-                  {lastError}
-                </p>
-              </div>
-            )}
-            {consecutiveFailures !== undefined && (
-              <div className="flex justify-between">
-                <span className="text-text-muted">Consecutive failures</span>
-                <span className="font-semibold text-danger">{consecutiveFailures}</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-text-muted">Expires at</span>
-              <span className="font-semibold text-text">{expiryStr}</span>
-            </div>
-          </div>
-        )}
+        {open && popoverStyle && typeof document !== 'undefined'
+          ? createPortal(
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="fixed z-100 w-72 rounded-md border border-border shadow-lg p-3 text-xs space-y-2"
+                style={{
+                  backgroundColor: 'rgb(15, 23, 42)',
+                  top: popoverStyle.top,
+                  right: popoverStyle.right,
+                }}
+              >
+                <div className="flex items-center gap-1.5 font-semibold text-warning">
+                  <AlertTriangle size={12} />
+                  Cooldown Details
+                </div>
+                {lastError && (
+                  <div>
+                    <span className="text-text-muted font-medium">Error:</span>
+                    <p className="mt-0.5 text-text wrap-break-word whitespace-pre-wrap font-mono text-[11px] bg-bg-hover rounded p-1.5 max-h-32 overflow-y-auto">
+                      {lastError}
+                    </p>
+                  </div>
+                )}
+                {consecutiveFailures !== undefined && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-text-muted">Consecutive failures</span>
+                    <span className="font-semibold text-danger">{consecutiveFailures}</span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-3">
+                  <span className="text-text-muted">Expires at</span>
+                  <span className="font-semibold text-text text-right">{expiryStr}</span>
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
       </div>
     </div>
   );
@@ -524,7 +574,12 @@ const CooldownRow: React.FC<CooldownRowProps> = ({
  * All visualised data is derived from a rolling 5-minute window of the most
  * recent 200 usage records, refreshed at a configurable polling interval.
  */
-export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalChange }) => {
+export const LiveTab: React.FC<LiveTabProps> = ({
+  pollInterval,
+  onPollIntervalChange,
+  liveWindowPeriod = 5,
+  onLiveWindowPeriodChange,
+}) => {
   // ---------------------------------------------------------------------------
   // STATE -- API data from polling
   // ---------------------------------------------------------------------------
@@ -568,6 +623,17 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
   useEffect(() => {
     setPollIntervalMs(pollInterval);
   }, [pollInterval]);
+
+  /** Local copy of the live window period -- synced from props via useEffect below */
+  const [liveWindowMinutes, setLiveWindowMinutes] = useState(liveWindowPeriod);
+
+  /** Keep local live window period in sync when the parent changes the prop */
+  useEffect(() => {
+    setLiveWindowMinutes(liveWindowPeriod);
+  }, [liveWindowPeriod]);
+
+  /** Computed: window size in milliseconds for filtering */
+  const liveWindowMs = useMemo(() => liveWindowMinutes * 60 * 1000, [liveWindowMinutes]);
 
   /**
    * Whether the browser tab is currently visible. Polling is paused when the
@@ -807,7 +873,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
     try {
       const [dashboardData, logData] = await Promise.all([
         api.getDashboardData('day', false),
-        api.getLogs(RECENT_REQUEST_LIMIT, 0),
+        api.getLogs(fetchLimit, 0),
       ]);
       setStats(dashboardData.stats);
       setCooldowns(dashboardData.cooldowns);
@@ -882,6 +948,22 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
   }, [isVisible, pollIntervalMs]);
 
   /**
+   * Calculate optimal fetch limit based on window size to prevent performance issues.
+   * For short windows, fetch more detailed data. For long windows, limit the data.
+   */
+  const fetchLimit = useMemo(() => {
+    if (liveWindowMinutes <= 30) {
+      return 500; // 30 minutes or less: fetch up to 500 records
+    } else if (liveWindowMinutes <= 24 * 60) {
+      return 200; // Up to 24 hours: fetch 200 records
+    } else if (liveWindowMinutes <= 7 * 24 * 60) {
+      return 100; // Up to 7 days: fetch 100 records
+    } else {
+      return 50; // More than 7 days: fetch only 50 records
+    }
+  }, [liveWindowMinutes]);
+
+  /**
    * Concurrency data polling loop. Runs independently from the main data
    * fetch because the backend concurrency endpoint is separate. Fixed at
    * a 10-second interval. Also pauses when the tab is hidden.
@@ -939,19 +1021,19 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
   // ---------------------------------------------------------------------------
 
   /**
-   * Filters `logs` to only those within the rolling 5-minute window and sorts
+   * Filters `logs` to only those within the rolling live window and sorts
    * them newest-first. This is the foundational dataset that all other memos
    * derive from, ensuring a single consistent snapshot per render.
    */
   const liveRequests = useMemo(() => {
-    const cutoff = Date.now() - LIVE_WINDOW_MS;
+    const cutoff = Date.now() - liveWindowMs;
     return logs
       .filter((request) => {
         const requestTime = new Date(request.date).getTime();
         return Number.isFinite(requestTime) && requestTime >= cutoff;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [logs]);
+  }, [logs, liveWindowMs]);
 
   /** Applies the stream filter (all/success/error) on top of liveRequests */
   const filteredLiveRequests = useMemo(() => {
@@ -1007,22 +1089,68 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
   /**
    * Buckets liveRequests into per-minute time slots for the timeline area chart.
    * Pre-creates empty buckets for every minute in the window to ensure the chart
-   * always shows the full 5-minute range, even if some minutes have zero traffic.
+   * always shows the full window range, even if some minutes have zero traffic.
+   *
+   * For windows > 1 hour, buckets are aggregated to prevent performance issues:
+   * - <= 30 minutes: 1-minute buckets
+   * - <= 24 hours: 5-minute buckets
+   * - <= 7 days: 1-hour buckets
+   * - > 7 days: 6-hour buckets
    */
   const minuteSeries = useMemo(() => {
     const buckets = new Map<string, MinuteBucket>();
     const now = Date.now();
 
-    for (let i = LIVE_WINDOW_MINUTES - 1; i >= 0; i--) {
-      const bucketDate = new Date(now - i * 60000);
-      const key = bucketDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Determine bucket size based on window
+    const useMinuteBuckets = liveWindowMinutes <= 30;
+    const use5MinuteBuckets = liveWindowMinutes <= 24 * 60;
+    const useHourlyBuckets = liveWindowMinutes <= 7 * 24 * 60;
+
+    // Calculate bucket count and size
+    let bucketCount: number;
+    let bucketSizeMs: number;
+
+    if (useMinuteBuckets) {
+      bucketCount = liveWindowMinutes;
+      bucketSizeMs = 60000; // 1 minute
+    } else if (use5MinuteBuckets) {
+      bucketCount = Math.ceil(liveWindowMinutes / 5);
+      bucketSizeMs = 300000; // 5 minutes
+    } else if (useHourlyBuckets) {
+      bucketCount = Math.ceil(liveWindowMinutes / 60);
+      bucketSizeMs = 3600000; // 1 hour
+    } else {
+      bucketCount = Math.ceil(liveWindowMinutes / (60 * 6));
+      bucketSizeMs = 21600000; // 6 hours
+    }
+
+    // Limit maximum buckets to prevent rendering issues
+    const MAX_BUCKETS = 100;
+    if (bucketCount > MAX_BUCKETS) {
+      bucketCount = MAX_BUCKETS;
+      bucketSizeMs = Math.ceil(liveWindowMs / MAX_BUCKETS);
+    }
+
+    // Create empty buckets
+    for (let i = bucketCount - 1; i >= 0; i--) {
+      const bucketDate = new Date(now - i * bucketSizeMs);
+      const key = bucketDate.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: useMinuteBuckets || use5MinuteBuckets ? '2-digit' : undefined,
+        hour12: false,
+      });
       buckets.set(key, { time: key, requests: 0, errors: 0, tokens: 0 });
     }
 
+    // Assign requests to buckets based on bucket size
     for (const request of liveRequests) {
-      const key = new Date(request.date).toLocaleTimeString([], {
+      const requestTime = new Date(request.date).getTime();
+      const bucketIndex = Math.floor((now - requestTime) / bucketSizeMs);
+      const bucketDate = new Date(now - bucketIndex * bucketSizeMs);
+      const key = bucketDate.toLocaleTimeString([], {
         hour: '2-digit',
-        minute: '2-digit',
+        minute: useMinuteBuckets || use5MinuteBuckets ? '2-digit' : undefined,
+        hour12: false,
       });
       const bucket = buckets.get(key);
       if (!bucket) {
@@ -1074,9 +1202,41 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
     const buckets = new Map<string, ModelTimelineBucket>();
     const now = Date.now();
 
-    for (let i = LIVE_WINDOW_MINUTES - 1; i >= 0; i--) {
-      const bucketDate = new Date(now - i * 60000);
-      const key = bucketDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Use same bucketing strategy as minuteSeries
+    const useMinuteBuckets = liveWindowMinutes <= 30;
+    const use5MinuteBuckets = liveWindowMinutes <= 24 * 60;
+    const useHourlyBuckets = liveWindowMinutes <= 7 * 24 * 60;
+
+    let bucketCount: number;
+    let bucketSizeMs: number;
+
+    if (useMinuteBuckets) {
+      bucketCount = liveWindowMinutes;
+      bucketSizeMs = 60000;
+    } else if (use5MinuteBuckets) {
+      bucketCount = Math.ceil(liveWindowMinutes / 5);
+      bucketSizeMs = 300000;
+    } else if (useHourlyBuckets) {
+      bucketCount = Math.ceil(liveWindowMinutes / 60);
+      bucketSizeMs = 3600000;
+    } else {
+      bucketCount = Math.ceil(liveWindowMinutes / (60 * 6));
+      bucketSizeMs = 21600000;
+    }
+
+    const MAX_BUCKETS = 100;
+    if (bucketCount > MAX_BUCKETS) {
+      bucketCount = MAX_BUCKETS;
+      bucketSizeMs = Math.ceil(liveWindowMs / MAX_BUCKETS);
+    }
+
+    for (let i = bucketCount - 1; i >= 0; i--) {
+      const bucketDate = new Date(now - i * bucketSizeMs);
+      const key = bucketDate.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: useMinuteBuckets || use5MinuteBuckets ? '2-digit' : undefined,
+        hour12: false,
+      });
       const bucket: ModelTimelineBucket = {
         time: key,
         requests: 0,
@@ -1096,10 +1256,15 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
       buckets.set(key, bucket);
     }
 
+    // Assign requests to buckets based on bucket size
     for (const request of liveRequests) {
-      const key = new Date(request.date).toLocaleTimeString([], {
+      const requestTime = new Date(request.date).getTime();
+      const bucketIndex = Math.floor((now - requestTime) / bucketSizeMs);
+      const bucketDate = new Date(now - bucketIndex * bucketSizeMs);
+      const key = bucketDate.toLocaleTimeString([], {
         hour: '2-digit',
-        minute: '2-digit',
+        minute: useMinuteBuckets || use5MinuteBuckets ? '2-digit' : undefined,
+        hour12: false,
       });
       const bucket = buckets.get(key);
       if (!bucket) {
@@ -1156,27 +1321,27 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
     summary.requestCount > 0 ? (summary.successCount / summary.requestCount) * 100 : 0;
   /** Data is considered "stale" if 3x the poll interval has elapsed without an update */
   const isStale = secondsSinceUpdate > Math.ceil((pollIntervalMs * 3) / 1000);
-  const tokensPerMinute = summary.totalTokens / LIVE_WINDOW_MINUTES;
-  const costPerMinute = summary.totalCost / LIVE_WINDOW_MINUTES;
+  const tokensPerMinute = summary.totalTokens / liveWindowMinutes;
+  // const costPerMinute = summary.totalCost / liveWindowMinutes; // Unused
   const avgLatency = summary.requestCount > 0 ? summary.totalLatency / summary.requestCount : 0;
-  const avgTtft = summary.requestCount > 0 ? summary.totalTtft / summary.requestCount : 0;
-  const throughputSamples = liveRequests
-    .map((request) => Number(request.tokensPerSec || 0))
-    .filter((tps) => Number.isFinite(tps) && tps > 0);
-  const avgThroughput =
-    throughputSamples.length > 0
-      ? throughputSamples.reduce((acc, tps) => acc + tps, 0) / throughputSamples.length
-      : 0;
+  // const avgTtft = summary.requestCount > 0 ? summary.totalTtft / summary.requestCount : 0; // Unused
+  // const throughputSamples = liveRequests // Unused
+  //   .map((request) => Number(request.tokensPerSec || 0))
+  //   .filter((tps) => Number.isFinite(tps) && tps > 0);
+  // const avgThroughput = // Unused
+  //   throughputSamples.length > 0
+  //     ? throughputSamples.reduce((acc, tps) => acc + tps, 0) / throughputSamples.length
+  //     : 0;
   const totalRequestsValue =
     stats.find((stat) => stat.label === STAT_LABELS.REQUESTS)?.value || formatNumber(0, 0);
   const totalTokensValue =
     stats.find((stat) => stat.label === STAT_LABELS.TOKENS)?.value || formatTokens(0);
-  const todayTokenTotal =
-    todayMetrics.inputTokens +
-    todayMetrics.outputTokens +
-    todayMetrics.reasoningTokens +
-    todayMetrics.cachedTokens +
-    todayMetrics.cacheWriteTokens;
+  // const todayTokenTotal = // Unused
+  //   todayMetrics.inputTokens +
+  //   todayMetrics.outputTokens +
+  //   todayMetrics.reasoningTokens +
+  //   todayMetrics.cachedTokens +
+  //   todayMetrics.cacheWriteTokens;
 
   /** Total in-flight requests across all providers (sum of concurrencyData counts) */
   const totalConcurrentRequests = useMemo(() => {
@@ -1936,7 +2101,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
                   <div className="divide-y divide-border">
                     <div className="px-3 py-1.5 bg-bg-subtle/50">
                       <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">
-                        Live ({LIVE_WINDOW_MINUTES}m)
+                        Live ({liveWindowMinutes}m)
                       </span>
                     </div>
                     <div className="px-3 py-2 flex items-center justify-between">
@@ -2030,7 +2195,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
                   <div className="flex-1 divide-y divide-border overflow-y-auto">
                     {providerRows.length === 0 ? (
                       <div className="px-3 py-3 text-xs text-text-muted">
-                        No provider activity in the last {LIVE_WINDOW_MINUTES} minutes.
+                        No provider activity in the last {liveWindowMinutes} minutes.
                       </div>
                     ) : (
                       providerRows.map((row) => (
@@ -2286,7 +2451,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
                 </div>
               ) : minuteSeries.length === 0 ? (
                 <div className="h-56 flex items-center justify-center text-text-secondary">
-                  No requests in the last {LIVE_WINDOW_MINUTES} minutes
+                  No requests in the last {liveWindowMinutes} minutes
                 </div>
               ) : (
                 <div className="h-56">
@@ -2404,7 +2569,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
                 </div>
               ) : modelTimeline.series.length === 0 ? (
                 <div className="h-56 flex items-center justify-center text-text-secondary">
-                  No model stack data in the last {LIVE_WINDOW_MINUTES} minutes
+                  No model stack data in the last {liveWindowMinutes} minutes
                 </div>
               ) : (
                 <div className="h-56">
@@ -2789,7 +2954,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
 
         <Badge
           status={isConnected && !isStale ? 'connected' : 'warning'}
-          secondaryText={'Window: last ' + LIVE_WINDOW_MINUTES + 'm'}
+          secondaryText={'Window: last ' + liveWindowMinutes + 'm'}
           style={{ minWidth: '210px' }}
         >
           {isConnected
@@ -2826,6 +2991,20 @@ export const LiveTab: React.FC<LiveTabProps> = ({ pollInterval, onPollIntervalCh
             </Button>
           );
         })}
+        <span className="text-xs text-text-secondary">|</span>
+        {LIVE_WINDOW_OPTIONS.map((option) => (
+          <Button
+            key={option.value}
+            size="sm"
+            variant={liveWindowMinutes === option.value ? 'primary' : 'secondary'}
+            onClick={() => {
+              setLiveWindowMinutes(option.value);
+              onLiveWindowPeriodChange?.(option.value);
+            }}
+          >
+            {option.label}
+          </Button>
+        ))}
         <span className="text-xs text-text-muted">
           {isVisible ? 'Tab active' : 'Tab hidden'} - data refresh resumes on focus.
         </span>

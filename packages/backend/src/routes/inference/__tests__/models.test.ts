@@ -15,7 +15,7 @@ afterEach(() => {
 // ─── Basic alias listing (backward-compat) ──────────────
 
 describe('GET /v1/models', () => {
-  it('should return primary and additional aliases', async () => {
+  it('should return only primary aliases (not additional_aliases)', async () => {
     const fastify = Fastify();
     await registerModelsRoute(fastify);
 
@@ -44,10 +44,10 @@ describe('GET /v1/models', () => {
     expect(json.object).toBe('list');
     const modelIds = json.data.map((m: any) => m.id);
     expect(modelIds).toContain('gpt-4');
-    expect(modelIds).toContain('gpt-4-alias');
-    expect(modelIds).toContain('my-gpt');
+    expect(modelIds).not.toContain('gpt-4-alias');
+    expect(modelIds).not.toContain('my-gpt');
     expect(modelIds).toContain('claude-3');
-    expect(modelIds.length).toBe(4);
+    expect(modelIds.length).toBe(2);
   });
 
   it('should handle models without additional aliases', async () => {
@@ -177,7 +177,7 @@ describe('GET /v1/models – with metadata', () => {
     expect(model.context_length).toBeUndefined();
   });
 
-  it('additional_aliases inherit parent metadata', async () => {
+  it('additional_aliases are excluded from /v1/models', async () => {
     const mgr = ModelMetadataManager.getInstance();
     await mgr.loadAll({
       openrouter: openrouterMetadataFixture,
@@ -203,13 +203,15 @@ describe('GET /v1/models – with metadata', () => {
 
     const response = await fastify.inject({ method: 'GET', url: '/v1/models' });
     const data = response.json().data;
-    expect(data.length).toBe(2);
+    expect(data.length).toBe(1);
+
+    const primaryAlias = data.find((m: any) => m.id === 'claude-alias');
+    expect(primaryAlias).toBeDefined();
+    expect(primaryAlias.name).toBe('Anthropic: Claude 3.5 Sonnet');
+    expect(primaryAlias.context_length).toBe(200000);
 
     const additionalAlias = data.find((m: any) => m.id === 'claude-alias-v2');
-    expect(additionalAlias).toBeDefined();
-    // Should have the same enriched metadata as the parent
-    expect(additionalAlias.name).toBe('Anthropic: Claude 3.5 Sonnet');
-    expect(additionalAlias.context_length).toBe(200000);
+    expect(additionalAlias).toBeUndefined();
   });
 
   it('should return base fields when metadata source is not yet initialized', async () => {

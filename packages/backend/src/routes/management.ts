@@ -1,4 +1,6 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { getConfig } from '../config';
+import { logger } from '../utils/logger';
 import { UsageStorageService } from '../services/usage-storage';
 import { registerConfigRoutes } from './management/config';
 import { registerUsageRoutes } from './management/usage';
@@ -19,6 +21,22 @@ import { QuotaScheduler } from '../services/quota/quota-scheduler';
 import { QuotaEnforcer } from '../services/quota/quota-enforcer';
 import { McpUsageStorageService } from '../services/mcp-proxy/mcp-usage-storage';
 
+function adminKeyAuth(request: FastifyRequest, reply: FastifyReply, done: () => void) {
+  const config = getConfig();
+  const providedKey = request.headers['x-admin-key'];
+
+  if (!providedKey || providedKey !== config.adminKey) {
+    logger.silly(
+      `[ADMIN AUTH] Rejected request to ${request.url} - invalid or missing x-admin-key`
+    );
+    reply.code(401).send({ error: { message: 'Unauthorized', type: 'auth_error', code: 401 } });
+    return;
+  }
+
+  logger.silly(`[ADMIN AUTH] Accepted request to ${request.url}`);
+  done();
+}
+
 export async function registerManagementRoutes(
   fastify: FastifyInstance,
   usageStorage: UsageStorageService,
@@ -27,24 +45,40 @@ export async function registerManagementRoutes(
   mcpUsageStorage?: McpUsageStorageService,
   quotaEnforcer?: QuotaEnforcer
 ) {
-  await registerConfigRoutes(fastify);
-  await registerUsageRoutes(fastify, usageStorage);
-  await registerCooldownRoutes(fastify);
-  await registerPerformanceRoutes(fastify, usageStorage);
-  await registerDebugRoutes(fastify, usageStorage);
-  await registerErrorRoutes(fastify, usageStorage);
-  await registerSystemLogRoutes(fastify);
-  await registerTestRoutes(fastify, dispatcher);
-  await registerOAuthRoutes(fastify);
-  await registerLoggingRoutes(fastify);
-  if (quotaScheduler) {
-    await registerQuotaRoutes(fastify, quotaScheduler);
-  }
-  if (mcpUsageStorage) {
-    await registerMcpLogRoutes(fastify, mcpUsageStorage);
-  }
-  if (quotaEnforcer) {
-    await registerQuotaEnforcementRoutes(fastify, quotaEnforcer);
-  }
-  await registerUserQuotaRoutes(fastify);
+  // Verify endpoint is outside the auth scope so the login page can call it
+  // with the candidate key and get a 200/401 back.
+  fastify.get(
+    '/v0/management/auth/verify',
+    { preHandler: adminKeyAuth },
+    async (_request, reply) => {
+      return reply.send({ ok: true });
+    }
+  );
+
+  // All other management routes are protected by the same admin key hook,
+  // scoped inside this plugin so the v1 bearer-auth routes are unaffected.
+  fastify.register(async (protected_) => {
+    protected_.addHook('preHandler', adminKeyAuth);
+
+    await registerConfigRoutes(protected_);
+    await registerUsageRoutes(protected_, usageStorage);
+    await registerCooldownRoutes(protected_);
+    await registerPerformanceRoutes(protected_, usageStorage);
+    await registerDebugRoutes(protected_, usageStorage);
+    await registerErrorRoutes(protected_, usageStorage);
+    await registerSystemLogRoutes(protected_);
+    await registerTestRoutes(protected_, dispatcher);
+    await registerOAuthRoutes(protected_);
+    await registerLoggingRoutes(protected_);
+    if (quotaScheduler) {
+      await registerQuotaRoutes(protected_, quotaScheduler);
+    }
+    if (mcpUsageStorage) {
+      await registerMcpLogRoutes(protected_, mcpUsageStorage);
+    }
+    if (quotaEnforcer) {
+      await registerQuotaEnforcementRoutes(protected_, quotaEnforcer);
+    }
+    await registerUserQuotaRoutes(protected_);
+  });
 }

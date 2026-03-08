@@ -42,9 +42,8 @@ export async function formatGeminiResponse(response: UnifiedChatResponse): Promi
     });
   }
 
-  // Determine finish reason: if there are tool calls, use 'TOOL_USE' instead of 'STOP'
-  const hasToolCalls = response.tool_calls && response.tool_calls.length > 0;
-  const finishReason = hasToolCalls ? 'TOOL_USE' : 'STOP';
+  // Gemini always uses 'STOP' as finish reason (TOOL_USE is not valid in Gemini)
+  const finishReason = 'STOP';
 
   const result: any = {
     candidates: [{ content: { role: 'model', parts }, finishReason, index: 0 }],

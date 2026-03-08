@@ -134,6 +134,13 @@
       "when": 1772595167511,
       "tag": "0018_pink_roxanne_simpson",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1772857531462,
+      "tag": "0019_giant_red_hulk",
+      "breakpoints": true
     }
   ]
 }

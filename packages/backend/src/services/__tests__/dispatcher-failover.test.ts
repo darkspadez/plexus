@@ -183,6 +183,34 @@ describe('Dispatcher Failover', () => {
     }
   });
 
+  test('malformed upstream JSON records raw body in failure context', async () => {
+    setConfigForTesting(makeConfig({ targetCount: 1 }));
+    const invalidJson = '{"broken": ';
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(invalidJson, {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    );
+
+    const dispatcher = new Dispatcher();
+
+    try {
+      await dispatcher.dispatch({ ...makeChatRequest(), requestId: 'req-malformed-json' });
+      throw new Error('expected dispatch to fail');
+    } catch (error: any) {
+      expect(error.message).toContain(invalidJson);
+      expect(error.routingContext?.attemptCount).toBe(1);
+      expect(error.routingContext?.rawResponseText).toBe(invalidJson);
+      expect(error.routingContext?.providerResponse).toBe(invalidJson);
+
+      const retryHistory = JSON.parse(error.routingContext?.retryHistory || '[]');
+      expect(retryHistory).toHaveLength(1);
+      expect(retryHistory[0]?.reason).toContain('{"broken":');
+    }
+  });
+
   test('non-retryable 422 does NOT failover', async () => {
     setConfigForTesting(makeConfig({ targetCount: 2 }));
     fetchMock.mockImplementation(async () => errorResponse(422, 'unprocessable'));

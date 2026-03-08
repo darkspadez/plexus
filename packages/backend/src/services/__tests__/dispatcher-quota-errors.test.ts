@@ -4,6 +4,8 @@ import { setConfigForTesting } from '../../config';
 import type { UnifiedChatRequest } from '../../types/unified';
 import { CooldownManager } from '../cooldown-manager';
 import { QUOTA_ERROR_PATTERNS } from '../../utils/constants';
+import { Router } from '../router';
+import { TransformerFactory } from '../transformer-factory';
 
 const fetchMock: any = mock(async (): Promise<any> => {
   throw new Error('fetch mock not configured for test');
@@ -258,6 +260,9 @@ describe('Dispatcher Quota Error Detection', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     }
 
+    const isP1Healthy = await CooldownManager.getInstance().isProviderHealthy('p1', 'model-1');
+    expect(isP1Healthy).toBe(false);
+
     // Cooldown should be set
     const isHealthy = await CooldownManager.getInstance().isProviderHealthy('p1', 'model-1');
     expect(isHealthy).toBe(false);
@@ -275,6 +280,186 @@ describe('Dispatcher Quota Error Detection', () => {
     expect(meta2?.finalAttemptProvider).toBe('p2');
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String((fetchMock as any).mock.calls[0]?.[0])).toContain('p2.example.com');
+  });
+
+  test('wrapOAuthError classifies pi-ai codex usage limit errors and preserves cooldown duration', async () => {
+    setConfigForTesting(makeConfig({ targetCount: 1 }));
+
+    const dispatcher = new Dispatcher();
+    const route = {
+      provider: 'p1',
+      model: 'model-1',
+      config: {
+        api_base_url: 'oauth://openai-codex',
+        oauth_provider: 'openai-codex',
+      },
+    } as any;
+
+    const piAiResponse = {
+      type: 'error',
+      reason: 'error',
+      error: {
+        api: 'openai-codex-responses',
+        provider: 'openai-codex',
+        model: 'gpt-5.4',
+        errorMessage: 'You have hit your ChatGPT usage limit (free plan). Try again in ~9725 min.',
+      },
+    };
+
+    const upstreamError = new Error(piAiResponse.error.errorMessage) as Error & {
+      piAiResponse?: unknown;
+    };
+    upstreamError.piAiResponse = piAiResponse;
+
+    const wrapped = (dispatcher as any).wrapOAuthError(upstreamError, route, 'oauth');
+
+    expect(wrapped.routingContext.statusCode).toBe(429);
+    expect(wrapped.routingContext.cooldownTriggered).toBe(true);
+    expect(wrapped.routingContext.cooldownDuration).toBe(9725 * 60 * 1000);
+    expect(wrapped.routingContext.providerResponse).toContain('Try again in ~9725 min');
+
+    await (dispatcher as any).markOAuthProviderFailure(route, wrapped);
+
+    const cooldowns = CooldownManager.getInstance().getCooldowns();
+    expect(cooldowns).toHaveLength(1);
+    expect(cooldowns[0]?.provider).toBe('p1');
+    expect(cooldowns[0]?.model).toBe('model-1');
+    expect(cooldowns[0]?.timeRemainingMs).toBeGreaterThan(9724 * 60 * 1000);
+    expect(cooldowns[0]?.lastError).toContain('You have hit your ChatGPT usage limit');
+    expect(cooldowns[0]?.lastError).not.toContain('"retryHistory"');
+  });
+
+  test('streaming oauth codex usage limit triggers cooldown and failover', async () => {
+    const piAiStreamError = {
+      type: 'error',
+      reason: 'error',
+      error: {
+        role: 'assistant',
+        content: [],
+        api: 'openai-codex-responses',
+        provider: 'openai-codex',
+        model: 'gpt-5.4',
+        usage: {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          totalTokens: 0,
+          cost: {
+            input: 0,
+            output: 0,
+            cacheRead: 0,
+            cacheWrite: 0,
+            total: 0,
+          },
+        },
+        stopReason: 'error',
+        timestamp: Date.now(),
+        errorMessage: 'You have hit your ChatGPT usage limit (team plan). Try again in ~45 min.',
+      },
+    };
+
+    const oauthTransformer = {
+      name: 'oauth',
+      transformRequest: async () => ({ context: {}, options: {} }),
+      transformResponse: async () => {
+        throw new Error('not used');
+      },
+      executeRequest: async () =>
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(piAiStreamError);
+            controller.close();
+          },
+        }),
+    };
+
+    const originalGetTransformer = TransformerFactory.getTransformer;
+    const originalResolveCandidates = Router.resolveCandidates;
+    const originalResolve = Router.resolve;
+
+    TransformerFactory.getTransformer = ((type: string) => {
+      if (type === 'oauth') {
+        return oauthTransformer as any;
+      }
+
+      return {
+        name: 'chat',
+        transformRequest: async (request: any) =>
+          request.originalBody || { messages: request.messages },
+        transformResponse: async (response: any) => ({
+          id: response.id,
+          model: response.model,
+          content: response.choices?.[0]?.message?.content || null,
+          usage: {
+            prompt_tokens: response.usage?.prompt_tokens || 0,
+            completion_tokens: response.usage?.completion_tokens || 0,
+            total_tokens: response.usage?.total_tokens || 0,
+          },
+        }),
+        defaultEndpoint: '/chat/completions',
+      } as any;
+    }) as any;
+
+    Router.resolveCandidates = (async () => [
+      {
+        provider: 'p1',
+        model: 'gpt-5.4',
+        config: {
+          api_base_url: 'oauth://openai-codex',
+          oauth_provider: 'openai-codex',
+          oauth_account: 'acct-1',
+        },
+        modelConfig: {},
+        canonicalModel: 'test-alias',
+      },
+      {
+        provider: 'p2',
+        model: 'model-2',
+        config: {
+          api_base_url: 'https://p2.example.com/v1',
+          api_key: 'test-key-p2',
+        },
+        modelConfig: {},
+        canonicalModel: 'test-alias',
+      },
+    ]) as any;
+
+    Router.resolve = (async () => ({
+      provider: 'p1',
+      model: 'gpt-5.4',
+      config: {
+        api_base_url: 'oauth://openai-codex',
+        oauth_provider: 'openai-codex',
+        oauth_account: 'acct-1',
+      },
+      modelConfig: {},
+      canonicalModel: 'test-alias',
+    })) as any;
+
+    fetchMock.mockImplementationOnce(async () => successChatResponse('model-2'));
+
+    try {
+      const dispatcher = new Dispatcher();
+      const response = await dispatcher.dispatch(makeChatRequest(true));
+      const meta = (response as any).plexus;
+
+      expect(meta?.attemptCount).toBe(2);
+      expect(meta?.finalAttemptProvider).toBe('p2');
+
+      const cooldowns = CooldownManager.getInstance().getCooldowns();
+      expect(cooldowns).toHaveLength(1);
+      expect(cooldowns[0]?.lastError).toContain('You have hit your ChatGPT usage limit');
+      expect(cooldowns[0]?.lastError).toContain('Try again in ~45 min');
+      expect(cooldowns[0]?.lastError).not.toContain('JSON Parse error');
+
+      const isHealthy = await CooldownManager.getInstance().isProviderHealthy('p1', 'gpt-5.4');
+      expect(isHealthy).toBe(false);
+    } finally {
+      TransformerFactory.getTransformer = originalGetTransformer;
+      Router.resolveCandidates = originalResolveCandidates;
+      Router.resolve = originalResolve;
+    }
   });
 
   test('all quota error patterns are correctly detected', () => {

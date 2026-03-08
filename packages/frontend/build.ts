@@ -59,6 +59,7 @@ const runBuild = async () => {
   const result = await build({
     entrypoints: ['./src/main.tsx'],
     outdir: './dist',
+    publicPath: '/ui/',
     minify: process.env.NODE_ENV === 'production',
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
