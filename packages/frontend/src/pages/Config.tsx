@@ -39,15 +39,17 @@ class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Er
 
 export const Config = () => {
   const [config, setConfig] = useState('');
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
 
   const loadConfig = async () => {
     try {
       const data = await api.getConfigExport();
       setConfig(JSON.stringify(data, null, 2));
+      setIsConfigLoaded(true);
     } catch (e) {
       console.error('Failed to load config:', e);
-      setConfig('// Failed to load configuration');
+      setIsConfigLoaded(false);
     }
   };
 
@@ -156,12 +158,14 @@ export const Config = () => {
     }
   };
 
-
   return (
     <div className="min-h-screen p-6 transition-all duration-300 bg-gradient-to-br from-bg-deep to-bg-surface">
       <div className="mb-8">
         <h1 className="font-heading text-3xl font-bold text-text m-0 mb-2">Configuration</h1>
-        <p className="text-[15px] text-text-secondary m-0">View current system configuration (read-only). Use the Providers, Models, and Keys pages to make changes.</p>
+        <p className="text-[15px] text-text-secondary m-0">
+          View current system configuration (read-only). Use the Providers, Models, and Keys pages
+          to make changes.
+        </p>
       </div>
 
       <div className="glass-bg backdrop-blur-md border border-white/10 rounded-lg shadow-xl overflow-hidden transition-all duration-300 max-w-full shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
@@ -189,6 +193,7 @@ export const Config = () => {
               variant="primary"
               size="sm"
               onClick={handleExportConfig}
+              disabled={!isConfigLoaded}
               leftIcon={<Download size={14} />}
             >
               Export JSON
