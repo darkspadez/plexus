@@ -30,6 +30,7 @@ describe('Auth Middleware', () => {
     mockUsageStorage = {
       saveRequest: mock(),
       saveError: mock(),
+      saveDebugLog: mock(),
       updatePerformanceMetrics: mock(),
       emitStartedAsync: mock(),
       emitUpdatedAsync: mock(),
@@ -194,6 +195,7 @@ describe('Key Attribution', () => {
     mockUsageStorage = {
       saveRequest: mock(),
       saveError: mock(),
+      saveDebugLog: mock(),
       updatePerformanceMetrics: mock(),
       emitStartedAsync: mock(),
       emitUpdatedAsync: mock(),
