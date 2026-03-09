@@ -84,7 +84,7 @@ describe('GET /v0/management/auth/verify', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ ok: true });
+    expect(res.json() as unknown).toEqual({ ok: true });
   });
 
   it('returns 401 when an incorrect admin key is provided', async () => {

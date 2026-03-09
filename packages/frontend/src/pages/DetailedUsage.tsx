@@ -70,7 +70,7 @@ import { TimeRangeSelector } from '../components/dashboard/TimeRangeSelector';
 import { api, type UsageRecord } from '../lib/api';
 import { formatCost, formatMs, formatNumber, formatTokens, formatTimeAgo } from '../lib/format';
 import type { CustomDateRange } from '../lib/date';
-import { parseISODate, formatISODate } from '../lib/date';
+import { parseISODate } from '../lib/date';
 import {
   Activity,
   BarChart3,
@@ -438,6 +438,11 @@ const getRangeConfig = (
           return d.getTime();
         },
       };
+    default:
+      return {
+        minutes: 1440,
+        bucketFn: (ts) => Math.floor(ts / 3600000) * 3600000,
+      };
   }
 };
 
@@ -491,7 +496,8 @@ const calcVelocity = (data: AggregatedPoint[]): AggregatedPoint[] => {
  * @param range   - Current time range (determines bucket granularity)
  * @returns Sorted array of aggregated data points with velocity computed
  */
-const aggregateByTime = (records: UsageRecord[], range: TimeRange): AggregatedPoint[] => {
+// @ts-expect-error kept for future use (client-side aggregation fallback)
+const aggregateByTime = (records: UsageRecord[], range: TimeRange, customRange?: CustomDateRange | null): AggregatedPoint[] => {
   const { bucketFn } = getRangeConfig(range);
   const grouped = new Map<
     number,
@@ -539,7 +545,7 @@ const aggregateByTime = (records: UsageRecord[], range: TimeRange): AggregatedPo
   const data = Array.from(grouped.entries())
     .sort((a, b) => a[0] - b[0])
     .map(([ms, v]) => ({
-      name: formatBucketLabel(range, ms, timeRange === 'custom' ? customDateRange : null),
+      name: formatBucketLabel(range, ms, range === 'custom' ? customRange : null),
       requests: v.requests,
       errors: v.errors,
       tokens: v.tokens,
@@ -955,7 +961,7 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
       // Use backend summary endpoint for time-series views (much more efficient)
       if (groupBy === 'time') {
         const [summaryResponse, logsResponse] = await Promise.all([
-          api.getSummaryData(timeRange, true, startDate, endDate),
+          api.getSummaryData(timeRange === 'live' ? 'hour' : timeRange, true, startDate, endDate),
           api.getLogs(100, 0, { startDate, endDate }),
         ]);
         // Limit to max 100 points to prevent memory issues

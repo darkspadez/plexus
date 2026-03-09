@@ -116,7 +116,7 @@ try {
       path.resolve(process.cwd(), '../../config/plexus.yaml'), // from packages/backend
     ];
     const configPath = [process.env.CONFIG_FILE, ...configLocations].find(
-      (p): p is string => Boolean(p) && fs.existsSync(p)
+      (p): p is string => typeof p === 'string' && fs.existsSync(p)
     );
 
     try {
