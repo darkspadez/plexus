@@ -522,7 +522,7 @@ const normalizeNow = (): Date => {
   return now;
 };
 
-const getUsageRangeConfig = (range: 'hour' | 'day' | 'week' | 'month', now: Date) => {
+const getUsageRangeConfig = (range: 'hour' | 'day' | 'week' | 'month' | 'custom', now: Date) => {
   const startDate = new Date(now);
   let bucketFormat: (d: Date) => string;
   let buckets = 0;
@@ -627,7 +627,7 @@ const buildUsageSeries = (
   return Object.values(grouped);
 };
 
-const formatBucketLabel = (range: 'hour' | 'day' | 'week' | 'month', date: Date) => {
+const formatBucketLabel = (range: 'hour' | 'day' | 'week' | 'month' | 'custom', date: Date) => {
   if (range === 'hour' || range === 'day') {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }

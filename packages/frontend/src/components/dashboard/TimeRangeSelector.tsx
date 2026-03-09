@@ -6,12 +6,11 @@ import {
   formatDateRange,
   isValidDateRange,
   parseISODate,
-  formatISODate,
   type DateRangePreset,
   type CustomDateRange,
 } from '../../lib/date';
 
-type TimeRange = 'live' | 'hour' | 'day' | 'week' | 'month' | 'custom';
+export type TimeRange = 'live' | 'hour' | 'day' | 'week' | 'month' | 'custom';
 
 interface TimeRangeSelectorProps {
   value: TimeRange;
