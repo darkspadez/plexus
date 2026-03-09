@@ -64,5 +64,8 @@ describe('Vision Fallthrough Full Logic', () => {
 
     await dispatcher.dispatch(payload as any);
     expect(processSpy).toHaveBeenCalled();
+
+    // Restore to prevent spy from leaking into other test files running in the same worker
+    processSpy.mockRestore();
   });
 });
