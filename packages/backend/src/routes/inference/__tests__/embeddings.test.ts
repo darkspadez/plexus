@@ -59,6 +59,7 @@ describe('Embeddings Endpoint', () => {
     mockUsageStorage = {
       saveRequest: mock(),
       saveError: mock(),
+      saveDebugLog: mock(),
       updatePerformanceMetrics: mock(),
       emitStartedAsync: mock(),
       emitUpdatedAsync: mock(),
