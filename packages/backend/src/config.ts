@@ -295,7 +295,7 @@ const ProviderQuotaCheckerSchema = z.discriminatedUnion('type', [
   }),
 ]);
 
-const ProviderConfigSchema = z
+export const ProviderConfigSchema = z
   .object({
     display_name: z.string().optional(),
     api_base_url: z.union([
@@ -379,7 +379,7 @@ const ModelMetadataSchema = z.object({
   source_path: z.string().min(1),
 });
 
-const ModelConfigSchema = z.object({
+export const ModelConfigSchema = z.object({
   selector: z.enum(['random', 'in_order', 'cost', 'latency', 'usage', 'performance']).optional(),
   priority: z.enum(['selector', 'api_match']).default('selector'),
   targets: z.array(ModelTargetSchema),
@@ -394,7 +394,7 @@ export type ModelBehavior = z.infer<typeof ModelBehaviorSchema>;
 export type StripAdaptiveThinkingBehavior = z.infer<typeof StripAdaptiveThinkingBehaviorSchema>;
 export type ModelMetadata = z.infer<typeof ModelMetadataSchema>;
 
-const KeyConfigSchema = z.object({
+export const KeyConfigSchema = z.object({
   secret: z.string(),
   comment: z.string().optional(),
   quota: z.string().optional(), // References a quota definition name
@@ -409,7 +409,7 @@ const QuotaConfigSchema = z.object({
   options: z.record(z.any()).default({}),
 });
 
-const McpServerConfigSchema = z.object({
+export const McpServerConfigSchema = z.object({
   upstream_url: z.string().url(),
   enabled: z.boolean().default(true),
   headers: z.record(z.string()).optional(),

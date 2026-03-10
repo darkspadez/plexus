@@ -1,6 +1,12 @@
 import { FastifyInstance } from 'fastify';
 import { logger } from '../../utils/logger';
-import { VALID_QUOTA_CHECKER_TYPES } from '../../config';
+import {
+  VALID_QUOTA_CHECKER_TYPES,
+  ProviderConfigSchema,
+  ModelConfigSchema,
+  KeyConfigSchema,
+  McpServerConfigSchema,
+} from '../../config';
 import { ConfigService } from '../../services/config-service';
 
 export async function registerConfigRoutes(fastify: FastifyInstance) {
@@ -50,20 +56,45 @@ export async function registerConfigRoutes(fastify: FastifyInstance) {
     }
   });
 
-  fastify.post('/v0/management/providers/:slug', async (request, reply) => {
+  // PUT — full create-or-replace, body must be a complete valid ProviderConfig
+  fastify.put('/v0/management/providers/:slug', async (request, reply) => {
     const { slug } = request.params as { slug: string };
-    const body = request.body as any;
-
-    if (!body || !body.api_base_url) {
-      return reply.code(400).send({ error: 'api_base_url is required' });
+    const result = ProviderConfigSchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.code(400).send({ error: 'Validation failed', details: result.error.errors });
     }
-
     try {
-      await configService.saveProvider(slug, body);
-      logger.info(`Provider '${slug}' saved via API`);
+      await configService.saveProvider(slug, result.data);
+      logger.info(`Provider '${slug}' saved via API (PUT)`);
       return reply.send({ success: true, slug });
     } catch (e: any) {
       logger.error(`Failed to save provider '${slug}'`, e);
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // PATCH — partial update; merges into existing config then validates the result
+  fastify.patch('/v0/management/providers/:slug', async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const body = request.body as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return reply.code(400).send({ error: 'Object body is required' });
+    }
+    try {
+      const existing = await configService.getRepository().getProvider(slug);
+      if (!existing) {
+        return reply.code(404).send({ error: `Provider '${slug}' not found` });
+      }
+      const merged = { ...existing, ...body };
+      const result = ProviderConfigSchema.safeParse(merged);
+      if (!result.success) {
+        return reply.code(400).send({ error: 'Validation failed', details: result.error.errors });
+      }
+      await configService.saveProvider(slug, result.data);
+      logger.info(`Provider '${slug}' updated via API (PATCH)`);
+      return reply.send({ success: true, slug });
+    } catch (e: any) {
+      logger.error(`Failed to patch provider '${slug}'`, e);
       return reply.code(500).send({ error: 'Internal server error' });
     }
   });
@@ -94,20 +125,45 @@ export async function registerConfigRoutes(fastify: FastifyInstance) {
     }
   });
 
-  fastify.post('/v0/management/aliases/:slug', async (request, reply) => {
+  // PUT — full create-or-replace with Zod validation
+  fastify.put('/v0/management/aliases/:slug', async (request, reply) => {
     const { slug } = request.params as { slug: string };
-    const body = request.body as any;
-
-    if (!body || !body.targets || !Array.isArray(body.targets)) {
-      return reply.code(400).send({ error: 'targets array is required' });
+    const result = ModelConfigSchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.code(400).send({ error: 'Validation failed', details: result.error.errors });
     }
-
     try {
-      await configService.saveAlias(slug, body);
-      logger.info(`Model alias '${slug}' saved via API`);
+      await configService.saveAlias(slug, result.data);
+      logger.info(`Model alias '${slug}' saved via API (PUT)`);
       return reply.send({ success: true, slug });
     } catch (e: any) {
       logger.error(`Failed to save model alias '${slug}'`, e);
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // PATCH — partial update; merges into existing alias then validates
+  fastify.patch('/v0/management/aliases/:slug', async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const body = request.body as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return reply.code(400).send({ error: 'Object body is required' });
+    }
+    try {
+      const existing = await configService.getRepository().getAlias(slug);
+      if (!existing) {
+        return reply.code(404).send({ error: `Alias '${slug}' not found` });
+      }
+      const merged = { ...existing, ...body };
+      const result = ModelConfigSchema.safeParse(merged);
+      if (!result.success) {
+        return reply.code(400).send({ error: 'Validation failed', details: result.error.errors });
+      }
+      await configService.saveAlias(slug, result.data);
+      logger.info(`Model alias '${slug}' updated via API (PATCH)`);
+      return reply.send({ success: true, slug });
+    } catch (e: any) {
+      logger.error(`Failed to patch model alias '${slug}'`, e);
       return reply.code(500).send({ error: 'Internal server error' });
     }
   });
@@ -147,17 +203,16 @@ export async function registerConfigRoutes(fastify: FastifyInstance) {
     }
   });
 
-  fastify.post('/v0/management/keys/:name', async (request, reply) => {
+  // PUT — full create-or-replace with Zod validation
+  fastify.put('/v0/management/keys/:name', async (request, reply) => {
     const { name } = request.params as { name: string };
-    const body = request.body as any;
-
-    if (!body || !body.secret) {
-      return reply.code(400).send({ error: 'secret is required' });
+    const result = KeyConfigSchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.code(400).send({ error: 'Validation failed', details: result.error.errors });
     }
-
     try {
-      await configService.saveKey(name, body);
-      logger.info(`API key '${name}' saved via API`);
+      await configService.saveKey(name, result.data);
+      logger.info(`API key '${name}' saved via API (PUT)`);
       return reply.send({ success: true, name });
     } catch (e: any) {
       logger.error(`Failed to save API key '${name}'`, e);
@@ -243,17 +298,8 @@ export async function registerConfigRoutes(fastify: FastifyInstance) {
     }
   });
 
-  fastify.post('/v0/management/mcp-servers/:serverName', async (request, reply) => {
+  fastify.put('/v0/management/mcp-servers/:serverName', async (request, reply) => {
     const { serverName } = request.params as { serverName: string };
-    const body = request.body as {
-      upstream_url?: string;
-      enabled?: boolean;
-      headers?: Record<string, string>;
-    };
-
-    if (!body || !body.upstream_url) {
-      return reply.code(400).send({ error: 'upstream_url is required' });
-    }
 
     if (!/^[a-z0-9][a-z0-9-_]{1,62}$/.test(serverName)) {
       return reply.code(400).send({
@@ -262,13 +308,14 @@ export async function registerConfigRoutes(fastify: FastifyInstance) {
       });
     }
 
+    const result = McpServerConfigSchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.code(400).send({ error: 'Validation failed', details: result.error.errors });
+    }
+
     try {
-      await configService.saveMcpServer(serverName, {
-        upstream_url: body.upstream_url,
-        enabled: body.enabled !== false,
-        ...(body.headers ? { headers: body.headers } : {}),
-      });
-      logger.info(`MCP server '${serverName}' saved via API`);
+      await configService.saveMcpServer(serverName, result.data);
+      logger.info(`MCP server '${serverName}' saved via API (PUT)`);
       return reply.send({ success: true, name: serverName });
     } catch (e: any) {
       logger.error(`Failed to save MCP server '${serverName}'`, e);

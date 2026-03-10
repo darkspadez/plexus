@@ -1416,7 +1416,7 @@ export const api = {
     const res = await fetchWithAuth(
       `${API_BASE}/v0/management/keys/${encodeURIComponent(keyConfig.key)}`,
       {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           secret: keyConfig.secret,
@@ -1520,7 +1520,7 @@ export const api = {
     const res = await fetchWithAuth(
       `${API_BASE}/v0/management/providers/${encodeURIComponent(provider.id)}`,
       {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }
@@ -1626,7 +1626,7 @@ export const api = {
     const res = await fetchWithAuth(
       `${API_BASE}/v0/management/aliases/${encodeURIComponent(alias.id)}`,
       {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }
