@@ -135,6 +135,11 @@ try {
         await configService.importFromAuthJson(authContent);
         logger.info(`Imported OAuth credentials from ${authJsonPath} into database`);
       }
+
+      // Mark bootstrap as complete so a future restart (even with an empty
+      // providers table) does not re-import from the YAML file.
+      await configService.getRepository().markBootstrapped();
+      logger.info('Bootstrap complete — marked database as bootstrapped');
     } catch (importError) {
       logger.error(
         'Failed to import config — clearing partial data for clean retry on next launch',

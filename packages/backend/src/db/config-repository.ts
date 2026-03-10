@@ -885,9 +885,18 @@ export class ConfigRepository {
 
   // ─── Utility ─────────────────────────────────────────────────────
 
+  /**
+   * Returns true only when the DB has never been successfully bootstrapped.
+   * Uses a persistent 'system.bootstrapped' flag in system_settings so that
+   * an admin deliberately deleting all providers does NOT re-trigger a YAML
+   * import on the next restart.
+   */
   async isFirstLaunch(): Promise<boolean> {
-    const schema = this.schema();
-    const rows = await this.db().select().from(schema.providers).limit(1);
-    return rows.length === 0;
+    const bootstrapped = await this.getSetting<boolean>('system.bootstrapped', false);
+    return !bootstrapped;
+  }
+
+  async markBootstrapped(): Promise<void> {
+    await this.setSetting('system.bootstrapped', true);
   }
 }
