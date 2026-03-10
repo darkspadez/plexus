@@ -131,7 +131,6 @@ const KimiCodeQuotaCheckerOptionsSchema = z.object({
 
 const ClaudeCodeQuotaCheckerOptionsSchema = z.object({
   endpoint: z.string().url().optional(),
-  model: z.string().trim().min(1).optional(),
 });
 
 const CopilotQuotaCheckerOptionsSchema = z.object({
