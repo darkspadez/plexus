@@ -1880,7 +1880,7 @@ export const api = {
         body.providers = providers;
       }
       const res = await fetchWithAuth(`${API_BASE}/v0/management/debug`, {
-        method: 'POST',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
@@ -1922,7 +1922,7 @@ export const api = {
 
   setLoggingLevel: async (level: string): Promise<LoggingLevelState> => {
     const res = await fetchWithAuth(`${API_BASE}/v0/management/logging/level`, {
-      method: 'POST',
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ level }),
     });
@@ -2265,7 +2265,7 @@ export const api = {
       const res = await fetchWithAuth(
         `${API_BASE}/v0/management/mcp-servers/${encodeURIComponent(serverName)}`,
         {
-          method: 'POST',
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(server),
         }
@@ -2379,7 +2379,7 @@ export const api = {
     const res = await fetchWithAuth(
       `${API_BASE}/v0/management/user-quotas/${encodeURIComponent(name)}`,
       {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(quota),
       }

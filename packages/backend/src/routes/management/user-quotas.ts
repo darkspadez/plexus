@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { logger } from '../../utils/logger';
-import { QuotaDefinition } from '../../config';
+import { QuotaDefinition, QuotaDefinitionSchema } from '../../config';
 import { ConfigService } from '../../services/config-service';
 
 /**
@@ -66,88 +66,46 @@ export async function registerUserQuotaRoutes(fastify: FastifyInstance) {
   );
 
   /**
-   * POST /v0/management/user-quotas/:name
-   * Create or update a quota definition.
+   * PUT /v0/management/user-quotas/:name
+   * Create or replace a quota definition (full, validated).
    */
-  fastify.post(
+  fastify.put(
     '/v0/management/user-quotas/:name',
     async (request: FastifyRequest, reply: FastifyReply) => {
-      try {
-        const { name } = request.params as { name: string };
-        const body = request.body as QuotaDefinition;
+      const { name } = request.params as { name: string };
 
-        // Validate quota name (slug pattern)
-        if (!/^[a-z0-9][a-z0-9-_]{1,62}$/.test(name)) {
-          return reply.code(400).send({
-            error: {
-              message:
-                'Invalid quota name. Must be a slug (lowercase letters, numbers, hyphens, underscores, 2-63 characters)',
-              type: 'invalid_request_error',
-            },
-          });
-        }
-
-        // Validate required fields
-        if (!body.type || !['rolling', 'daily', 'weekly'].includes(body.type)) {
-          return reply.code(400).send({
-            error: {
-              message: 'Invalid or missing quota type. Must be one of: rolling, daily, weekly',
-              type: 'invalid_request_error',
-            },
-          });
-        }
-
-        if (!body.limitType || !['requests', 'tokens'].includes(body.limitType)) {
-          return reply.code(400).send({
-            error: {
-              message: 'Invalid or missing limitType. Must be one of: requests, tokens',
-              type: 'invalid_request_error',
-            },
-          });
-        }
-
-        if (!body.limit || typeof body.limit !== 'number' || body.limit < 1) {
-          return reply.code(400).send({
-            error: {
-              message: 'Invalid or missing limit. Must be a positive number',
-              type: 'invalid_request_error',
-            },
-          });
-        }
-
-        // Rolling quotas require duration
-        if (body.type === 'rolling' && (!body.duration || typeof body.duration !== 'string')) {
-          return reply.code(400).send({
-            error: {
-              message: 'Rolling quotas require a duration field (e.g., "1h", "30m", "1d")',
-              type: 'invalid_request_error',
-            },
-          });
-        }
-
-        await configService.saveUserQuota(name, body);
-        logger.info(`[UserQuota] Quota '${name}' saved via API`);
-
-        return reply.send({
-          success: true,
-          name,
-          quota: body,
-        });
-      } catch (e: any) {
-        logger.error(`[UserQuota] Failed to save quota`, e);
-        return reply.code(500).send({
+      if (!/^[a-z0-9][a-z0-9-_]{1,62}$/.test(name)) {
+        return reply.code(400).send({
           error: {
-            message: e.message,
-            type: 'server_error',
+            message:
+              'Invalid quota name. Must be a slug (lowercase letters, numbers, hyphens, underscores, 2-63 characters)',
+            type: 'invalid_request_error',
           },
         });
+      }
+
+      const result = QuotaDefinitionSchema.safeParse(request.body);
+      if (!result.success) {
+        return reply.code(400).send({
+          error: { message: 'Validation failed', type: 'invalid_request_error' },
+          details: result.error.errors,
+        });
+      }
+
+      try {
+        await configService.saveUserQuota(name, result.data);
+        logger.info(`[UserQuota] Quota '${name}' saved via API (PUT)`);
+        return reply.send({ success: true, name, quota: result.data });
+      } catch (e: any) {
+        logger.error(`[UserQuota] Failed to save quota`, e);
+        return reply.code(500).send({ error: { message: e.message, type: 'server_error' } });
       }
     }
   );
 
   /**
    * PATCH /v0/management/user-quotas/:name
-   * Partially update a quota definition.
+   * Partially update a quota definition — merges into existing then validates.
    */
   fastify.patch(
     '/v0/management/user-quotas/:name',
@@ -161,71 +119,25 @@ export async function registerUserQuotaRoutes(fastify: FastifyInstance) {
 
         if (!existing) {
           return reply.code(404).send({
-            error: {
-              message: `Quota not found: ${name}`,
-              type: 'not_found_error',
-            },
+            error: { message: `Quota not found: ${name}`, type: 'not_found_error' },
           });
         }
 
-        const merged = { ...existing, ...updates } as QuotaDefinition;
-
-        // Validate merged quota (same rules as POST)
-        if (!merged.type || !['rolling', 'daily', 'weekly'].includes(merged.type)) {
+        const merged = { ...existing, ...updates };
+        const result = QuotaDefinitionSchema.safeParse(merged);
+        if (!result.success) {
           return reply.code(400).send({
-            error: {
-              message: 'Invalid or missing quota type. Must be one of: rolling, daily, weekly',
-              type: 'invalid_request_error',
-            },
+            error: { message: 'Validation failed', type: 'invalid_request_error' },
+            details: result.error.errors,
           });
         }
 
-        if (!merged.limitType || !['requests', 'tokens'].includes(merged.limitType)) {
-          return reply.code(400).send({
-            error: {
-              message: 'Invalid or missing limitType. Must be one of: requests, tokens',
-              type: 'invalid_request_error',
-            },
-          });
-        }
-
-        if (!merged.limit || typeof merged.limit !== 'number' || merged.limit < 1) {
-          return reply.code(400).send({
-            error: {
-              message: 'Invalid or missing limit. Must be a positive number',
-              type: 'invalid_request_error',
-            },
-          });
-        }
-
-        if (
-          merged.type === 'rolling' &&
-          (!merged.duration || typeof merged.duration !== 'string')
-        ) {
-          return reply.code(400).send({
-            error: {
-              message: 'Rolling quotas require a duration field (e.g., "1h", "30m", "1d")',
-              type: 'invalid_request_error',
-            },
-          });
-        }
-
-        await configService.saveUserQuota(name, merged);
-        logger.info(`[UserQuota] Quota '${name}' updated via API`);
-
-        return reply.send({
-          success: true,
-          name,
-          quota: merged,
-        });
+        await configService.saveUserQuota(name, result.data);
+        logger.info(`[UserQuota] Quota '${name}' updated via API (PATCH)`);
+        return reply.send({ success: true, name, quota: result.data });
       } catch (e: any) {
         logger.error(`[UserQuota] Failed to update quota`, e);
-        return reply.code(500).send({
-          error: {
-            message: e.message,
-            type: 'server_error',
-          },
-        });
+        return reply.code(500).send({ error: { message: e.message, type: 'server_error' } });
       }
     }
   );

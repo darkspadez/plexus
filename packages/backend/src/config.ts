@@ -335,7 +335,7 @@ const ModelTargetSchema = z.object({
 });
 
 // Quota definition schemas for user quota enforcement
-const QuotaDefinitionSchema = z.discriminatedUnion('type', [
+export const QuotaDefinitionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('rolling'),
     limitType: z.enum(['requests', 'tokens']),
