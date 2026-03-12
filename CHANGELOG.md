@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.18.12 - 2026-03-12
+
+### v0.18.12: Enhanced POE Quota Visualization and State Management
+
+### New Features
+
+- **POE Support in Quotas**: Introduced a new POE (Power over Ethernet) checker category and corresponding iconography to the quota management system, improving visibility for power-related metrics. ([3a258dd](https://github.com/mcowger/plexus/commit/3a258dd))
+
+### Bug Fixes
+
+- **Dynamic Configuration Loading**: Fixed an issue in the quotas route where POE data would fail to display correctly after a configuration reload. The system now retrieves the active configuration at request time to ensure UI consistency. ([395ede4](https://github.com/mcowger/plexus/commit/395ede4))
+
+---
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
 ## v0.18.11 - 2026-03-12
 
 ### Update Gemini Streaming Protocol Compatability
