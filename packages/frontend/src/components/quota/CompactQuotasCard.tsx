@@ -14,6 +14,7 @@ import {
   Code2,
   Sparkles,
   AlertTriangle,
+  Wallet,
 } from 'lucide-react';
 
 interface CompactQuotasCardProps {
@@ -44,6 +45,7 @@ const getCheckerCategory = (quota: QuotaCheckerInfo): string => {
   if (id.includes('kimi-code') || id.includes('kimi')) return 'kimi';
   if (id.includes('copilot')) return 'copilot';
   if (id.includes('gemini-cli') || id.includes('gemini')) return 'gemini-cli';
+  if (id.includes('poe')) return 'poe';
   return 'default';
 };
 
@@ -60,6 +62,7 @@ const getTypeDisplayName = (category: string): string => {
     kimi: 'Kimi',
     copilot: 'Copilot',
     'gemini-cli': 'Gemini CLI',
+    poe: 'POE',
   };
   return names[category] || toTitleCase(category);
 };
@@ -86,6 +89,7 @@ const formatCheckerDisplayName = (quota: QuotaCheckerInfo): string => {
     'nano-',
     'naga-',
     'gemini-',
+    'poe-',
   ];
   for (const prefix of prefixes) {
     if (displayPart.toLowerCase().startsWith(prefix)) {
@@ -130,6 +134,8 @@ const getCheckerIcon = (category: string) => {
       return <Github className={iconClass} />;
     case 'gemini-cli':
       return <Sparkles className={iconClass} />;
+    case 'poe':
+      return <Wallet className={iconClass} />;
     default:
       return <Bot className={iconClass} />;
   }

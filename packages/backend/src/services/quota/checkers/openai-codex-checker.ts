@@ -241,12 +241,10 @@ export class OpenAICodexQuotaChecker extends QuotaChecker {
       return [];
     }
 
-    const isExhausted = rateLimit.limit_reached === true || rateLimit.allowed === false;
     const windows: QuotaWindow[] = [];
 
     const primary = this.buildWindowFromUsage(
       rateLimit.primary_window,
-      isExhausted,
       this.resolveWindowType(rateLimit.primary_window?.limit_window_seconds, 'five_hour'),
       'OpenAI Codex primary rate limit usage'
     );
@@ -254,32 +252,16 @@ export class OpenAICodexQuotaChecker extends QuotaChecker {
 
     const secondary = this.buildWindowFromUsage(
       rateLimit.secondary_window,
-      isExhausted,
       this.resolveWindowType(rateLimit.secondary_window?.limit_window_seconds, 'weekly'),
       'OpenAI Codex secondary rate limit usage'
     );
     if (secondary) windows.push(secondary);
-
-    if (windows.length === 0) {
-      windows.push(
-        this.createWindow(
-          'custom',
-          100,
-          isExhausted ? 100 : 0,
-          isExhausted ? 0 : 100,
-          'percentage',
-          undefined,
-          'OpenAI Codex rate limit usage'
-        )
-      );
-    }
 
     return windows;
   }
 
   private buildWindowFromUsage(
     usageWindow: CodexUsageWindow | undefined,
-    isExhausted: boolean,
     windowType: QuotaWindowType,
     description: string
   ): QuotaWindow | null {
@@ -288,12 +270,11 @@ export class OpenAICodexQuotaChecker extends QuotaChecker {
     }
 
     const usedPercent = usageWindow.used_percent;
-    const used = isExhausted
-      ? 100
-      : typeof usedPercent === 'number' && Number.isFinite(usedPercent)
+    const used =
+      typeof usedPercent === 'number' && Number.isFinite(usedPercent)
         ? Math.min(Math.max(usedPercent, 0), 100)
         : 0;
-    const remaining = isExhausted ? 0 : Math.max(0, 100 - used);
+    const remaining = Math.max(0, 100 - used);
 
     const resetAtUnix = usageWindow.reset_at;
     const resetsAt =

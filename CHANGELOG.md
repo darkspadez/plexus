@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.18.13 - 2026-03-12
+
+### v0.18.13: Enhanced Provider Quota Management and Cooldown Logic
+
+### New Features & Improvements
+
+- **Optimized Cooldown and Quota Management**: Enhanced the system's ability to process provider-supplied quota reset metadata. When resource usage exceeds 99%, the system now implements a targeted cooldown until the verified end of the period, replacing the generic exponential backoff strategy ([43674d7](https://github.com/mcowger/plexus/commit/43674d7)).
+- **NanoGPT Quota Checker**: Refined the parser and logic for the NanoGPT quota checker to improve usage tracking accuracy ([7b4281c](https://github.com/mcowger/plexus/commit/7b4281c)).
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
+## v0.18.12 - 2026-03-12
+
+### v0.18.12: Enhanced POE Quota Visualization and State Management
+
+### New Features
+
+- **POE Support in Quotas**: Introduced a new POE (Power over Ethernet) checker category and corresponding iconography to the quota management system, improving visibility for power-related metrics. ([3a258dd](https://github.com/mcowger/plexus/commit/3a258dd))
+
+### Bug Fixes
+
+- **Dynamic Configuration Loading**: Fixed an issue in the quotas route where POE data would fail to display correctly after a configuration reload. The system now retrieves the active configuration at request time to ensure UI consistency. ([395ede4](https://github.com/mcowger/plexus/commit/395ede4))
+
+---
+
+The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
+## v0.18.11 - 2026-03-12
+
+### Update Gemini Streaming Protocol Compatability
+
+Preserved tool call finish reason in streams when converting to openai-completions.   Also addressed missing function id, which caused problems for some clients like Open WebUI
+
 ## v0.18.10 - 2026-03-08
 
 ### v0.18.10: CRITICAL Security Fix for Admin Key
