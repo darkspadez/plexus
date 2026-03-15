@@ -332,7 +332,7 @@ const start = async () => {
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     process.on('SIGINT', () => shutdown('SIGINT'));
   } catch (err) {
-    fastify.log.error(err);
+    logger.error('Fatal error during server startup', err);
     process.exit(1);
   }
 };
