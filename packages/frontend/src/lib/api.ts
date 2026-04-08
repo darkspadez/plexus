@@ -257,9 +257,31 @@ export interface StripAdaptiveThinkingBehavior {
 
 export type AliasBehavior = StripAdaptiveThinkingBehavior; // | NextBehavior | ...
 
+export interface MetadataOverrides {
+  name?: string;
+  description?: string;
+  context_length?: number;
+  architecture?: {
+    input_modalities?: string[];
+    output_modalities?: string[];
+  };
+  pricing?: {
+    prompt?: string;
+    completion?: string;
+    input_cache_read?: string;
+    input_cache_write?: string;
+  };
+  supported_parameters?: string[];
+  top_provider?: {
+    context_length?: number;
+    max_completion_tokens?: number;
+  };
+}
+
 export interface AliasMetadata {
-  source: 'openrouter' | 'models.dev' | 'catwalk';
-  source_path: string;
+  source: 'openrouter' | 'models.dev' | 'catwalk' | 'custom';
+  source_path?: string;
+  overrides?: MetadataOverrides;
 }
 
 export interface Alias {
@@ -2223,6 +2245,23 @@ export const api = {
       // 503 means the source isn't loaded yet — return empty gracefully
       if (res.status === 503) return { data: [], count: 0 };
       throw new Error(`Failed to search model metadata: ${res.statusText}`);
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch the full metadata for a single model from a catalog source.
+   * Used to pre-populate override fields via "Populate from catalog" button.
+   */
+  getModelMetadata: async (
+    source: 'openrouter' | 'models.dev' | 'catwalk',
+    path: string
+  ): Promise<MetadataOverrides | null> => {
+    const params = new URLSearchParams({ source, path });
+    const res = await fetch(`${API_BASE}/v1/metadata/model?${params}`);
+    if (!res.ok) {
+      if (res.status === 404 || res.status === 503) return null;
+      throw new Error(`Failed to fetch model metadata: ${res.statusText}`);
     }
     return res.json();
   },

@@ -405,14 +405,52 @@ const ModelBehaviorSchema = z.discriminatedUnion('type', [StripAdaptiveThinkingB
 // ─── Model Metadata ──────────────────────
 // Optional reference to an external model catalog entry. When configured,
 // Plexus fetches metadata at startup and includes it in GET /v1/models.
-const ModelMetadataSchema = z.object({
-  source: z.enum(['openrouter', 'models.dev', 'catwalk']),
-  // Path within the source catalog:
-  //   openrouter:  "openai/gpt-4.1-nano"
-  //   models.dev:  "anthropic.claude-3-5-haiku-20241022"
-  //   catwalk:     "anthropic.claude-3-5-haiku-20241022"
-  source_path: z.string().min(1),
+//
+// `source: 'custom'` allows fully manual metadata without a catalog lookup.
+// For catalog sources, optional `overrides` are merged on top of catalog data.
+const MetadataOverridesSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  context_length: z.number().int().positive().optional(),
+  architecture: z
+    .object({
+      input_modalities: z.array(z.string()).optional(),
+      output_modalities: z.array(z.string()).optional(),
+    })
+    .optional(),
+  pricing: z
+    .object({
+      prompt: z.string().optional(),
+      completion: z.string().optional(),
+      input_cache_read: z.string().optional(),
+      input_cache_write: z.string().optional(),
+    })
+    .optional(),
+  supported_parameters: z.array(z.string()).optional(),
+  top_provider: z
+    .object({
+      context_length: z.number().optional(),
+      max_completion_tokens: z.number().optional(),
+    })
+    .optional(),
 });
+
+export type MetadataOverrides = z.infer<typeof MetadataOverridesSchema>;
+
+const ModelMetadataSchema = z
+  .object({
+    source: z.enum(['openrouter', 'models.dev', 'catwalk', 'custom']),
+    // Path within the source catalog (required for catalog sources, unused for 'custom')
+    source_path: z.string().optional(),
+    // Override or define metadata fields. For 'custom', these ARE the metadata.
+    overrides: MetadataOverridesSchema.optional(),
+  })
+  .refine((d) => d.source === 'custom' || (d.source_path && d.source_path.length > 0), {
+    message: 'source_path is required for catalog sources',
+  })
+  .refine((d) => d.source !== 'custom' || (d.overrides && d.overrides.name), {
+    message: 'overrides.name is required when source is custom',
+  });
 
 export const ModelConfigSchema = z.object({
   selector: z.enum(['random', 'in_order', 'cost', 'latency', 'usage', 'performance']).optional(),

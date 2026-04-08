@@ -1,8 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { api, Alias, AliasMetadata, AliasBehavior, Provider, Model } from '../lib/api';
+import {
+  api,
+  Alias,
+  AliasMetadata,
+  AliasBehavior,
+  Provider,
+  Model,
+  MetadataOverrides,
+} from '../lib/api';
 import { useModels } from '../hooks/useModels';
 import { AliasTableRow } from '../components/models/AliasTableRow';
+import { MetadataOverrideForm } from '../components/models/MetadataOverrideForm';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -60,6 +69,8 @@ export const Models = () => {
   const [showMetadataDropdown, setShowMetadataDropdown] = useState(false);
   const metadataSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const metadataInputWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [showOverrides, setShowOverrides] = useState(false);
+  const [isPopulatingFromCatalog, setIsPopulatingFromCatalog] = useState(false);
   const [dropdownRect, setDropdownRect] = useState<{
     top: number;
     left: number;
@@ -102,6 +113,15 @@ export const Models = () => {
     };
     fetchVFConfig();
   }, []);
+
+  // Sync override state when modal opens or alias changes
+  useEffect(() => {
+    if (isModalOpen) {
+      const hasOverrides = !!editingAlias.metadata?.overrides;
+      const isCustom = editingAlias.metadata?.source === 'custom';
+      setShowOverrides(hasOverrides || isCustom);
+    }
+  }, [isModalOpen, editingAlias.metadata?.overrides, editingAlias.metadata?.source]);
 
   const handleSaveDescriptor = async () => {
     setIsSavingDescriptor(true);
@@ -301,34 +321,41 @@ export const Models = () => {
   };
 
   /** Search metadata catalog for autocomplete */
-  const handleMetadataSearch = useCallback((query: string, source: AliasMetadata['source']) => {
-    setMetadataQuery(query);
-    if (metadataSearchRef.current) clearTimeout(metadataSearchRef.current);
-    if (!query.trim()) {
-      setMetadataResults([]);
-      setShowMetadataDropdown(false);
-      return;
-    }
-    setIsMetadataSearching(true);
-    setShowMetadataDropdown(true);
-    metadataSearchRef.current = setTimeout(async () => {
-      try {
-        const resp = await api.searchModelMetadata(source, query, 30);
-        setMetadataResults(resp.data);
-      } catch {
+  const handleMetadataSearch = useCallback(
+    (query: string, source: 'openrouter' | 'models.dev' | 'catwalk') => {
+      setMetadataQuery(query);
+      if (metadataSearchRef.current) clearTimeout(metadataSearchRef.current);
+      if (!query.trim()) {
         setMetadataResults([]);
-      } finally {
-        setIsMetadataSearching(false);
+        setShowMetadataDropdown(false);
+        return;
       }
-    }, 250);
-  }, []);
+      setIsMetadataSearching(true);
+      setShowMetadataDropdown(true);
+      metadataSearchRef.current = setTimeout(async () => {
+        try {
+          const resp = await api.searchModelMetadata(source, query, 30);
+          setMetadataResults(resp.data);
+        } catch {
+          setMetadataResults([]);
+        } finally {
+          setIsMetadataSearching(false);
+        }
+      }, 250);
+    },
+    []
+  );
 
   /** Select a metadata result and set it on the alias */
   const selectMetadataResult = (result: { id: string; name: string }) => {
     const source = editingAlias.metadata?.source ?? 'openrouter';
     setEditingAlias({
       ...editingAlias,
-      metadata: { source, source_path: result.id },
+      metadata: {
+        source,
+        source_path: result.id,
+        ...(editingAlias.metadata?.overrides ? { overrides: editingAlias.metadata.overrides } : {}),
+      },
     });
     setMetadataQuery(result.name);
     setShowMetadataDropdown(false);
@@ -341,6 +368,76 @@ export const Models = () => {
     setEditingAlias(rest as Alias);
     setMetadataQuery('');
     setShowMetadataDropdown(false);
+    setShowOverrides(false);
+  };
+
+  /** Update a field in metadata overrides */
+  const updateOverride = (updates: Partial<MetadataOverrides>) => {
+    const current = editingAlias.metadata?.overrides ?? {};
+    setEditingAlias({
+      ...editingAlias,
+      metadata: {
+        ...editingAlias.metadata!,
+        overrides: { ...current, ...updates },
+      },
+    });
+  };
+
+  /** Populate override fields from a catalog entry */
+  const populateFromCatalog = async () => {
+    const meta = editingAlias.metadata;
+    if (!meta || meta.source === 'custom' || !meta.source_path) return;
+    setIsPopulatingFromCatalog(true);
+    try {
+      const data = await api.getModelMetadata(
+        meta.source as 'openrouter' | 'models.dev' | 'catwalk',
+        meta.source_path
+      );
+      if (data) {
+        setEditingAlias({
+          ...editingAlias,
+          metadata: {
+            ...meta,
+            overrides: {
+              ...(data.name !== undefined && { name: data.name }),
+              ...(data.description !== undefined && { description: data.description }),
+              ...(data.context_length !== undefined && {
+                context_length: data.context_length,
+              }),
+              ...(data.architecture !== undefined && { architecture: data.architecture }),
+              ...(data.pricing !== undefined && { pricing: data.pricing }),
+              ...(data.supported_parameters !== undefined && {
+                supported_parameters: data.supported_parameters,
+              }),
+              ...(data.top_provider !== undefined && { top_provider: data.top_provider }),
+            },
+          },
+        });
+        setShowOverrides(true);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setIsPopulatingFromCatalog(false);
+    }
+  };
+
+  /** Toggle a chip in an array field inside overrides */
+  const toggleOverrideArrayItem = (
+    field: 'input_modalities' | 'output_modalities' | 'supported_parameters',
+    item: string
+  ) => {
+    const overrides = editingAlias.metadata?.overrides ?? {};
+    if (field === 'input_modalities' || field === 'output_modalities') {
+      const arch = overrides.architecture ?? {};
+      const current = arch[field] ?? [];
+      const next = current.includes(item) ? current.filter((v) => v !== item) : [...current, item];
+      updateOverride({ architecture: { ...arch, [field]: next } });
+    } else {
+      const current = overrides[field] ?? [];
+      const next = current.includes(item) ? current.filter((v) => v !== item) : [...current, item];
+      updateOverride({ [field]: next });
+    }
   };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
@@ -774,9 +871,9 @@ export const Models = () => {
                 style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
               >
                 <p className="font-body text-[11px] text-text-muted">
-                  Link this alias to a model in an external catalog. When configured, Plexus
-                  includes enriched metadata (name, context length, pricing, supported parameters)
-                  in the <code className="text-primary">GET /v1/models</code> response.
+                  Link this alias to a model in an external catalog, or define custom metadata
+                  manually. Metadata is included in the{' '}
+                  <code className="text-primary">GET /v1/models</code> response.
                 </p>
 
                 {/* Source selector */}
@@ -793,104 +890,224 @@ export const Models = () => {
                     value={editingAlias.metadata?.source ?? 'openrouter'}
                     onChange={(e) => {
                       const source = e.target.value as AliasMetadata['source'];
-                      setEditingAlias({
-                        ...editingAlias,
-                        metadata: { source, source_path: editingAlias.metadata?.source_path ?? '' },
-                      });
-                      // Re-run search with new source if there's a query
-                      if (metadataQuery) handleMetadataSearch(metadataQuery, source);
+                      if (source === 'custom') {
+                        setEditingAlias({
+                          ...editingAlias,
+                          metadata: {
+                            source: 'custom',
+                            overrides: editingAlias.metadata?.overrides ?? {
+                              name: editingAlias.id || '',
+                              description: '',
+                              context_length: 128000,
+                              architecture: {
+                                input_modalities: ['text'],
+                                output_modalities: ['text'],
+                              },
+                              pricing: {
+                                prompt: '0',
+                                completion: '0',
+                                input_cache_read: '0',
+                                input_cache_write: '0',
+                              },
+                              supported_parameters: ['temperature', 'top_p', 'tools'],
+                              top_provider: {},
+                            },
+                          },
+                        });
+                        setShowOverrides(true);
+                      } else {
+                        const sameSource = editingAlias.metadata?.source === source;
+                        setEditingAlias({
+                          ...editingAlias,
+                          metadata: {
+                            source,
+                            source_path: sameSource
+                              ? (editingAlias.metadata?.source_path ?? '')
+                              : '',
+                            overrides: editingAlias.metadata?.overrides,
+                          },
+                        });
+                        if (metadataQuery)
+                          handleMetadataSearch(
+                            metadataQuery,
+                            source as 'openrouter' | 'models.dev' | 'catwalk'
+                          );
+                      }
                     }}
                   >
                     <option value="openrouter">OpenRouter</option>
                     <option value="models.dev">models.dev</option>
                     <option value="catwalk">Catwalk (Charm)</option>
+                    <option value="custom">Custom (Manual Entry)</option>
                   </select>
                 </div>
 
-                {/* Search / source_path */}
-                <div style={{ position: 'relative' }}>
-                  <label
-                    className="font-body text-[12px] font-medium text-text-secondary"
-                    style={{ display: 'block', marginBottom: '4px' }}
-                  >
-                    Model
-                    {editingAlias.metadata?.source_path && (
-                      <span className="ml-2 font-normal text-text-muted">
-                        ({editingAlias.metadata.source_path})
-                      </span>
-                    )}
-                  </label>
-                  <div style={{ position: 'relative', display: 'flex', gap: '4px' }}>
-                    <div ref={metadataInputWrapperRef} style={{ position: 'relative', flex: 1 }}>
-                      <Input
-                        value={metadataQuery}
-                        onChange={(e) => {
-                          const source = editingAlias.metadata?.source ?? 'openrouter';
-                          handleMetadataSearch(e.target.value, source);
-                          // Update rect so portal dropdown follows the input
-                          if (metadataInputWrapperRef.current) {
-                            const r = metadataInputWrapperRef.current.getBoundingClientRect();
-                            setDropdownRect({ top: r.bottom + 2, left: r.left, width: r.width });
-                          }
-                        }}
-                        onFocus={() => {
-                          if (metadataResults.length > 0) {
+                {/* Search / source_path — only for catalog sources */}
+                {editingAlias.metadata?.source !== 'custom' && (
+                  <div style={{ position: 'relative' }}>
+                    <label
+                      className="font-body text-[12px] font-medium text-text-secondary"
+                      style={{ display: 'block', marginBottom: '4px' }}
+                    >
+                      Model
+                      {editingAlias.metadata?.source_path && (
+                        <span className="ml-2 font-normal text-text-muted">
+                          ({editingAlias.metadata.source_path})
+                        </span>
+                      )}
+                    </label>
+                    <div style={{ position: 'relative', display: 'flex', gap: '4px' }}>
+                      <div ref={metadataInputWrapperRef} style={{ position: 'relative', flex: 1 }}>
+                        <Input
+                          value={metadataQuery}
+                          onChange={(e) => {
+                            const source = editingAlias.metadata?.source ?? 'openrouter';
+                            handleMetadataSearch(
+                              e.target.value,
+                              source as 'openrouter' | 'models.dev' | 'catwalk'
+                            );
                             if (metadataInputWrapperRef.current) {
                               const r = metadataInputWrapperRef.current.getBoundingClientRect();
-                              setDropdownRect({ top: r.bottom + 2, left: r.left, width: r.width });
+                              setDropdownRect({
+                                top: r.bottom + 2,
+                                left: r.left,
+                                width: r.width,
+                              });
                             }
-                            setShowMetadataDropdown(true);
-                          }
-                        }}
-                        placeholder={`Search ${editingAlias.metadata?.source ?? 'openrouter'} catalog...`}
-                        style={{
-                          width: '100%',
-                          paddingRight: isMetadataSearching ? '28px' : undefined,
-                        }}
-                        onBlur={() => setShowMetadataDropdown(false)}
-                      />
-                      {isMetadataSearching && (
-                        <Loader2
-                          size={14}
-                          className="animate-spin text-text-muted"
-                          style={{
-                            position: 'absolute',
-                            right: '8px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
                           }}
+                          onFocus={() => {
+                            if (metadataResults.length > 0) {
+                              if (metadataInputWrapperRef.current) {
+                                const r = metadataInputWrapperRef.current.getBoundingClientRect();
+                                setDropdownRect({
+                                  top: r.bottom + 2,
+                                  left: r.left,
+                                  width: r.width,
+                                });
+                              }
+                              setShowMetadataDropdown(true);
+                            }
+                          }}
+                          placeholder={`Search ${editingAlias.metadata?.source ?? 'openrouter'} catalog...`}
+                          style={{
+                            width: '100%',
+                            paddingRight: isMetadataSearching ? '28px' : undefined,
+                          }}
+                          onBlur={() => setShowMetadataDropdown(false)}
                         />
+                        {isMetadataSearching && (
+                          <Loader2
+                            size={14}
+                            className="animate-spin text-text-muted"
+                            style={{
+                              position: 'absolute',
+                              right: '8px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                            }}
+                          />
+                        )}
+                      </div>
+                      {editingAlias.metadata && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearMetadata}
+                          style={{
+                            color: 'var(--color-danger)',
+                            padding: '4px',
+                            minHeight: 'auto',
+                          }}
+                          title="Remove metadata"
+                        >
+                          <X size={14} />
+                        </Button>
                       )}
-                    </div>
-                    {editingAlias.metadata && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={clearMetadata}
-                        style={{ color: 'var(--color-danger)', padding: '4px', minHeight: 'auto' }}
-                        title="Remove metadata"
-                      >
-                        <X size={14} />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Selected metadata preview */}
-                {editingAlias.metadata?.source_path && (
-                  <div
-                    className="rounded-sm border border-border-glass bg-bg-subtle px-3 py-2"
-                    style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <CheckCircle size={12} className="text-success" />
-                      <span>
-                        Metadata assigned from <strong>{editingAlias.metadata.source}</strong>:{' '}
-                        <code className="text-primary">{editingAlias.metadata.source_path}</code>
-                      </span>
                     </div>
                   </div>
                 )}
+
+                {/* Selected metadata preview — catalog sources */}
+                {editingAlias.metadata?.source !== 'custom' &&
+                  editingAlias.metadata?.source_path && (
+                    <div
+                      className="rounded-sm border border-border-glass bg-bg-subtle px-3 py-2"
+                      style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <CheckCircle size={12} className="text-success" />
+                          <span>
+                            Metadata assigned from <strong>{editingAlias.metadata.source}</strong>:{' '}
+                            <code className="text-primary">
+                              {editingAlias.metadata.source_path}
+                            </code>
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          {!showOverrides && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={populateFromCatalog}
+                              disabled={isPopulatingFromCatalog}
+                              style={{ fontSize: '10px', padding: '2px 6px' }}
+                              title="Populate override fields from catalog data"
+                            >
+                              {isPopulatingFromCatalog ? (
+                                <Loader2 size={10} className="animate-spin" />
+                              ) : (
+                                'Populate & Override'
+                              )}
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowOverrides((open) => !open)}
+                            style={{ fontSize: '10px', padding: '2px 6px' }}
+                          >
+                            {showOverrides ? 'Hide Overrides' : 'Edit Overrides'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                {/* Clear button for custom source */}
+                {editingAlias.metadata?.source === 'custom' && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearMetadata}
+                      style={{
+                        color: 'var(--color-danger)',
+                        padding: '2px 6px',
+                        fontSize: '10px',
+                      }}
+                    >
+                      <X size={10} style={{ marginRight: '4px' }} /> Remove Metadata
+                    </Button>
+                  </div>
+                )}
+
+                {/* Override / Custom fields form */}
+                {(showOverrides || editingAlias.metadata?.source === 'custom') &&
+                  editingAlias.metadata && (
+                    <MetadataOverrideForm
+                      overrides={editingAlias.metadata.overrides ?? {}}
+                      updateOverride={updateOverride}
+                      toggleArrayItem={toggleOverrideArrayItem}
+                      isCustom={editingAlias.metadata.source === 'custom'}
+                    />
+                  )}
               </div>
             )}
           </div>
