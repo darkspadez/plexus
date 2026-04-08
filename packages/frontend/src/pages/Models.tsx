@@ -399,21 +399,17 @@ export const Models = () => {
           metadata: {
             ...meta,
             overrides: {
-              name: data.name,
-              description: data.description ?? '',
-              context_length: data.context_length ?? 0,
-              architecture: data.architecture ?? {
-                input_modalities: ['text'],
-                output_modalities: ['text'],
-              },
-              pricing: data.pricing ?? {
-                prompt: '0',
-                completion: '0',
-                input_cache_read: '0',
-                input_cache_write: '0',
-              },
-              supported_parameters: data.supported_parameters ?? [],
-              top_provider: data.top_provider ?? {},
+              ...(data.name !== undefined && { name: data.name }),
+              ...(data.description !== undefined && { description: data.description }),
+              ...(data.context_length !== undefined && {
+                context_length: data.context_length,
+              }),
+              ...(data.architecture !== undefined && { architecture: data.architecture }),
+              ...(data.pricing !== undefined && { pricing: data.pricing }),
+              ...(data.supported_parameters !== undefined && {
+                supported_parameters: data.supported_parameters,
+              }),
+              ...(data.top_provider !== undefined && { top_provider: data.top_provider }),
             },
           },
         });
@@ -920,11 +916,14 @@ export const Models = () => {
                         });
                         setShowOverrides(true);
                       } else {
+                        const sameSource = editingAlias.metadata?.source === source;
                         setEditingAlias({
                           ...editingAlias,
                           metadata: {
                             source,
-                            source_path: editingAlias.metadata?.source_path ?? '',
+                            source_path: sameSource
+                              ? (editingAlias.metadata?.source_path ?? '')
+                              : '',
                             overrides: editingAlias.metadata?.overrides,
                           },
                         });
@@ -1071,16 +1070,7 @@ export const Models = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              if (showOverrides) {
-                                const { overrides: _, ...rest } = editingAlias.metadata!;
-                                setEditingAlias({
-                                  ...editingAlias,
-                                  metadata: rest as AliasMetadata,
-                                });
-                              }
-                              setShowOverrides(!showOverrides);
-                            }}
+                            onClick={() => setShowOverrides((open) => !open)}
                             style={{ fontSize: '10px', padding: '2px 6px' }}
                           >
                             {showOverrides ? 'Hide Overrides' : 'Edit Overrides'}

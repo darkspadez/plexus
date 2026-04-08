@@ -72,6 +72,11 @@ interface MetadataOverrideFormProps {
   isCustom: boolean;
 }
 
+const parseOptionalInt = (input: HTMLInputElement) =>
+  input.value === '' || !Number.isFinite(input.valueAsNumber)
+    ? undefined
+    : Math.trunc(input.valueAsNumber);
+
 export const MetadataOverrideForm: React.FC<MetadataOverrideFormProps> = ({
   overrides,
   updateOverride,
@@ -127,7 +132,7 @@ export const MetadataOverrideForm: React.FC<MetadataOverrideFormProps> = ({
           value={overrides.context_length ?? ''}
           onChange={(e) =>
             updateOverride({
-              context_length: e.target.value ? parseInt(e.target.value, 10) : undefined,
+              context_length: parseOptionalInt(e.currentTarget),
             })
           }
           placeholder="e.g. 128000"
@@ -245,7 +250,7 @@ export const MetadataOverrideForm: React.FC<MetadataOverrideFormProps> = ({
                 updateOverride({
                   top_provider: {
                     ...overrides.top_provider,
-                    context_length: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                    context_length: parseOptionalInt(e.currentTarget),
                   },
                 })
               }
@@ -262,9 +267,7 @@ export const MetadataOverrideForm: React.FC<MetadataOverrideFormProps> = ({
                 updateOverride({
                   top_provider: {
                     ...overrides.top_provider,
-                    max_completion_tokens: e.target.value
-                      ? parseInt(e.target.value, 10)
-                      : undefined,
+                    max_completion_tokens: parseOptionalInt(e.currentTarget),
                   },
                 })
               }
