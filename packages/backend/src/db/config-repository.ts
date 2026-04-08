@@ -443,6 +443,7 @@ export class ConfigRepository {
       advanced: config.advanced ? toJson(config.advanced) : null,
       metadataSource: config.metadata?.source ?? null,
       metadataSourcePath: config.metadata?.source_path ?? null,
+      metadataOverrides: config.metadata?.overrides ? toJson(config.metadata.overrides) : null,
       useImageFallthrough: fromBool(config.use_image_fallthrough === true),
       updatedAt: timestamp,
     };
@@ -518,7 +519,10 @@ export class ConfigRepository {
         ? {
             metadata: {
               source: row.metadataSource,
-              source_path: row.metadataSourcePath,
+              ...(row.metadataSourcePath ? { source_path: row.metadataSourcePath } : {}),
+              ...(row.metadataOverrides
+                ? { overrides: parseJson(row.metadataOverrides) }
+                : {}),
             },
           }
         : {}),

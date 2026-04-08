@@ -15,6 +15,7 @@ export const metadataSourceEnum = pgEnum('metadata_source', [
   'openrouter',
   'models.dev',
   'catwalk',
+  'custom',
 ]);
 
 export const modelAliases = pgTable('model_aliases', {
@@ -27,6 +28,7 @@ export const modelAliases = pgTable('model_aliases', {
   advanced: jsonb('advanced'), // behavior objects array
   metadataSource: metadataSourceEnum('metadata_source'),
   metadataSourcePath: text('metadata_source_path'),
+  metadataOverrides: jsonb('metadata_overrides'), // override fields for metadata
   useImageFallthrough: boolean('use_image_fallthrough').notNull().default(false),
   createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),

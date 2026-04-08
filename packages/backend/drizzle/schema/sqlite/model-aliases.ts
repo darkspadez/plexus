@@ -8,8 +8,9 @@ export const modelAliases = sqliteTable('model_aliases', {
   modelType: text('model_type'), // 'chat' | 'embeddings' | 'transcriptions' | 'speech' | 'image' | 'responses'
   additionalAliases: text('additional_aliases'), // JSON: string[]
   advanced: text('advanced'), // JSON: behavior objects array
-  metadataSource: text('metadata_source'), // 'openrouter' | 'models.dev' | 'catwalk'
+  metadataSource: text('metadata_source'), // 'openrouter' | 'models.dev' | 'catwalk' | 'custom'
   metadataSourcePath: text('metadata_source_path'),
+  metadataOverrides: text('metadata_overrides'), // JSON: override fields for metadata
   useImageFallthrough: integer('use_image_fallthrough').notNull().default(0),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
