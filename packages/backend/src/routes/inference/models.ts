@@ -1,7 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import { getConfig } from '../../config';
 import { PricingManager } from '../../services/pricing-manager';
-import { ModelMetadataManager, NormalizedModelMetadata } from '../../services/model-metadata-manager';
+import {
+  ModelMetadataManager,
+  NormalizedModelMetadata,
+} from '../../services/model-metadata-manager';
 
 /**
  * Deep-merge overrides on top of base metadata.

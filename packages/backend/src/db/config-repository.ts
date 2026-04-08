@@ -520,9 +520,7 @@ export class ConfigRepository {
             metadata: {
               source: row.metadataSource,
               ...(row.metadataSourcePath ? { source_path: row.metadataSourcePath } : {}),
-              ...(row.metadataOverrides
-                ? { overrides: parseJson(row.metadataOverrides) }
-                : {}),
+              ...(row.metadataOverrides ? { overrides: parseJson(row.metadataOverrides) } : {}),
             },
           }
         : {}),
