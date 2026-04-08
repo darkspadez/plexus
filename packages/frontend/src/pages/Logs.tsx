@@ -96,7 +96,7 @@ const parseRetryHistory = (value?: string | null): RetryAttemptDetail[] => {
 
 export const Logs = () => {
   const navigate = useNavigate();
-  const { adminKey } = useAuth();
+  const { adminKey, isAdmin } = useAuth();
   const [logs, setLogs] = useState<UsageRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -384,16 +384,18 @@ export const Logs = () => {
                 Search
               </Button>
             </div>
-            <Button
-              onClick={handleDeleteAll}
-              variant="danger"
-              className="flex items-center gap-2"
-              disabled={logs.length === 0}
-              type="button"
-            >
-              <Trash2 size={16} />
-              Delete All
-            </Button>
+            {isAdmin && (
+              <Button
+                onClick={handleDeleteAll}
+                variant="danger"
+                className="flex items-center gap-2"
+                disabled={logs.length === 0}
+                type="button"
+              >
+                <Trash2 size={16} />
+                Delete All
+              </Button>
+            )}
           </form>
         </div>
 
@@ -435,11 +437,13 @@ export const Logs = () => {
                 <th className="px-2 py-1.5 text-center border-b border-border-glass border-r border-r-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap">
                   Status
                 </th>
-                <th className="px-2 py-1.5 text-center border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap">
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <Trash2 size={12} />
-                  </div>
-                </th>
+                {isAdmin && (
+                  <th className="px-2 py-1.5 text-center border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap">
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <Trash2 size={12} />
+                    </div>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -1004,14 +1008,17 @@ export const Logs = () => {
                       </div>
                     </td>
                     <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle">
-                      <button
-                        onClick={() => handleDelete(log.requestId)}
-                        className="bg-transparent border-0 text-text-muted p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-red-600/10 hover:text-danger group-hover:opacity-100 opacity-0"
-                        title="Delete log"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
+                      {isAdmin && (
+                      <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle">
+                        <button
+                          onClick={() => handleDelete(log.requestId)}
+                          className="bg-transparent border-0 text-text-muted p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-red-600/10 hover:text-danger group-hover:opacity-100 opacity-0"
+                          title="Delete log"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}

@@ -82,15 +82,16 @@ export const Sidebar: React.FC = () => {
   const [configExpanded, setConfigExpanded] = useState(true);
   const [devToolsExpanded, setDevToolsExpanded] = useState(false);
   const [quotas, setQuotas] = useState<QuotaCheckerInfo[]>([]);
-  const { logout } = useAuth();
+  const { logout, isAdmin, keyName } = useAuth();
   const { isCollapsed, toggleSidebar } = useSidebar();
 
   useEffect(() => {
     api.getDebugMode().then((result) => setDebugMode(result.enabled));
   }, []);
 
-  // Fetch quotas
+  // Fetch quotas (admin only)
   useEffect(() => {
+    if (!isAdmin) return;
     const fetchQuotas = async () => {
       const data = await api.getQuotas();
       setQuotas(data);
@@ -99,7 +100,7 @@ export const Sidebar: React.FC = () => {
     // Refresh quotas every 60 seconds
     const interval = setInterval(fetchQuotas, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isAdmin]);
 
   const parseSemverTag = (tag: string): [number, number, number] | null => {
     const match = tag.match(/^v(\d+)\.(\d+)\.(\d+)$/);
@@ -315,13 +316,15 @@ export const Sidebar: React.FC = () => {
             <>
               <NavItem to="/" icon={LayoutDashboard} label="Dashboard" isCollapsed={isCollapsed} />
               <NavItem to="/logs" icon={FileText} label="Logs" isCollapsed={isCollapsed} />
-              <NavItem to="/quotas" icon={PieChart} label="Quotas" isCollapsed={isCollapsed} />
+              {isAdmin && (
+                <NavItem to="/quotas" icon={PieChart} label="Quotas" isCollapsed={isCollapsed} />
+              )}
             </>
           )}
         </div>
 
-        {/* Balances Section */}
-        {balanceQuotas.length > 0 && (
+        {/* Balances Section (admin only) */}
+        {isAdmin && balanceQuotas.length > 0 && (
           <div className="mt-4 px-2">
             <button
               onClick={() => setBalancesExpanded(!balancesExpanded)}
@@ -361,8 +364,8 @@ export const Sidebar: React.FC = () => {
           </div>
         )}
 
-        {/* Rate Limits Section */}
-        {rateLimitQuotas.length > 0 && (
+        {/* Rate Limits Section (admin only) */}
+        {isAdmin && rateLimitQuotas.length > 0 && (
           <div className="mt-4 px-2">
             <button
               onClick={() => setQuotasExpanded(!quotasExpanded)}
@@ -402,39 +405,46 @@ export const Sidebar: React.FC = () => {
           </div>
         )}
 
-        <div className="mt-4 px-2">
-          <button
-            onClick={() => setConfigExpanded(!configExpanded)}
-            className="w-full flex items-center justify-between mb-1 group"
-          >
-            <h3
-              className={clsx(
-                'font-heading text-[11px] font-semibold uppercase tracking-wider text-text-muted transition-opacity duration-200',
-                isCollapsed && 'opacity-0 h-0 overflow-hidden'
-              )}
+        {isAdmin && (
+          <div className="mt-4 px-2">
+            <button
+              onClick={() => setConfigExpanded(!configExpanded)}
+              className="w-full flex items-center justify-between mb-1 group"
             >
-              Configuration
-            </h3>
-            {!isCollapsed && (
-              <ChevronRight
-                size={14}
+              <h3
                 className={clsx(
-                  'text-text-muted transition-transform duration-200 group-hover:text-text',
-                  configExpanded && 'rotate-90'
+                  'font-heading text-[11px] font-semibold uppercase tracking-wider text-text-muted transition-opacity duration-200',
+                  isCollapsed && 'opacity-0 h-0 overflow-hidden'
                 )}
-              />
+              >
+                Configuration
+              </h3>
+              {!isCollapsed && (
+                <ChevronRight
+                  size={14}
+                  className={clsx(
+                    'text-text-muted transition-transform duration-200 group-hover:text-text',
+                    configExpanded && 'rotate-90'
+                  )}
+                />
+              )}
+            </button>
+            {(configExpanded || isCollapsed) && (
+              <>
+                <NavItem
+                  to="/providers"
+                  icon={Server}
+                  label="Providers"
+                  isCollapsed={isCollapsed}
+                />
+                <NavItem to="/models" icon={Box} label="Models" isCollapsed={isCollapsed} />
+                <NavItem to="/keys" icon={Key} label="Keys" isCollapsed={isCollapsed} />
+                <NavItem to="/mcp" icon={Plug} label="MCP" isCollapsed={isCollapsed} />
+                <NavItem to="/config" icon={Settings} label="Settings" isCollapsed={isCollapsed} />
+              </>
             )}
-          </button>
-          {(configExpanded || isCollapsed) && (
-            <>
-              <NavItem to="/providers" icon={Server} label="Providers" isCollapsed={isCollapsed} />
-              <NavItem to="/models" icon={Box} label="Models" isCollapsed={isCollapsed} />
-              <NavItem to="/keys" icon={Key} label="Keys" isCollapsed={isCollapsed} />
-              <NavItem to="/mcp" icon={Plug} label="MCP" isCollapsed={isCollapsed} />
-              <NavItem to="/config" icon={Settings} label="Settings" isCollapsed={isCollapsed} />
-            </>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="mt-4 px-2 mt-auto">
           <button
@@ -477,14 +487,36 @@ export const Sidebar: React.FC = () => {
                   </button>
                 )}
               </div>
-              <NavItem to="/errors" icon={AlertTriangle} label="Errors" isCollapsed={isCollapsed} />
-              <NavItem
-                to="/system-logs"
-                icon={FileText}
-                label="System Logs"
-                isCollapsed={isCollapsed}
-              />
+              {isAdmin && (
+                <>
+                  <NavItem
+                    to="/errors"
+                    icon={AlertTriangle}
+                    label="Errors"
+                    isCollapsed={isCollapsed}
+                  />
+                  <NavItem
+                    to="/system-logs"
+                    icon={FileText}
+                    label="System Logs"
+                    isCollapsed={isCollapsed}
+                  />
+                </>
+              )}
             </>
+          )}
+          {/* User identity indicator */}
+          {!isCollapsed && (
+            <div className="mt-3 px-2 py-1.5 rounded-md bg-bg-card border border-border">
+              <div className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">
+                {isAdmin ? 'Admin' : 'API Key'}
+              </div>
+              {keyName && (
+                <div className="text-xs text-text truncate" title={keyName}>
+                  {keyName}
+                </div>
+              )}
+            </div>
           )}
           {(() => {
             const logoutButton = (

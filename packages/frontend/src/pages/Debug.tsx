@@ -19,6 +19,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useLocation } from 'react-router-dom';
 import type { Provider } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DebugLogMeta {
   requestId: string;
@@ -36,6 +37,7 @@ interface DebugLogDetail extends DebugLogMeta {
 
 export const Debug: React.FC = () => {
   const location = useLocation();
+  const { isAdmin } = useAuth();
   const [logs, setLogs] = useState<DebugLogMeta[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DebugLogDetail | null>(null);
@@ -362,15 +364,17 @@ export const Debug: React.FC = () => {
               </Button>
             </>
           )}
-          <Button
-            onClick={handleDeleteAll}
-            variant="danger"
-            className="flex items-center gap-2"
-            disabled={logs.length === 0}
-          >
-            <Trash2 size={16} />
-            Delete All
-          </Button>
+          {isAdmin && (
+            <Button
+              onClick={handleDeleteAll}
+              variant="danger"
+              className="flex items-center gap-2"
+              disabled={logs.length === 0}
+            >
+              <Trash2 size={16} />
+              Delete All
+            </Button>
+          )}
           <Button onClick={fetchLogs} variant="secondary" className="flex items-center gap-2">
             <RefreshCw size={16} className={clsx(loading && 'animate-spin')} />
             Refresh
@@ -404,13 +408,15 @@ export const Debug: React.FC = () => {
                         {new Date(log.createdAt).toLocaleTimeString()}
                       </span>
                     </div>
-                    <button
-                      onClick={(e) => handleDelete(e, log.requestId)}
-                      className="bg-transparent border-0 text-text-muted p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-red-600/10 hover:text-danger group-hover:opacity-100 opacity-0 transition-opacity"
-                      title="Delete log"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => handleDelete(e, log.requestId)}
+                        className="bg-transparent border-0 text-text-muted p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-red-600/10 hover:text-danger group-hover:opacity-100 opacity-0 transition-opacity"
+                        title="Delete log"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
                   </div>
                   <div className="text-[13px] font-mono text-primary whitespace-nowrap overflow-hidden text-ellipsis mt-1">
                     {log.requestId?.substring(0, 8) ?? '-'}...

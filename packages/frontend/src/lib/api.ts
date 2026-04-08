@@ -42,23 +42,50 @@ function inferProviderTypes(apiBaseUrl?: string | Record<string, string>): strin
   }
 }
 
-export async function verifyAdminKey(key: string): Promise<boolean> {
+interface VerifyResult {
+  authType: 'admin' | 'api-key';
+  keyName?: string;
+}
+
+export async function verifyKey(
+  key: string,
+  method: 'admin' | 'api-key'
+): Promise<VerifyResult | null> {
   try {
+    const headers: Record<string, string> =
+      method === 'admin'
+        ? { 'x-admin-key': key }
+        : { Authorization: `Bearer ${key}` };
+
     const res = await fetch('/v0/management/auth/verify', {
       method: 'GET',
-      headers: { 'x-admin-key': key },
+      headers,
     });
-    return res.status === 200;
+    if (res.status !== 200) return null;
+    const json = await res.json();
+    return { authType: json.authType, keyName: json.keyName };
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** @deprecated Use verifyKey instead */
+export async function verifyAdminKey(key: string): Promise<boolean> {
+  const result = await verifyKey(key, 'admin');
+  return result !== null;
 }
 
 const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const headers = new Headers(options.headers || {});
   const adminKey = localStorage.getItem('plexus_admin_key');
+  const authType = localStorage.getItem('plexus_auth_type');
+
   if (adminKey) {
-    headers.set('x-admin-key', adminKey);
+    if (authType === 'api-key') {
+      headers.set('Authorization', `Bearer ${adminKey}`);
+    } else {
+      headers.set('x-admin-key', adminKey);
+    }
   }
 
   const res = await fetch(url, { ...options, headers });
@@ -66,6 +93,8 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   if (res.status === 401) {
     // If unauthorized, clear key to trigger re-login
     localStorage.removeItem('plexus_admin_key');
+    localStorage.removeItem('plexus_auth_type');
+    localStorage.removeItem('plexus_key_name');
     // Optional: Dispatch event or reload.
     // Usually the React Context will catch this on next refresh, or we can reload here.
     if (window.location.pathname !== '/ui/login') {
