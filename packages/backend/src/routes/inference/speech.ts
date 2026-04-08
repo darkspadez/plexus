@@ -94,7 +94,7 @@ export async function registerSpeechRoute(
         speed: body.speed,
         stream_format: body.stream_format,
         instructions: body.instructions ? '(provided)' : undefined,
-      });
+      }, (request as any).keyName);
 
       const unifiedResponse = await dispatcher.dispatchSpeech(unifiedRequest);
 

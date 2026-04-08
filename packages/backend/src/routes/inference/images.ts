@@ -75,7 +75,7 @@ export async function registerImagesRoute(
         n: body.n,
         size: body.size,
         response_format: body.response_format,
-      });
+      }, (request as any).keyName);
 
       const unifiedResponse = await dispatcher.dispatchImageGenerations(unifiedRequest);
 
@@ -243,7 +243,7 @@ export async function registerImagesRoute(
         hasMask: !!maskBuffer,
         n: formFields.n,
         size: formFields.size,
-      });
+      }, (request as any).keyName);
 
       const unifiedResponse = await dispatcher.dispatchImageEdits(unifiedRequest);
 

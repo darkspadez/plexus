@@ -141,7 +141,7 @@ export async function registerResponsesRoute(
         };
       }
 
-      DebugManager.getInstance().startLog(requestId, body);
+      DebugManager.getInstance().startLog(requestId, body, (request as any).keyName);
 
       // Check quota before processing
       if (quotaEnforcer) {

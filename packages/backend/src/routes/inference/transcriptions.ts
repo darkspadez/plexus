@@ -139,7 +139,7 @@ export async function registerTranscriptionsRoute(
         prompt: prompt ? '(provided)' : undefined,
         response_format,
         temperature,
-      });
+      }, (request as any).keyName);
 
       // Dispatch
       const unifiedResponse = await dispatcher.dispatchTranscription(unifiedRequest);

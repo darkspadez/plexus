@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { encode } from 'eventsource-encoder';
-import { and, gte, lte, sql, isNull, isNotNull } from 'drizzle-orm';
+import { and, eq, gte, lte, sql, isNull, isNotNull } from 'drizzle-orm';
 import { getCurrentDialect, getSchema } from '../../db/client';
 import { UsageStorageService } from '../../services/usage-storage';
 
@@ -48,6 +48,18 @@ const USAGE_FIELDS = new Set([
   'hasError',
 ]);
 
+/**
+ * Resolve the effective apiKey filter for the current request.
+ * API-key users are always forced to their own key (server-side enforcement).
+ * Admins may optionally pass ?apiKey= to filter.
+ */
+function resolveApiKeyFilter(request: any, query: any): string | undefined {
+  if (request.authType === 'api-key') {
+    return request.keyName;
+  }
+  return query.apiKey || undefined;
+}
+
 export async function registerUsageRoutes(
   fastify: FastifyInstance,
   usageStorage: UsageStorageService
@@ -62,6 +74,8 @@ export async function registerUsageRoutes(
       .map((field: string) => field.trim())
       .filter((field: string) => USAGE_FIELDS.has(field));
 
+    const apiKeyFilter = resolveApiKeyFilter(request, query);
+
     const filters: any = {
       startDate: query.startDate,
       endDate: query.endDate,
@@ -71,6 +85,7 @@ export async function registerUsageRoutes(
       selectedModelName: query.selectedModelName,
       outgoingApiType: query.outgoingApiType,
       responseStatus: query.responseStatus,
+      apiKey: apiKeyFilter,
     };
 
     if (query.minDurationMs) filters.minDurationMs = parseInt(query.minDurationMs);
@@ -104,6 +119,7 @@ export async function registerUsageRoutes(
     const range = query.range || 'day';
     const startDateStr = query.startDate;
     const endDateStr = query.endDate;
+    const apiKeyFilter = resolveApiKeyFilter(request, query);
 
     // Validate custom date range if provided
     if (range === 'custom') {
@@ -216,6 +232,11 @@ export async function registerUsageRoutes(
     const toNumber = (value: unknown) =>
       value === null || value === undefined ? 0 : Number(value);
 
+    // Build optional apiKey filter condition
+    const apiKeyCondition = apiKeyFilter
+      ? eq(schema.requestUsage.apiKey, apiKeyFilter)
+      : undefined;
+
     try {
       const seriesRows = await db
         .select({
@@ -231,7 +252,8 @@ export async function registerUsageRoutes(
         .where(
           and(
             gte(schema.requestUsage.startTime, rangeStartMs),
-            lte(schema.requestUsage.startTime, rangeEndMs)
+            lte(schema.requestUsage.startTime, rangeEndMs),
+            apiKeyCondition
           )
         )
         .groupBy(bucketStartMs)
@@ -251,7 +273,8 @@ export async function registerUsageRoutes(
         .where(
           and(
             gte(schema.requestUsage.startTime, statsStartMs),
-            lte(schema.requestUsage.startTime, nowMs)
+            lte(schema.requestUsage.startTime, nowMs),
+            apiKeyCondition
           )
         );
 
@@ -270,7 +293,8 @@ export async function registerUsageRoutes(
         .where(
           and(
             gte(schema.requestUsage.startTime, todayStartMs),
-            lte(schema.requestUsage.startTime, nowMs)
+            lte(schema.requestUsage.startTime, nowMs),
+            apiKeyCondition
           )
         );
 
@@ -338,6 +362,12 @@ export async function registerUsageRoutes(
   });
 
   fastify.delete('/v0/management/usage', async (request, reply) => {
+    // Only admins can delete (enforced by requireAdmin on admin-only scope)
+    // But this route is in the shared scope; check manually.
+    if ((request as any).authType !== 'admin') {
+      return reply.code(403).send({ error: { message: 'Forbidden', type: 'auth_error', code: 403 } });
+    }
+
     const query = request.query as any;
     const olderThanDays = query.olderThanDays;
     let beforeDate: Date | undefined;
@@ -356,6 +386,10 @@ export async function registerUsageRoutes(
   });
 
   fastify.delete('/v0/management/usage/:requestId', async (request, reply) => {
+    if ((request as any).authType !== 'admin') {
+      return reply.code(403).send({ error: { message: 'Forbidden', type: 'auth_error', code: 403 } });
+    }
+
     const params = request.params as any;
     const requestId = params.requestId;
     const success = await usageStorage.deleteUsageLog(requestId);
@@ -365,6 +399,8 @@ export async function registerUsageRoutes(
   });
 
   fastify.get('/v0/management/events', async (request, reply) => {
+    const apiKeyFilter = resolveApiKeyFilter(request, request.query);
+
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -375,6 +411,8 @@ export async function registerUsageRoutes(
     // Helper to send events to the client
     const sendEvent = (eventType: string, record: any) => {
       if (reply.raw.destroyed) return;
+      // Filter by apiKey for non-admin users
+      if (apiKeyFilter && record.apiKey !== apiKeyFilter) return;
       reply.raw.write(
         encode({
           data: JSON.stringify(record),
@@ -429,15 +467,22 @@ export async function registerUsageRoutes(
    *   - mode: 'live' | 'timeline' (default: 'live')
    *   - timeRange: 'hour' | 'day' | 'week' | 'month' (default: 'hour', timeline mode only)
    *   - groupBy: 'provider' | 'model' (default: 'provider', timeline mode only)
+   *   - apiKey: filter by API key (auto-injected for API-key users)
    */
   fastify.get('/v0/management/concurrency', async (request, reply) => {
     const query = request.query as any;
     const mode = query.mode || 'live';
+    const apiKeyFilter = resolveApiKeyFilter(request, query);
 
     try {
       const db = usageStorage.getDb();
       const schema = getSchema();
       const dialect = getCurrentDialect();
+
+      // Build optional apiKey filter condition
+      const apiKeyCondition = apiKeyFilter
+        ? eq(schema.requestUsage.apiKey, apiKeyFilter)
+        : undefined;
 
       if (mode === 'timeline') {
         // Timeline mode: bucketed request counts over time for Usage Analytics charts
@@ -520,7 +565,8 @@ export async function registerUsageRoutes(
             and(
               isNotNull(groupField),
               gte(schema.requestUsage.startTime, startTime),
-              lte(schema.requestUsage.startTime, endTime)
+              lte(schema.requestUsage.startTime, endTime),
+              apiKeyCondition
             )
           )
           .groupBy(groupField, bucketSql)
@@ -550,7 +596,8 @@ export async function registerUsageRoutes(
           and(
             isNull(schema.requestUsage.durationMs),
             isNotNull(schema.requestUsage.provider),
-            gte(schema.requestUsage.startTime, liveNow - 60 * 60 * 1000)
+            gte(schema.requestUsage.startTime, liveNow - 60 * 60 * 1000),
+            apiKeyCondition
           )
         )
         .groupBy(schema.requestUsage.provider, schema.requestUsage.canonicalModelName);

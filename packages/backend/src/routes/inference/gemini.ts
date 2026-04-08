@@ -79,7 +79,7 @@ export async function registerGeminiRoute(
         };
       }
 
-      DebugManager.getInstance().startLog(requestId, body);
+      DebugManager.getInstance().startLog(requestId, body, (request as any).keyName);
 
       // Check quota before processing
       if (quotaEnforcer) {
