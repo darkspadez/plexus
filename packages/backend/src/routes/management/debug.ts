@@ -15,6 +15,9 @@ const patchDebugSchema = z.object({
  */
 function resolveApiKeyFilter(request: any): string | undefined {
   if (request.authType === 'api-key') {
+    if (!request.keyName) {
+      throw new Error('API-key auth missing keyName');
+    }
     return request.keyName;
   }
   return undefined;

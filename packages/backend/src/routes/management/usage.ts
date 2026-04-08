@@ -55,6 +55,9 @@ const USAGE_FIELDS = new Set([
  */
 function resolveApiKeyFilter(request: any, query: any): string | undefined {
   if (request.authType === 'api-key') {
+    if (!request.keyName) {
+      throw new Error('API-key auth missing keyName');
+    }
     return request.keyName;
   }
   return query.apiKey || undefined;

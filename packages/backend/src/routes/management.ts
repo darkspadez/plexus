@@ -60,9 +60,7 @@ function managementAuth(request: FastifyRequest, reply: FastifyReply, done: () =
     if (token) {
       const config = getConfig();
       if (config.keys) {
-        const entry = Object.entries(config.keys).find(
-          ([_, k]) => (k as { secret: string }).secret === token
-        );
+        const entry = Object.entries(config.keys).find(([_, k]) => (k as any)?.secret === token);
         if (entry) {
           (request as any).authType = 'api-key';
           (request as any).keyName = entry[0];

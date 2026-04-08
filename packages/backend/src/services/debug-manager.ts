@@ -54,7 +54,7 @@ export class DebugManager {
     } else {
       this.keyEnabled.delete(keyName);
     }
-    logger.info(`Debug mode for key '${keyName}' ${enabled ? 'enabled' : 'disabled'}`);
+    logger.info(`Debug mode for a key ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   /** Check if debug is enabled for a specific key (global OR per-key). */
@@ -89,7 +89,7 @@ export class DebugManager {
 
   startLog(requestId: string, rawRequest: any, keyName?: string) {
     // Log if global debug is on OR per-key debug is on for this key
-    if (!this.enabled && !(keyName && this.keyEnabled.get(keyName))) return;
+    if (!this.enabled && !(keyName?.trim() && this.keyEnabled.get(keyName))) return;
     this.pendingLogs.set(requestId, {
       requestId,
       rawRequest,
@@ -188,13 +188,9 @@ export class DebugManager {
     const log = this.pendingLogs.get(requestId);
     if (!log) return;
 
-    // Only persist if global debug is on OR a per-key log was started
-    // (startLog only creates an entry when enabled globally or for the key)
-    if (!this.enabled && !this.keyEnabled.size) {
-      logger.debug(`[DebugManager] Skipping flush for ${requestId} - debug mode disabled`);
-      this.pendingLogs.delete(requestId);
-      return;
-    }
+    // startLog only creates an entry when debug is enabled globally or for a
+    // specific key, so the presence of the log in pendingLogs is sufficient
+    // to know it should be persisted.
 
     if (!this.storage) return;
 
