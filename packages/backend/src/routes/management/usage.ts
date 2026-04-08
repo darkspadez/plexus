@@ -233,9 +233,7 @@ export async function registerUsageRoutes(
       value === null || value === undefined ? 0 : Number(value);
 
     // Build optional apiKey filter condition
-    const apiKeyCondition = apiKeyFilter
-      ? eq(schema.requestUsage.apiKey, apiKeyFilter)
-      : undefined;
+    const apiKeyCondition = apiKeyFilter ? eq(schema.requestUsage.apiKey, apiKeyFilter) : undefined;
 
     try {
       const seriesRows = await db
@@ -365,7 +363,9 @@ export async function registerUsageRoutes(
     // Only admins can delete (enforced by requireAdmin on admin-only scope)
     // But this route is in the shared scope; check manually.
     if ((request as any).authType !== 'admin') {
-      return reply.code(403).send({ error: { message: 'Forbidden', type: 'auth_error', code: 403 } });
+      return reply
+        .code(403)
+        .send({ error: { message: 'Forbidden', type: 'auth_error', code: 403 } });
     }
 
     const query = request.query as any;
@@ -387,7 +387,9 @@ export async function registerUsageRoutes(
 
   fastify.delete('/v0/management/usage/:requestId', async (request, reply) => {
     if ((request as any).authType !== 'admin') {
-      return reply.code(403).send({ error: { message: 'Forbidden', type: 'auth_error', code: 403 } });
+      return reply
+        .code(403)
+        .send({ error: { message: 'Forbidden', type: 'auth_error', code: 403 } });
     }
 
     const params = request.params as any;

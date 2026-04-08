@@ -1007,8 +1007,7 @@ export const Logs = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle">
-                      {isAdmin && (
+                    {isAdmin && (
                       <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle">
                         <button
                           onClick={() => handleDelete(log.requestId)}

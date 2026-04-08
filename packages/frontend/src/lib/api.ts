@@ -53,9 +53,7 @@ export async function verifyKey(
 ): Promise<VerifyResult | null> {
   try {
     const headers: Record<string, string> =
-      method === 'admin'
-        ? { 'x-admin-key': key }
-        : { Authorization: `Bearer ${key}` };
+      method === 'admin' ? { 'x-admin-key': key } : { Authorization: `Bearer ${key}` };
 
     const res = await fetch('/v0/management/auth/verify', {
       method: 'GET',

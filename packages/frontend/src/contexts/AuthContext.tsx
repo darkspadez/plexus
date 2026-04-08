@@ -25,7 +25,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const storedKey = localStorage.getItem('plexus_admin_key');
     const storedAuthType = localStorage.getItem('plexus_auth_type') as AuthType;
-    const storedKeyName = localStorage.getItem('plexus_key_name');
     if (storedKey) {
       verifyKey(storedKey, storedAuthType === 'api-key' ? 'api-key' : 'admin').then((result) => {
         if (result) {
