@@ -53,8 +53,7 @@ function managementAuth(request: FastifyRequest, reply: FastifyReply, done: () =
   if (authHeader) {
     const parts = authHeader.split(' ');
     const scheme = parts[0];
-    const token =
-      parts.length === 2 && scheme && scheme.toLowerCase() === 'bearer' ? (parts[1] ?? null) : null;
+    const token = parts.length === 2 && scheme?.toLowerCase() === 'bearer' ? parts[1] : null;
 
     if (token) {
       const config = getConfig();
