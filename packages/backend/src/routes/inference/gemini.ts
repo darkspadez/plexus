@@ -79,12 +79,15 @@ export async function registerGeminiRoute(
         };
       }
 
-      DebugManager.getInstance().startLog(requestId, body);
+      DebugManager.getInstance().startLog(requestId, body, (request as any).keyName);
 
       // Check quota before processing
       if (quotaEnforcer) {
         const allowed = await checkQuotaMiddleware(request, reply, quotaEnforcer);
-        if (!allowed) return;
+        if (!allowed) {
+          DebugManager.getInstance().flush(requestId);
+          return;
+        }
       }
 
       if (modelWithAction.includes('streamGenerateContent')) {

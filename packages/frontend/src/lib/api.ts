@@ -42,23 +42,56 @@ function inferProviderTypes(apiBaseUrl?: string | Record<string, string>): strin
   }
 }
 
-export async function verifyAdminKey(key: string): Promise<boolean> {
+interface VerifyResult {
+  authType: 'admin' | 'api-key';
+  keyName?: string;
+}
+
+export async function verifyKey(
+  key: string,
+  method: 'admin' | 'api-key'
+): Promise<VerifyResult | null> {
   try {
+    const headers: Record<string, string> =
+      method === 'admin' ? { 'x-admin-key': key } : { Authorization: `Bearer ${key}` };
+
     const res = await fetch('/v0/management/auth/verify', {
       method: 'GET',
-      headers: { 'x-admin-key': key },
+      headers,
     });
-    return res.status === 200;
+    if (res.status !== 200) return null;
+    const json = await res.json();
+    return { authType: json.authType, keyName: json.keyName };
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** @deprecated Use verifyKey instead */
+export async function verifyAdminKey(key: string): Promise<boolean> {
+  const result = await verifyKey(key, 'admin');
+  return result !== null;
+}
+
+/**
+ * Returns the auth headers based on the stored auth type.
+ * Exported so callers like SSE stream connections can use the same logic as fetchWithAuth.
+ */
+export function getAuthHeaders(): Record<string, string> {
+  const adminKey = localStorage.getItem('plexus_admin_key');
+  const authType = localStorage.getItem('plexus_auth_type');
+  if (!adminKey) return {};
+  if (authType === 'api-key') {
+    return { Authorization: `Bearer ${adminKey}` };
+  }
+  return { 'x-admin-key': adminKey };
 }
 
 const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const headers = new Headers(options.headers || {});
-  const adminKey = localStorage.getItem('plexus_admin_key');
-  if (adminKey) {
-    headers.set('x-admin-key', adminKey);
+  const authHeaders = getAuthHeaders();
+  for (const [key, value] of Object.entries(authHeaders)) {
+    headers.set(key, value);
   }
 
   const res = await fetch(url, { ...options, headers });
@@ -66,6 +99,8 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   if (res.status === 401) {
     // If unauthorized, clear key to trigger re-login
     localStorage.removeItem('plexus_admin_key');
+    localStorage.removeItem('plexus_auth_type');
+    localStorage.removeItem('plexus_key_name');
     // Optional: Dispatch event or reload.
     // Usually the React Context will catch this on next refresh, or we can reload here.
     if (window.location.pathname !== '/ui/login') {
@@ -413,6 +448,16 @@ const summaryRequestCache = new Map<
   string,
   { expiresAt: number; promise: Promise<UsageSummaryResponse> }
 >();
+
+/**
+ * Clear all per-principal request caches.
+ * Must be called on login and logout so a previous principal's cached data
+ * cannot leak to the next session.
+ */
+export function clearAuthCaches(): void {
+  usageRequestCache.clear();
+  summaryRequestCache.clear();
+}
 
 const CONFIG_CACHE_TTL_MS = 20000;
 const configRequestCache = new Map<string, { expiresAt: number; promise: Promise<any> }>();

@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { logger } from '../utils/logger';
+import { getConfig } from '../config';
 import { UsageStorageService } from '../services/usage-storage';
 import { registerConfigRoutes } from './management/config';
 import { registerUsageRoutes } from './management/usage';
@@ -23,19 +24,65 @@ import { QuotaScheduler } from '../services/quota/quota-scheduler';
 import { QuotaEnforcer } from '../services/quota/quota-enforcer';
 import { McpUsageStorageService } from '../services/mcp-proxy/mcp-usage-storage';
 
-function adminKeyAuth(request: FastifyRequest, reply: FastifyReply, done: () => void) {
-  const providedKey = request.headers['x-admin-key'];
+/**
+ * Two-tier authentication for the management API.
+ *
+ * 1. Admin key (`x-admin-key` header) — full access to every route.
+ * 2. API key (`Authorization: Bearer <secret>`) — restricted access to
+ *    dashboard, logs and trace routes.  The resolved key name is stored on
+ *    the request so downstream handlers can filter data.
+ *
+ * After this hook runs, every request carries:
+ *   - request.authType: 'admin' | 'api-key'
+ *   - request.keyName:  string | undefined   (set only for api-key users)
+ */
+function managementAuth(request: FastifyRequest, reply: FastifyReply, done: () => void) {
+  // --- Try admin key first ---
+  const providedAdminKey = request.headers['x-admin-key'];
   const adminKey = process.env.ADMIN_KEY;
 
-  if (!providedKey || providedKey !== adminKey) {
-    logger.silly(
-      `[ADMIN AUTH] Rejected request to ${request.url} - invalid or missing x-admin-key`
-    );
-    reply.code(401).send({ error: { message: 'Unauthorized', type: 'auth_error', code: 401 } });
+  if (providedAdminKey && providedAdminKey === adminKey) {
+    (request as any).authType = 'admin';
+    logger.silly(`[MGMT AUTH] Admin accepted for ${request.url}`);
+    done();
     return;
   }
 
-  logger.silly(`[ADMIN AUTH] Accepted request to ${request.url}`);
+  // --- Try API key (Bearer token) ---
+  const authHeader = request.headers.authorization;
+  if (authHeader) {
+    const parts = authHeader.split(' ');
+    const scheme = parts[0];
+    const token = parts.length === 2 && scheme?.toLowerCase() === 'bearer' ? parts[1] : null;
+
+    if (token) {
+      const config = getConfig();
+      if (config.keys) {
+        const entry = Object.entries(config.keys).find(([_, k]) => (k as any)?.secret === token);
+        if (entry) {
+          (request as any).authType = 'api-key';
+          (request as any).keyName = entry[0];
+          logger.silly(`[MGMT AUTH] API-key user '${entry[0]}' accepted for ${request.url}`);
+          done();
+          return;
+        }
+      }
+    }
+  }
+
+  logger.silly(`[MGMT AUTH] Rejected request to ${request.url} - invalid credentials`);
+  reply.code(401).send({ error: { message: 'Unauthorized', type: 'auth_error', code: 401 } });
+}
+
+/**
+ * Pre-handler that blocks non-admin users.
+ * Apply to routes that only admins should access (config, providers, keys, etc.).
+ */
+function requireAdmin(request: FastifyRequest, reply: FastifyReply, done: () => void) {
+  if ((request as any).authType !== 'admin') {
+    reply.code(403).send({ error: { message: 'Forbidden', type: 'auth_error', code: 403 } });
+    return;
+  }
   done();
 }
 
@@ -47,43 +94,52 @@ export async function registerManagementRoutes(
   mcpUsageStorage?: McpUsageStorageService,
   quotaEnforcer?: QuotaEnforcer
 ) {
-  // Verify endpoint is outside the auth scope so the login page can call it
-  // with the candidate key and get a 200/401 back.
+  // Verify endpoint — accepts both admin key and API key, returns auth info.
   fastify.get(
     '/v0/management/auth/verify',
-    { preHandler: adminKeyAuth },
-    async (_request, reply) => {
-      return reply.send({ ok: true });
+    { preHandler: managementAuth },
+    async (request, reply) => {
+      const authType = (request as any).authType as string;
+      const keyName = (request as any).keyName as string | undefined;
+      return reply.send({ ok: true, authType, keyName });
     }
   );
 
-  // All other management routes are protected by the same admin key hook,
+  // All other management routes are protected by managementAuth,
   // scoped inside this plugin so the v1 bearer-auth routes are unaffected.
   fastify.register(async (protected_) => {
-    protected_.addHook('preHandler', adminKeyAuth);
+    protected_.addHook('preHandler', managementAuth);
 
-    await registerConfigRoutes(protected_);
+    // --- Routes accessible to both admin and API-key users ---
+    // (data is filtered server-side by apiKey for non-admin users)
     await registerUsageRoutes(protected_, usageStorage);
-    await registerCooldownRoutes(protected_);
-    await registerPerformanceRoutes(protected_, usageStorage);
     await registerDebugRoutes(protected_, usageStorage);
-    await registerErrorRoutes(protected_, usageStorage);
-    await registerSystemLogRoutes(protected_);
-    await registerTestRoutes(protected_, dispatcher);
-    await registerOAuthRoutes(protected_);
-    await registerLoggingRoutes(protected_);
-    await registerRestartRoutes(protected_);
-    await registerProviderRoutes(protected_);
-    await registerMetricsRoutes(protected_, usageStorage);
-    if (quotaScheduler) {
-      await registerQuotaRoutes(protected_, quotaScheduler);
-    }
-    if (mcpUsageStorage) {
-      await registerMcpLogRoutes(protected_, mcpUsageStorage);
-    }
-    if (quotaEnforcer) {
-      await registerQuotaEnforcementRoutes(protected_, quotaEnforcer);
-    }
-    await registerUserQuotaRoutes(protected_);
+    await registerPerformanceRoutes(protected_, usageStorage);
+
+    // --- Admin-only routes ---
+    protected_.register(async (adminOnly) => {
+      adminOnly.addHook('preHandler', requireAdmin);
+
+      await registerConfigRoutes(adminOnly);
+      await registerCooldownRoutes(adminOnly);
+      await registerErrorRoutes(adminOnly, usageStorage);
+      await registerSystemLogRoutes(adminOnly);
+      await registerTestRoutes(adminOnly, dispatcher);
+      await registerOAuthRoutes(adminOnly);
+      await registerLoggingRoutes(adminOnly);
+      await registerRestartRoutes(adminOnly);
+      await registerProviderRoutes(adminOnly);
+      await registerMetricsRoutes(adminOnly, usageStorage);
+      if (quotaScheduler) {
+        await registerQuotaRoutes(adminOnly, quotaScheduler);
+      }
+      if (mcpUsageStorage) {
+        await registerMcpLogRoutes(adminOnly, mcpUsageStorage);
+      }
+      if (quotaEnforcer) {
+        await registerQuotaEnforcementRoutes(adminOnly, quotaEnforcer);
+      }
+      await registerUserQuotaRoutes(adminOnly);
+    });
   });
 }

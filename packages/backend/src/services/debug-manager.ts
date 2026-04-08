@@ -13,6 +13,8 @@ export interface DebugLogRecord {
   transformedResponseSnapshot?: any;
   provider?: string;
   createdAt?: number;
+  /** Internal flag: true when the entry was created by startLog() and should be persisted. */
+  _debugIntent?: boolean;
 }
 
 export class DebugManager {
@@ -22,6 +24,8 @@ export class DebugManager {
   private providerFilter: string[] | null = null;
   private pendingLogs: Map<string, DebugLogRecord> = new Map();
   private ephemeralRequests: Set<string> = new Set();
+  /** Per-API-key debug enable state (independent of global toggle). */
+  private keyEnabled: Map<string, boolean> = new Map();
 
   private constructor() {}
 
@@ -43,6 +47,21 @@ export class DebugManager {
 
   isEnabled(): boolean {
     return this.enabled;
+  }
+
+  /** Enable/disable debug tracing for a specific API key. */
+  setKeyEnabled(keyName: string, enabled: boolean) {
+    if (enabled) {
+      this.keyEnabled.set(keyName, true);
+    } else {
+      this.keyEnabled.delete(keyName);
+    }
+    logger.info(`Debug mode for a key ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /** Check if debug is enabled for a specific key (global OR per-key). */
+  isEnabledForKey(keyName: string): boolean {
+    return this.enabled || this.keyEnabled.get(keyName) === true;
   }
 
   setProviderFilter(providers: string[] | null) {
@@ -70,12 +89,14 @@ export class DebugManager {
     }
   }
 
-  startLog(requestId: string, rawRequest: any) {
-    if (!this.enabled) return;
+  startLog(requestId: string, rawRequest: any, keyName?: string) {
+    // Log if global debug is on OR per-key debug is on for this key
+    if (!this.enabled && !(keyName?.trim() && this.keyEnabled.get(keyName))) return;
     this.pendingLogs.set(requestId, {
       requestId,
       rawRequest,
       createdAt: Date.now(),
+      _debugIntent: true,
     });
 
     // Auto-cleanup after 5 minutes to prevent memory leaks if streams hang or fail to flush
@@ -91,7 +112,7 @@ export class DebugManager {
   }
 
   addTransformedRequest(requestId: string, payload: any) {
-    if (!this.enabled) return;
+    if (!this.enabled && !this.pendingLogs.has(requestId)) return;
     let log = this.pendingLogs.get(requestId);
     if (!log) {
       // Create log entry if it doesn't exist (for ephemeral token estimation)
@@ -105,7 +126,7 @@ export class DebugManager {
   }
 
   addRawResponse(requestId: string, payload: any) {
-    if (!this.enabled) return;
+    if (!this.enabled && !this.pendingLogs.has(requestId)) return;
     let log = this.pendingLogs.get(requestId);
     if (!log) {
       // Create log entry if it doesn't exist (for ephemeral token estimation)
@@ -134,7 +155,7 @@ export class DebugManager {
 
   addTransformedResponse(requestId: string, payload: any) {
     // Only save full response bodies if debug mode is enabled (for DB persistence)
-    if (!this.enabled) return;
+    if (!this.enabled && !this.pendingLogs.has(requestId)) return;
     let log = this.pendingLogs.get(requestId);
     if (!log) {
       log = {
@@ -167,31 +188,33 @@ export class DebugManager {
       return;
     }
 
-    // Only persist to database if debug mode is enabled
-    if (!this.enabled) {
-      logger.debug(`[DebugManager] Skipping flush for ${requestId} - debug mode disabled`);
+    const log = this.pendingLogs.get(requestId);
+    if (!log) return;
+
+    // Only persist entries that were intentionally started via startLog().
+    // Other entries (e.g. from addReconstructedRawResponse) are for in-memory
+    // usage extraction only and should not be written to the database.
+    if (!log._debugIntent) {
       this.pendingLogs.delete(requestId);
       return;
     }
 
     if (!this.storage) return;
-    const log = this.pendingLogs.get(requestId);
-    if (log) {
-      // Check provider filter
-      if (log.provider && !this.shouldLogProvider(log.provider)) {
-        logger.debug(
-          `[DebugManager] Skipping flush for ${requestId} - provider '${log.provider}' not in filter`
-        );
-        this.pendingLogs.delete(requestId);
-        return;
-      }
 
-      logger.debug(`[DebugManager] Flushing debug log for ${requestId}`);
-      if (typeof this.storage.saveDebugLog === 'function') {
-        this.storage.saveDebugLog(log);
-      }
+    // Check provider filter
+    if (log.provider && !this.shouldLogProvider(log.provider)) {
+      logger.debug(
+        `[DebugManager] Skipping flush for ${requestId} - provider '${log.provider}' not in filter`
+      );
       this.pendingLogs.delete(requestId);
+      return;
     }
+
+    logger.debug(`[DebugManager] Flushing debug log for ${requestId}`);
+    if (typeof this.storage.saveDebugLog === 'function') {
+      this.storage.saveDebugLog(log);
+    }
+    this.pendingLogs.delete(requestId);
   }
 
   /**

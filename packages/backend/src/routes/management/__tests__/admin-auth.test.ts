@@ -95,7 +95,7 @@ describe('GET /v0/management/auth/verify', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json() as unknown).toEqual({ ok: true });
+    expect(res.json() as unknown).toEqual({ ok: true, authType: 'admin' });
   });
 
   it('returns 401 when an incorrect admin key is provided', async () => {
@@ -314,14 +314,26 @@ describe('v1 inference routes are unaffected by admin key auth', () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it('management verify still requires admin key on combined server', async () => {
+  it('management verify accepts API key with restricted access', async () => {
     const res = await fastify.inject({
       method: 'GET',
       url: '/v0/management/auth/verify',
       headers: { authorization: 'Bearer sk-test-secret' },
     });
 
-    // A valid API key must not grant access to management endpoints
-    expect(res.statusCode).toBe(401);
+    // A valid API key grants restricted access to management endpoints
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as any;
+    expect(body.ok).toBe(true);
+    expect(body.authType).toBe('api-key');
+    expect(body.keyName).toBe('test-key');
+
+    // API key must still be blocked from admin-only routes
+    const blocked = await fastify.inject({
+      method: 'GET',
+      url: '/v0/management/cooldowns',
+      headers: { authorization: 'Bearer sk-test-secret' },
+    });
+    expect([401, 403]).toContain(blocked.statusCode);
   });
 });

@@ -141,12 +141,15 @@ export async function registerResponsesRoute(
         };
       }
 
-      DebugManager.getInstance().startLog(requestId, body);
+      DebugManager.getInstance().startLog(requestId, body, (request as any).keyName);
 
       // Check quota before processing
       if (quotaEnforcer) {
         const allowed = await checkQuotaMiddleware(request, reply, quotaEnforcer);
-        if (!allowed) return;
+        if (!allowed) {
+          DebugManager.getInstance().flush(requestId);
+          return;
+        }
       }
 
       const unifiedResponse = await dispatcher.dispatch(unifiedRequest);

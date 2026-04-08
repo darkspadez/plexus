@@ -130,16 +130,20 @@ export async function registerTranscriptionsRoute(
         attribution: (request as any).attribution || null,
       });
 
-      DebugManager.getInstance().startLog(requestId, {
-        model,
-        filename: fileData.filename,
-        fileSize,
-        mimeType: fileData.mimetype,
-        language,
-        prompt: prompt ? '(provided)' : undefined,
-        response_format,
-        temperature,
-      });
+      DebugManager.getInstance().startLog(
+        requestId,
+        {
+          model,
+          filename: fileData.filename,
+          fileSize,
+          mimeType: fileData.mimetype,
+          language,
+          prompt: prompt ? '(provided)' : undefined,
+          response_format,
+          temperature,
+        },
+        (request as any).keyName
+      );
 
       // Dispatch
       const unifiedResponse = await dispatcher.dispatchTranscription(unifiedRequest);

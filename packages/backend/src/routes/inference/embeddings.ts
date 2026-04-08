@@ -57,7 +57,7 @@ export async function registerEmbeddingsRoute(
       unifiedRequest.originalBody = body;
       unifiedRequest.requestId = requestId;
 
-      DebugManager.getInstance().startLog(requestId, body);
+      DebugManager.getInstance().startLog(requestId, body, (request as any).keyName);
 
       const unifiedResponse = await dispatcher.dispatchEmbeddings(unifiedRequest);
 

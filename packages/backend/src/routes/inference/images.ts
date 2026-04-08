@@ -69,13 +69,17 @@ export async function registerImagesRoute(
         originalBody: body,
       };
 
-      DebugManager.getInstance().startLog(requestId, {
-        model: body.model,
-        prompt: body.prompt?.substring(0, 100),
-        n: body.n,
-        size: body.size,
-        response_format: body.response_format,
-      });
+      DebugManager.getInstance().startLog(
+        requestId,
+        {
+          model: body.model,
+          prompt: typeof body.prompt === 'string' ? body.prompt.substring(0, 100) : undefined,
+          n: body.n,
+          size: body.size,
+          response_format: body.response_format,
+        },
+        (request as any).keyName
+      );
 
       const unifiedResponse = await dispatcher.dispatchImageGenerations(unifiedRequest);
 
@@ -236,14 +240,18 @@ export async function registerImagesRoute(
         originalBody: formFields,
       };
 
-      DebugManager.getInstance().startLog(requestId, {
-        model: formFields.model,
-        prompt: formFields.prompt?.substring(0, 100),
-        filename: imageFilename,
-        hasMask: !!maskBuffer,
-        n: formFields.n,
-        size: formFields.size,
-      });
+      DebugManager.getInstance().startLog(
+        requestId,
+        {
+          model: formFields.model,
+          prompt: formFields.prompt?.substring(0, 100),
+          filename: imageFilename,
+          hasMask: !!maskBuffer,
+          n: formFields.n,
+          size: formFields.size,
+        },
+        (request as any).keyName
+      );
 
       const unifiedResponse = await dispatcher.dispatchImageEdits(unifiedRequest);
 

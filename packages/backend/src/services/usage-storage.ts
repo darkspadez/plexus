@@ -17,6 +17,7 @@ export interface UsageFilters {
   minDurationMs?: number;
   maxDurationMs?: number;
   responseStatus?: string;
+  apiKey?: string;
 }
 
 export interface PaginationOptions {
@@ -304,9 +305,33 @@ export class UsageStorageService extends EventEmitter {
 
   async getDebugLogs(
     limit: number = 50,
-    offset: number = 0
+    offset: number = 0,
+    apiKey?: string
   ): Promise<{ requestId: string; createdAt: number }[]> {
     try {
+      if (apiKey) {
+        // Join with request_usage to filter by apiKey
+        const results = await this.ensureDb()
+          .select({
+            requestId: this.schema.debugLogs.requestId,
+            createdAt: this.schema.debugLogs.createdAt,
+          })
+          .from(this.schema.debugLogs)
+          .innerJoin(
+            this.schema.requestUsage,
+            eq(this.schema.debugLogs.requestId, this.schema.requestUsage.requestId)
+          )
+          .where(eq(this.schema.requestUsage.apiKey, apiKey))
+          .orderBy(desc(this.schema.debugLogs.createdAt))
+          .limit(limit)
+          .offset(offset);
+
+        return results.map((row) => ({
+          requestId: row.requestId,
+          createdAt: row.createdAt,
+        }));
+      }
+
       const results = await this.ensureDb()
         .select({
           requestId: this.schema.debugLogs.requestId,
@@ -327,8 +352,39 @@ export class UsageStorageService extends EventEmitter {
     }
   }
 
-  async getDebugLog(requestId: string): Promise<DebugLogRecord | null> {
+  async getDebugLog(requestId: string, apiKey?: string): Promise<DebugLogRecord | null> {
     try {
+      if (apiKey) {
+        // Verify ownership by joining with request_usage
+        const results = await this.ensureDb()
+          .select({
+            requestId: this.schema.debugLogs.requestId,
+            createdAt: this.schema.debugLogs.createdAt,
+            rawRequest: this.schema.debugLogs.rawRequest,
+            transformedRequest: this.schema.debugLogs.transformedRequest,
+            rawResponse: this.schema.debugLogs.rawResponse,
+            transformedResponse: this.schema.debugLogs.transformedResponse,
+            rawResponseSnapshot: this.schema.debugLogs.rawResponseSnapshot,
+            transformedResponseSnapshot: this.schema.debugLogs.transformedResponseSnapshot,
+          })
+          .from(this.schema.debugLogs)
+          .innerJoin(
+            this.schema.requestUsage,
+            eq(this.schema.debugLogs.requestId, this.schema.requestUsage.requestId)
+          )
+          .where(
+            and(
+              eq(this.schema.debugLogs.requestId, requestId),
+              eq(this.schema.requestUsage.apiKey, apiKey)
+            )
+          );
+
+        if (!results || results.length === 0) return null;
+        const row = results[0];
+        if (!row) return null;
+        return row as DebugLogRecord;
+      }
+
       const results = await this.ensureDb()
         .select()
         .from(this.schema.debugLogs)
@@ -419,6 +475,9 @@ export class UsageStorageService extends EventEmitter {
     }
     if (filters.responseStatus) {
       conditions.push(eq(schema.requestUsage.responseStatus, filters.responseStatus));
+    }
+    if (filters.apiKey) {
+      conditions.push(eq(schema.requestUsage.apiKey, filters.apiKey));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
