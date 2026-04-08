@@ -80,7 +80,10 @@ export async function registerChatRoute(
       // Check quota before processing
       if (quotaEnforcer) {
         const allowed = await checkQuotaMiddleware(request, reply, quotaEnforcer);
-        if (!allowed) return;
+        if (!allowed) {
+          DebugManager.getInstance().flush(requestId);
+          return;
+        }
       }
 
       const unifiedResponse = await dispatcher.dispatch(unifiedRequest);

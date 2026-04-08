@@ -4,7 +4,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { CostToolTip } from '../components/ui/CostToolTip';
-import { api, UsageRecord, formatLargeNumber } from '../lib/api';
+import { api, UsageRecord, formatLargeNumber, getAuthHeaders } from '../lib/api';
 import {
   KWH_PER_SLICE,
   formatCost,
@@ -209,9 +209,7 @@ export const Logs = () => {
     const connect = async () => {
       try {
         const response = await fetch('/v0/management/events', {
-          headers: {
-            'x-admin-key': adminKey,
-          },
+          headers: getAuthHeaders(),
           signal: controller.signal,
         });
 
@@ -952,7 +950,7 @@ export const Logs = () => {
                     </td>
                     <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle">
                       <div className="flex gap-2 items-center">
-                        {log.hasError && (
+                        {log.hasError && isAdmin && (
                           <button
                             onClick={() =>
                               navigate('/errors', { state: { requestId: log.requestId } })
@@ -984,7 +982,7 @@ export const Logs = () => {
                             <span style={{ fontWeight: 600 }}>✓</span>
                           </button>
                         )}
-                        {!log.hasError && !log.hasDebug && (
+                        {(!log.hasError || !isAdmin) && !log.hasDebug && (
                           <div
                             className={clsx(
                               'inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-xl text-xs font-medium border',

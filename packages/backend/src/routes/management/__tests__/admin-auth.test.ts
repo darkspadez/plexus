@@ -327,5 +327,13 @@ describe('v1 inference routes are unaffected by admin key auth', () => {
     expect(body.ok).toBe(true);
     expect(body.authType).toBe('api-key');
     expect(body.keyName).toBe('test-key');
+
+    // API key must still be blocked from admin-only routes
+    const blocked = await fastify.inject({
+      method: 'GET',
+      url: '/v0/management/cooldowns',
+      headers: { authorization: 'Bearer sk-test-secret' },
+    });
+    expect([401, 403]).toContain(blocked.statusCode);
   });
 });

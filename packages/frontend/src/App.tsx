@@ -17,8 +17,10 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { adminKey } = useAuth();
+  const { adminKey, isRestoring } = useAuth();
   const location = useLocation();
+
+  if (isRestoring) return null;
 
   if (!adminKey) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -29,7 +31,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 /** Wraps routes that are admin-only; redirects API-key users to the dashboard. */
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isRestoring } = useAuth();
+
+  if (isRestoring) return null;
 
   if (!isAdmin) {
     return <Navigate to="/" replace />;

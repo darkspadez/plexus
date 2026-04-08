@@ -352,8 +352,39 @@ export class UsageStorageService extends EventEmitter {
     }
   }
 
-  async getDebugLog(requestId: string): Promise<DebugLogRecord | null> {
+  async getDebugLog(requestId: string, apiKey?: string): Promise<DebugLogRecord | null> {
     try {
+      if (apiKey) {
+        // Verify ownership by joining with request_usage
+        const results = await this.ensureDb()
+          .select({
+            requestId: this.schema.debugLogs.requestId,
+            createdAt: this.schema.debugLogs.createdAt,
+            rawRequest: this.schema.debugLogs.rawRequest,
+            transformedRequest: this.schema.debugLogs.transformedRequest,
+            rawResponse: this.schema.debugLogs.rawResponse,
+            transformedResponse: this.schema.debugLogs.transformedResponse,
+            rawResponseSnapshot: this.schema.debugLogs.rawResponseSnapshot,
+            transformedResponseSnapshot: this.schema.debugLogs.transformedResponseSnapshot,
+          })
+          .from(this.schema.debugLogs)
+          .innerJoin(
+            this.schema.requestUsage,
+            eq(this.schema.debugLogs.requestId, this.schema.requestUsage.requestId)
+          )
+          .where(
+            and(
+              eq(this.schema.debugLogs.requestId, requestId),
+              eq(this.schema.requestUsage.apiKey, apiKey)
+            )
+          );
+
+        if (!results || results.length === 0) return null;
+        const row = results[0];
+        if (!row) return null;
+        return row as DebugLogRecord;
+      }
+
       const results = await this.ensureDb()
         .select()
         .from(this.schema.debugLogs)

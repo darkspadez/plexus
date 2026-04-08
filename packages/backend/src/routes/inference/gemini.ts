@@ -84,7 +84,10 @@ export async function registerGeminiRoute(
       // Check quota before processing
       if (quotaEnforcer) {
         const allowed = await checkQuotaMiddleware(request, reply, quotaEnforcer);
-        if (!allowed) return;
+        if (!allowed) {
+          DebugManager.getInstance().flush(requestId);
+          return;
+        }
       }
 
       if (modelWithAction.includes('streamGenerateContent')) {

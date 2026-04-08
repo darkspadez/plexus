@@ -73,17 +73,25 @@ export async function verifyAdminKey(key: string): Promise<boolean> {
   return result !== null;
 }
 
-const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-  const headers = new Headers(options.headers || {});
+/**
+ * Returns the auth headers based on the stored auth type.
+ * Exported so callers like SSE stream connections can use the same logic as fetchWithAuth.
+ */
+export function getAuthHeaders(): Record<string, string> {
   const adminKey = localStorage.getItem('plexus_admin_key');
   const authType = localStorage.getItem('plexus_auth_type');
+  if (!adminKey) return {};
+  if (authType === 'api-key') {
+    return { Authorization: `Bearer ${adminKey}` };
+  }
+  return { 'x-admin-key': adminKey };
+}
 
-  if (adminKey) {
-    if (authType === 'api-key') {
-      headers.set('Authorization', `Bearer ${adminKey}`);
-    } else {
-      headers.set('x-admin-key', adminKey);
-    }
+const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+  const headers = new Headers(options.headers || {});
+  const authHeaders = getAuthHeaders();
+  for (const [key, value] of Object.entries(authHeaders)) {
+    headers.set(key, value);
   }
 
   const res = await fetch(url, { ...options, headers });
@@ -440,6 +448,16 @@ const summaryRequestCache = new Map<
   string,
   { expiresAt: number; promise: Promise<UsageSummaryResponse> }
 >();
+
+/**
+ * Clear all per-principal request caches.
+ * Must be called on login and logout so a previous principal's cached data
+ * cannot leak to the next session.
+ */
+export function clearAuthCaches(): void {
+  usageRequestCache.clear();
+  summaryRequestCache.clear();
+}
 
 const CONFIG_CACHE_TTL_MS = 20000;
 const configRequestCache = new Map<string, { expiresAt: number; promise: Promise<any> }>();

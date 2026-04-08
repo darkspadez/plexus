@@ -51,11 +51,10 @@ function managementAuth(request: FastifyRequest, reply: FastifyReply, done: () =
   // --- Try API key (Bearer token) ---
   const authHeader = request.headers.authorization;
   if (authHeader) {
-    const token = authHeader.startsWith('Bearer ')
-      ? authHeader.slice(7)
-      : authHeader.startsWith('bearer ')
-        ? authHeader.slice(7)
-        : null;
+    const parts = authHeader.split(' ');
+    const scheme = parts[0];
+    const token =
+      parts.length === 2 && scheme && scheme.toLowerCase() === 'bearer' ? (parts[1] ?? null) : null;
 
     if (token) {
       const config = getConfig();

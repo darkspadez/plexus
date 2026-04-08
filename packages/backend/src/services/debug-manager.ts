@@ -13,6 +13,8 @@ export interface DebugLogRecord {
   transformedResponseSnapshot?: any;
   provider?: string;
   createdAt?: number;
+  /** Internal flag: true when the entry was created by startLog() and should be persisted. */
+  _debugIntent?: boolean;
 }
 
 export class DebugManager {
@@ -94,6 +96,7 @@ export class DebugManager {
       requestId,
       rawRequest,
       createdAt: Date.now(),
+      _debugIntent: true,
     });
 
     // Auto-cleanup after 5 minutes to prevent memory leaks if streams hang or fail to flush
@@ -188,9 +191,13 @@ export class DebugManager {
     const log = this.pendingLogs.get(requestId);
     if (!log) return;
 
-    // startLog only creates an entry when debug is enabled globally or for a
-    // specific key, so the presence of the log in pendingLogs is sufficient
-    // to know it should be persisted.
+    // Only persist entries that were intentionally started via startLog().
+    // Other entries (e.g. from addReconstructedRawResponse) are for in-memory
+    // usage extraction only and should not be written to the database.
+    if (!log._debugIntent) {
+      this.pendingLogs.delete(requestId);
+      return;
+    }
 
     if (!this.storage) return;
 

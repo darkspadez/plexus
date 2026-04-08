@@ -103,7 +103,8 @@ export async function registerDebugRoutes(
   fastify.get('/v0/management/debug/logs/:requestId', async (request, reply) => {
     const params = request.params as any;
     const requestId = params.requestId;
-    const log = await usageStorage.getDebugLog(requestId);
+    const apiKeyFilter = resolveApiKeyFilter(request);
+    const log = await usageStorage.getDebugLog(requestId, apiKeyFilter);
     if (!log) return reply.code(404).send({ error: 'Log not found' });
     return reply.send(log);
   });

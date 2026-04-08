@@ -73,7 +73,7 @@ export async function registerImagesRoute(
         requestId,
         {
           model: body.model,
-          prompt: body.prompt?.substring(0, 100),
+          prompt: typeof body.prompt === 'string' ? body.prompt.substring(0, 100) : undefined,
           n: body.n,
           size: body.size,
           response_format: body.response_format,
