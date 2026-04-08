@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { getConfig } from '../../config';
+import { getConfig, MetadataOverrides } from '../../config';
 import { PricingManager } from '../../services/pricing-manager';
 import {
   ModelMetadataManager,
@@ -7,37 +7,28 @@ import {
 } from '../../services/model-metadata-manager';
 
 /**
- * Deep-merge overrides on top of base metadata.
+ * Deep-merge validated overrides on top of base metadata.
  * Override fields win; nested objects are merged shallowly.
+ * Overrides are validated at write-time by ModelConfigSchema (Zod).
  */
 function mergeMetadata(
   base: NormalizedModelMetadata,
-  overrides: Record<string, unknown>
+  overrides: MetadataOverrides
 ): NormalizedModelMetadata {
   const merged = { ...base };
-  if (overrides.name !== undefined) merged.name = overrides.name as string;
-  if (overrides.description !== undefined) merged.description = overrides.description as string;
-  if (overrides.context_length !== undefined)
-    merged.context_length = overrides.context_length as number;
+  if (overrides.name !== undefined) merged.name = overrides.name;
+  if (overrides.description !== undefined) merged.description = overrides.description;
+  if (overrides.context_length !== undefined) merged.context_length = overrides.context_length;
   if (overrides.supported_parameters !== undefined)
-    merged.supported_parameters = overrides.supported_parameters as string[];
+    merged.supported_parameters = overrides.supported_parameters;
   if (overrides.architecture !== undefined) {
-    merged.architecture = {
-      ...merged.architecture,
-      ...(overrides.architecture as Record<string, unknown>),
-    };
+    merged.architecture = { ...merged.architecture, ...overrides.architecture };
   }
   if (overrides.pricing !== undefined) {
-    merged.pricing = {
-      ...merged.pricing,
-      ...(overrides.pricing as Record<string, unknown>),
-    };
+    merged.pricing = { ...merged.pricing, ...overrides.pricing };
   }
   if (overrides.top_provider !== undefined) {
-    merged.top_provider = {
-      ...merged.top_provider,
-      ...(overrides.top_provider as Record<string, unknown>),
-    };
+    merged.top_provider = { ...merged.top_provider, ...overrides.top_provider };
   }
   return merged;
 }
@@ -100,9 +91,7 @@ export async function registerModelsRoute(fastify: FastifyInstance) {
       }
 
       // Apply overrides on top of catalog data if present
-      const final = metaConfig.overrides
-        ? mergeMetadata(enriched, metaConfig.overrides as unknown as Record<string, unknown>)
-        : enriched;
+      const final = metaConfig.overrides ? mergeMetadata(enriched, metaConfig.overrides) : enriched;
 
       return {
         ...base,

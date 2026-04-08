@@ -114,14 +114,14 @@ export const Models = () => {
     fetchVFConfig();
   }, []);
 
-  // Sync override state when modal opens
+  // Sync override state when modal opens or alias changes
   useEffect(() => {
     if (isModalOpen) {
       const hasOverrides = !!editingAlias.metadata?.overrides;
       const isCustom = editingAlias.metadata?.source === 'custom';
       setShowOverrides(hasOverrides || isCustom);
     }
-  }, [isModalOpen]);
+  }, [isModalOpen, editingAlias.metadata?.overrides, editingAlias.metadata?.source]);
 
   const handleSaveDescriptor = async () => {
     setIsSavingDescriptor(true);
