@@ -166,11 +166,19 @@ export const OverallTab: React.FC = () => {
   const [providerData, setProviderData] = useState<PieChartDataPoint[]>([]);
   const [modelData, setModelData] = useState<PieChartDataPoint[]>([]);
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
+  const [quotaError, setQuotaError] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    // Clear per-range data so switching time ranges doesn't render stale
+    // totals/breakdowns under the new range's label while requests are
+    // still in flight.
+    setSummary(null);
+    setProviderData([]);
+    setModelData([]);
+    setQuotaError(false);
 
     // Each call settles independently so a single slow endpoint doesn't block
     // the whole tab from rendering useful data.
@@ -181,11 +189,18 @@ export const OverallTab: React.FC = () => {
     const quotaPromise = api
       .getSelfQuota()
       .then((data) => {
-        if (!cancelled) setQuota(data);
+        if (!cancelled) {
+          setQuota(data);
+          setQuotaError(false);
+        }
       })
       .catch(() => {
-        // Non-fatal: the card renders a "No quota" fallback.
-        if (!cancelled) setQuota(null);
+        // Distinguish fetch failure from "no quota assigned" so the card
+        // doesn't tell a quota-gated user that they are unrestricted.
+        if (!cancelled) {
+          setQuota(null);
+          setQuotaError(true);
+        }
       });
 
     // Token + request totals for the selected range. The backend endpoint is
@@ -297,8 +312,16 @@ export const OverallTab: React.FC = () => {
           extra={<Gauge size={16} className="text-text-muted" />}
           className="min-w-0"
         >
-          {loading && !quota ? (
+          {loading && !quota && !quotaError ? (
             <p className="text-sm text-text-muted">Loading…</p>
+          ) : quotaError ? (
+            <div className="flex items-start gap-2 text-sm text-warning">
+              <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+              <span>
+                Could not load quota status. If this key has a quota assigned, its current
+                usage is not shown here — try refreshing.
+              </span>
+            </div>
           ) : !quota || !quota.quotaName ? (
             <p className="text-sm text-text-muted">
               No quota is assigned to this key — requests are unrestricted by quota policy.
