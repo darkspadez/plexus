@@ -60,8 +60,9 @@ export async function registerManagementRoutes(
   fastify.register(async (scoped) => {
     scoped.addHook('preHandler', authenticate);
 
-    // Self-service: /self/me, /self/rotate, /self/comment, /self/debug/toggle
-    await registerSelfRoutes(scoped);
+    // Self-service: /self/me, /self/rotate, /self/comment, /self/debug/toggle,
+    // /self/quota (limited users reading their own quota state).
+    await registerSelfRoutes(scoped, quotaEnforcer);
 
     // Cooldowns: admin can clear any; limited restricted by allowedProviders.
     await registerCooldownRoutes(scoped);

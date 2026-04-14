@@ -5,6 +5,7 @@ import { logger } from '../../utils/logger';
 import { DebugManager } from '../../services/debug-manager';
 import { ConfigService } from '../../services/config-service';
 import { ConfigRepository } from '../../db/config-repository';
+import { QuotaEnforcer } from '../../services/quota/quota-enforcer';
 import type { Principal } from './_principal';
 
 const toggleSchema = z.object({
@@ -29,7 +30,7 @@ function generateSecret(): string {
  *   allowing them to e.g. rotate a user's secret or toggle trace on their
  *   behalf from the admin UI.
  */
-export async function registerSelfRoutes(fastify: FastifyInstance) {
+export async function registerSelfRoutes(fastify: FastifyInstance, quotaEnforcer?: QuotaEnforcer) {
   // Resolve the effective key name for a self-service action. Limited users
   // always operate on their own key; admins may override via ?keyName=.
   const resolveTarget = (
@@ -175,5 +176,89 @@ export async function registerSelfRoutes(fastify: FastifyInstance) {
       enabled: dm.isEnabledForKey(target.keyName),
       enabledGlobal: dm.isEnabled(),
     });
+  });
+
+  /**
+   * Return the current quota status for the authenticated principal's key.
+   *
+   * Admin callers must pass `?keyName=` (mirrors the other self-service
+   * routes); limited callers always report their own key.
+   *
+   * Response shape mirrors `/v0/management/quota/status/:key` (the admin
+   * endpoint) so the same frontend renderer can consume either. Returns a
+   * "no quota assigned" payload (not a 404) when the key has no quota —
+   * the Overall dashboard tab needs a successful response so it can show
+   * "No quota assigned" gracefully instead of an error card.
+   */
+  fastify.get('/v0/management/self/quota', async (request, reply) => {
+    const target = resolveTarget(request);
+    if ('error' in target) {
+      return reply.code(target.error.code).send({ error: target.error.message });
+    }
+
+    const config = ConfigService.getInstance().getConfig();
+    const keyConfig = config.keys?.[target.keyName];
+    if (!keyConfig) {
+      return reply.code(404).send({ error: `Key '${target.keyName}' not found` });
+    }
+
+    if (!keyConfig.quota) {
+      return reply.send({
+        key: target.keyName,
+        quotaName: null,
+        allowed: true,
+        currentUsage: 0,
+        limit: null,
+        remaining: null,
+        resetsAt: null,
+        limitType: null,
+      });
+    }
+
+    if (!quotaEnforcer) {
+      // Enforcer isn't wired (e.g. misconfigured deployment). Surface the
+      // assigned name so the UI can still label the card, but mark status
+      // as unavailable rather than fabricating numbers.
+      return reply.send({
+        key: target.keyName,
+        quotaName: keyConfig.quota,
+        allowed: true,
+        currentUsage: 0,
+        limit: null,
+        remaining: null,
+        resetsAt: null,
+        limitType: null,
+      });
+    }
+
+    try {
+      const result = await quotaEnforcer.checkQuota(target.keyName);
+      if (!result) {
+        return reply.send({
+          key: target.keyName,
+          quotaName: keyConfig.quota,
+          allowed: true,
+          currentUsage: 0,
+          limit: null,
+          remaining: null,
+          resetsAt: null,
+          limitType: null,
+        });
+      }
+
+      return reply.send({
+        key: target.keyName,
+        quotaName: result.quotaName,
+        allowed: result.allowed,
+        currentUsage: result.currentUsage,
+        limit: result.limit,
+        remaining: result.remaining,
+        resetsAt: result.resetsAt?.toISOString() ?? null,
+        limitType: result.limitType,
+      });
+    } catch (err: any) {
+      logger.error(`[self/quota] check failed for ${target.keyName}: ${err?.message || err}`);
+      return reply.code(500).send({ error: err?.message || 'Failed to fetch quota status' });
+    }
   });
 }

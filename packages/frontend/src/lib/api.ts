@@ -413,7 +413,7 @@ interface UsageSummarySeriesPoint {
   tokens: number;
 }
 
-interface UsageSummaryResponse {
+export interface UsageSummaryResponse {
   range: 'hour' | 'day' | 'week' | 'month' | 'custom';
   series: UsageSummarySeriesPoint[];
   stats: {
@@ -1051,6 +1051,33 @@ export const api = {
           totalCost: 0,
         },
       };
+    }
+  },
+
+  /**
+   * Fetch the raw usage-summary response for the current principal.
+   *
+   * Unlike `getSummaryData` (which reshapes series into chart-ready rows),
+   * this returns the untransformed backend payload including `stats` (7-day
+   * window) and `today` roll-ups. Used by the Overall dashboard tab to
+   * compute range-scoped totals without having to duplicate the endpoint
+   * definition.
+   *
+   * The backend auto-scopes this endpoint to the calling limited user's
+   * key, so admin callers see global totals and api-key callers see only
+   * their own.
+   */
+  getUsageSummary: async (
+    range: 'hour' | 'day' | 'week' | 'month' | 'custom' = 'day',
+    cache = true,
+    startDate?: string,
+    endDate?: string
+  ): Promise<UsageSummaryResponse | null> => {
+    try {
+      return await fetchUsageSummary(range, cache, startDate, endDate);
+    } catch (e) {
+      console.error('API Error getUsageSummary', e);
+      return null;
     }
   },
 
@@ -2659,6 +2686,28 @@ export const api = {
       body: JSON.stringify({ enabled }),
     });
     if (!res.ok) throw new Error('Failed to toggle trace');
+    return res.json();
+  },
+
+  /**
+   * Fetch the quota status for the current principal's key.
+   *
+   * Returns a payload with `quotaName: null` if the key has no quota
+   * assigned (so callers can render "No quota" instead of handling a
+   * distinct error case).
+   */
+  getSelfQuota: async (): Promise<{
+    key: string;
+    quotaName: string | null;
+    allowed: boolean;
+    currentUsage: number;
+    limit: number | null;
+    remaining: number | null;
+    resetsAt: string | null;
+    limitType: 'requests' | 'tokens' | 'cost' | null;
+  }> => {
+    const res = await fetchWithAuth(`${API_BASE}/v0/management/self/quota`);
+    if (!res.ok) throw new Error('Failed to fetch quota status');
     return res.json();
   },
 };
