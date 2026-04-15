@@ -96,7 +96,12 @@ export function enforceContextLimit(
   }
 
   const apiType = request.incomingApiType || 'chat';
-  const rawEstimate = estimateInputTokens(request.originalBody ?? request, apiType);
+  // Defensive fallback: all inference routes set originalBody, but if it's
+  // missing (e.g. a programmatic caller), hand the estimator a minimal
+  // messages-only body rather than the full UnifiedChatRequest — whose
+  // model/tools/metadata fields would inflate the token estimate.
+  const bodyForEstimate = request.originalBody ?? { messages: request.messages };
+  const rawEstimate = estimateInputTokens(bodyForEstimate, apiType);
   const estimated = Math.ceil(rawEstimate * ESTIMATE_SAFETY_MULTIPLIER);
 
   if (estimated + reservedOutput > contextLength) {
