@@ -1,0 +1,1 @@
+ALTER TABLE "model_aliases" ADD COLUMN "enforce_limits" boolean DEFAULT false NOT NULL;

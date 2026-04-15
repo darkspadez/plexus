@@ -373,6 +373,7 @@ export interface Alias {
   advanced?: AliasBehavior[];
   metadata?: AliasMetadata;
   use_image_fallthrough?: boolean;
+  enforce_limits?: boolean;
 }
 
 export interface InferenceError {
@@ -1751,6 +1752,7 @@ export const api = {
       priority: alias.priority || 'selector',
       additional_aliases: alias.aliases,
       use_image_fallthrough: alias.use_image_fallthrough || false,
+      enforce_limits: alias.enforce_limits || false,
       ...(alias.type && { type: alias.type }),
       ...(alias.advanced && alias.advanced.length > 0 && { advanced: alias.advanced }),
       ...(alias.metadata && { metadata: alias.metadata }),
@@ -1865,6 +1867,7 @@ export const api = {
           priority: val.priority,
           type: val.type,
           use_image_fallthrough: val.use_image_fallthrough || false,
+          enforce_limits: val.enforce_limits || false,
           advanced: val.advanced || [],
           targets,
           metadata: val.metadata,

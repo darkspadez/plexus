@@ -25,6 +25,7 @@ import { applyModelBehaviors } from './model-behaviors';
 import { getModels } from '@mariozechner/pi-ai';
 import { VisionDescriptorService } from './vision-descriptor-service';
 import { ModelMetadataManager } from './model-metadata-manager';
+import { enforceContextLimit } from './enforce-limits';
 import { DEFAULT_VISION_DESCRIPTION_PROMPT } from '../utils/constants';
 import { UsageRecord } from '../types/usage';
 import { calculateCosts } from '../utils/calculate-costs';
@@ -196,6 +197,16 @@ export class Dispatcher {
     }
 
     candidates = this.applyKeyAccessPolicy(request, candidates, request.incomingApiType || 'chat');
+
+    // Pre-dispatch context limit enforcement (opt-in per alias). Runs before
+    // any upstream request so oversized prompts fail fast and don't burn
+    // quota / latency on a guaranteed-400 round trip. Throws
+    // ContextLengthExceededError on violation; returns silently otherwise.
+    const enforcementAlias = candidates[0]?.canonicalModel;
+    const enforcementConfig = enforcementAlias ? config.models?.[enforcementAlias] : undefined;
+    if (enforcementConfig?.enforce_limits) {
+      enforceContextLimit(request, enforcementConfig, enforcementAlias!);
+    }
 
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];

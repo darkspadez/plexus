@@ -29,6 +29,7 @@ export const modelAliases = pgTable('model_aliases', {
   metadataSource: metadataSourceEnum('metadata_source'),
   metadataSourcePath: text('metadata_source_path'),
   useImageFallthrough: boolean('use_image_fallthrough').notNull().default(false),
+  enforceLimits: boolean('enforce_limits').notNull().default(false),
   createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
 });

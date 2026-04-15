@@ -11,6 +11,7 @@ export const modelAliases = sqliteTable('model_aliases', {
   metadataSource: text('metadata_source'), // 'openrouter' | 'models.dev' | 'catwalk' | 'custom'
   metadataSourcePath: text('metadata_source_path'),
   useImageFallthrough: integer('use_image_fallthrough').notNull().default(0),
+  enforceLimits: integer('enforce_limits').notNull().default(0),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });

@@ -555,6 +555,7 @@ export class ConfigRepository {
       metadataSource: config.metadata?.source ?? null,
       metadataSourcePath: config.metadata?.source_path ?? null,
       useImageFallthrough: fromBool(config.use_image_fallthrough === true),
+      enforceLimits: fromBool(config.enforce_limits === true),
       updatedAt: timestamp,
     };
 
@@ -657,6 +658,7 @@ export class ConfigRepository {
       targets,
       priority: row.priority ?? 'selector',
       use_image_fallthrough: toBool(row.useImageFallthrough),
+      enforce_limits: toBool(row.enforceLimits),
       ...(row.selector ? { selector: row.selector } : {}),
       ...(row.modelType ? { type: row.modelType } : {}),
       ...(row.additionalAliases ? { additional_aliases: parseJson(row.additionalAliases) } : {}),

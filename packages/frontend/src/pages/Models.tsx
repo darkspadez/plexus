@@ -1139,6 +1139,25 @@ export const Models = () => {
                       size="sm"
                     />
                   </div>
+
+                  <div className="flex items-center justify-between py-1">
+                    <div>
+                      <span className="font-body text-[13px] text-text">Enforce Limits</span>
+                      <p className="font-body text-[11px] text-text-muted mt-0.5">
+                        Reject oversized prompts locally (400 context_length_exceeded) before
+                        dispatch. Uses a fast heuristic estimator with a 10% safety margin, and
+                        reserves max_tokens (or the model's max completion) for the response.
+                        Requires a known context_length in metadata (override or catalog).
+                      </p>
+                    </div>
+                    <Switch
+                      checked={editingAlias.enforce_limits || false}
+                      onChange={(val) =>
+                        setEditingAlias({ ...editingAlias, enforce_limits: val })
+                      }
+                      size="sm"
+                    />
+                  </div>
                 </div>
 
                 <div className="h-px bg-border-glass"></div>
