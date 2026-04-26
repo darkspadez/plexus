@@ -3,7 +3,18 @@ import { Tiktoken } from 'js-tiktoken/lite';
 import o200kBase from 'js-tiktoken/ranks/o200k_base';
 
 let encoder: Tiktoken | undefined;
+// Keys that mark a multimodal image attachment in OpenAI/Anthropic-style
+// payloads. We treat their presence on a parent object as one image and add a
+// flat token cost rather than tokenizing URLs or base64 data, which would be
+// either misleading or pathologically slow.
 const MULTIMODAL_METADATA_KEYS = new Set(['image_url', 'media_type', 'detail']);
+// Conservative average for low-detail vision inputs; high-detail or large
+// images cost more, but we don't have dimensions here.
+const FLAT_IMAGE_TOKEN_COST = 150;
+// Safety margin applied to the final input-token estimate. Heuristics
+// (especially the multimodal flat cost and BPE sampling) can undercount, so a
+// small buffer reduces the risk of context-limit false negatives.
+const TOKEN_ESTIMATE_BUFFER = 1.05;
 
 function getEncoder(): Tiktoken {
   if (encoder) return encoder;
@@ -107,14 +118,17 @@ function countTextContent(value: unknown): number {
 
   if (value && typeof value === 'object') {
     let total = 0;
+    let hasImageMetadata = false;
     for (const [key, nested] of Object.entries(value)) {
       if (MULTIMODAL_METADATA_KEYS.has(key)) {
-        // Intentionally exclude multimodal metadata from text token counting;
-        // image token accounting depends on dimensions/detail beyond URL text.
+        // Skip deep parsing of image URLs / base64 / detail metadata for speed
+        // and accuracy; charge a flat per-image cost once below instead.
+        hasImageMetadata = true;
         continue;
       }
       total += countTextContent(nested);
     }
+    if (hasImageMetadata) total += FLAT_IMAGE_TOKEN_COST;
     return total;
   }
 
@@ -167,6 +181,11 @@ function estimateStructuredInput(value: unknown): number {
  * @returns Estimated input token count
  */
 export function estimateInputTokens(originalBody: any, apiType: string): number {
+  const raw = computeInputTokens(originalBody, apiType);
+  return raw > 0 ? Math.ceil(raw * TOKEN_ESTIMATE_BUFFER) : raw;
+}
+
+function computeInputTokens(originalBody: any, apiType: string): number {
   try {
     switch (apiType.toLowerCase()) {
       case 'chat':
