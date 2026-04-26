@@ -11,11 +11,18 @@ interface TokenEstimateOptions {
 }
 
 const encoderCache = new Map<SupportedTokenizer, Tiktoken>();
+const MULTIMODAL_METADATA_KEYS = new Set(['image_url', 'media_type', 'detail']);
 
 function resolveTokenizer(options: TokenEstimateOptions = {}): SupportedTokenizer {
-  const requested = `${options.tokenizer ?? ''} ${options.model ?? ''}`.toLowerCase();
+  const tokenizer = options.tokenizer?.toLowerCase();
+  if (tokenizer?.includes('cl100k')) return 'cl100k_base';
+  if (tokenizer?.includes('o200k')) return 'o200k_base';
 
-  if (requested.includes('cl100k')) {
+  const model = options.model?.toLowerCase() ?? '';
+  if (/(^|[/:_-])(gpt-4o|chatgpt-4o|gpt-5|o[134])([/:_-]|$)/.test(model)) {
+    return 'o200k_base';
+  }
+  if (/(^|[/:_-])(gpt-3\.5|gpt-4|gpt-4-turbo)([/:_-]|$)/.test(model)) {
     return 'cl100k_base';
   }
 
@@ -40,6 +47,9 @@ function estimateHighlyRepetitiveText(
   if (text.length < 1_000) return undefined;
 
   const uniqueChars = new Set(text);
+  // Long one/two-character runs are a pathological case for the pure-JS BPE
+  // implementation; sampling preserves the repeated-token merge ratio without
+  // spending seconds tokenizing prompts such as "xxxx...".
   if (uniqueChars.size > 2) return undefined;
 
   const sampleLength = 800;
@@ -133,7 +143,7 @@ function countTextContent(value: unknown, options: TokenEstimateOptions): number
   if (value && typeof value === 'object') {
     let total = 0;
     for (const [key, nested] of Object.entries(value)) {
-      if (key === 'image_url' || key === 'media_type' || key === 'detail') {
+      if (MULTIMODAL_METADATA_KEYS.has(key)) {
         // Image token accounting depends on dimensions/detail and cannot be
         // inferred reliably from the URL alone.
         continue;
