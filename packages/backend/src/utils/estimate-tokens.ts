@@ -159,12 +159,12 @@ function countTextContent(value: unknown, options: TokenEstimateOptions): number
 function estimateChatMessages(messages: unknown, options: TokenEstimateOptions): number {
   if (!Array.isArray(messages) || messages.length === 0) return 0;
 
-  let total = 3; // Assistant priming.
+  let total = 3; // Assistant response priming overhead in OpenAI ChatML.
   for (const message of messages) {
     if (!message || typeof message !== 'object') continue;
     const msg = message as Record<string, unknown>;
 
-    total += 3; // ChatML-ish per-message overhead for role/name separators.
+    total += 3; // OpenAI ChatML message boundary and role separator overhead.
     total += countTextContent(msg.content, options);
 
     if (typeof msg.name === 'string') {

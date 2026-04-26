@@ -83,9 +83,11 @@ export function enforceContextLimit(
     typeof request.max_tokens === 'number' && request.max_tokens > 0
       ? request.max_tokens
       : undefined;
+  const reasoning =
+    request.reasoning && typeof request.reasoning === 'object' ? request.reasoning : undefined;
   const requestedReasoningTokens =
-    typeof request.reasoning?.max_tokens === 'number' && request.reasoning.max_tokens > 0
-      ? request.reasoning.max_tokens
+    typeof reasoning?.max_tokens === 'number' && reasoning.max_tokens > 0
+      ? reasoning.max_tokens
       : undefined;
   // Treat reasoning and visible-output caps as alternative output ceilings
   // rather than additive budgets. OpenAI-style max_output_tokens includes
