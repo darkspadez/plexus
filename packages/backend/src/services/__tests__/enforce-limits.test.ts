@@ -179,7 +179,7 @@ describe('enforceContextLimit', () => {
         },
       },
     });
-    const req = makeRequest({ messages: bigMessages(10_000) }); // ~2500 tokens
+    const req = makeRequest({ messages: bigMessages(10_000) });
     expect(() => enforceContextLimit(req, config, 'test-alias')).toThrow(
       ContextLengthExceededError
     );

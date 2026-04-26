@@ -109,8 +109,8 @@ function countTextContent(value: unknown): number {
     let total = 0;
     for (const [key, nested] of Object.entries(value)) {
       if (MULTIMODAL_METADATA_KEYS.has(key)) {
-        // Image token accounting depends on dimensions/detail and cannot be
-        // inferred reliably from the URL alone.
+        // Intentionally exclude multimodal metadata from text token counting;
+        // image token accounting depends on dimensions/detail beyond URL text.
         continue;
       }
       total += countTextContent(nested);

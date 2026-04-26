@@ -89,9 +89,9 @@ export function enforceContextLimit(
     typeof reasoning?.max_tokens === 'number' && reasoning.max_tokens > 0
       ? reasoning.max_tokens
       : undefined;
-  // Treat reasoning and visible-output caps as alternative output ceilings
-  // rather than additive budgets. OpenAI-style max_output_tokens includes
-  // reasoning, and summing both would over-reject common reasoning requests.
+  // Reserve the larger of reasoning and visible-output caps rather than adding
+  // them. OpenAI-style max_output_tokens includes reasoning, and summing both
+  // would over-reject common reasoning requests.
   const requestedOutputBudget =
     requestedMaxTokens !== undefined && requestedReasoningTokens !== undefined
       ? Math.max(requestedMaxTokens, requestedReasoningTokens)
