@@ -4,11 +4,6 @@ import { estimateInputTokens } from '../utils/estimate-tokens';
 import { logger } from '../utils/logger';
 import { ModelMetadataManager, mergeOverrides } from './model-metadata-manager';
 
-// Heuristic estimator has ±20–30% variance; inflate the estimate by 10% so we
-// err on the side of rejecting a borderline-oversized request rather than
-// shipping it upstream and getting an opaque 400.
-const ESTIMATE_SAFETY_MULTIPLIER = 1.1;
-
 // Fallback reservation when we have no metadata max_completion_tokens and the
 // caller didn't specify max_tokens. Matches a common default completion budget.
 const DEFAULT_OUTPUT_RESERVATION = 4096;
@@ -88,11 +83,24 @@ export function enforceContextLimit(
     typeof request.max_tokens === 'number' && request.max_tokens > 0
       ? request.max_tokens
       : undefined;
+  const reasoning =
+    request.reasoning && typeof request.reasoning === 'object' ? request.reasoning : undefined;
+  const requestedReasoningTokens =
+    typeof reasoning?.max_tokens === 'number' && reasoning.max_tokens > 0
+      ? reasoning.max_tokens
+      : undefined;
+  // Reserve the larger of reasoning and visible-output caps rather than adding
+  // them. OpenAI-style max_output_tokens includes reasoning, and summing both
+  // would over-reject common reasoning requests.
+  const requestedOutputBudget =
+    requestedMaxTokens !== undefined && requestedReasoningTokens !== undefined
+      ? Math.max(requestedMaxTokens, requestedReasoningTokens)
+      : (requestedMaxTokens ?? requestedReasoningTokens);
   let reservedOutput: number;
-  if (requestedMaxTokens !== undefined && metadataMaxOutput !== undefined) {
-    reservedOutput = Math.min(requestedMaxTokens, metadataMaxOutput);
+  if (requestedOutputBudget !== undefined && metadataMaxOutput !== undefined) {
+    reservedOutput = Math.min(requestedOutputBudget, metadataMaxOutput);
   } else {
-    reservedOutput = requestedMaxTokens ?? metadataMaxOutput ?? DEFAULT_OUTPUT_RESERVATION;
+    reservedOutput = requestedOutputBudget ?? metadataMaxOutput ?? DEFAULT_OUTPUT_RESERVATION;
   }
 
   const apiType = request.incomingApiType || 'chat';
@@ -101,8 +109,7 @@ export function enforceContextLimit(
   // messages-only body rather than the full UnifiedChatRequest — whose
   // model/tools/metadata fields would inflate the token estimate.
   const bodyForEstimate = request.originalBody ?? { messages: request.messages };
-  const rawEstimate = estimateInputTokens(bodyForEstimate, apiType);
-  const estimated = Math.ceil(rawEstimate * ESTIMATE_SAFETY_MULTIPLIER);
+  const estimated = estimateInputTokens(bodyForEstimate, apiType);
 
   if (estimated + reservedOutput > contextLength) {
     const message =

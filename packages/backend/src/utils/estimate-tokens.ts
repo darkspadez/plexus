@@ -1,14 +1,57 @@
 import { logger } from './logger';
+import { Tiktoken } from 'js-tiktoken/lite';
+import o200kBase from 'js-tiktoken/ranks/o200k_base';
+
+let encoder: Tiktoken | undefined;
+// Keys that mark a multimodal image attachment in OpenAI/Anthropic-style
+// payloads. We treat their presence on a parent object as one image and add a
+// flat token cost rather than tokenizing URLs or base64 data, which would be
+// either misleading or pathologically slow.
+const MULTIMODAL_METADATA_KEYS = new Set(['image_url', 'media_type', 'detail']);
+// Conservative average for low-detail vision inputs; high-detail or large
+// images cost more, but we don't have dimensions here.
+const FLAT_IMAGE_TOKEN_COST = 150;
+// Safety margin applied to the final input-token estimate. Heuristics
+// (especially the multimodal flat cost and BPE sampling) can undercount, so a
+// small buffer reduces the risk of context-limit false negatives.
+const TOKEN_ESTIMATE_BUFFER = 1.05;
+
+function getEncoder(): Tiktoken {
+  if (encoder) return encoder;
+  encoder = new Tiktoken(o200kBase);
+  return encoder;
+}
+
+function estimateHighlyRepetitiveText(text: string): number | undefined {
+  if (text.length < 1_000) return undefined;
+
+  const uniqueChars = new Set(text);
+  // Long one/two-character runs are a pathological case for the pure-JS BPE
+  // implementation; sampling preserves the repeated-token merge ratio without
+  // spending seconds tokenizing prompts such as "xxxx...".
+  if (uniqueChars.size > 2) return undefined;
+
+  const sampleLength = 800;
+  const sample = text.slice(0, sampleLength);
+  const sampleTokens = getEncoder().encode(sample).length;
+  return Math.max(1, Math.ceil((sampleTokens * text.length) / sampleLength));
+}
 
 /**
- * Estimates the number of tokens in a text string using character-based heuristics.
- * This is an approximation and will vary from actual tokenization by ±20-30%.
+ * Estimates the number of tokens in a text string using OpenAI-compatible BPE
+ * tokenization when possible, with a character-based heuristic fallback.
  *
  * @param text - The text to estimate tokens for
  * @returns Estimated token count
  */
 export function estimateTokens(text: string): number {
   if (!text || text.length === 0) return 0;
+
+  try {
+    return estimateHighlyRepetitiveText(text) ?? getEncoder().encode(text).length;
+  } catch (err) {
+    logger.warn('Falling back to heuristic token estimation:', err);
+  }
 
   // Base character count
   const charCount = text.length;
@@ -64,6 +107,72 @@ export function estimateTokens(text: string): number {
   return Math.round(tokenEstimate);
 }
 
+function countTextContent(value: unknown): number {
+  if (typeof value === 'string') {
+    return estimateTokens(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.reduce((total, item) => total + countTextContent(item), 0);
+  }
+
+  if (value && typeof value === 'object') {
+    let total = 0;
+    let hasImageMetadata = false;
+    for (const [key, nested] of Object.entries(value)) {
+      if (MULTIMODAL_METADATA_KEYS.has(key)) {
+        // Skip deep parsing of image URLs / base64 / detail metadata for speed
+        // and accuracy; charge a flat per-image cost once below instead.
+        hasImageMetadata = true;
+        continue;
+      }
+      total += countTextContent(nested);
+    }
+    if (hasImageMetadata) total += FLAT_IMAGE_TOKEN_COST;
+    return total;
+  }
+
+  return 0;
+}
+
+function estimateChatMessages(messages: unknown): number {
+  if (!Array.isArray(messages) || messages.length === 0) return 0;
+
+  let total = 3; // Assistant response priming overhead in OpenAI ChatML.
+  for (const message of messages) {
+    if (!message || typeof message !== 'object') continue;
+    const msg = message as Record<string, unknown>;
+
+    total += 3; // OpenAI ChatML message boundary and role separator overhead.
+    total += countTextContent(msg.content);
+
+    if (typeof msg.name === 'string') {
+      total += 1 + estimateTokens(msg.name);
+    }
+    if (typeof msg.tool_call_id === 'string') {
+      total += estimateTokens(msg.tool_call_id);
+    }
+    if (Array.isArray(msg.tool_calls)) {
+      total += estimateTokens(JSON.stringify(msg.tool_calls));
+    }
+  }
+
+  return total;
+}
+
+function estimateStructuredInput(value: unknown): number {
+  const textTokens = countTextContent(value);
+  if (textTokens === 0) return 0;
+
+  const structuralItems = Array.isArray(value)
+    ? value.length
+    : value && typeof value === 'object'
+      ? Object.keys(value).length
+      : 0;
+
+  return textTokens + structuralItems * 2;
+}
+
 /**
  * Estimates input tokens from the original request body
  *
@@ -72,53 +181,47 @@ export function estimateTokens(text: string): number {
  * @returns Estimated input token count
  */
 export function estimateInputTokens(originalBody: any, apiType: string): number {
-  let textToEstimate = '';
+  const raw = computeInputTokens(originalBody, apiType);
+  return raw > 0 ? Math.ceil(raw * TOKEN_ESTIMATE_BUFFER) : raw;
+}
 
+function computeInputTokens(originalBody: any, apiType: string): number {
   try {
     switch (apiType.toLowerCase()) {
       case 'chat':
-        // OpenAI format: messages array
-        if (originalBody.messages && Array.isArray(originalBody.messages)) {
-          textToEstimate = JSON.stringify(originalBody.messages);
-        }
-        break;
+        return (
+          estimateChatMessages(originalBody.messages) +
+          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools)) : 0) +
+          (originalBody.response_format
+            ? estimateTokens(JSON.stringify(originalBody.response_format))
+            : 0)
+        );
 
       case 'messages':
-        // Anthropic format: messages array + system
-        if (originalBody.messages && Array.isArray(originalBody.messages)) {
-          textToEstimate = JSON.stringify(originalBody.messages);
-        }
-        if (originalBody.system) {
-          textToEstimate += JSON.stringify(originalBody.system);
-        }
-        break;
+        return (
+          estimateChatMessages(originalBody.messages) +
+          estimateStructuredInput(originalBody.system) +
+          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools)) : 0)
+        );
 
       case 'gemini':
-        // Gemini format: contents array + systemInstruction
-        if (originalBody.contents && Array.isArray(originalBody.contents)) {
-          textToEstimate = JSON.stringify(originalBody.contents);
-        }
-        if (originalBody.systemInstruction) {
-          textToEstimate += JSON.stringify(originalBody.systemInstruction);
-        }
-        break;
+        return (
+          estimateStructuredInput(originalBody.contents) +
+          estimateStructuredInput(originalBody.systemInstruction) +
+          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools)) : 0)
+        );
 
       case 'responses':
-        // OpenAI Responses format: input can be a string or typed items array
-        if (Array.isArray(originalBody.input)) {
-          textToEstimate = JSON.stringify(originalBody.input);
-        } else if (typeof originalBody.input === 'string') {
-          textToEstimate = originalBody.input;
-        } else if (originalBody.input) {
-          textToEstimate = JSON.stringify(originalBody.input);
-        }
-        if (originalBody.instructions) {
-          textToEstimate += JSON.stringify(originalBody.instructions);
-        }
-        break;
-    }
+        return (
+          estimateStructuredInput(originalBody.input) +
+          estimateStructuredInput(originalBody.instructions) +
+          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools)) : 0) +
+          (originalBody.text?.format ? estimateTokens(JSON.stringify(originalBody.text.format)) : 0)
+        );
 
-    return estimateTokens(textToEstimate);
+      default:
+        return estimateStructuredInput(originalBody);
+    }
   } catch (err) {
     logger.error('Failed to estimate input tokens:', err);
     return 0;
