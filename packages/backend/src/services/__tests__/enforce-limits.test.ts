@@ -17,7 +17,8 @@ function makeRequest(overrides: Partial<UnifiedChatRequest> = {}): UnifiedChatRe
 }
 
 function bigMessages(charCount: number): UnifiedChatRequest['messages'] {
-  return [{ role: 'user' as const, content: 'x'.repeat(charCount) }];
+  const chunk = 'The quick brown fox jumps over the lazy dog. ';
+  return [{ role: 'user' as const, content: chunk.repeat(Math.ceil(charCount / chunk.length)) }];
 }
 
 function aliasConfig(partial: Partial<ModelConfig> = {}): ModelConfig {
@@ -65,7 +66,7 @@ describe('enforceContextLimit', () => {
         },
       },
     });
-    // ~10,000 chars ≈ ~2,500 tokens, well over a 1000-token context.
+    // ~10,000 chars of prose is well over a 1000-token context.
     const req = makeRequest({ messages: bigMessages(10_000) });
     let caught: unknown;
     try {
@@ -123,19 +124,17 @@ describe('enforceContextLimit', () => {
         },
       },
     });
-    // ~6000 chars ≈ ~1500 tokens, * 1.1 = ~1650.
-    // With reservation 8000 → 9650 < 10000, still passes. Use bigger input:
-    const msgs = bigMessages(24_000); // ~6000 tokens * 1.1 = ~6600
+    const msgs = bigMessages(24_000);
     const withMetadataReservation = makeRequest({
       messages: msgs,
       originalBody: { messages: msgs },
     });
-    // With max_completion_tokens=8000 reservation: 6600 + 8000 = 14600 > 10000 → reject
+    // With max_completion_tokens=8000 reservation, prompt + reservation exceeds 10000 → reject
     expect(() => enforceContextLimit(withMetadataReservation, config, 'test-alias')).toThrow(
       ContextLengthExceededError
     );
 
-    // Same input, but caller requested max_tokens=10 → reservation becomes 10 → 6600 + 10 < 10000 → pass
+    // Same input, but caller requested max_tokens=10 → reservation becomes 10 → pass
     const withSmallMaxTokens = makeRequest({
       messages: msgs,
       max_tokens: 10,
@@ -156,9 +155,9 @@ describe('enforceContextLimit', () => {
         },
       },
     });
-    const msgs = bigMessages(32_000); // ~8000 tokens * 1.1 = ~8800
-    // With reservation=500 (metadata min): 8800 + 500 = 9300 < 10000 → pass
-    // With reservation=9999 (requested): 8800 + 9999 > 10000 → reject
+    const msgs = bigMessages(32_000);
+    // With reservation=500 (metadata min), prompt + reservation fits.
+    // With reservation=9999 (requested), prompt + reservation would reject.
     // We use min(request, metadata) so it should pass.
     const req = makeRequest({
       messages: msgs,
@@ -181,6 +180,29 @@ describe('enforceContextLimit', () => {
       },
     });
     const req = makeRequest({ messages: bigMessages(10_000) }); // ~2500 tokens
+    expect(() => enforceContextLimit(req, config, 'test-alias')).toThrow(
+      ContextLengthExceededError
+    );
+  });
+
+  test('uses reasoning max_tokens reservation when request max_tokens is absent', () => {
+    const config = aliasConfig({
+      enforce_limits: true,
+      metadata: {
+        source: 'custom',
+        overrides: {
+          name: 'Test',
+          context_length: 2_000,
+          top_provider: { context_length: 2_000, max_completion_tokens: 1_500 },
+        },
+      },
+    });
+    const msgs = bigMessages(4_500);
+    const req = makeRequest({
+      messages: msgs,
+      reasoning: { max_tokens: 1_500 },
+      originalBody: { messages: msgs, reasoning: { max_tokens: 1_500 } },
+    });
     expect(() => enforceContextLimit(req, config, 'test-alias')).toThrow(
       ContextLengthExceededError
     );

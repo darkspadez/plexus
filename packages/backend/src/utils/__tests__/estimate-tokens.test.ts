@@ -51,6 +51,11 @@ describe('estimateTokens', () => {
     expect(repetitiveEstimate).toBeGreaterThan(0);
     expect(variedEstimate).toBeGreaterThan(0);
   });
+
+  test('should use OpenAI tokenizer for repetitive token merges', () => {
+    const estimate = estimateTokens('x'.repeat(800));
+    expect(estimate).toBeLessThan(200);
+  });
 });
 
 describe('estimateInputTokens', () => {
