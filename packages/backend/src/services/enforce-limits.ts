@@ -109,10 +109,7 @@ export function enforceContextLimit(
   // messages-only body rather than the full UnifiedChatRequest — whose
   // model/tools/metadata fields would inflate the token estimate.
   const bodyForEstimate = request.originalBody ?? { messages: request.messages };
-  const estimated = estimateInputTokens(bodyForEstimate, apiType, {
-    tokenizer: merged?.architecture?.tokenizer,
-    model: aliasSlug,
-  });
+  const estimated = estimateInputTokens(bodyForEstimate, apiType);
 
   if (estimated + reservedOutput > contextLength) {
     const message =

@@ -1,49 +1,17 @@
 import { logger } from './logger';
 import { Tiktoken } from 'js-tiktoken/lite';
-import cl100kBase from 'js-tiktoken/ranks/cl100k_base';
 import o200kBase from 'js-tiktoken/ranks/o200k_base';
 
-type SupportedTokenizer = 'cl100k_base' | 'o200k_base';
-
-interface TokenEstimateOptions {
-  tokenizer?: string;
-  model?: string;
-}
-
-const encoderCache = new Map<SupportedTokenizer, Tiktoken>();
+let encoder: Tiktoken | undefined;
 const MULTIMODAL_METADATA_KEYS = new Set(['image_url', 'media_type', 'detail']);
 
-function resolveTokenizer(options: TokenEstimateOptions = {}): SupportedTokenizer {
-  const tokenizer = options.tokenizer?.toLowerCase();
-  if (tokenizer?.includes('cl100k')) return 'cl100k_base';
-  if (tokenizer?.includes('o200k')) return 'o200k_base';
-
-  const model = options.model?.toLowerCase() ?? '';
-  if (/(^|[/:_-])(gpt-4o|chatgpt-4o|gpt-5|o[134])([/:_-]|$)/.test(model)) {
-    return 'o200k_base';
-  }
-  if (/(^|[/:_-])(gpt-3\.5|gpt-4|gpt-4-turbo)([/:_-]|$)/.test(model)) {
-    return 'cl100k_base';
-  }
-
-  // o200k_base is OpenAI's current tokenizer for recent GPT-4o/o-series/GPT-5
-  // style models and is a better default than the old 4-chars-per-token rule.
-  return 'o200k_base';
-}
-
-function getEncoder(tokenizer: SupportedTokenizer): Tiktoken {
-  const cached = encoderCache.get(tokenizer);
-  if (cached) return cached;
-
-  const encoder = new Tiktoken(tokenizer === 'cl100k_base' ? cl100kBase : o200kBase);
-  encoderCache.set(tokenizer, encoder);
+function getEncoder(): Tiktoken {
+  if (encoder) return encoder;
+  encoder = new Tiktoken(o200kBase);
   return encoder;
 }
 
-function estimateHighlyRepetitiveText(
-  text: string,
-  tokenizer: SupportedTokenizer
-): number | undefined {
+function estimateHighlyRepetitiveText(text: string): number | undefined {
   if (text.length < 1_000) return undefined;
 
   const uniqueChars = new Set(text);
@@ -54,7 +22,7 @@ function estimateHighlyRepetitiveText(
 
   const sampleLength = 800;
   const sample = text.slice(0, sampleLength);
-  const sampleTokens = getEncoder(tokenizer).encode(sample).length;
+  const sampleTokens = getEncoder().encode(sample).length;
   return Math.max(1, Math.ceil((sampleTokens * text.length) / sampleLength));
 }
 
@@ -65,14 +33,11 @@ function estimateHighlyRepetitiveText(
  * @param text - The text to estimate tokens for
  * @returns Estimated token count
  */
-export function estimateTokens(text: string, options: TokenEstimateOptions = {}): number {
+export function estimateTokens(text: string): number {
   if (!text || text.length === 0) return 0;
 
   try {
-    const tokenizer = resolveTokenizer(options);
-    return (
-      estimateHighlyRepetitiveText(text, tokenizer) ?? getEncoder(tokenizer).encode(text).length
-    );
+    return estimateHighlyRepetitiveText(text) ?? getEncoder().encode(text).length;
   } catch (err) {
     logger.warn('Falling back to heuristic token estimation:', err);
   }
@@ -131,13 +96,13 @@ export function estimateTokens(text: string, options: TokenEstimateOptions = {})
   return Math.round(tokenEstimate);
 }
 
-function countTextContent(value: unknown, options: TokenEstimateOptions): number {
+function countTextContent(value: unknown): number {
   if (typeof value === 'string') {
-    return estimateTokens(value, options);
+    return estimateTokens(value);
   }
 
   if (Array.isArray(value)) {
-    return value.reduce((total, item) => total + countTextContent(item, options), 0);
+    return value.reduce((total, item) => total + countTextContent(item), 0);
   }
 
   if (value && typeof value === 'object') {
@@ -148,7 +113,7 @@ function countTextContent(value: unknown, options: TokenEstimateOptions): number
         // inferred reliably from the URL alone.
         continue;
       }
-      total += countTextContent(nested, options);
+      total += countTextContent(nested);
     }
     return total;
   }
@@ -156,7 +121,7 @@ function countTextContent(value: unknown, options: TokenEstimateOptions): number
   return 0;
 }
 
-function estimateChatMessages(messages: unknown, options: TokenEstimateOptions): number {
+function estimateChatMessages(messages: unknown): number {
   if (!Array.isArray(messages) || messages.length === 0) return 0;
 
   let total = 3; // Assistant response priming overhead in OpenAI ChatML.
@@ -165,24 +130,24 @@ function estimateChatMessages(messages: unknown, options: TokenEstimateOptions):
     const msg = message as Record<string, unknown>;
 
     total += 3; // OpenAI ChatML message boundary and role separator overhead.
-    total += countTextContent(msg.content, options);
+    total += countTextContent(msg.content);
 
     if (typeof msg.name === 'string') {
-      total += 1 + estimateTokens(msg.name, options);
+      total += 1 + estimateTokens(msg.name);
     }
     if (typeof msg.tool_call_id === 'string') {
-      total += estimateTokens(msg.tool_call_id, options);
+      total += estimateTokens(msg.tool_call_id);
     }
     if (Array.isArray(msg.tool_calls)) {
-      total += estimateTokens(JSON.stringify(msg.tool_calls), options);
+      total += estimateTokens(JSON.stringify(msg.tool_calls));
     }
   }
 
   return total;
 }
 
-function estimateStructuredInput(value: unknown, options: TokenEstimateOptions): number {
-  const textTokens = countTextContent(value, options);
+function estimateStructuredInput(value: unknown): number {
+  const textTokens = countTextContent(value);
   if (textTokens === 0) return 0;
 
   const structuralItems = Array.isArray(value)
@@ -201,48 +166,42 @@ function estimateStructuredInput(value: unknown, options: TokenEstimateOptions):
  * @param apiType - The API type (chat, messages, gemini)
  * @returns Estimated input token count
  */
-export function estimateInputTokens(
-  originalBody: any,
-  apiType: string,
-  options: TokenEstimateOptions = {}
-): number {
+export function estimateInputTokens(originalBody: any, apiType: string): number {
   try {
     switch (apiType.toLowerCase()) {
       case 'chat':
         return (
-          estimateChatMessages(originalBody.messages, options) +
-          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools), options) : 0) +
+          estimateChatMessages(originalBody.messages) +
+          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools)) : 0) +
           (originalBody.response_format
-            ? estimateTokens(JSON.stringify(originalBody.response_format), options)
+            ? estimateTokens(JSON.stringify(originalBody.response_format))
             : 0)
         );
 
       case 'messages':
         return (
-          estimateChatMessages(originalBody.messages, options) +
-          estimateStructuredInput(originalBody.system, options) +
-          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools), options) : 0)
+          estimateChatMessages(originalBody.messages) +
+          estimateStructuredInput(originalBody.system) +
+          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools)) : 0)
         );
 
       case 'gemini':
         return (
-          estimateStructuredInput(originalBody.contents, options) +
-          estimateStructuredInput(originalBody.systemInstruction, options) +
-          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools), options) : 0)
+          estimateStructuredInput(originalBody.contents) +
+          estimateStructuredInput(originalBody.systemInstruction) +
+          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools)) : 0)
         );
 
       case 'responses':
         return (
-          estimateStructuredInput(originalBody.input, options) +
-          estimateStructuredInput(originalBody.instructions, options) +
-          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools), options) : 0) +
-          (originalBody.text?.format
-            ? estimateTokens(JSON.stringify(originalBody.text.format), options)
-            : 0)
+          estimateStructuredInput(originalBody.input) +
+          estimateStructuredInput(originalBody.instructions) +
+          (originalBody.tools ? estimateTokens(JSON.stringify(originalBody.tools)) : 0) +
+          (originalBody.text?.format ? estimateTokens(JSON.stringify(originalBody.text.format)) : 0)
         );
 
       default:
-        return estimateStructuredInput(originalBody, options);
+        return estimateStructuredInput(originalBody);
     }
   } catch (err) {
     logger.error('Failed to estimate input tokens:', err);
