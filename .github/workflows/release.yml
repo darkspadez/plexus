@@ -49,6 +49,10 @@ jobs:
     with:
       tag: ${{ needs.setup.outputs.tag }}
     secrets: inherit
+    permissions:
+      contents: write
+      pull-requests: read
+      id-token: write
 
   release:
     name: Create Release
