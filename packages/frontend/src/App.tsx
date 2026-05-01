@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { MainLayout } from './components/layout/MainLayout';
 import { Dashboard } from './pages/Dashboard';
 import { Logs } from './pages/Logs';
@@ -133,6 +134,15 @@ const App = () => {
       <AuthProvider>
         <SidebarProvider>
           <AppRoutes />
+          <Toaster
+            position="bottom-right"
+            theme="system"
+            toastOptions={{
+              classNames: {
+                toast: 'border border-border bg-surface text-foreground',
+              },
+            }}
+          />
         </SidebarProvider>
       </AuthProvider>
     </ToastProvider>

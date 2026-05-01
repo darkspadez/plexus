@@ -1,0 +1,233 @@
+/*
+ * Plexus design tokens — see DESIGN_SYSTEM.md §3.
+ *
+ * Layer 1 (primitives) lives in :root; per-theme/per-accent layers re-bind the
+ * semantic tokens. Components only consume the semantic names.
+ *
+ * Legacy aliases at the bottom let unmigrated pages keep rendering during the
+ * migration. Drop them in Phase 8.
+ */
+
+/* -------------------------------------------------------------------------- */
+/* Layer 1 — primitives                                                       */
+/* -------------------------------------------------------------------------- */
+
+:root {
+  /* Neutral scale */
+  --neutral-50:  #FAFAFA;
+  --neutral-100: #F4F4F5;
+  --neutral-200: #E4E4E7;
+  --neutral-300: #D4D4D8;
+  --neutral-400: #A1A1AA;
+  --neutral-500: #71717A;
+  --neutral-600: #52525B;
+  --neutral-700: #3F3F46;
+  --neutral-800: #27272A;
+  --neutral-900: #18181B;
+  --neutral-950: #09090B;
+
+  /* Accent hues — mid-step values from §3.4 */
+  --hue-blue-500:   #2563EB;
+  --hue-green-500:  #16A34A;
+  --hue-orange-500: #EA580C;
+  --hue-violet-500: #7C5CFC;
+  --hue-rose-500:   #D6638F;
+  --hue-amber-500:  #D97706;
+
+  /* Status hues */
+  --hue-success: #16A34A;
+  --hue-warning: #D97706;
+  --hue-danger:  #DC2626;
+  --hue-info:    #2563EB;
+
+  /* Secondary chart hues */
+  --hue-chart-violet: #7C5CFC;
+  --hue-chart-cyan:   #0891B2;
+  --hue-chart-rose:   #D6638F;
+
+  /* Provider hues — see §7.5.1 */
+  --provider-openai:     #2A9D8F;
+  --provider-anthropic:  #C58A5A;
+  --provider-gemini:     #5B7FB8;
+  --provider-deepseek:   #6B6BC4;
+  --provider-groq:       #C5635B;
+  --provider-openrouter: #7A7468;
+  --provider-ollama:     #6B9968;
+  --provider-oauth:      #4A4E58;
+
+  /* API format hues — see §7.5.2 */
+  --format-openai:    #2F9F6A;
+  --format-anthropic: #E07A3E;
+  --format-gemini:    #4A7FCF;
+  --format-responses: #7C5CFC;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Layer 2 — semantic tokens, per-theme                                       */
+/* -------------------------------------------------------------------------- */
+
+[data-theme="light"] {
+  --background:        #F6F4EE;
+  --surface:           #FFFFFF;
+  --surface-elevated:  #FAF8F2;
+  --surface-sunken:    #EFEDE5;
+  --border:            #E5E1D6;
+  --border-strong:     #C9C2B0;
+  --foreground:        #1A1815;
+  --foreground-muted:  #6B6557;
+  --foreground-subtle: #A09887;
+
+  --success:            var(--hue-success);
+  --success-foreground: #FFFFFF;
+  --success-subtle:     rgba(22, 163, 74, 0.12);
+
+  --warning:            var(--hue-warning);
+  --warning-foreground: #FFFFFF;
+  --warning-subtle:     rgba(217, 119, 6, 0.12);
+
+  --danger:            var(--hue-danger);
+  --danger-foreground: #FFFFFF;
+  --danger-subtle:     rgba(220, 38, 38, 0.12);
+
+  --info:            var(--hue-info);
+  --info-foreground: #FFFFFF;
+  --info-subtle:     rgba(37, 99, 235, 0.12);
+
+  /* Restrained shadows in light theme — used only on popovers/dialogs */
+  --shadow-sm: 0 1px 2px rgba(20, 18, 14, 0.06), 0 1px 3px rgba(20, 18, 14, 0.04);
+  --shadow-md: 0 4px 12px rgba(20, 18, 14, 0.08), 0 2px 4px rgba(20, 18, 14, 0.04);
+}
+
+[data-theme="dark"] {
+  --background:        #0A0B0E;
+  --surface:           #16181D;
+  --surface-elevated:  #1F2127;
+  --surface-sunken:    #06070A;
+  --border:            #22252C;
+  --border-strong:     #3A3E47;
+  --foreground:        #E8EAED;
+  --foreground-muted:  #9DA1AA;
+  --foreground-subtle: #5C616B;
+
+  --success:            #22C55E;
+  --success-foreground: #03130A;
+  --success-subtle:     rgba(34, 197, 94, 0.18);
+
+  --warning:            #F59E0B;
+  --warning-foreground: #1A1209;
+  --warning-subtle:     rgba(245, 158, 11, 0.18);
+
+  --danger:            #EF4444;
+  --danger-foreground: #1A0808;
+  --danger-subtle:     rgba(239, 68, 68, 0.18);
+
+  --info:            #3B82F6;
+  --info-foreground: #0A1428;
+  --info-subtle:     rgba(59, 130, 246, 0.18);
+
+  /* Dark mode shadows are nearly invisible — rely on borders */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Layer 3 — accent indirection                                               */
+/* -------------------------------------------------------------------------- */
+
+[data-accent="blue"] {
+  --accent:            var(--hue-blue-500);
+  --accent-foreground: #FFFFFF;
+  --accent-subtle:     rgba(37, 99, 235, 0.12);
+}
+
+[data-accent="green"] {
+  --accent:            var(--hue-green-500);
+  --accent-foreground: #FFFFFF;
+  --accent-subtle:     rgba(22, 163, 74, 0.12);
+}
+
+[data-accent="orange"] {
+  --accent:            var(--hue-orange-500);
+  --accent-foreground: #FFFFFF;
+  --accent-subtle:     rgba(234, 88, 12, 0.12);
+}
+
+[data-accent="violet"] {
+  --accent:            var(--hue-violet-500);
+  --accent-foreground: #FFFFFF;
+  --accent-subtle:     rgba(124, 92, 252, 0.12);
+}
+
+[data-accent="rose"] {
+  --accent:            var(--hue-rose-500);
+  --accent-foreground: #FFFFFF;
+  --accent-subtle:     rgba(214, 99, 143, 0.12);
+}
+
+[data-accent="amber"] {
+  --accent:            var(--hue-amber-500);
+  --accent-foreground: #FFFFFF;
+  --accent-subtle:     rgba(217, 119, 6, 0.12);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Layer 4 — chart palette                                                    */
+/* -------------------------------------------------------------------------- */
+
+:root {
+  --chart-1: var(--accent);
+  --chart-2: var(--hue-chart-violet);
+  --chart-3: var(--hue-success);
+  --chart-4: var(--hue-chart-cyan);
+  --chart-5: var(--foreground-subtle);
+}
+
+/* Collision swap: when accent is violet, chart-2 becomes rose so the two
+   series remain visually distinct (§3.4). */
+[data-accent="violet"] {
+  --chart-2: var(--hue-chart-rose);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Density                                                                    */
+/* -------------------------------------------------------------------------- */
+
+:root {
+  --row-height: 40px;
+}
+
+[data-density="compact"] {
+  --row-height: 32px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Legacy aliases — bridge for unmigrated pages. DELETED IN PHASE 8.          */
+/* -------------------------------------------------------------------------- */
+
+:root {
+  --color-bg-deep:     var(--background);
+  --color-bg-surface:  var(--surface);
+  --color-bg-card:     var(--surface);
+  --color-bg-glass:    var(--surface-elevated);
+  --color-bg-hover:    var(--surface-elevated);
+
+  --color-primary:   var(--accent);
+  --color-secondary: var(--accent);
+  --color-cta:       var(--accent);
+  --color-success:   var(--success);
+  --color-warning:   var(--warning);
+  --color-danger:    var(--danger);
+  --color-info:      var(--info);
+  --color-cyan:      var(--hue-chart-cyan);
+
+  --color-text:           var(--foreground);
+  --color-text-secondary: var(--foreground-muted);
+  --color-text-muted:     var(--foreground-subtle);
+
+  --color-border:        var(--border);
+  --color-border-glass:  var(--border);
+  --color-glow:          var(--accent-subtle);
+
+  --color-terminal-bg: var(--surface-sunken);
+  --color-terminal-fg: var(--foreground);
+}
