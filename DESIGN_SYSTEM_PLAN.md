@@ -1,5 +1,47 @@
 # Plexus Design System — Implementation Plan
 
+## Implementation status (live)
+
+- [x] **Phase 0** — Foundation: tokens, themes, accent, density, FOUC boot
+      script, Geist fonts, providers (Theme, Accent, Density, TanStack
+      Query, Sonner), shadcn `components.json`, new deps installed.
+- [x] **Phase 1** — App shell: new `TopBar` (theme/accent/density/user
+      menu), `AppSidebar` (design-doc nav grouping with active accent
+      bar, collapse persistence, monochrome logo, tooltips), `PageShell`,
+      `MainLayout` rewired.
+- [x] **Phase 2** — Primitives + chips + charts: 21 shadcn primitives
+      vendored (with `cn` import retargeted and tokens remapped from
+      shadcn defaults to design-doc names), project chips
+      (`Pill`/`StatusPill`/`StatusDot`/`ProviderChip`/`ApiFormatChip`/
+      `ModelChip`/`DeltaChip`), chart wrappers (`Sparkline`/`LineChart`/
+      `BarChart`/`DonutChart`) with capsule bars and chart-palette
+      tokens, page templates (`ListPage`/`DashboardPage`/`DetailPage`/
+      `FormPage`), `format-design.ts` formatters, `/dev/sandbox` route.
+- [x] **Phase 3** — Quotas migrated as the canonical recipe (TanStack
+      Query, TanStack Table, status pills, threshold-colored progress
+      bars, sonner, design-doc empty/error/loading states).
+- [x] **Theme settings UI** added to `Config` page (`ThemeSection`).
+- [x] **Agent docs** — root `AGENTS.md` and `packages/frontend/AGENTS.md`
+      both point at `DESIGN_SYSTEM.md` and describe the migration recipe.
+
+Remaining (legacy aliases keep these rendering until migrated):
+
+- [ ] **Phase 4** — Dashboard rewrite (the showcase per §12.1, with
+      capsule-bar metric cards), MyKey, SystemLogs, Errors, Debug.
+- [ ] **Phase 5** — Logs with `/logs/:id` Sheet pattern, JSON tree,
+      keyboard nav.
+- [ ] **Phase 6** — Keys (one-time secret display), MCP, Models (split
+      into subdir, Targets editor refresh).
+- [ ] **Phase 7** — Providers (split into 4–6 files, OAuth multi-step
+      Sheet, restyled quota config sub-components).
+- [ ] **Phase 8** — Delete `src/components/ui/` legacy dir, drop legacy
+      token aliases, retire `ToastContext`, trim `lib/api.ts` cache.
+
+The `Quotas` migration (`src/pages/Quotas.tsx` + `src/pages/quotas/*`)
+is the recipe — copy its shape for any pending page migration.
+
+---
+
 ## Context
 
 The Plexus admin UI (`packages/frontend`) was built incrementally and is visibly inconsistent — mixed spacings, ad-hoc table styles, multiple ways to render the same primitive (status, provider chip, model tag), and one-off page headers. The design-doc author has produced a v0.3 spec (the `# Plexus Design System` doc the user pasted) that locks in: a four-layer token system with light/dark/system themes and a six-option user-selectable accent; pill-shaped chips and capsule-ended chart bars as signature visuals; four page templates (List, Dashboard, Detail, Form); and a shadcn/ui-based component foundation with TanStack Query, TanStack Table, react-hook-form + zod, sonner, Recharts, lucide, Geist + Geist Mono.

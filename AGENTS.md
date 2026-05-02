@@ -147,6 +147,13 @@ Several services are singletons (e.g., `OAuthAuthManager`, `CooldownManager`, `D
 
 ## Frontend
 
+### Design System
+- **All visual/interaction decisions for the admin UI** are governed by
+  [`packages/frontend/DESIGN_SYSTEM.md`](packages/frontend/DESIGN_SYSTEM.md).
+  Read that file before any frontend visual change. Migration status and
+  per-page guidance live in
+  [`packages/frontend/AGENTS.md`](packages/frontend/AGENTS.md).
+
 ### Tailwind CSS v4
 - **NEVER** import CSS files with Tailwind directives into `.ts`/`.tsx` files — Bun's CSS loader breaks Tailwind v4 `@theme`/`@source`.
 - Build: `@tailwindcss/cli` from `packages/frontend`, input `./src/globals.css`, output `./dist/main.css`.

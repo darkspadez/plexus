@@ -10,6 +10,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
 import type { CardLayout } from '../types/card';
 import { DEFAULT_CARD_ORDER, LAYOUT_STORAGE_KEY } from '../types/card';
+import { ThemeSection } from './config/ThemeSection';
 
 class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
@@ -163,6 +164,7 @@ export const Config = () => {
       />
 
       <div className="flex flex-col gap-6">
+        <ThemeSection />
         <Card
           title="Configuration Export"
           flush

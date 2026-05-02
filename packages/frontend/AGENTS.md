@@ -1,5 +1,56 @@
 # Frontend Development Guidelines
 
+## Design System (read this first for visual changes)
+
+All visual and interaction decisions for this package are governed by
+[`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md). When that doc and this one
+disagree on look-and-feel, the design doc wins; this file wins for
+engineering rules (build, deps, file layout).
+
+The design system migration is in progress (see `DESIGN_SYSTEM_PLAN.md`
+at the repo root). Current state:
+
+- **Done**: foundation tokens (`src/styles/tokens.css`), light/dark/system
+  themes via `data-theme`, six user-selectable accents via `data-accent`,
+  density via `data-density`, FOUC-prevention boot script in `index.html`,
+  Geist + Geist Mono fonts, shadcn primitives vendored to
+  `src/components/ui-v2/`, project chips (`src/components/chips/`), chart
+  wrappers with capsule bars and palette tokens (`src/components/charts/`),
+  page templates (`src/components/templates/`), new `TopBar` + `AppSidebar`
+  shell, TanStack Query provider + Sonner toaster wired in, Quotas page
+  migrated as the canonical recipe.
+- **Pending**: Dashboard, Logs, Providers, Models, Keys, MCP, MyKey,
+  SystemLogs, Errors, Debug pages still consume legacy components/tokens.
+  They render correctly under the new shell via legacy token aliases at
+  the bottom of `tokens.css` — those aliases get deleted in Phase 8 once
+  every page is migrated.
+
+When building a new page or changing an existing one:
+
+1. Read the matching `DESIGN_SYSTEM.md` §12 page section.
+2. Use `src/components/templates/{ListPage,DashboardPage,DetailPage,FormPage}`
+   — do not invent a new layout.
+3. Reach for `src/components/ui-v2/*` (shadcn) before writing custom JSX.
+   If a primitive doesn't exist, run `bunx shadcn@latest add <component>`
+   from this package's directory.
+4. Use `src/components/chips/*` for status, provider, model, format,
+   and delta indicators. Never roll your own.
+5. Use `src/components/charts/*` for charts; do not pass hard-coded
+   colors — series follow `var(--chart-1..5)` and the user's accent.
+6. Use `src/lib/format-design.ts` for data formatting (latency, cost,
+   tokens, bytes, duration, request id) per §8.
+7. Use `src/lib/status-vocab.ts` to map backend status literals into the
+   fixed design-doc vocab.
+8. Data: TanStack Query (`@tanstack/react-query`). Forms: shadcn `Form` +
+   `react-hook-form` + `zod`, schema co-located with the component.
+   Toasts: `import { toast } from 'sonner'` — never confirm an action
+   whose effect is already visible on screen.
+9. **No raw hex values in component code.** If a token doesn't exist
+   yet, add it to `src/styles/tokens.css` first.
+
+The `Quotas` page (`src/pages/Quotas.tsx` + `src/pages/quotas/`) is the
+canonical reference for migrating a page end-to-end.
+
 ## Icons
 
 **Do not use emoji characters in the codebase.** Instead, use Lucide icons from the `lucide-react` library.
