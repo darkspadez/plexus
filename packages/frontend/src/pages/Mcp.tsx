@@ -19,6 +19,7 @@ import { useMcpServers, useDeleteMcpServer, useSaveMcpServer } from '../hooks/qu
 import type { McpServer } from '../lib/api';
 import { McpServerTable, type McpServerRow } from './mcp/McpServerTable';
 import { McpServerSheet } from './mcp/McpServerSheet';
+import { McpLogsPanel } from './mcp/McpLogsPanel';
 
 export const McpPage: React.FC = () => {
   const { data, isLoading, isError, refetch, isFetching } = useMcpServers();
@@ -104,12 +105,15 @@ export const McpPage: React.FC = () => {
       ) : rows.length === 0 ? (
         <EmptyState onAdd={() => setEditing({ name: null, initial: null })} />
       ) : (
-        <McpServerTable
-          rows={rows}
-          onEdit={(row) => setEditing({ name: row.name, initial: row.server })}
-          onDelete={setPendingDelete}
-          onToggle={handleToggle}
-        />
+        <>
+          <McpServerTable
+            rows={rows}
+            onEdit={(row) => setEditing({ name: row.name, initial: row.server })}
+            onDelete={setPendingDelete}
+            onToggle={handleToggle}
+          />
+          <McpLogsPanel />
+        </>
       )}
 
       <McpServerSheet
