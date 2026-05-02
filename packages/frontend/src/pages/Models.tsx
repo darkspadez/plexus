@@ -20,8 +20,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Switch } from '../components/ui/Switch';
 import { SearchInput } from '../components/ui/SearchInput';
-import { PageHeader } from '../components/layout/PageHeader';
-import { PageContainer } from '../components/layout/PageContainer';
+import { ListPage } from '../components/templates';
 import { useToast } from '../contexts/ToastContext';
 import {
   Plus,
@@ -899,62 +898,60 @@ export const Models = () => {
   );
 
   return (
-    <PageContainer>
-      <PageHeader
-        title="Models"
-        subtitle={
-          <span className="inline-flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-bg-glass border border-border-glass">
-              <Eye size={14} className="text-text-secondary" />
-              <span className="text-xs font-medium text-text-secondary">Vision Fall Through:</span>
-              <select
-                className="bg-transparent border-none text-xs text-text outline-none focus:ring-0 cursor-pointer max-w-[140px]"
-                value={globalDescriptorModel}
-                onChange={(e) => setGlobalDescriptorModel(e.target.value)}
-              >
-                <option value="">(None)</option>
-                {sortedAliases.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.id}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={handleSaveDescriptor}
-                disabled={isSavingDescriptor}
-                className="ml-1 text-text-secondary hover:text-primary transition-colors disabled:opacity-50"
-                title="Save descriptor model"
-                type="button"
-              >
-                {isSavingDescriptor ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Save size={14} />
-                )}
-              </button>
-            </span>
-          </span>
-        }
-        actions={
-          <>
-            <div className="w-full sm:w-64">
-              <SearchInput placeholder="Search models..." value={search} onChange={setSearch} />
-            </div>
-            <Button
-              variant="danger"
-              leftIcon={<Trash2 size={16} />}
-              onClick={() => setIsDeleteAllModalOpen(true)}
-              disabled={aliases.length === 0}
+    <ListPage
+      title="Models"
+      subtitle={
+        <span className="inline-flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-surface-elevated border border-border">
+            <Eye size={14} className="text-foreground-muted" />
+            <span className="text-xs font-medium text-foreground-muted">Vision Fall Through:</span>
+            <select
+              className="bg-transparent border-none text-xs text-foreground outline-none focus:ring-0 cursor-pointer max-w-[140px]"
+              value={globalDescriptorModel}
+              onChange={(e) => setGlobalDescriptorModel(e.target.value)}
             >
-              Delete All
-            </Button>
-            <Button leftIcon={<Plus size={16} />} onClick={handleAddNew}>
-              Add Model
-            </Button>
-          </>
-        }
-      />
-
+              <option value="">(None)</option>
+              {sortedAliases.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.id}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleSaveDescriptor}
+              disabled={isSavingDescriptor}
+              className="ml-1 text-foreground-muted hover:text-accent transition-colors disabled:opacity-50"
+              title="Save descriptor model"
+              type="button"
+            >
+              {isSavingDescriptor ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Save size={14} />
+              )}
+            </button>
+          </span>
+        </span>
+      }
+      actions={
+        <>
+          <div className="w-full sm:w-64">
+            <SearchInput placeholder="Search models..." value={search} onChange={setSearch} />
+          </div>
+          <Button
+            variant="danger"
+            leftIcon={<Trash2 size={16} />}
+            onClick={() => setIsDeleteAllModalOpen(true)}
+            disabled={aliases.length === 0}
+          >
+            Delete All
+          </Button>
+          <Button leftIcon={<Plus size={16} />} onClick={handleAddNew}>
+            Add Model
+          </Button>
+        </>
+      }
+    >
       <Card className="mb-6">
         <div className="overflow-x-auto -mx-4 sm:-mx-5 md:-mx-6">
           <table className="w-full border-collapse font-body text-[13px]">
@@ -2410,6 +2407,6 @@ export const Models = () => {
           </div>,
           document.body
         )}
-    </PageContainer>
+    </ListPage>
   );
 };

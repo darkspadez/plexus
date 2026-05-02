@@ -6,8 +6,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Tabs } from '../components/ui/Tabs';
-import { PageHeader } from '../components/layout/PageHeader';
-import { PageContainer } from '../components/layout/PageContainer';
+import { ListPage } from '../components/templates';
 import { useToast } from '../contexts/ToastContext';
 import {
   Search,
@@ -294,23 +293,21 @@ export const Keys = () => {
   };
 
   return (
-    <PageContainer>
-      <PageHeader
-        title="Access Control"
-        subtitle="Manage API keys and user quotas."
-        actions={
-          activeTab === 'keys' ? (
-            <Button leftIcon={<Plus size={16} />} onClick={handleAddNewKey}>
-              Add Key
-            </Button>
-          ) : (
-            <Button leftIcon={<Plus size={16} />} onClick={handleAddNewQuota}>
-              Add Quota
-            </Button>
-          )
-        }
-      />
-
+    <ListPage
+      title="Access Control"
+      subtitle="Manage API keys and user quotas."
+      actions={
+        activeTab === 'keys' ? (
+          <Button leftIcon={<Plus size={16} />} onClick={handleAddNewKey}>
+            Add Key
+          </Button>
+        ) : (
+          <Button leftIcon={<Plus size={16} />} onClick={handleAddNewQuota}>
+            Add Quota
+          </Button>
+        )
+      }
+    >
       <div className="mb-6">
         <Tabs
           value={activeTab}
@@ -994,6 +991,6 @@ export const Keys = () => {
           </div>
         )}
       </Modal>
-    </PageContainer>
+    </ListPage>
   );
 };

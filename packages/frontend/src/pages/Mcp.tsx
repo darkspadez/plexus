@@ -4,8 +4,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
-import { PageHeader } from '../components/layout/PageHeader';
-import { PageContainer } from '../components/layout/PageContainer';
+import { ListPage } from '../components/templates';
 import { useToast } from '../contexts/ToastContext';
 import {
   Plus,
@@ -292,11 +291,10 @@ export const McpPage: React.FC = () => {
   }
 
   return (
-    <PageContainer>
-      <PageHeader
-        title="MCP Servers"
-        subtitle="Configure Model Context Protocol upstream servers and review their call logs."
-      />
+    <ListPage
+      title="MCP Servers"
+      subtitle="Configure Model Context Protocol upstream servers and review their call logs."
+    >
       <div className="flex flex-col gap-6">
         {/* ── Servers Config Card ── */}
         <Card
@@ -864,7 +862,7 @@ export const McpPage: React.FC = () => {
           <p>Are you sure you want to delete this MCP log entry?</p>
         </Modal>
       </div>
-    </PageContainer>
+    </ListPage>
   );
 };
 
