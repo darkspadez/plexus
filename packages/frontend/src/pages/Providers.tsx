@@ -33,7 +33,7 @@ import {
   XCircle,
 } from 'lucide-react';
 
-import { Switch } from '../components/ui/Switch';
+import { Switch } from '../components/ui-v2/switch';
 import { OpenRouterSlugInput } from '../components/ui/OpenRouterSlugInput';
 import { NagaQuotaConfig } from '../components/quota/NagaQuotaConfig';
 import { SyntheticQuotaConfig } from '../components/quota/SyntheticQuotaConfig';
@@ -1101,8 +1101,8 @@ export const Providers = () => {
                       <div onClick={(e) => e.stopPropagation()}>
                         <Switch
                           checked={p.enabled !== false}
-                          onChange={(val) => handleToggleEnabled(p, val)}
-                          size="sm"
+                          onCheckedChange={(val) => handleToggleEnabled(p, val)}
+                          className="scale-75"
                         />
                       </div>
                     </td>
@@ -1195,7 +1195,7 @@ export const Providers = () => {
               <div style={{ height: '38px', display: 'flex', alignItems: 'center' }}>
                 <Switch
                   checked={editingProvider.enabled !== false}
-                  onChange={(checked) =>
+                  onCheckedChange={(checked) =>
                     setEditingProvider({ ...editingProvider, enabled: checked })
                   }
                 />
@@ -2478,8 +2478,11 @@ export const Providers = () => {
                   <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
                     <Switch
                       checked={editingProvider.estimateTokens || false}
-                      onChange={(checked) =>
-                        setEditingProvider({ ...editingProvider, estimateTokens: checked })
+                      onCheckedChange={(checked) =>
+                        setEditingProvider({
+                          ...editingProvider,
+                          estimateTokens: checked,
+                        })
                       }
                     />
                     <label
@@ -2505,8 +2508,11 @@ export const Providers = () => {
                   <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
                     <Switch
                       checked={editingProvider.disableCooldown || false}
-                      onChange={(checked) =>
-                        setEditingProvider({ ...editingProvider, disableCooldown: checked })
+                      onCheckedChange={(checked) =>
+                        setEditingProvider({
+                          ...editingProvider,
+                          disableCooldown: checked,
+                        })
                       }
                     />
                     <label
@@ -2533,8 +2539,11 @@ export const Providers = () => {
                   <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
                     <Switch
                       checked={editingProvider.useClaudeMasking || false}
-                      onChange={(checked) =>
-                        setEditingProvider({ ...editingProvider, useClaudeMasking: checked })
+                      onCheckedChange={(checked) =>
+                        setEditingProvider({
+                          ...editingProvider,
+                          useClaudeMasking: checked,
+                        })
                       }
                     />
                     <label

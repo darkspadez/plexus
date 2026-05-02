@@ -18,7 +18,7 @@ import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { Switch } from '../components/ui/Switch';
+import { Switch } from '../components/ui-v2/switch';
 import { SearchInput } from '../components/ui/SearchInput';
 import { ListPage } from '../components/templates';
 import { useToast } from '../contexts/ToastContext';
@@ -1423,8 +1423,8 @@ export const Models = () => {
                     </div>
                     <Switch
                       checked={getBehavior('strip_adaptive_thinking')}
-                      onChange={(val) => setBehavior('strip_adaptive_thinking', val)}
-                      size="sm"
+                      onCheckedChange={(val) => setBehavior('strip_adaptive_thinking', val)}
+                      className="scale-75"
                     />
                   </div>
 
@@ -1438,10 +1438,13 @@ export const Models = () => {
                     </div>
                     <Switch
                       checked={editingAlias.use_image_fallthrough || false}
-                      onChange={(val) =>
-                        setEditingAlias({ ...editingAlias, use_image_fallthrough: val })
+                      onCheckedChange={(val) =>
+                        setEditingAlias({
+                          ...editingAlias,
+                          use_image_fallthrough: val,
+                        })
                       }
-                      size="sm"
+                      className="scale-75"
                     />
                   </div>
 
@@ -1469,8 +1472,13 @@ export const Models = () => {
                     </div>
                     <Switch
                       checked={editingAlias.enforce_limits || false}
-                      onChange={(val) => setEditingAlias({ ...editingAlias, enforce_limits: val })}
-                      size="sm"
+                      onCheckedChange={(val) =>
+                        setEditingAlias({
+                          ...editingAlias,
+                          enforce_limits: val,
+                        })
+                      }
+                      className="scale-75"
                     />
                   </div>
                 </div>
@@ -1820,7 +1828,7 @@ export const Models = () => {
                         </label>
                         <Switch
                           checked={isOverrideOpen}
-                          onChange={(v) => {
+                          onCheckedChange={(v) => {
                             setIsOverrideOpen(v);
                             if (!v) {
                               // Flipping override off clears any existing overrides.
@@ -2062,8 +2070,8 @@ export const Models = () => {
                     <div style={{ visibility: isDragging ? 'hidden' : 'visible' }}>
                       <Switch
                         checked={target.enabled !== false}
-                        onChange={(val) => updateTarget(idx, 'enabled', val)}
-                        size="sm"
+                        onCheckedChange={(val) => updateTarget(idx, 'enabled', val)}
+                        className="scale-75"
                       />
                     </div>
                     <div style={{ visibility: isDragging ? 'hidden' : 'visible' }}>
