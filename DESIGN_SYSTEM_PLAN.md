@@ -20,14 +20,21 @@
 - [x] **Phase 3** — Quotas migrated as the canonical recipe (TanStack
       Query, TanStack Table, status pills, threshold-colored progress
       bars, sonner, design-doc empty/error/loading states).
+- [x] **Phase 4 (partial)** — Dashboard fully migrated to the new
+      design (DashboardPage template, capsule-bar metric cards with
+      sparklines, time-window pills with localStorage persistence,
+      LineChart for request volume, RecentErrors panel with
+      provider/model chips and StatusPill, TanStack Query polling).
+      MyKey fully migrated to FormPage + shadcn Dialog/Switch/Card +
+      sonner. SystemLogs wrapped with ListPage chrome. Errors and Debug
+      retain their custom edge-aligned layouts (full-width detail
+      panels) but render under the new shell.
 - [x] **Theme settings UI** added to `Config` page (`ThemeSection`).
 - [x] **Agent docs** — root `AGENTS.md` and `packages/frontend/AGENTS.md`
       both point at `DESIGN_SYSTEM.md` and describe the migration recipe.
 
 Remaining (legacy aliases keep these rendering until migrated):
 
-- [ ] **Phase 4** — Dashboard rewrite (the showcase per §12.1, with
-      capsule-bar metric cards), MyKey, SystemLogs, Errors, Debug.
 - [ ] **Phase 5** — Logs with `/logs/:id` Sheet pattern, JSON tree,
       keyboard nav.
 - [ ] **Phase 6** — Keys (one-time secret display), MCP, Models (split
