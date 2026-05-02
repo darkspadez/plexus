@@ -11,13 +11,23 @@ import {
   Check,
   Trash2,
 } from 'lucide-react';
-import { clsx } from 'clsx';
 import { isClipboardAvailable, copyToClipboard } from '../lib/clipboard';
-import { Button } from '../components/ui/Button';
-import { Modal } from '../components/ui/Modal';
+import { Button } from '../components/ui-v2/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui-v2/alert-dialog';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { cn } from '../lib/cn';
 
 export const Errors: React.FC = () => {
   const location = useLocation();
@@ -159,18 +169,16 @@ export const Errors: React.FC = () => {
               {isAdmin && (
                 <Button
                   onClick={handleDeleteAll}
-                  variant="danger"
-                  leftIcon={<Trash2 size={16} />}
+                  variant="destructive"
+                  size="sm"
                   disabled={errors.length === 0}
                 >
+                  <Trash2 strokeWidth={1.75} />
                   Delete All
                 </Button>
               )}
-              <Button
-                onClick={fetchErrors}
-                variant="secondary"
-                leftIcon={<RefreshCw size={16} className={clsx(loading && 'animate-spin')} />}
-              >
+              <Button onClick={fetchErrors} variant="outline" size="sm">
+                <RefreshCw className={loading ? 'animate-spin' : undefined} strokeWidth={1.75} />
                 Refresh
               </Button>
             </>
@@ -178,51 +186,51 @@ export const Errors: React.FC = () => {
         />
       </div>
 
-      <div className="flex flex-col md:flex-row flex-1 overflow-hidden border-t border-border-glass">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden border-t border-border">
         {/* Left Pane: Error List */}
-        <div className="w-full md:w-[320px] border-b md:border-b-0 md:border-r border-border-glass bg-bg-surface flex flex-col shrink-0 max-h-[40vh] md:max-h-none">
-          <div className="p-4 border-b border-border-glass">
-            <span className="text-xs font-bold text-text-muted uppercase tracking-wider">
+        <div className="flex w-full max-h-[40vh] shrink-0 flex-col border-b border-border bg-surface md:max-h-none md:w-[320px] md:border-b-0 md:border-r">
+          <div className="border-b border-border p-4">
+            <span className="text-xs font-medium uppercase tracking-wider text-foreground-subtle">
               Recent Errors
             </span>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+          <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2">
             {errors.map((err) => (
               <div
                 key={err.id}
                 onClick={() => setSelectedId(err.requestId)}
-                className={clsx(
-                  'p-3 rounded-md cursor-pointer transition-all duration-200 border border-transparent hover:bg-bg-hover group',
-                  selectedId === err.requestId && 'bg-bg-glass border-border-glass shadow-sm'
+                className={cn(
+                  'group cursor-pointer rounded-md border border-transparent p-3 transition-colors hover:bg-surface-elevated',
+                  selectedId === err.requestId && 'border-border bg-surface-elevated'
                 )}
               >
                 <div className="w-full">
-                  <div className="flex items-center gap-2 mb-1 justify-between items-center">
+                  <div className="mb-1 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Clock size={14} className="text-[var(--color-text-muted)]" />
-                      <span className="text-xs font-mono text-text-muted">
+                      <Clock className="size-3.5 text-foreground-subtle" strokeWidth={1.75} />
+                      <span className="font-mono text-xs text-foreground-muted">
                         {new Date(err.date).toLocaleTimeString()}
                       </span>
                     </div>
                     <button
                       onClick={(e) => handleDelete(e, err.requestId)}
-                      className="bg-transparent border-0 text-text-muted p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-red-600/10 hover:text-danger group-hover:opacity-100 opacity-0 transition-opacity"
-                      title="Delete error log"
+                      className="rounded p-1 text-foreground-subtle opacity-0 transition-all hover:bg-danger-subtle hover:text-danger group-hover:opacity-100"
+                      aria-label="Delete error log"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 className="size-3" strokeWidth={1.75} />
                     </button>
                   </div>
-                  <div className="text-[13px] font-mono text-primary whitespace-nowrap overflow-hidden text-ellipsis mt-1 font-mono text-xs text-[var(--color-text-muted)]">
-                    {err.requestId?.substring(0, 8) ?? '-'}...
+                  <div className="mt-1 truncate font-mono text-xs text-foreground-subtle">
+                    {err.requestId?.substring(0, 8) ?? '-'}…
                   </div>
-                  <div className="mt-1 text-sm text-red-400 truncate" title={err.errorMessage}>
+                  <div className="mt-1 truncate text-sm text-danger" title={err.errorMessage}>
                     {err.errorMessage}
                   </div>
                 </div>
               </div>
             ))}
             {errors.length === 0 && (
-              <div className="text-center p-8 text-[var(--color-text-muted)] italic text-sm">
+              <div className="p-8 text-center text-sm italic text-foreground-subtle">
                 No errors found.
               </div>
             )}
@@ -230,66 +238,68 @@ export const Errors: React.FC = () => {
         </div>
 
         {/* Right Pane: Details */}
-        <div className="flex-1 bg-bg-deep overflow-y-auto flex flex-col relative">
+        <div className="relative flex flex-1 flex-col overflow-y-auto bg-background">
           {selectedId && selectedError ? (
             <div className="flex flex-col">
-              <div className="p-4 border-b border-[var(--color-border)] mb-4">
-                <h3 className="text-lg font-semibold text-red-500 mb-2">Error Details</h3>
+              <div className="mb-4 border-b border-border p-4">
+                <h3 className="mb-2 text-lg font-semibold text-danger">Error details</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-[var(--color-text-muted)]">Request ID:</span>
-                    <span className="ml-2 font-mono">{selectedError.requestId}</span>
+                    <span className="text-foreground-muted">Request ID:</span>
+                    <span className="ml-2 font-mono text-foreground">
+                      {selectedError.requestId}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-[var(--color-text-muted)]">Time:</span>
-                    <span className="ml-2">{new Date(selectedError.date).toLocaleString()}</span>
+                    <span className="text-foreground-muted">Time:</span>
+                    <span className="ml-2 text-foreground">
+                      {new Date(selectedError.date).toLocaleString()}
+                    </span>
                   </div>
                 </div>
                 {(() => {
                   const details = parseDetails(selectedError.details);
                   if (details && (details.provider || details.targetModel || details.url)) {
                     return (
-                      <div className="mt-4 pt-4 border-t border-[var(--color-border)]">
-                        <h4 className="text-sm font-semibold text-yellow-500 mb-2">
-                          Routing Information
+                      <div className="mt-4 border-t border-border pt-4">
+                        <h4 className="mb-2 text-sm font-semibold text-warning">
+                          Routing information
                         </h4>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           {details.provider && (
                             <div>
-                              <span className="text-[var(--color-text-muted)]">Provider:</span>
-                              <span className="ml-2 font-mono text-blue-400">
-                                {details.provider}
-                              </span>
+                              <span className="text-foreground-muted">Provider:</span>
+                              <span className="ml-2 font-mono text-info">{details.provider}</span>
                             </div>
                           )}
                           {details.targetModel && (
                             <div>
-                              <span className="text-[var(--color-text-muted)]">Target Model:</span>
-                              <span className="ml-2 font-mono text-blue-400">
+                              <span className="text-foreground-muted">Target model:</span>
+                              <span className="ml-2 font-mono text-info">
                                 {details.targetModel}
                               </span>
                             </div>
                           )}
                           {details.targetApiType && (
                             <div>
-                              <span className="text-[var(--color-text-muted)]">Target API:</span>
-                              <span className="ml-2 font-mono text-blue-400">
+                              <span className="text-foreground-muted">Target API:</span>
+                              <span className="ml-2 font-mono text-info">
                                 {details.targetApiType}
                               </span>
                             </div>
                           )}
                           {details.statusCode && (
                             <div>
-                              <span className="text-[var(--color-text-muted)]">Status Code:</span>
-                              <span className="ml-2 font-mono text-red-400">
+                              <span className="text-foreground-muted">Status code:</span>
+                              <span className="ml-2 font-mono text-danger">
                                 {details.statusCode}
                               </span>
                             </div>
                           )}
                           {details.url && (
                             <div className="col-span-2">
-                              <span className="text-[var(--color-text-muted)]">Request URL:</span>
-                              <div className="ml-2 font-mono text-xs text-blue-400 break-all mt-1">
+                              <span className="text-foreground-muted">Request URL:</span>
+                              <div className="ml-2 mt-1 break-all font-mono text-xs text-info">
                                 {details.url}
                               </div>
                             </div>
@@ -305,14 +315,14 @@ export const Errors: React.FC = () => {
               <AccordionPanel
                 title="Message"
                 content={selectedError.errorMessage}
-                color="text-red-400"
+                color="text-danger"
                 defaultOpen={true}
                 language="plaintext"
               />
               <AccordionPanel
                 title="Stack Trace"
                 content={selectedError.errorStack || '(No stack trace available)'}
-                color="text-orange-400"
+                color="text-warning"
                 defaultOpen={true}
                 language="plaintext"
               />
@@ -323,7 +333,7 @@ export const Errors: React.FC = () => {
                     <AccordionPanel
                       title="Provider Response"
                       content={details.providerResponse}
-                      color="text-purple-400"
+                      color="text-foreground-muted"
                       defaultOpen={false}
                       language="plaintext"
                     />
@@ -338,7 +348,7 @@ export const Errors: React.FC = () => {
                     <AccordionPanel
                       title="Request Headers"
                       content={formatContent(details.headers)}
-                      color="text-cyan-400"
+                      color="text-info"
                       defaultOpen={false}
                     />
                   );
@@ -348,7 +358,6 @@ export const Errors: React.FC = () => {
               {selectedError.details &&
                 (() => {
                   const details = parseDetails(selectedError.details);
-                  // Show full details if there are fields we haven't displayed elsewhere
                   const displayedFields = [
                     'provider',
                     'targetModel',
@@ -364,9 +373,9 @@ export const Errors: React.FC = () => {
                   if (hasOtherFields) {
                     return (
                       <AccordionPanel
-                        title="Additional Details"
+                        title="Additional details"
                         content={formatContent(details)}
-                        color="text-blue-400"
+                        color="text-info"
                         defaultOpen={false}
                       />
                     );
@@ -375,49 +384,53 @@ export const Errors: React.FC = () => {
                 })()}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-text-muted gap-4">
-              <AlertTriangle size={48} opacity={0.2} />
+            <div className="flex h-full flex-col items-center justify-center gap-4 text-foreground-subtle">
+              <AlertTriangle className="size-12 opacity-20" strokeWidth={1.5} />
               <p>Select an error to inspect details</p>
             </div>
           )}
         </div>
       </div>
 
-      <Modal
-        isOpen={isDeleteAllModalOpen}
-        onClose={() => setIsDeleteAllModalOpen(false)}
-        title="Confirm Deletion"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setIsDeleteAllModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={confirmDeleteAll} disabled={isDeleting}>
-              {isDeleting ? 'Deleting...' : 'Delete All Errors'}
-            </Button>
-          </>
-        }
-      >
-        <p>Are you sure you want to delete ALL error logs? This action cannot be undone.</p>
-      </Modal>
+      <AlertDialog open={isDeleteAllModalOpen} onOpenChange={setIsDeleteAllModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete all errors?</AlertDialogTitle>
+            <AlertDialogDescription>
+              All inference error records will be removed. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteAll}
+              disabled={isDeleting}
+              className="bg-danger text-danger-foreground hover:bg-danger/90"
+            >
+              {isDeleting ? 'Deleting…' : 'Delete all'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      <Modal
-        isOpen={isSingleDeleteModalOpen}
-        onClose={() => setIsSingleDeleteModalOpen(false)}
-        title="Confirm Deletion"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setIsSingleDeleteModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={confirmDeleteSingle} disabled={isDeleting}>
-              {isDeleting ? 'Deleting...' : 'Delete Error Log'}
-            </Button>
-          </>
-        }
-      >
-        <p>Are you sure you want to delete this error log? This action cannot be undone.</p>
-      </Modal>
+      <AlertDialog open={isSingleDeleteModalOpen} onOpenChange={setIsSingleDeleteModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete error log?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteSingle}
+              disabled={isDeleting}
+              className="bg-danger text-danger-foreground hover:bg-danger/90"
+            >
+              {isDeleting ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
@@ -429,6 +442,7 @@ const AccordionPanel: React.FC<{
   defaultOpen?: boolean;
   language?: string;
 }> = ({ title, content, color, defaultOpen = false, language = 'json' }) => {
+  const { resolved: themeMode } = useTheme();
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [copied, setCopied] = useState(false);
 
@@ -443,43 +457,51 @@ const AccordionPanel: React.FC<{
   };
 
   return (
-    <div className="border-b border-border-glass bg-bg-surface">
+    <div className="border-b border-border bg-surface">
       <div
-        className="px-4 py-3 cursor-pointer flex justify-between items-center bg-bg-hover transition-colors duration-200 select-none hover:bg-bg-glass"
+        className="flex cursor-pointer select-none items-center justify-between bg-surface-elevated px-4 py-3 transition-colors hover:bg-surface"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-2">
-          {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          <span className={clsx('text-[11px] font-bold uppercase tracking-wider', color)}>
+          {isOpen ? (
+            <ChevronDown className="size-4" strokeWidth={1.75} />
+          ) : (
+            <ChevronRight className="size-4" strokeWidth={1.75} />
+          )}
+          <span className={cn('text-[11px] font-medium uppercase tracking-wider', color)}>
             {title}
           </span>
         </div>
         <button
-          className="bg-transparent border-0 text-text-muted p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-white/10 hover:text-text"
+          className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
           onClick={handleCopy}
-          title="Copy to clipboard"
+          aria-label="Copy to clipboard"
         >
-          {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+          {copied ? (
+            <Check className="size-3.5 text-success" strokeWidth={2} />
+          ) : (
+            <Copy className="size-3.5" strokeWidth={1.75} />
+          )}
         </button>
       </div>
       <div
-        className={clsx(
-          'overflow-hidden transition-[max-height] duration-300 ease-in-out',
+        className={cn(
+          'overflow-hidden transition-[max-height] duration-200 ease-out',
           isOpen ? 'max-h-[500px]' : 'max-h-0'
         )}
       >
-        <div className="h-[400px] bg-[#1e1e1e]">
+        <div className="h-[400px] bg-surface-sunken">
           <Editor
             height="100%"
             defaultLanguage={language}
-            theme="vs-dark"
+            theme={themeMode === 'light' ? 'vs' : 'vs-dark'}
             value={content}
             options={{
               readOnly: true,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               fontSize: 12,
-              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+              fontFamily: 'Geist Mono, "Fira Code", monospace',
               lineNumbers: 'off',
               folding: true,
               wordWrap: 'on',
