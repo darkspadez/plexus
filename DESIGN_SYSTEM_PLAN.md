@@ -45,6 +45,10 @@
         (Popover + Command) for allowed/excluded providers and models,
         AlertDialog deletes. User Quotas sub-tab is a known regression
         — needs its own surface in a future iteration.
+      * **Errors / Debug / Config / SystemLogs / Login fully
+        primitive-migrated**: legacy Button/Modal/Card swapped for
+        ui-v2 + AlertDialog; bulk token sweep applied; Monaco editor
+        theme follows resolved theme via `useTheme()`.
 - [x] **Errors / Debug fixes** — replaced the negative-margin tricks
       that were left over from the old MainLayout's outer padding so
       content no longer overflows the viewport edge.
