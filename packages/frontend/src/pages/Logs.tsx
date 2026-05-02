@@ -1,1277 +1,276 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Modal } from '../components/ui/Modal';
-import { SearchInput } from '../components/ui/SearchInput';
-import { CostToolTip } from '../components/ui/CostToolTip';
-import { PageHeader } from '../components/layout/PageHeader';
-import { PageContainer } from '../components/layout/PageContainer';
-import {
-  api,
-  UsageRecord,
-  formatLargeNumber,
-  type UsageSortDirection,
-  type UsageSortField,
-} from '../lib/api';
-import {
-  KWH_PER_SLICE,
-  formatCost,
-  formatEnergy,
-  formatMs,
-  formatSlices,
-  formatTPS,
-} from '../lib/format';
-import { isClipboardAvailable, copyToClipboard } from '../lib/clipboard';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Trash2,
-  Bug,
-  Zap,
-  ZapOff,
-  AlertTriangle,
-  Languages,
-  MoveHorizontal,
-  CloudUpload,
-  CloudDownload,
-  BrainCog,
-  PackageOpen,
-  Copy,
-  Variable,
-  AudioLines,
-  Volume2,
-  Wrench,
-  MessagesSquare,
-  PlugZap,
-  CirclePause,
-  Octagon,
-  Hammer,
-  RulerDimensionLine,
-  ChevronDown,
-  Image as ImageIcon,
-  ShieldCheck,
-  RotateCcw,
-  PencilLine,
-  Plane,
-  Eye,
-  ScanSearch,
-} from 'lucide-react';
-import { clsx } from 'clsx';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ListPage, DetailPage } from '../components/templates';
+import { Button } from '../components/ui-v2/button';
+import { Skeleton } from '../components/ui-v2/skeleton';
+import { Pill } from '../components/chips/Pill';
 import { useAuth } from '../contexts/AuthContext';
-// @ts-ignore
-import messagesLogo from '../assets/messages.svg';
-// @ts-ignore
-import antigravityLogo from '../assets/antigravity.svg';
-// @ts-ignore
-import chatLogo from '../assets/chat.svg';
-// @ts-ignore
-import geminiLogo from '../assets/gemini.svg';
+import { useLogs, type LogTimeWindow } from '../hooks/queries/useLogs';
+import type { UsageRecord } from '../lib/api';
+import { cn } from '../lib/cn';
+import { LogTable } from './logs/LogTable';
+import { LogDetailSheet } from './logs/LogDetailSheet';
+import { LogDetail } from './logs/LogDetail';
 
-interface RetryAttemptDetail {
-  index: number;
-  provider: string;
-  model: string;
-  apiType?: string;
-  status: 'success' | 'failed' | 'skipped';
-  reason: string;
-  statusCode?: number;
-  retryable?: boolean;
-}
+const WINDOW_OPTIONS: { value: LogTimeWindow; label: string }[] = [
+  { value: '15m', label: '15m' },
+  { value: '1h', label: '1h' },
+  { value: '24h', label: '24h' },
+  { value: '7d', label: '7d' },
+];
 
-const parseRetryHistory = (value?: string | null): RetryAttemptDetail[] => {
-  if (!value) return [];
+const PAGE_SIZE = 20;
+const STORAGE_KEY = 'plexus.logs.window';
 
-  try {
-    const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter((entry): entry is RetryAttemptDetail => {
-      return (
-        entry &&
-        typeof entry.index === 'number' &&
-        typeof entry.provider === 'string' &&
-        typeof entry.model === 'string' &&
-        typeof entry.status === 'string' &&
-        typeof entry.reason === 'string'
-      );
-    });
-  } catch {
-    return [];
-  }
+const readStoredWindow = (): LogTimeWindow => {
+  if (typeof window === 'undefined') return '24h';
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  return raw === '15m' || raw === '1h' || raw === '24h' || raw === '7d' ? raw : '24h';
 };
 
-export const Logs = () => {
+export const Logs: React.FC = () => {
   const navigate = useNavigate();
-  const { adminKey, isAdmin, isLimited, principal } = useAuth();
-  const [logs, setLogs] = useState<UsageRecord[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [limit] = useState(20);
-  const [offset, setOffset] = useState(0);
-  const [newestLogId, setNewestLogId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<UsageSortField>('date');
-  const [sortDir, setSortDir] = useState<UsageSortDirection>('desc');
-  const [filters, setFilters] = useState({
-    apiKey: '',
-    incomingModelAlias: '',
-    provider: '',
-  });
+  const { id: routeId } = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
+  const fullPage = searchParams.get('full') === '1';
+  const { principal } = useAuth();
 
-  const apiLogos: Record<string, string> = {
-    messages: messagesLogo,
-    antigravity: antigravityLogo,
-    chat: chatLogo,
-    gemini: geminiLogo,
-  };
+  const [timeWindow, setTimeWindow] = React.useState<LogTimeWindow>(() => readStoredWindow());
+  const [page, setPage] = React.useState(0);
 
-  // Delete Modal State
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteMode, setDeleteMode] = useState<'all' | 'older'>('older');
-  const [olderThanDays, setOlderThanDays] = useState(7);
-  const [isDeleting, setIsDeleting] = useState(false);
+  React.useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, timeWindow);
+  }, [timeWindow]);
 
-  // Single Delete State
-  const [selectedLogIdForDelete, setSelectedLogIdForDelete] = useState<string | null>(null);
-  const [isSingleDeleteModalOpen, setIsSingleDeleteModalOpen] = useState(false);
-  const [selectedRetryLog, setSelectedRetryLog] = useState<UsageRecord | null>(null);
-  const [isRetryModalOpen, setIsRetryModalOpen] = useState(false);
+  const { data, isLoading, isError, refetch, isFetching } = useLogs(
+    { window: timeWindow },
+    page,
+    PAGE_SIZE
+  );
 
-  const filtersRef = useRef(filters);
+  const records: UsageRecord[] = data?.data ?? [];
+  const total = data?.total ?? 0;
 
-  useEffect(() => {
-    filtersRef.current = filters;
-  }, [filters]);
+  // Selected record from /logs/:id
+  const selectedRecord = React.useMemo(
+    () => records.find((r) => r.requestId === routeId) ?? null,
+    [records, routeId]
+  );
 
-  const loadLogs = async () => {
-    setLoading(true);
-    try {
-      const cleanFilters: Record<string, any> = {};
-      if (filters.apiKey) cleanFilters.apiKey = filters.apiKey;
-      if (filters.incomingModelAlias) cleanFilters.incomingModelAlias = filters.incomingModelAlias;
-      if (filters.provider) cleanFilters.provider = filters.provider;
+  const isMobileViewport =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(max-width: 1023px)').matches;
+  const isFullPageMode = !!routeId && (fullPage || isMobileViewport);
 
-      const res = await api.getLogs(limit, offset, cleanFilters, sortBy, sortDir);
-      setLogs(res.data);
-      setTotal(Number(res.total) || 0);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteAll = () => {
-    setIsDeleteModalOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    setIsDeleting(true);
-    try {
-      if (deleteMode === 'all') {
-        await api.deleteAllUsageLogs();
-      } else {
-        await api.deleteAllUsageLogs(olderThanDays);
+  // Keyboard nav for j/k/esc — only when sheet is open
+  React.useEffect(() => {
+    if (isFullPageMode || !routeId || records.length === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement) {
+        const tag = e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
       }
-      // Reset to first page
-      setOffset(0);
-      await loadLogs();
-      setIsDeleteModalOpen(false);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleDelete = (requestId: string) => {
-    setSelectedLogIdForDelete(requestId);
-    setIsSingleDeleteModalOpen(true);
-  };
-
-  const handleRetryDetails = (log: UsageRecord) => {
-    setSelectedRetryLog(log);
-    setIsRetryModalOpen(true);
-  };
-
-  const confirmDeleteSingle = async () => {
-    if (!selectedLogIdForDelete) return;
-    setIsDeleting(true);
-    try {
-      await api.deleteUsageLog(selectedLogIdForDelete);
-      setLogs(logs.filter((l) => l.requestId !== selectedLogIdForDelete));
-      setTotal((prev) => Math.max(0, prev - 1));
-      setIsSingleDeleteModalOpen(false);
-      setSelectedLogIdForDelete(null);
-    } catch (e) {
-      console.error('Failed to delete log', e);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  useEffect(() => {
-    loadLogs();
-  }, [offset, limit, sortBy, sortDir]); // Refresh when page or sort changes
-
-  useEffect(() => {
-    if (offset !== 0 || !adminKey || sortBy !== 'date' || sortDir !== 'desc') return;
-
-    const controller = new AbortController();
-
-    const connect = async () => {
-      try {
-        const response = await fetch('/v0/management/events', {
-          headers: {
-            'x-admin-key': adminKey,
-          },
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to connect: ${response.statusText}`);
-        }
-
-        const reader = response.body?.getReader();
-        if (!reader) return;
-
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n\n'); // SSE messages are separated by double newline
-          buffer = lines.pop() || '';
-
-          for (const block of lines) {
-            const blockLines = block.split('\n');
-            let eventData = '';
-            let eventType = '';
-
-            for (const line of blockLines) {
-              if (line.startsWith('event: ')) {
-                eventType = line.slice(7);
-              } else if (line.startsWith('data: ')) {
-                eventData = line.slice(6);
-              }
-            }
-
-            // Handle different event types: started, updated, completed
-            if (
-              (eventType === 'started' || eventType === 'updated' || eventType === 'completed') &&
-              eventData
-            ) {
-              try {
-                const newLog = JSON.parse(eventData);
-                const currentFilters = filtersRef.current;
-
-                // Client-side filtering to match server-side LIKE behavior
-                let matches = true;
-                if (
-                  currentFilters.apiKey &&
-                  !newLog.apiKey?.toLowerCase().includes(currentFilters.apiKey.toLowerCase())
-                ) {
-                  matches = false;
-                }
-                if (
-                  currentFilters.incomingModelAlias &&
-                  !newLog.incomingModelAlias
-                    ?.toLowerCase()
-                    .includes(currentFilters.incomingModelAlias.toLowerCase())
-                ) {
-                  matches = false;
-                }
-                if (
-                  currentFilters.provider &&
-                  !newLog.provider?.toLowerCase().includes(currentFilters.provider.toLowerCase())
-                ) {
-                  matches = false;
-                }
-
-                if (matches) {
-                  setLogs((prev) => {
-                    const existingIndex = prev.findIndex((l) => l.requestId === newLog.requestId);
-                    if (existingIndex >= 0) {
-                      // Merge update into existing record (supports progressive updates)
-                      const updated = [...prev];
-                      updated[existingIndex] = { ...updated[existingIndex], ...newLog };
-                      return updated;
-                    }
-                    // New record - add to the top
-                    const updated = [newLog, ...prev];
-                    if (updated.length > limit) return updated.slice(0, limit);
-                    return updated;
-                  });
-                  setTotal((prev) => Number(prev) + 1);
-                  setNewestLogId(newLog.requestId);
-                }
-              } catch (e) {
-                console.error('Failed to parse log event', e);
-              }
-            }
-          }
-        }
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          console.error('Log stream error:', err);
-        }
+      const idx = records.findIndex((r) => r.requestId === routeId);
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        navigate('/logs');
+      } else if (e.key === 'j' && idx < records.length - 1) {
+        e.preventDefault();
+        navigate(`/logs/${records[idx + 1]!.requestId}`);
+      } else if (e.key === 'k' && idx > 0) {
+        e.preventDefault();
+        navigate(`/logs/${records[idx - 1]!.requestId}`);
       }
     };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [routeId, records, navigate, isFullPageMode]);
 
-    connect();
-
-    return () => {
-      controller.abort();
-    };
-  }, [offset, limit, adminKey, sortBy, sortDir]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setOffset(0); // Reset to first page
-    loadLogs();
-  };
-
-  const handleSort = (field: UsageSortField) => {
-    setOffset(0);
-    if (sortBy === field) {
-      setSortDir((current) => (current === 'desc' ? 'asc' : 'desc'));
-      return;
-    }
-
-    setSortBy(field);
-    setSortDir(field === 'date' ? 'desc' : 'asc');
-  };
-
-  const renderSortableHeader = (label: string, field: UsageSortField) => {
-    const isActive = sortBy === field;
-
+  // Full-page mode: render the detail-page layout
+  if (isFullPageMode) {
     return (
-      <button
-        type="button"
-        onClick={() => handleSort(field)}
-        className="inline-flex items-center justify-center gap-1 bg-transparent border-0 p-0 m-0 font-inherit text-inherit uppercase tracking-wider cursor-pointer"
-        title={`Sort by ${label.toLowerCase()}`}
-      >
-        <span>{label}</span>
-        <ChevronDown
-          size={12}
-          style={{
-            opacity: isActive ? 1 : 0.35,
-            transform: isActive && sortDir === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s ease, opacity 0.2s ease',
-          }}
-        />
-      </button>
-    );
-  };
-
-  const totalPages = Math.ceil(total / limit);
-  const currentPage = Math.floor(offset / limit) + 1;
-
-  const formatDateSafely = (dateStr: string | undefined | null) => {
-    if (!dateStr) return { time: '-', date: '-' };
-    try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return { time: 'Invalid', date: 'Date' };
-      return {
-        time: d.toLocaleTimeString(),
-        date: d.toISOString().split('T')[0],
-      };
-    } catch (e) {
-      return { time: 'Error', date: 'Date' };
-    }
-  };
-
-  const selectedRetryHistory = parseRetryHistory(selectedRetryLog?.retryHistory);
-
-  return (
-    <PageContainer>
-      <PageHeader
-        title="Logs"
+      <DetailPage
+        title="Request"
         subtitle={
-          principal?.role === 'limited' && principal.keyName
-            ? `Scoped to key "${principal.keyName}".`
-            : undefined
+          selectedRecord ? (
+            <code className="font-mono text-xs">{selectedRecord.requestId}</code>
+          ) : null
         }
-      />
-
-      <Card flush>
-        <div className="p-3 sm:p-4 border-b border-border-glass">
-          <form
-            onSubmit={handleSearch}
-            className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 justify-between"
-          >
-            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 min-w-0 flex-1">
-              {/* The apiKey filter is redundant for limited users — backend
-                  force-scopes results to their key. */}
-              {!isLimited && (
-                <div className="w-full sm:w-60">
-                  <SearchInput
-                    placeholder="Filter by Key..."
-                    value={filters.apiKey}
-                    onChange={(v) => setFilters({ ...filters, apiKey: v })}
-                  />
-                </div>
-              )}
-              <div className="w-full sm:w-60">
-                <SearchInput
-                  placeholder="Filter by Model..."
-                  value={filters.incomingModelAlias}
-                  onChange={(v) => setFilters({ ...filters, incomingModelAlias: v })}
-                />
-              </div>
-              <div className="w-full sm:w-48">
-                <SearchInput
-                  placeholder="Filter by Provider..."
-                  value={filters.provider}
-                  onChange={(v) => setFilters({ ...filters, provider: v })}
-                />
-              </div>
-              <Button type="submit" variant="primary">
-                Search
-              </Button>
-            </div>
-            {isAdmin && (
-              <Button
-                onClick={handleDeleteAll}
-                variant="danger"
-                leftIcon={<Trash2 size={16} />}
-                disabled={logs.length === 0}
-                type="button"
-              >
-                Delete All
-              </Button>
-            )}
-          </form>
-        </div>
-
-        <div className="overflow-x-auto -mx-3 px-3">
-          <table className="w-full border-collapse font-body text-[13px]">
-            <thead>
-              <tr className="text-center border-b border-border">
-                <th className="px-2 py-1.5 text-center border-b border-border-glass border-r border-r-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap">
-                  {renderSortableHeader('Date', 'date')}
-                </th>
-                <th className="px-2 py-1.5 text-center border-b border-border-glass border-r border-r-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap">
-                  {renderSortableHeader('Key', 'apiKey')}
-                </th>
-                <th className="px-2 py-1.5 text-center border-b border-border-glass border-r border-r-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap">
-                  API
-                </th>
-                <th className="px-2 py-1.5 text-center border-b border-border-glass border-r border-r-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap">
-                  {renderSortableHeader('Model', 'incomingModelAlias')}
-                </th>
-                {/* <th style={{ padding: '6px' }}>Provider</th> */}
-                <th
-                  className="px-2 py-1.5 text-center border-b border-border-glass border-r border-r-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap"
-                  style={{ width: '125px' }}
-                >
-                  Tokens
-                </th>
-                <th
-                  className="px-2 py-1.5 text-center border-b border-border-glass border-r border-r-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap"
-                  style={{ minWidth: '70px' }}
-                >
-                  {renderSortableHeader('Cost', 'costTotal')}
-                </th>
-                <th className="px-2 py-1.5 text-center border-b border-border-glass border-r border-r-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap">
-                  {renderSortableHeader('Perf', 'durationMs')}
-                </th>
-                <th className="px-2 py-1.5 text-center border-b border-border-glass border-r border-r-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap">
-                  Meta
-                </th>
-                <th className="px-2 py-1.5 text-center border-b border-border-glass border-r border-r-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap">
-                  Status
-                </th>
-                <th className="px-2 py-1.5 text-center border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider whitespace-nowrap">
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <Trash2 size={12} />
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={11} className="p-5 text-center">
-                    Loading...
-                  </td>
-                </tr>
-              ) : logs.length === 0 ? (
-                <tr>
-                  <td colSpan={11} className="p-5 text-center">
-                    No logs found
-                  </td>
-                </tr>
-              ) : (
-                logs.map((log) => (
-                  <tr
-                    key={log.requestId}
-                    className={clsx(
-                      'group border-b border-border-glass hover:bg-bg-hover',
-                      log.requestId === newestLogId && 'animate-slide-in'
-                    )}
-                    style={{
-                      height: '86px',
-                      backgroundColor:
-                        log.responseStatus === 'pending' ? 'rgba(234, 179, 8, 0.08)' : undefined,
-                    }}
-                  >
-                    <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle whitespace-nowrap">
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {(() => {
-                          const formatted = formatDateSafely(log.date);
-                          return (
-                            <>
-                              <span style={{ fontWeight: '500' }}>{formatted.time}</span>
-                              <span
-                                style={{
-                                  color: 'var(--color-text-secondary)',
-                                  fontSize: '0.85em',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {formatted.date}
-                              </span>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </td>
-                    <td
-                      className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle"
-                      title={log.sourceIp ? `IP: ${log.sourceIp}` : undefined}
-                      style={log.sourceIp ? { cursor: 'help' } : undefined}
-                    >
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontWeight: '500' }}>{log.apiKey || '-'}</span>
-                        {log.attribution && (
-                          <span
-                            style={{ color: 'var(--color-text-secondary)', fontSize: '0.85em' }}
-                          >
-                            {log.attribution}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td
-                      className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle whitespace-nowrap"
-                      title={`Incoming: ${log.incomingApiType || '?'} → Outgoing: ${log.outgoingApiType || '?'} • ${log.isStreamed ? 'Streamed' : 'Non-streamed'} • ${log.isPassthrough ? 'Direct/Passthrough' : 'Translated'}`}
-                      style={{ cursor: 'help' }}
-                    >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        {/* API type icons */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                          <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                            {log.incomingApiType === 'embeddings' ? (
-                              <Variable size={16} className="text-green-500" />
-                            ) : log.incomingApiType === 'transcriptions' ? (
-                              <AudioLines size={16} className="text-purple-500" />
-                            ) : log.incomingApiType === 'speech' ? (
-                              <Volume2 size={16} className="text-orange-500" />
-                            ) : log.incomingApiType === 'images' ? (
-                              <ImageIcon size={16} className="text-fuchsia-500" />
-                            ) : log.incomingApiType === 'responses' ? (
-                              <MessagesSquare size={16} className="text-cyan-500" />
-                            ) : log.incomingApiType === 'oauth' ? (
-                              <ShieldCheck size={16} className="text-emerald-500" />
-                            ) : log.incomingApiType && apiLogos[log.incomingApiType] ? (
-                              <img
-                                src={apiLogos[log.incomingApiType]}
-                                alt={log.incomingApiType}
-                                style={{ width: '16px', height: '16px' }}
-                              />
-                            ) : (
-                              '?'
-                            )}
-                          </div>
-                          <span style={{ width: '14px', textAlign: 'center' }}>→</span>
-                          <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                            {log.outgoingApiType === 'embeddings' ? (
-                              <Variable size={16} className="text-green-500" />
-                            ) : log.outgoingApiType === 'transcriptions' ? (
-                              <AudioLines size={16} className="text-purple-500" />
-                            ) : log.outgoingApiType === 'speech' ? (
-                              <Volume2 size={16} className="text-orange-500" />
-                            ) : log.outgoingApiType === 'images' ? (
-                              <ImageIcon size={16} className="text-fuchsia-500" />
-                            ) : log.outgoingApiType === 'responses' ? (
-                              <MessagesSquare size={16} className="text-cyan-500" />
-                            ) : log.outgoingApiType === 'oauth' ? (
-                              <ShieldCheck size={16} className="text-emerald-500" />
-                            ) : log.outgoingApiType && apiLogos[log.outgoingApiType] ? (
-                              <img
-                                src={apiLogos[log.outgoingApiType]}
-                                alt={log.outgoingApiType}
-                                style={{ width: '16px', height: '16px' }}
-                              />
-                            ) : (
-                              '?'
-                            )}
-                          </div>
-                        </div>
-                        <div
-                          style={{
-                            borderTop: '1px solid var(--color-border-glass)',
-                            margin: '1px 4px',
-                            width: '44px',
-                          }}
-                        ></div>
-                        {/* Streaming/Passthrough icons */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                          <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                            {log.isStreamed ? (
-                              <Zap size={12} className="text-blue-400" />
-                            ) : (
-                              <ZapOff size={12} className="text-gray-400" />
-                            )}
-                          </div>
-                          <span style={{ width: '14px' }}></span>
-                          <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                            {log.isPassthrough ? (
-                              <MoveHorizontal size={12} className="text-yellow-500" />
-                            ) : (
-                              <Languages size={12} className="text-purple-400" />
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Vision Fallthrough icons */}
-                        {(log.isVisionFallthrough || log.isDescriptorRequest) && (
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '2px',
-                              marginTop: '2px',
-                            }}
-                          >
-                            <div
-                              style={{ width: '16px', display: 'flex', justifyContent: 'center' }}
-                            >
-                              {log.isVisionFallthrough && (
-                                <div
-                                  title={`Vision Fallthrough${log.visionFallthroughModel ? ` via ${log.visionFallthroughModel}` : ''} (Images converted to text)`}
-                                >
-                                  <ScanSearch size={12} className="text-amber-500" />
-                                </div>
-                              )}
-                            </div>
-                            <span style={{ width: '14px' }}></span>
-                            <div
-                              style={{ width: '16px', display: 'flex', justifyContent: 'center' }}
-                            >
-                              {log.isDescriptorRequest && (
-                                <div title="Descriptor Request (Generated image description)">
-                                  <Eye size={12} className="text-blue-500" />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle whitespace-nowrap">
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <div className="group/model flex items-center gap-1">
-                          <span>{log.incomingModelAlias || '-'}</span>
-                          {log.incomingModelAlias && log.incomingModelAlias !== '-' && (
-                            <button
-                              onClick={async () => {
-                                if (!isClipboardAvailable()) return;
-                                await copyToClipboard(log.incomingModelAlias || '');
-                              }}
-                              className="opacity-0 group-hover/model:opacity-100 transition-opacity bg-transparent border-0 cursor-pointer p-0 flex items-center disabled:opacity-0"
-                              title={
-                                isClipboardAvailable()
-                                  ? 'Copy incoming model alias'
-                                  : 'Copy requires HTTPS'
-                              }
-                              disabled={!isClipboardAvailable()}
-                            >
-                              <Copy size={12} className="text-text-secondary hover:text-text" />
-                            </button>
-                          )}
-                        </div>
-                        <div className="group/selected flex items-center gap-1">
-                          <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9em' }}>
-                            {log.provider || '-'}:{log.selectedModelName || '-'}
-                          </span>
-                          {log.selectedModelName && log.selectedModelName !== '-' && (
-                            <button
-                              onClick={async () => {
-                                if (!isClipboardAvailable()) return;
-                                await copyToClipboard(log.selectedModelName || '');
-                              }}
-                              className="opacity-0 group-hover/selected:opacity-100 transition-opacity bg-transparent border-0 cursor-pointer p-0 flex items-center disabled:opacity-0"
-                              title={
-                                isClipboardAvailable()
-                                  ? 'Copy selected model name'
-                                  : 'Copy requires HTTPS'
-                              }
-                              disabled={!isClipboardAvailable()}
-                            >
-                              <Copy size={10} className="text-text-secondary hover:text-text" />
-                            </button>
-                          )}
-                        </div>
-                        {log.isVisionFallthrough && log.visionFallthroughModel && (
-                          <div
-                            className="group/vft flex items-center gap-1"
-                            title="Vision fallthrough descriptor model"
-                          >
-                            <ScanSearch size={10} className="text-amber-500 shrink-0" />
-                            <span
-                              style={{ color: 'var(--color-text-secondary)', fontSize: '0.8em' }}
-                            >
-                              {log.visionFallthroughModel}
-                            </span>
-                            <button
-                              onClick={async () => {
-                                if (!isClipboardAvailable()) return;
-                                await copyToClipboard(log.visionFallthroughModel || '');
-                              }}
-                              className="opacity-0 group-hover/vft:opacity-100 transition-opacity bg-transparent border-0 cursor-pointer p-0 flex items-center disabled:opacity-0"
-                              title={
-                                isClipboardAvailable()
-                                  ? 'Copy fallthrough model name'
-                                  : 'Copy requires HTTPS'
-                              }
-                              disabled={!isClipboardAvailable()}
-                            >
-                              <Copy size={10} className="text-text-secondary hover:text-text" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td
-                      className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle"
-                      title={`Input: ${(log.tokensInput || 0) === 0 ? '-' : formatLargeNumber(log.tokensInput || 0)} • Output: ${(log.tokensOutput || 0) === 0 ? '-' : formatLargeNumber(log.tokensOutput || 0)} • Reasoning: ${(log.tokensReasoning || 0) === 0 ? '-' : formatLargeNumber(log.tokensReasoning || 0)} • Cached: ${(log.tokensCached || 0) === 0 ? '-' : formatLargeNumber(log.tokensCached || 0)} • Cache Write: ${(log.tokensCacheWrite || 0) === 0 ? '-' : formatLargeNumber(log.tokensCacheWrite || 0)}${log.tokensEstimated ? ' • * = Estimated' : ''}`}
-                      style={{ cursor: 'help' }}
-                    >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        {/* Row 1: Input and Reasoning */}
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <CloudUpload size={12} className="text-blue-400" />
-                            <span
-                              style={{ fontWeight: '500', fontSize: '0.9em', minWidth: '30px' }}
-                            >
-                              {(log.tokensInput || 0) === 0
-                                ? '-'
-                                : formatLargeNumber(log.tokensInput || 0)}
-                              {log.tokensEstimated ? (
-                                <sup style={{ fontSize: '0.7em', opacity: 0.6 }}>*</sup>
-                              ) : null}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <BrainCog size={12} className="text-purple-400" />
-                            <span
-                              style={{
-                                color: 'var(--color-text-secondary)',
-                                fontSize: '0.85em',
-                                minWidth: '30px',
-                              }}
-                            >
-                              {(log.tokensReasoning || 0) === 0
-                                ? '-'
-                                : formatLargeNumber(log.tokensReasoning || 0)}
-                              {log.tokensEstimated ? (
-                                <sup style={{ fontSize: '0.7em', opacity: 0.6 }}>*</sup>
-                              ) : null}
-                            </span>
-                          </div>
-                        </div>
-                        {/* Row 2: Output and Cache */}
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <CloudDownload size={12} className="text-green-400" />
-                            <span
-                              style={{ fontWeight: '500', fontSize: '0.9em', minWidth: '30px' }}
-                            >
-                              {(log.tokensOutput || 0) === 0
-                                ? '-'
-                                : formatLargeNumber(log.tokensOutput || 0)}
-                              {log.tokensEstimated ? (
-                                <sup style={{ fontSize: '0.7em', opacity: 0.6 }}>*</sup>
-                              ) : null}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <PackageOpen size={12} className="text-orange-400" />
-                            <span
-                              style={{
-                                color: 'var(--color-text-secondary)',
-                                fontSize: '0.85em',
-                                minWidth: '30px',
-                              }}
-                            >
-                              {(log.tokensCached || 0) === 0
-                                ? '-'
-                                : formatLargeNumber(log.tokensCached || 0)}
-                              {log.tokensEstimated ? (
-                                <sup style={{ fontSize: '0.7em', opacity: 0.6 }}>*</sup>
-                              ) : null}
-                            </span>
-                          </div>
-                        </div>
-                        {/* Row 3: Cache Write */}
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <PencilLine size={12} className="text-fuchsia-400" />
-                            <span
-                              style={{
-                                color: 'var(--color-text-secondary)',
-                                fontSize: '0.85em',
-                                minWidth: '30px',
-                              }}
-                            >
-                              {(log.tokensCacheWrite || 0) === 0
-                                ? '-'
-                                : formatLargeNumber(log.tokensCacheWrite || 0)}
-                              {log.tokensEstimated ? (
-                                <sup style={{ fontSize: '0.7em', opacity: 0.6 }}>*</sup>
-                              ) : null}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-2 py-1.5 border-b border-border-glass text-text align-middle">
-                      {log.costTotal !== undefined && log.costTotal !== null ? (
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                          {/* Left side: Total cost */}
-                          <div style={{ minWidth: '50px' }}>
-                            {log.costSource ? (
-                              <CostToolTip source={log.costSource} costMetadata={log.costMetadata}>
-                                <span style={{ fontWeight: '500', cursor: 'help' }}>
-                                  {log.costTotal === 0 ? '∅' : formatCost(log.costTotal)}
-                                </span>
-                              </CostToolTip>
-                            ) : (
-                              <span style={{ fontWeight: '500' }}>
-                                {log.costTotal === 0 ? '∅' : formatCost(log.costTotal)}
-                              </span>
-                            )}
-                          </div>
-                          {/* Right side: Breakdown */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <CloudUpload size={10} className="text-blue-400" />
-                              <span
-                                style={{
-                                  color: 'var(--color-text-secondary)',
-                                  fontSize: '0.85em',
-                                  minWidth: '35px',
-                                }}
-                              >
-                                {log.costInput === 0 ? '∅' : formatCost(log.costInput || 0)}
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <CloudDownload size={10} className="text-green-400" />
-                              <span
-                                style={{
-                                  color: 'var(--color-text-secondary)',
-                                  fontSize: '0.85em',
-                                  minWidth: '35px',
-                                }}
-                              >
-                                {log.costOutput === 0 ? '∅' : formatCost(log.costOutput || 0)}
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <PackageOpen size={10} className="text-orange-400" />
-                              <span
-                                style={{
-                                  color: 'var(--color-text-secondary)',
-                                  fontSize: '0.85em',
-                                  minWidth: '35px',
-                                }}
-                              >
-                                {log.costCached === 0 ? '∅' : formatCost(log.costCached || 0)}
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <PencilLine size={10} className="text-fuchsia-400" />
-                              <span
-                                style={{
-                                  color: 'var(--color-text-secondary)',
-                                  fontSize: '0.85em',
-                                  minWidth: '35px',
-                                }}
-                              >
-                                {log.costCacheWrite === 0
-                                  ? '∅'
-                                  : formatCost(log.costCacheWrite || 0)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <span style={{ color: 'var(--color-text-secondary)', fontSize: '1.2em' }}>
-                          ∅
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle whitespace-nowrap">
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span>Duration: {formatMs(log.durationMs)}</span>
-                        <span
-                          style={{
-                            color: 'var(--color-text-secondary)',
-                            fontSize: '0.85em',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {log.ttftMs && log.ttftMs > 0 ? `TTFT: ${formatMs(log.ttftMs)}` : ''}
-                        </span>
-                        <span
-                          style={{
-                            color: 'var(--color-text-secondary)',
-                            fontSize: '0.85em',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {log.tokensPerSec && log.tokensPerSec > 0
-                            ? `TPS: ${formatTPS(log.tokensPerSec)}`
-                            : ''}
-                        </span>
-                      </div>
-                    </td>
-                    <td
-                      className="px-2 py-1.5 text-center border-b border-border-glass text-text align-middle"
-                      title={
-                        log.kwhUsed != null && log.kwhUsed > 0
-                          ? `Energy: ${formatEnergy(log.kwhUsed)} ≈ ${formatSlices(log.kwhUsed / KWH_PER_SLICE)} toast slices`
-                          : undefined
-                      }
-                      style={
-                        log.kwhUsed != null && log.kwhUsed > 0 ? { cursor: 'help' } : undefined
-                      }
-                    >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        {/* Row 1: Messages and Tool calls */}
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                          <div
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                            className="text-blue-400"
-                          >
-                            <MessagesSquare size={12} />
-                            <span
-                              style={{ fontWeight: '500', fontSize: '0.9em', minWidth: '20px' }}
-                            >
-                              {log.messageCount || 0}
-                            </span>
-                          </div>
-                          <div
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                            className="text-green-400"
-                          >
-                            <PlugZap size={12} />
-                            <span
-                              style={{
-                                color: 'var(--color-text-secondary)',
-                                fontSize: '0.85em',
-                                minWidth: '20px',
-                              }}
-                            >
-                              {log.toolCallsCount || 0}
-                            </span>
-                          </div>
-                        </div>
-                        {/* Row 2: Tools defined and Finish reason */}
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                          <div
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                            className="text-orange-400"
-                          >
-                            <Wrench size={12} />
-                            <span
-                              style={{ fontWeight: '500', fontSize: '0.9em', minWidth: '20px' }}
-                            >
-                              {log.toolsDefined || 0}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            {log.finishReason === 'end_turn' ? (
-                              <CirclePause size={12} className="text-yellow-500" />
-                            ) : log.finishReason === 'stop' ? (
-                              <Octagon size={12} className="text-red-500" />
-                            ) : log.finishReason === 'tool_calls' ? (
-                              <Hammer size={12} className="text-purple-500" />
-                            ) : log.finishReason === 'length' ||
-                              log.finishReason === 'max_tokens' ? (
-                              <RulerDimensionLine size={12} className="text-pink-400" />
-                            ) : (
-                              <ChevronDown size={12} className="text-gray-400" />
-                            )}
-                            <span
-                              style={{
-                                color: 'var(--color-text-secondary)',
-                                fontSize: '0.85em',
-                                minWidth: '20px',
-                              }}
-                            >
-                              {log.finishReason || '-'}
-                            </span>
-                          </div>
-                        </div>
-                        {/* Row 3: Retry indicator */}
-                        {log.attemptCount && log.attemptCount > 1 && (
-                          <div style={{ display: 'flex', gap: '16px' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleRetryDetails(log)}
-                              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                              className="text-orange-500 bg-transparent border-0 p-0 cursor-pointer hover:text-orange-400 transition-colors"
-                              title="View retry history"
-                            >
-                              <RotateCcw size={12} />
-                              <span
-                                style={{ fontWeight: '500', fontSize: '0.9em', minWidth: '20px' }}
-                              >
-                                {log.attemptCount}x
-                              </span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle">
-                      <div className="flex gap-2 items-center">
-                        {log.hasError && (
-                          <button
-                            onClick={() =>
-                              navigate('/errors', { state: { requestId: log.requestId } })
-                            }
-                            className={clsx(
-                              'inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-xl text-xs font-medium cursor-pointer transition-all duration-200 border',
-                              'text-danger border-danger/30 bg-red-500/15 hover:bg-red-500/25'
-                            )}
-                            style={{ width: '52px' }}
-                            title="View Error Details"
-                          >
-                            <AlertTriangle size={12} />
-                            <span style={{ fontWeight: 600 }}>✗</span>
-                          </button>
-                        )}
-                        {log.hasDebug && (
-                          <button
-                            onClick={() =>
-                              navigate('/debug', { state: { requestId: log.requestId } })
-                            }
-                            className={clsx(
-                              'inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-xl text-xs font-medium cursor-pointer transition-all duration-200 border',
-                              'text-blue-400 border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25'
-                            )}
-                            style={{ width: '52px' }}
-                            title="View Debug Trace"
-                          >
-                            <Bug size={12} />
-                            <span style={{ fontWeight: 600 }}>✓</span>
-                          </button>
-                        )}
-                        {!log.hasError && !log.hasDebug && (
-                          <div
-                            className={clsx(
-                              'inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-xl text-xs font-medium border',
-                              log.responseStatus === 'success'
-                                ? 'text-success border-success/30 bg-emerald-500/15'
-                                : log.responseStatus === 'pending'
-                                  ? 'text-warning border-warning/30 bg-yellow-500/15'
-                                  : 'text-danger border-danger/30 bg-red-500/15'
-                            )}
-                            style={{ width: '52px' }}
-                          >
-                            {log.responseStatus === 'success' ? (
-                              <span style={{ fontWeight: 600 }}>✓</span>
-                            ) : log.responseStatus === 'pending' ? (
-                              <Plane size={12} className="animate-pulse" />
-                            ) : (
-                              <span style={{ fontWeight: 600 }}>✗</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-2 py-1.5 text-left border-b border-border-glass text-text align-middle">
-                      <button
-                        onClick={() => handleDelete(log.requestId)}
-                        className="bg-transparent border-0 text-text-muted p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-red-600/10 hover:text-danger group-hover:opacity-100 opacity-0"
-                        title="Delete log"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex justify-end items-center mt-5 gap-3">
-          <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
-            Page {currentPage} of {Math.max(1, totalPages)}
-          </span>
-          <div className="flex gap-1">
-            <Button
-              variant="secondary"
-              disabled={offset === 0}
-              onClick={() => setOffset(Math.max(0, offset - limit))}
-            >
-              <ChevronLeft size={16} />
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={offset + limit >= total}
-              onClick={() => setOffset(offset + limit)}
-            >
-              <ChevronRight size={16} />
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      <Modal
-        isOpen={isRetryModalOpen}
-        onClose={() => setIsRetryModalOpen(false)}
-        title="Retry History"
-        footer={
-          <Button variant="secondary" onClick={() => setIsRetryModalOpen(false)}>
-            Close
+        actions={
+          <Button variant="outline" size="sm" onClick={() => navigate('/logs')}>
+            <ChevronLeft strokeWidth={1.75} /> Back to logs
           </Button>
         }
+        rail={selectedRecord ? <RailMeta record={selectedRecord} /> : <Skeleton className="h-32" />}
       >
-        <div className="flex flex-col gap-4">
-          <div className="text-sm text-text-secondary">
-            <div>
-              Request: <span className="text-text">{selectedRetryLog?.requestId || '-'}</span>
-            </div>
-            <div>
-              Attempts: <span className="text-text">{selectedRetryLog?.attemptCount || 1}</span>
-            </div>
-          </div>
-
-          {selectedRetryHistory.length === 0 ? (
-            <div className="text-sm text-text-secondary">
-              No retry history is available for this request.
-            </div>
+        <div className="rounded-lg border border-border bg-surface">
+          {selectedRecord ? (
+            <LogDetail record={selectedRecord} />
           ) : (
-            <div className="flex flex-col gap-3 max-h-96 overflow-y-auto">
-              {selectedRetryHistory.map((attempt) => (
-                <div
-                  key={`${attempt.index}-${attempt.provider}-${attempt.model}`}
-                  className={clsx(
-                    'rounded-lg border p-3',
-                    attempt.status === 'success'
-                      ? 'border-emerald-500/30 bg-emerald-500/10'
-                      : attempt.status === 'skipped'
-                        ? 'border-yellow-500/30 bg-yellow-500/10'
-                        : 'border-red-500/30 bg-red-500/10'
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="font-medium text-sm text-text">
-                      Attempt {attempt.index}: {attempt.provider}/{attempt.model}
-                    </div>
-                    <div className="text-xs uppercase tracking-wide text-text-secondary">
-                      {attempt.status}
-                    </div>
-                  </div>
-                  <div className="text-sm text-text-secondary">
-                    <div>API: {attempt.apiType || '-'}</div>
-                    {attempt.statusCode ? <div>Status Code: {attempt.statusCode}</div> : null}
-                    {attempt.retryable !== undefined ? (
-                      <div>Retryable: {attempt.retryable ? 'yes' : 'no'}</div>
-                    ) : null}
-                    <div className="mt-2 text-text">{attempt.reason}</div>
-                  </div>
-                </div>
-              ))}
+            <div className="p-6">
+              <Skeleton className="h-64" />
             </div>
           )}
         </div>
-      </Modal>
+      </DetailPage>
+    );
+  }
 
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        title="Confirm Deletion"
-        footer={
+  return (
+    <>
+      <ListPage
+        title="Request Logs"
+        subtitle={
+          principal?.role === 'limited' && principal.keyName
+            ? `Scoped to key "${principal.keyName}".`
+            : 'Recent inference requests across all providers.'
+        }
+        actions={
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={isFetching ? 'animate-spin' : undefined} strokeWidth={1.75} />
+            Refresh
+          </Button>
+        }
+        filters={
           <>
-            <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={confirmDelete} disabled={isDeleting}>
-              {isDeleting ? 'Deleting...' : 'Delete Logs'}
-            </Button>
+            {WINDOW_OPTIONS.map((opt) => (
+              <FilterChip
+                key={opt.value}
+                label={opt.label}
+                active={timeWindow === opt.value}
+                onClick={() => {
+                  setTimeWindow(opt.value);
+                  setPage(0);
+                }}
+              />
+            ))}
+            <span className="ml-auto text-[11px] text-foreground-subtle">
+              {total > 0
+                ? `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} of ${total}`
+                : '—'}
+            </span>
           </>
         }
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p>Select which logs you would like to delete:</p>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="radio"
-              id="delete-older"
-              name="deleteMode"
-              checked={deleteMode === 'older'}
-              onChange={() => setDeleteMode('older')}
-            />
-            <label htmlFor="delete-older">Delete logs older than</label>
-            <Input
-              type="number"
-              min="1"
-              value={olderThanDays}
-              onChange={(e) => setOlderThanDays(parseInt(e.target.value) || 1)}
-              style={{ width: '60px', padding: '4px 8px' }}
-              disabled={deleteMode !== 'older'}
-            />
-            <span>days</span>
+        {isError ? (
+          <div className="rounded-lg border border-danger/40 bg-danger-subtle px-4 py-3">
+            <p className="text-sm font-medium text-danger">Failed to load logs</p>
+            <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
+              Retry
+            </Button>
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="radio"
-              id="delete-all"
-              name="deleteMode"
-              checked={deleteMode === 'all'}
-              onChange={() => setDeleteMode('all')}
-            />
-            <label htmlFor="delete-all" style={{ color: 'var(--color-danger)' }}>
-              Delete ALL logs (Cannot be undone)
-            </label>
+        ) : isLoading && records.length === 0 ? (
+          <div className="overflow-hidden rounded-lg border border-border bg-surface p-3">
+            <div className="space-y-1">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
           </div>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={isSingleDeleteModalOpen}
-        onClose={() => setIsSingleDeleteModalOpen(false)}
-        title="Confirm Deletion"
-        footer={
+        ) : records.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-6 py-16 text-center">
+            <h2 className="text-base font-medium text-foreground">No requests in this window</h2>
+            <p className="text-sm text-foreground-muted">
+              Once a client hits /v1/chat/completions, you'll see them here.
+            </p>
+          </div>
+        ) : (
           <>
-            <Button variant="secondary" onClick={() => setIsSingleDeleteModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={confirmDeleteSingle} disabled={isDeleting}>
-              {isDeleting ? 'Deleting...' : 'Delete Log'}
-            </Button>
+            <LogTable
+              records={records}
+              selectedId={routeId ?? null}
+              onSelect={(r) => navigate(`/logs/${r.requestId}`)}
+            />
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+              >
+                <ChevronLeft strokeWidth={1.75} /> Newer
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={(page + 1) * PAGE_SIZE >= total}
+              >
+                Older <ChevronRight strokeWidth={1.75} />
+              </Button>
+            </div>
           </>
-        }
-      >
-        <p>
-          Are you sure you want to delete log <strong>{selectedLogIdForDelete}</strong>? This action
-          cannot be undone.
-        </p>
-      </Modal>
-    </PageContainer>
+        )}
+      </ListPage>
+
+      <LogDetailSheet
+        record={selectedRecord}
+        open={!!routeId && !!selectedRecord && !isFullPageMode}
+        onClose={() => navigate('/logs')}
+      />
+    </>
   );
 };
+
+const FilterChip: React.FC<{
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}> = ({ label, active, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={cn(
+      'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-colors',
+      active
+        ? 'bg-accent-subtle text-accent'
+        : 'text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
+    )}
+  >
+    {label}
+  </button>
+);
+
+const RailMeta: React.FC<{ record: UsageRecord }> = ({ record }) => (
+  <dl className="space-y-2 text-xs">
+    <div>
+      <dt className="text-foreground-subtle">ID</dt>
+      <dd className="break-all font-mono text-foreground">{record.requestId}</dd>
+    </div>
+    <div>
+      <dt className="text-foreground-subtle">Status</dt>
+      <dd>
+        <Pill
+          size="sm"
+          tone={
+            parseInt(record.responseStatus ?? '0', 10) >= 500
+              ? 'danger'
+              : parseInt(record.responseStatus ?? '0', 10) >= 400
+                ? 'warning'
+                : 'success'
+          }
+        >
+          {record.responseStatus ?? '—'}
+        </Pill>
+      </dd>
+    </div>
+    <div>
+      <dt className="text-foreground-subtle">Started</dt>
+      <dd className="font-mono tabular-nums text-foreground">
+        {record.date ?? new Date(record.startTime).toISOString()}
+      </dd>
+    </div>
+    <div>
+      <dt className="text-foreground-subtle">Provider</dt>
+      <dd className="text-foreground">{record.provider ?? '—'}</dd>
+    </div>
+    <div>
+      <dt className="text-foreground-subtle">Model</dt>
+      <dd className="break-all font-mono text-foreground">
+        {record.selectedModelName ?? record.incomingModelAlias ?? '—'}
+      </dd>
+    </div>
+  </dl>
+);

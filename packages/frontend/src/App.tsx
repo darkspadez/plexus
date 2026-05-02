@@ -58,6 +58,7 @@ const AppRoutes = () => {
                 {/* Accessible to both admin and limited users */}
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/logs" element={<Logs />} />
+                <Route path="/logs/:id" element={<Logs />} />
                 <Route path="/debug" element={<Debug />} />
                 <Route path="/errors" element={<Errors />} />
                 <Route path="/me" element={<MyKey />} />
