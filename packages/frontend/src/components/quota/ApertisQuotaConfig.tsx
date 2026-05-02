@@ -1,6 +1,6 @@
 import React from 'react';
 import { Input } from '../ui/Input';
-import { Select } from '../ui/Select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui-v2/select';
 
 export interface ApertisQuotaConfigProps {
   options: Record<string, unknown>;
@@ -29,12 +29,16 @@ export const ApertisQuotaConfig: React.FC<ApertisQuotaConfigProps> = ({ options,
         <label className="text-[13px] font-medium text-foreground-muted">Quota Source</label>
         <Select
           value={(options.mode as string) ?? 'subscription'}
-          onChange={(val) => onChange({ ...options, mode: val })}
-          options={[
-            { value: 'subscription', label: 'Subscription (quota only)' },
-            { value: 'payg', label: 'PAYG (balance only)' },
-          ]}
-        />
+          onValueChange={(val) => onChange({ ...options, mode: val })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="subscription">Subscription (quota only)</SelectItem>
+            <SelectItem value="payg">PAYG (balance only)</SelectItem>
+          </SelectContent>
+        </Select>
         <span className="text-[10px] text-foreground-muted">
           Subscription mode monitors the plan quota and triggers cooldowns when exhausted. PAYG mode
           only tracks the prepaid balance, ignoring the subscription.
