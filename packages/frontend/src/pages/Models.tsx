@@ -36,6 +36,7 @@ import {
 } from '../components/ui-v2/dialog';
 import { Switch } from '../components/ui-v2/switch';
 import { Input } from '../components/ui-v2/input';
+import { SearchInput } from '../components/ui-v2/search-input';
 import { EmptyState } from '../components/ui-v2/empty-state';
 import { ListPage } from '../components/templates';
 import { useToast } from '../contexts/ToastContext';
@@ -56,12 +57,15 @@ import {
   Eye,
   AlertTriangle,
   Cpu,
+  Network,
+  RefreshCw,
 } from 'lucide-react';
 
 export const Models = () => {
   const toast = useToast();
   const {
     aliases,
+    allAliases,
     providers,
     availableModels,
     cooldowns,
@@ -79,10 +83,19 @@ export const Models = () => {
     handleAddNew,
     handleSave: hookSave,
     handleDelete: hookDelete,
-    handleDeleteAll: hookDeleteAll,
     handleToggleTarget,
     handleTestTarget,
+    loadData,
   } = useModels();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await loadData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Modal State
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -114,8 +127,6 @@ export const Models = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [aliasToDelete, setAliasToDelete] = useState<Alias | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
-  const [isDeletingAll, setIsDeletingAll] = useState(false);
 
   // Auto Add Modal State
   const [isAutoAddModalOpen, setIsAutoAddModalOpen] = useState(false);
@@ -215,15 +226,6 @@ export const Models = () => {
       setAliasToDelete(null);
     }
     setIsDeleting(false);
-  };
-
-  const handleConfirmDeleteAll = async () => {
-    setIsDeletingAll(true);
-    const success = await hookDeleteAll();
-    if (success) {
-      setIsDeleteAllModalOpen(false);
-    }
-    setIsDeletingAll(false);
   };
 
   const updateTarget = (
@@ -919,9 +921,18 @@ export const Models = () => {
   return (
     <ListPage
       title="Models"
-      subtitle={
-        <span className="inline-flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-surface-elevated border border-border">
+      subtitle="Map external model IDs to provider models and control routing fall-through."
+      actions={
+        <>
+          {allAliases.length > 0 && (
+            <SearchInput
+              placeholder="Search models…"
+              value={search}
+              onChange={setSearch}
+              className="w-full sm:w-64"
+            />
+          )}
+          <span className="inline-flex items-center gap-2 px-3 h-9 rounded-md bg-surface-elevated border border-border">
             <Eye size={14} className="text-foreground-muted" />
             <span className="text-xs font-medium text-foreground-muted">Vision Fall Through:</span>
             <select
@@ -950,42 +961,9 @@ export const Models = () => {
               )}
             </button>
           </span>
-        </span>
-      }
-      actions={
-        <>
-          <div className="w-full sm:w-64">
-            <div className="relative">
-              <Search
-                className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-foreground-subtle"
-                strokeWidth={1.75}
-                aria-hidden
-              />
-              <Input
-                placeholder="Search models…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-9 pl-8 pr-8"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  aria-label="Clear search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-foreground-muted hover:bg-surface-elevated hover:text-foreground"
-                >
-                  <X className="size-3.5" strokeWidth={1.75} />
-                </button>
-              )}
-            </div>
-          </div>
-          <Button
-            variant="danger"
-            leftIcon={<Trash2 size={16} />}
-            onClick={() => setIsDeleteAllModalOpen(true)}
-            disabled={aliases.length === 0}
-          >
-            Delete All
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+            <RefreshCw className={isRefreshing ? 'animate-spin' : undefined} strokeWidth={1.75} />
+            Refresh
           </Button>
           <Button leftIcon={<Plus size={16} />} onClick={handleAddNew}>
             Add Model
@@ -1005,13 +983,11 @@ export const Models = () => {
               </>
             }
           >
-            <Button variant="ghost" onClick={() => setSearch('')}>
-              Clear search
-            </Button>
+            <Button onClick={() => setSearch('')}>Clear search</Button>
           </EmptyState>
         ) : (
           <EmptyState
-            icon={Cpu}
+            icon={Network}
             title="No models configured"
             description="Add a model alias to expose it to API keys. An alias bundles one or more provider targets so you can fall back across upstreams."
           >
@@ -2343,29 +2319,6 @@ export const Models = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={isDeleteAllModalOpen} onOpenChange={setIsDeleteAllModalOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete all models?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove{' '}
-              <strong className="text-foreground">{aliases.length}</strong> model alias
-              {aliases.length !== 1 ? 'es' : ''} from the configuration. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingAll}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDeleteAll}
-              disabled={isDeletingAll}
-              className="bg-danger text-danger-foreground hover:bg-danger/90"
-            >
-              {isDeletingAll ? 'Deleting…' : 'Delete all'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <AlertDialogContent>

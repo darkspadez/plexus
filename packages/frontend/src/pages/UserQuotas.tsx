@@ -54,18 +54,13 @@ export const UserQuotas: React.FC = () => {
       subtitle="Rate-limit per-key usage by request count, token count, or cost."
       actions={
         <>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            aria-label="Refresh"
-          >
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={isFetching ? 'animate-spin' : undefined} strokeWidth={1.75} />
+            Refresh
           </Button>
           <Button size="sm" onClick={() => setEditing({ name: null, initial: null })}>
             <Plus strokeWidth={1.75} />
-            Add quota
+            Add Quota
           </Button>
         </>
       }
@@ -92,7 +87,7 @@ export const UserQuotas: React.FC = () => {
           description="Define a quota here, then attach it to one or more API keys from the Keys page."
         >
           <Button onClick={() => setEditing({ name: null, initial: null })}>
-            <Plus strokeWidth={1.75} /> Add quota
+            <Plus strokeWidth={1.75} /> Add Quota
           </Button>
         </EmptyState>
       ) : (

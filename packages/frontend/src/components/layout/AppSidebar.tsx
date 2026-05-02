@@ -42,6 +42,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/', label: 'Dashboard', icon: LayoutDashboard },
       { to: '/logs', label: 'Requests', icon: FileText },
+      { to: '/quotas', label: 'Quotas', icon: PieChart, adminOnly: true },
       { to: '/me', label: 'My Key', icon: UserCircle2, limitedOnly: true },
     ],
   },
@@ -50,7 +51,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/providers', label: 'Providers', icon: Server, adminOnly: true },
       { to: '/models', label: 'Models', icon: Network, adminOnly: true },
-      { to: '/quotas', label: 'Quotas', icon: PieChart, adminOnly: true },
     ],
   },
   {

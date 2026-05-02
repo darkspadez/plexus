@@ -5,7 +5,7 @@ import { ListPage } from '../components/templates';
 import { Button } from '../components/ui-v2/button';
 import { EmptyState } from '../components/ui-v2/empty-state';
 import { Skeleton } from '../components/ui-v2/skeleton';
-import { Input } from '../components/ui-v2/input';
+import { SearchInput } from '../components/ui-v2/search-input';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,28 +57,25 @@ export const Keys: React.FC = () => {
       subtitle="Manage credentials and per-key access controls."
       actions={
         <>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            aria-label="Refresh"
-          >
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={isFetching ? 'animate-spin' : undefined} strokeWidth={1.75} />
+            Refresh
           </Button>
           <Button size="sm" onClick={() => setEditing(null)}>
             <Plus strokeWidth={1.75} />
-            Add key
+            Add Key
           </Button>
         </>
       }
       filters={
-        <Input
-          placeholder="Search keys, comments, quotas…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-8 max-w-sm"
-        />
+        (data?.length ?? 0) > 0 ? (
+          <SearchInput
+            placeholder="Search keys, comments, quotas…"
+            value={search}
+            onChange={setSearch}
+            className="max-w-sm"
+          />
+        ) : undefined
       }
     >
       {isError ? (
@@ -102,9 +99,11 @@ export const Keys: React.FC = () => {
           title={search ? 'No matching keys' : 'No API keys yet'}
           description="API keys grant scoped access to providers, models, and quotas. The secret is shown only once at creation."
         >
-          {!search && (
+          {search ? (
+            <Button onClick={() => setSearch('')}>Clear search</Button>
+          ) : (
             <Button onClick={() => setEditing(null)}>
-              <Plus strokeWidth={1.75} /> Add key
+              <Plus strokeWidth={1.75} /> Add Key
             </Button>
           )}
         </EmptyState>

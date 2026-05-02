@@ -102,7 +102,7 @@ export const UserQuotaSheet: React.FC<Props> = ({ open, onOpenChange, editingNam
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[560px]">
         <SheetHeader className="border-b border-border px-6 py-4">
-          <SheetTitle>{isEditing ? `Edit ${editingName}` : 'New user quota'}</SheetTitle>
+          <SheetTitle>{isEditing ? `Edit ${editingName}` : 'New User Quota'}</SheetTitle>
           <SheetDescription>
             User quotas attach to API keys via the Keys page and rate-limit their usage by request
             count, token count, or cost.

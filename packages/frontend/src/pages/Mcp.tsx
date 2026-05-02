@@ -72,14 +72,9 @@ export const McpPage: React.FC = () => {
       subtitle="Configure Model Context Protocol upstream servers."
       actions={
         <>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            aria-label="Refresh"
-          >
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={isFetching ? 'animate-spin' : undefined} strokeWidth={1.75} />
+            Refresh
           </Button>
           <Button size="sm" onClick={() => setEditing({ name: null, initial: null })}>
             <Plus strokeWidth={1.75} />
