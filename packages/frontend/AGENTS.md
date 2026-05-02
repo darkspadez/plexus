@@ -19,18 +19,21 @@ at the repo root). Current state:
   page templates (`src/components/templates/`), new `TopBar` + `AppSidebar`
   shell, TanStack Query provider + Sonner toaster wired in. Pages migrated
   end-to-end: **Quotas** (recipe), **Dashboard** (showcase per §12.1),
-  **MyKey**, **Logs** (with `/logs/:id` Sheet pattern + JsonTree). Pages
-  with chrome-only updates (wrapped in the new ListPage but inner logic
-  unchanged): **SystemLogs**, **Keys**, **MCP**, **Models**, **Providers**,
+  **MyKey**, **Logs** (with `/logs/:id` Sheet pattern + JsonTree),
+  **MCP** (server CRUD with Sheet + react-hook-form/zod). Pages with
+  chrome-only updates (wrapped in the new ListPage but inner logic
+  unchanged): **SystemLogs**, **Keys**, **Models**, **Providers**,
   **Errors**, **Debug**.
-- **Pending**: Keys/MCP/Models/Providers content migrations (TanStack
+- **Pending**: Keys/Models/Providers content migrations (TanStack
   Query, TanStack Table, react-hook-form/zod schemas, Sheet-based
-  create flows, design-doc columns). The Models Targets editor (§12.4)
-  and the Providers OAuth multi-step Sheet (§12.6) are the most
-  involved sub-flows. These pages render correctly today via legacy
-  token aliases at the bottom of `tokens.css`. Phase 8 cleanup
-  (delete `components/ui/`, drop aliases, retire `ToastContext`) is
-  blocked until those four pages are fully migrated.
+  create flows, design-doc columns). Plus the MCP **logs sub-view**
+  (server CRUD is done; logs subsection still uses legacy components).
+  The Models Targets editor (§12.4) and the Providers OAuth multi-step
+  Sheet (§12.6) are the most involved sub-flows. These pages render
+  correctly today via legacy token aliases at the bottom of
+  `tokens.css`. Phase 8 cleanup (delete `components/ui/`, drop aliases,
+  retire `ToastContext`) is blocked until those three pages are fully
+  migrated.
 
 When building a new page or changing an existing one:
 

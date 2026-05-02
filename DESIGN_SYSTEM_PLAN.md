@@ -34,12 +34,13 @@
       chips, cursor-style Newer/Older pagination, `/logs/:id` Sheet on
       lg+ / DetailPage on smaller, `j`/`k`/`esc` keyboard nav, JsonTree
       viewer with §7.8 coloring, Request/Response/Trace/Metadata tabs.
-- [x] **Phases 6–7 (chrome only)** — Keys, MCP, Models, Providers
-      wrapped in the new ListPage template so they sit consistently
-      under the new app shell. Their internal logic (cards/modals/
-      tables) still uses legacy `components/ui/*` primitives that
-      render correctly through the legacy token aliases. **Full
-      content migrations are pending** — see "Remaining" below.
+- [x] **Phases 6–7 (mixed)** — Keys, Models, Providers wrapped in the
+      new ListPage template (chrome only); their internal logic still
+      uses legacy `components/ui/*` primitives. **MCP fully migrated**
+      (server CRUD with TanStack Table, Sheet + react-hook-form/zod
+      form, AlertDialog confirms, StatusPill, header field-array
+      editor, AlertDialog for deletes). MCP logs sub-view punted for a
+      future iteration.
 - [x] **Errors / Debug fixes** — replaced the negative-margin tricks
       that were left over from the old MainLayout's outer padding so
       content no longer overflows the viewport edge.
@@ -54,8 +55,9 @@ Remaining (legacy aliases keep these rendering until migrated):
 
 - [ ] **Phase 6 content** — Keys: split into `pages/keys/` subdir, use
       shadcn Table + react-hook-form/zod schemas, Sheet-based create
-      flow, one-time-secret display per §12.8. MCP: detail tabs (Tools,
-      Recent invocations, Settings), provider chip integration. Models:
+      flow, one-time-secret display per §12.8. MCP **logs sub-view**
+      (the server CRUD is done): a Recent Invocations panel under the
+      servers table using the existing `useMcpLogs` hook. Models:
       split into `pages/models/`, refresh the Targets editor with
       drag-to-reorder + weight inputs + live preview pane (most
       important sub-feature per §12.4).
