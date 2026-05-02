@@ -29,21 +29,20 @@ at the repo root). Current state:
   ~10K lines of legacy code removed (dashboard tabs / analytics /
   DetailedUsage / AppBar / Sidebar / 14 unused legacy `ui/*`
   components).
-- **Pending**: Models/Providers content migrations (TanStack Query,
-  TanStack Table, react-hook-form/zod schemas, Sheet-based create
-  flows, design-doc columns). The Models Targets editor (§12.4) and
-  the Providers OAuth multi-step Sheet (§12.6) are the most involved
-  sub-flows. Plus the MCP **logs sub-view** (server CRUD is done;
-  logs subsection still uses legacy components) and the User Quotas
-  surface that replaced the dropped Keys tab. The
-  `src/components/ui/` legacy directory has been deleted; the 5
-  surviving project-style form components (Input, Button, Modal,
-  TagSelect, OpenRouterSlugInput) live at `src/components/forms/`.
-  Once Models + Providers convert their Modal/Button call sites,
-  `forms/Modal` and `forms/Button` can be retired in favor of
-  `ui-v2/dialog` + `ui-v2/sheet` + `ui-v2/button`. Retire
-  `ToastContext` once those pages stop using `useToast().confirm()`;
-  trim the `lib/api.ts` 20s TTL cache that TanStack Query supersedes.
+- **Pending UX restructuring** (no infrastructure decisions left):
+  - Models alias edit form: rebuild the body markup as a §12.4
+    Targets editor (drag-reorder + weights + type-ahead "add target" +
+    live preview pane). The chrome is already a shadcn Sheet via the
+    `forms/Modal` shim.
+  - Providers provider edit form: split the dense field grid into
+    tabs (Identity, Routing, Quotas, OAuth) + extract the OAuth flow
+    into its own §12.6 multi-step Sheet (device code, polling,
+    countdown). Same — chrome is already a shadcn Sheet.
+  - Optional cosmetic pass: rewrite Models/Providers call sites to
+    import `Button`/`Input`/`Modal` from `components/ui-v2/` directly,
+    then delete the `forms/{Button,Input,Modal}.tsx` shims and the
+    `ToastContext` shim. Functionally equivalent — every shim already
+    delegates to the shadcn primitive.
 
 When building a new page or changing an existing one:
 

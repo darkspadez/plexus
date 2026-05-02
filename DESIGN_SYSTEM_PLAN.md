@@ -71,31 +71,53 @@
 
 Remaining (legacy aliases keep these rendering until migrated):
 
-- [ ] **Phase 6 content** — Models: split into `pages/models/`,
-      refresh the Targets editor with drag-to-reorder + weight inputs
-      + live preview pane (most important sub-feature per §12.4). MCP
-      **logs sub-view** (server CRUD is done): a Recent Invocations
-      panel under the servers table using the existing `useMcpLogs`
-      hook. Keys **User Quotas** management — needs a dedicated
-      surface (e.g. `/quotas?tab=user` or a `pages/users-quotas/`
-      route) to replace the dropped tab.
-- [ ] **Phase 7 content** — Providers: split into 4–6 files, full
-      migration of the OAuth multi-step Sheet (device-code flow,
-      countdown, manual cancel), restyled quota config sub-components
-      under new tokens.
-- [x] **Phase 8 finished (mostly)** — `src/components/ui/` directory
-      DELETED. Legacy token aliases dropped. Of the 24 original legacy
-      `ui/*` primitives: 19 deleted outright, 5 relocated to
-      `src/components/forms/` (Input, Button, Modal, TagSelect,
-      OpenRouterSlugInput) as sanctioned project-style components that
-      back the unmigrated Models + Providers content flows.
-
-      Remaining: retire `ToastContext` once Models/Providers stop using
-      `useToast().confirm()`, trim the `lib/api.ts` 20s TTL cache (now
-      redundant with TanStack Query), and finish the Models +
-      Providers content migrations (5 large Modals → shadcn Sheet,
-      ~43 Button calls swap to ui-v2 with leftIcon→child + isLoading→
-      manual disabled+text).
+- [ ] **§12.4 Targets editor** — Models alias edit form is now a
+      shadcn Sheet (via the forms/Modal shim), but its internal markup
+      still uses the existing in-place target list / drag-reorder. A
+      proper §12.4 implementation needs: drag-to-reorder via @dnd-kit
+      (already installed), per-target weight input (cost/latency
+      selectors), type-ahead "add target" search, and a live preview
+      pane on the right showing which target a synthetic request
+      would route to. This is genuine UX restructuring rather than
+      an infrastructure change.
+- [ ] **§12.6 OAuth multi-step Sheet** — Providers provider edit form
+      is now a shadcn Sheet (via the forms/Modal shim). The existing
+      OAuth fields (device code, polling URL, redirect handling) live
+      inline in the same form. A proper §12.6 implementation has
+      its own multi-step Sheet: choose provider → display device code
+      / paste URL → poll for completion, with a clear monospace
+      device code, copy button, expiry countdown, and manual cancel.
+      Same caveat — this is UX restructuring.
+- [x] **Phase 8 complete** — `src/components/ui/` directory DELETED.
+      Legacy token aliases dropped. Of the 24 original legacy `ui/*`
+      primitives: 19 deleted outright, 5 relocated to
+      `src/components/forms/` and reimplemented as **thin shadcn
+      shims** so unmigrated call sites continue rendering through
+      shadcn primitives even though they keep the legacy API.
+      Specifically:
+      - `forms/Button` → wraps `ui-v2/button` with the legacy
+        `variant primary/secondary/danger/ghost`, `size sm/md/lg/icon`,
+        `leftIcon`, `isLoading` props.
+      - `forms/Input` → wraps `ui-v2/input` with the legacy `label` /
+        `error` / `hint` / `leadingIcon` / `trailingAction` props.
+      - `forms/Modal` → wraps `ui-v2/dialog` for `size="sm"` (confirm
+        style) and `ui-v2/sheet` for `size="md"` / `"lg"` (create/edit
+        flows ≥ 4 fields, per §7.6). The 2 remaining unmigrated edit
+        modals (Models alias edit, Providers provider edit) both pass
+        size="lg" and so render as right-side Sheets automatically.
+      - `forms/TagSelect`, `forms/OpenRouterSlugInput` → kept as
+        provider-specific form helpers (still useful project
+        components).
+      - `ToastContext` rebuilt as a sonner + shadcn AlertDialog shim
+        so `useToast()` callers (Models, Providers, useModels) get
+        sonner toasts and design-doc-styled confirm() dialogs.
+- [x] **Added MCP Recent Invocations panel** — wires the existing
+      `useMcpLogs()` hook into a TanStack-Query log viewer under the
+      MCP servers table.
+- [x] **Added User Quotas surface** at `/user-quotas` — replaces the
+      sub-tab dropped from the Keys page during its migration. Full
+      recipe (TanStack Query + Sheet + react-hook-form + zod +
+      AlertDialog confirms).
 
 The `Quotas` migration (`src/pages/Quotas.tsx` + `src/pages/quotas/*`)
 is the recipe for List pages; the `Logs` migration (`src/pages/Logs.tsx`
