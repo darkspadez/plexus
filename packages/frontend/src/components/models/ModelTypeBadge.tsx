@@ -1,45 +1,28 @@
 import React from 'react';
-import { Badge as UIBadge } from '../ui/Badge';
-import { Alias } from '../../lib/api';
+import { Pill, type PillTone } from '../chips/Pill';
+import { cn } from '../../lib/cn';
+import type { Alias } from '../../lib/api';
 
 interface ModelTypeBadgeProps {
   type?: Alias['type'];
   className?: string;
 }
 
+const TYPE_TONE: Record<NonNullable<Alias['type']>, PillTone> = {
+  chat: 'neutral',
+  embeddings: 'success',
+  transcriptions: 'accent',
+  speech: 'warning',
+  image: 'info',
+  responses: 'info',
+};
+
 export const ModelTypeBadge: React.FC<ModelTypeBadgeProps> = ({ type, className }) => {
   const label = type || 'chat';
-
-  let status: 'connected' | 'disconnected' | 'connecting' | 'error' | 'neutral' | 'warning' =
-    'neutral';
-  let customClass = '';
-
-  switch (type) {
-    case 'embeddings':
-      status = 'connected'; // green
-      break;
-    case 'transcriptions':
-      customClass = 'text-purple-400 border-purple-500/30 bg-purple-500/15'; // purple
-      break;
-    case 'speech':
-      customClass = 'text-orange-400 border-orange-500/30 bg-orange-500/15'; // orange
-      break;
-    case 'image':
-      customClass = 'text-pink-400 border-pink-500/30 bg-pink-500/15'; // pink
-      break;
-    case 'responses':
-      customClass = 'text-cyan-400 border-cyan-500/30 bg-cyan-500/15'; // cyan
-      break;
-    default:
-      customClass = 'text-gray-400 border-gray-500/30 bg-gray-500/15';
-  }
-
+  const tone = TYPE_TONE[label as NonNullable<Alias['type']>] ?? 'neutral';
   return (
-    <UIBadge
-      status={status}
-      className={`${customClass} ${className} gap-1 px-2 py-0.5 rounded uppercase tracking-wider text-[10px]`}
-    >
+    <Pill tone={tone} size="sm" className={cn('uppercase tracking-wider', className)}>
       {label}
-    </UIBadge>
+    </Pill>
   );
 };
