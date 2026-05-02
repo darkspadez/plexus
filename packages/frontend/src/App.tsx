@@ -15,6 +15,7 @@ import { Quotas } from './pages/Quotas';
 import { McpPage } from './pages/Mcp';
 import { Login } from './pages/Login';
 import { MyKey } from './pages/MyKey';
+import { Sandbox } from './pages/Sandbox';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { ToastProvider } from './contexts/ToastContext';
@@ -60,6 +61,7 @@ const AppRoutes = () => {
                 <Route path="/debug" element={<Debug />} />
                 <Route path="/errors" element={<Errors />} />
                 <Route path="/me" element={<MyKey />} />
+                <Route path="/dev/sandbox" element={<Sandbox />} />
 
                 {/* Admin-only routes */}
                 <Route
