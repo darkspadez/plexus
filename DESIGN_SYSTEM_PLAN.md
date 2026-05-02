@@ -44,9 +44,12 @@
 - [x] **Errors / Debug fixes** — replaced the negative-margin tricks
       that were left over from the old MainLayout's outer padding so
       content no longer overflows the viewport edge.
-- [x] **Partial cleanup** — deleted legacy `components/layout/AppBar.tsx`
-      and `components/layout/Sidebar.tsx` (replaced by TopBar +
-      AppSidebar in Phases 1-2).
+- [x] **Partial cleanup (Phase 8)** — deleted ~7.5K lines of dead
+      code that the new Dashboard rewrite + new app shell made
+      redundant: the entire `components/dashboard/` subtree (4 tabs +
+      4 cards), `components/analytics/AnalyzeButton`,
+      `pages/DetailedUsage.tsx`, and the legacy
+      `components/layout/{AppBar,Sidebar}.tsx`.
 - [x] **Theme settings UI** added to `Config` page (`ThemeSection`).
 - [x] **Agent docs** — root `AGENTS.md` and `packages/frontend/AGENTS.md`
       both point at `DESIGN_SYSTEM.md` and describe the migration recipe.
@@ -65,10 +68,11 @@ Remaining (legacy aliases keep these rendering until migrated):
       migration of the OAuth multi-step Sheet (device-code flow,
       countdown, manual cancel), restyled quota config sub-components
       under new tokens.
-- [ ] **Phase 8** — Delete `src/components/ui/` legacy dir (currently
-      blocked by Errors/Debug/Keys/MCP/Models/Providers usage), drop
-      legacy token aliases at the bottom of `tokens.css`, retire
-      `ToastContext`, trim `lib/api.ts` TTL cache.
+- [ ] **Phase 8 finish** — Delete `src/components/ui/` legacy dir
+      (still imported by Errors / Debug / Keys / Models / Providers /
+      Config / SystemLogs), drop the legacy token aliases at the
+      bottom of `src/styles/tokens.css`, retire `ToastContext`, trim
+      the `lib/api.ts` TTL cache (TanStack Query owns caching now).
 
 The `Quotas` migration (`src/pages/Quotas.tsx` + `src/pages/quotas/*`)
 is the recipe for List pages; the `Logs` migration (`src/pages/Logs.tsx`
