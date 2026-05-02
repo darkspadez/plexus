@@ -84,18 +84,15 @@ import App from './App';
 import { queryClient } from './lib/queryClient';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AccentProvider } from './contexts/AccentContext';
-import { DensityProvider } from './contexts/DensityContext';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AccentProvider>
-          <DensityProvider>
-            <BrowserRouter basename="/ui">
-              <App />
-            </BrowserRouter>
-          </DensityProvider>
+          <BrowserRouter basename="/ui">
+            <App />
+          </BrowserRouter>
         </AccentProvider>
       </ThemeProvider>
     </QueryClientProvider>

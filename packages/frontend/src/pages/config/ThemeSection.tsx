@@ -3,7 +3,6 @@ import { Check } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useTheme, type ThemeMode } from '../../contexts/ThemeContext';
 import { useAccent, ACCENTS, type Accent } from '../../contexts/AccentContext';
-import { useDensity, type Density } from '../../contexts/DensityContext';
 import {
   Card,
   CardContent,
@@ -60,7 +59,6 @@ const SegmentedControl = <T extends string>({
 export const ThemeSection: React.FC = () => {
   const { mode, setMode } = useTheme();
   const { accent, setAccent } = useAccent();
-  const { density, setDensity } = useDensity();
 
   return (
     <Card>
@@ -122,24 +120,6 @@ export const ThemeSection: React.FC = () => {
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-medium text-foreground">Density</div>
-            <div className="text-xs text-foreground-muted">
-              Compact mode reduces row heights in tables.
-            </div>
-          </div>
-          <SegmentedControl<Density>
-            label="Density"
-            value={density}
-            onChange={setDensity}
-            options={[
-              { value: 'comfortable', label: 'Comfortable' },
-              { value: 'compact', label: 'Compact' },
-            ]}
-          />
         </div>
       </CardContent>
     </Card>

@@ -1,8 +1,8 @@
-import { Component, useEffect, useRef, useState } from 'react';
+import { Component, useEffect, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import Editor from '@monaco-editor/react';
 import { toast } from 'sonner';
-import { RotateCcw, AlertTriangle, Download, Upload, RefreshCw } from 'lucide-react';
+import { RotateCcw, AlertTriangle, Download, RefreshCw } from 'lucide-react';
 import { api } from '../lib/api';
 import {
   Card,
@@ -23,8 +23,6 @@ import {
   AlertDialogTitle,
 } from '../components/ui-v2/alert-dialog';
 import { FormPage } from '../components/templates';
-import type { CardLayout } from '../types/card';
-import { DEFAULT_CARD_ORDER, LAYOUT_STORAGE_KEY } from '../types/card';
 import { ThemeSection } from './config/ThemeSection';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -79,21 +77,6 @@ export const Config = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [cardLayout, setCardLayout] = useState<CardLayout>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setCardLayout(parsed);
-      } catch {
-        console.error('Failed to parse card layout');
-      }
-    }
-  }, []);
-
   const triggerDownload = (content: string, filename: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
@@ -106,53 +89,8 @@ export const Config = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportLayout = () =>
-    triggerDownload(
-      JSON.stringify(cardLayout, null, 2),
-      'plexus-card-layout.json',
-      'application/json'
-    );
-
   const handleExportConfig = () =>
     triggerDownload(config, 'plexus-config-export.json', 'application/json');
-
-  const handleImportLayout = () => fileInputRef.current?.click();
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const parsed = JSON.parse(content) as CardLayout;
-
-        if (
-          Array.isArray(parsed) &&
-          parsed.every((item) => typeof item.id === 'string' && typeof item.order === 'number')
-        ) {
-          const validIds = new Set<string>(DEFAULT_CARD_ORDER);
-          const allIdsValid = parsed.every((item: { id: string }) => validIds.has(item.id));
-          if (!allIdsValid) {
-            toast.error('Invalid card layout: contains unknown card IDs');
-            return;
-          }
-
-          localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(parsed));
-          setCardLayout(parsed);
-          toast.success('Card layout imported');
-        } else {
-          toast.error('Invalid card layout format');
-        }
-      } catch {
-        toast.error('Failed to import: Invalid JSON file');
-      }
-    };
-    reader.readAsText(file);
-
-    event.target.value = '';
-  };
 
   const confirmRestart = async () => {
     setRestartConfirmOpen(false);
@@ -217,57 +155,6 @@ export const Config = () => {
                 }}
               />
             </EditorErrorBoundary>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle>Card layout</CardTitle>
-            <CardDescription>
-              Import or export your Live Metrics card layout configuration.
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleExportLayout}>
-              <Download strokeWidth={1.75} />
-              Export
-            </Button>
-            <Button size="sm" onClick={handleImportLayout}>
-              <Upload strokeWidth={1.75} />
-              Import
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-
-          <h4 className="mb-3 text-xs font-medium uppercase tracking-wider text-foreground-subtle">
-            Current card order
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            {cardLayout.length === 0 ? (
-              <p className="text-xs italic text-foreground-subtle">
-                Default layout — no customizations saved.
-              </p>
-            ) : (
-              cardLayout.map((card, index) => (
-                <span
-                  key={card.id}
-                  className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-elevated px-3 py-1.5 text-xs text-foreground"
-                >
-                  <span className="text-foreground-subtle">{index + 1}.</span>
-                  <span className="font-mono">{card.id}</span>
-                </span>
-              ))
-            )}
           </div>
         </CardContent>
       </Card>

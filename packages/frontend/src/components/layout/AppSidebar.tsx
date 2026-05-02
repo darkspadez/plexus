@@ -23,7 +23,7 @@ import { useSidebar } from '../../contexts/SidebarContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui-v2/tooltip';
 import { PlexusMark } from '../brand/PlexusMark';
 
-interface NavItem {
+export interface NavItem {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -31,12 +31,12 @@ interface NavItem {
   limitedOnly?: boolean;
 }
 
-interface NavGroup {
+export interface NavGroup {
   label: string;
   items: NavItem[];
 }
 
-const NAV_GROUPS: NavGroup[] = [
+export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Observability',
     items: [
@@ -79,7 +79,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-const SettingsItem: NavItem = {
+export const SettingsItem: NavItem = {
   to: '/config',
   label: 'Settings',
   icon: Settings,
@@ -122,6 +122,9 @@ const NavLinkRow: React.FC<{
 export const AppSidebar: React.FC = () => {
   const { isAdmin, isLimited } = useAuth();
   const { isCollapsed, toggleSidebar } = useSidebar();
+  // @ts-expect-error — replaced at build time by build.ts
+  const appVersion: string = process.env.APP_VERSION || 'dev';
+  const versionLabel = appVersion === 'dev' ? 'Dev' : appVersion;
 
   const visibleGroups = NAV_GROUPS.map((g) => ({
     ...g,
@@ -181,9 +184,26 @@ export const AppSidebar: React.FC = () => {
           ))}
         </nav>
 
-        {/* Settings + collapse toggle pinned to bottom */}
+        {/* Settings + version + collapse toggle pinned to bottom */}
         <div className="shrink-0 border-t border-border px-2 py-2">
           {showSettings && <NavLinkRow item={SettingsItem} collapsed={isCollapsed} />}
+          {isCollapsed ? (
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <div
+                  aria-label={`Version ${versionLabel}`}
+                  className="mt-1 flex h-6 w-full items-center justify-center text-[10px] font-medium uppercase tracking-wide text-foreground-subtle"
+                >
+                  •
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right">{versionLabel}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <div className="mt-1 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-foreground-subtle">
+              {versionLabel}
+            </div>
+          )}
           <button
             type="button"
             onClick={toggleSidebar}

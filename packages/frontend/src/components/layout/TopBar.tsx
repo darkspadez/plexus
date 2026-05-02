@@ -3,8 +3,8 @@ import { Sun, Moon, Monitor, Palette, Check, LogOut, UserCircle2 } from 'lucide-
 import { cn } from '../../lib/cn';
 import { useTheme, type ThemeMode } from '../../contexts/ThemeContext';
 import { useAccent, ACCENTS, type Accent } from '../../contexts/AccentContext';
-import { useDensity } from '../../contexts/DensityContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { Breadcrumbs } from './Breadcrumbs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -113,36 +113,6 @@ const AccentPicker: React.FC = () => {
   );
 };
 
-const DensityToggle: React.FC = () => {
-  const { density, setDensity } = useDensity();
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs uppercase tracking-wide text-foreground-muted hover:text-foreground"
-          aria-label="Change density"
-        >
-          {density === 'compact' ? 'Compact' : 'Comfy'}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel className="text-foreground-subtle">Density</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => setDensity('comfortable')}>
-          <span className="flex-1">Comfortable</span>
-          {density === 'comfortable' && <Check className="size-3.5" />}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => setDensity('compact')}>
-          <span className="flex-1">Compact</span>
-          {density === 'compact' && <Check className="size-3.5" />}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};
-
 const UserMenu: React.FC = () => {
   const { principal, logout } = useAuth();
   const handleLogout = () => {
@@ -182,20 +152,12 @@ const UserMenu: React.FC = () => {
 };
 
 export const TopBar: React.FC = () => {
-  const appVersion: string =
-    // @ts-expect-error — replaced at build time by build.ts
-    process.env.APP_VERSION || 'dev';
-
   return (
     <header className="sticky top-0 z-40 flex h-12 items-center gap-2 border-b border-border bg-background/95 px-3 backdrop-blur">
-      {/* Left side reserved for the sidebar's logo column to align */}
-      <div className="flex flex-1 items-center gap-2">
-        <span className="text-[10px] font-medium uppercase tracking-wide text-foreground-subtle">
-          {appVersion === 'dev' ? 'Dev' : appVersion}
-        </span>
+      <div className="flex flex-1 items-center">
+        <Breadcrumbs />
       </div>
       <div className="flex items-center gap-1.5">
-        <DensityToggle />
         <AccentPicker />
         <ThemeToggle />
         <span className="mx-1 h-4 w-px bg-border" aria-hidden />
