@@ -13,7 +13,7 @@ import { formatMeterValue } from '../components/quota/MeterValue';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
-import { Badge } from '../components/ui/Badge';
+import { Pill } from '../components/chips/Pill';
 import { ListPage } from '../components/templates';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -1002,13 +1002,9 @@ export const Providers = () => {
     if (balanceMeter && balanceMeter.remaining !== undefined) {
       const formatted = formatMeterValue(balanceMeter.remaining, balanceMeter.unit);
       return (
-        <Badge
-          status="neutral"
-          className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2 bg-surface-elevated border border-border text-foreground-muted"
-          onClick={handleQuotaClick}
-        >
+        <Pill tone="neutral" size="sm" onClick={handleQuotaClick} className="cursor-pointer">
           {formatted}
-        </Badge>
+        </Pill>
       );
     }
 
@@ -1023,15 +1019,11 @@ export const Providers = () => {
 
     if (!primary || typeof primary.utilizationPercent !== 'number') return null;
     const pct = Math.round(primary.utilizationPercent);
-    const status = pct >= 90 ? 'error' : pct >= 70 ? 'warning' : 'connected';
+    const tone = pct >= 90 ? 'danger' : pct >= 70 ? 'warning' : 'success';
     return (
-      <Badge
-        status={status}
-        className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2"
-        onClick={handleQuotaClick}
-      >
+      <Pill tone={tone} size="sm" onClick={handleQuotaClick} className="cursor-pointer">
         {pct}%
-      </Badge>
+      </Pill>
     );
   };
 
@@ -1516,9 +1508,9 @@ export const Providers = () => {
                     >
                       Base URL Entries
                     </label>
-                    <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                    <Pill tone="neutral" size="sm">
                       {Object.keys(getApiBaseUrlMap()).length}
-                    </Badge>
+                    </Pill>
                     <Button
                       size="sm"
                       variant="secondary"
@@ -2323,9 +2315,9 @@ export const Providers = () => {
                     >
                       Custom Headers
                     </label>
-                    <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                    <Pill tone="neutral" size="sm">
                       {Object.keys(editingProvider.headers || {}).length}
-                    </Badge>
+                    </Pill>
                     <Button
                       size="sm"
                       variant="secondary"
@@ -2404,9 +2396,9 @@ export const Providers = () => {
                     >
                       Extra Body Fields
                     </label>
-                    <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                    <Pill tone="neutral" size="sm">
                       {Object.keys(editingProvider.extraBody || {}).length}
-                    </Badge>
+                    </Pill>
                     <Button
                       size="sm"
                       variant="secondary"
@@ -2577,9 +2569,9 @@ export const Providers = () => {
             >
               {isModelsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               <span style={{ fontWeight: 600, fontSize: '13px', flex: 1 }}>Provider Models</span>
-              <Badge status="connected">
+              <Pill tone="success" size="sm">
                 {Object.keys(editingProvider.models || {}).length} Models
-              </Badge>
+              </Pill>
               <Button
                 size="sm"
                 variant="secondary"
@@ -3440,12 +3432,9 @@ export const Providers = () => {
                                 >
                                   Extra Body Fields
                                 </label>
-                                <Badge
-                                  status="neutral"
-                                  style={{ fontSize: '10px', padding: '2px 8px' }}
-                                >
+                                <Pill tone="neutral" size="sm">
                                   {Object.keys(mCfg.extraBody || {}).length}
-                                </Badge>
+                                </Pill>
                                 <Button
                                   size="sm"
                                   variant="secondary"
@@ -3673,12 +3662,9 @@ export const Providers = () => {
                               {model.id}
                             </span>
                             {contextLengthK && (
-                              <Badge
-                                status="connected"
-                                style={{ fontSize: '10px', padding: '2px 6px' }}
-                              >
+                              <Pill tone="success" size="sm">
                                 {contextLengthK}
-                              </Badge>
+                              </Pill>
                             )}
                           </div>
                           {model.name && model.name !== model.id && (
