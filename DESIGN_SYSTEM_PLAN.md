@@ -52,12 +52,19 @@
 - [x] **Errors / Debug fixes** — replaced the negative-margin tricks
       that were left over from the old MainLayout's outer padding so
       content no longer overflows the viewport edge.
-- [x] **Partial cleanup (Phase 8)** — deleted ~7.5K lines of dead
-      code that the new Dashboard rewrite + new app shell made
-      redundant: the entire `components/dashboard/` subtree (4 tabs +
-      4 cards), `components/analytics/AnalyzeButton`,
-      `pages/DetailedUsage.tsx`, and the legacy
-      `components/layout/{AppBar,Sidebar}.tsx`.
+- [x] **Phase 8 (most of it)** — ~10K lines of dead code removed:
+      `components/dashboard/` subtree (4 tabs + 4 cards),
+      `components/analytics/AnalyzeButton`, `pages/DetailedUsage.tsx`,
+      `components/TotalEnergyComparison.tsx`, legacy
+      `components/layout/{AppBar,Sidebar}.tsx`, and 14 unused
+      `components/ui/*` primitives. **All legacy token aliases dropped
+      from `tokens.css` and `globals.css`** — codemod swept every
+      `.tsx`/`.ts` for legacy class names (font-body, font-heading,
+      text-h*, text-display, text-body*, text-caption, shadow-modal,
+      shadow-glow-*, shadow-nav-active, glass-bg, bg-bg-*, text-text-*,
+      border-border-glass, var(--color-bg/text/border/primary/cta/...))
+      and replaced them with the design-doc semantic names. Tokens.css
+      is now down to 207 lines and is the only source of truth.
 - [x] **Theme settings UI** added to `Config` page (`ThemeSection`).
 - [x] **Agent docs** — root `AGENTS.md` and `packages/frontend/AGENTS.md`
       both point at `DESIGN_SYSTEM.md` and describe the migration recipe.

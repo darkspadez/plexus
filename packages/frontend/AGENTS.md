@@ -29,16 +29,18 @@ at the repo root). Current state:
   ~10K lines of legacy code removed (dashboard tabs / analytics /
   DetailedUsage / AppBar / Sidebar / 14 unused legacy `ui/*`
   components).
-- **Pending**: Keys/Models/Providers content migrations (TanStack
-  Query, TanStack Table, react-hook-form/zod schemas, Sheet-based
-  create flows, design-doc columns). Plus the MCP **logs sub-view**
-  (server CRUD is done; logs subsection still uses legacy components).
-  The Models Targets editor (§12.4) and the Providers OAuth multi-step
-  Sheet (§12.6) are the most involved sub-flows. These pages render
-  correctly today via legacy token aliases at the bottom of
-  `tokens.css`. Phase 8 cleanup (delete `components/ui/`, drop aliases,
-  retire `ToastContext`) is blocked until those three pages are fully
-  migrated.
+- **Pending**: Models/Providers content migrations (TanStack Query,
+  TanStack Table, react-hook-form/zod schemas, Sheet-based create
+  flows, design-doc columns). The Models Targets editor (§12.4) and
+  the Providers OAuth multi-step Sheet (§12.6) are the most involved
+  sub-flows. Plus the MCP **logs sub-view** (server CRUD is done;
+  logs subsection still uses legacy components) and the User Quotas
+  surface that replaced the dropped Keys tab. Token-wise these pages
+  use design-doc semantics directly — the legacy alias bridge has been
+  removed. Final Phase 8 cleanup (delete the 10 remaining
+  `components/ui/*` primitives still imported by Models / Providers,
+  retire `ToastContext`, trim `lib/api.ts` TTL cache) is blocked on
+  those two pages.
 
 When building a new page or changing an existing one:
 
