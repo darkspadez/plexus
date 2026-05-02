@@ -20,12 +20,13 @@ at the repo root). Current state:
   shell, TanStack Query provider + Sonner toaster wired in. Pages migrated
   end-to-end: **Quotas** (recipe), **Dashboard** (showcase per §12.1),
   **MyKey**, **Logs** (with `/logs/:id` Sheet pattern + JsonTree),
-  **MCP** (server CRUD with Sheet + react-hook-form/zod), **Login**.
+  **MCP** (server CRUD with Sheet + react-hook-form/zod), **Keys**
+  (with §12.8 one-time secret display + MultiSelectChips), **Login**.
   Pages with chrome-only updates (wrapped in the new ListPage but inner
-  logic unchanged): **SystemLogs**, **Keys**, **Models**, **Providers**,
-  **Errors**, **Debug**. Phase 8 partial cleanup complete: ~7.5K lines
-  of dead dashboard / analytics / DetailedUsage / legacy AppBar+Sidebar
-  code removed.
+  logic unchanged): **SystemLogs**, **Models**, **Providers**,
+  **Errors**, **Debug**. Phase 8 cleanup so far: ~10K lines of legacy
+  code removed (dashboard tabs / analytics / DetailedUsage / AppBar /
+  Sidebar / 13 unused legacy `ui/*` components).
 - **Pending**: Keys/Models/Providers content migrations (TanStack
   Query, TanStack Table, react-hook-form/zod schemas, Sheet-based
   create flows, design-doc columns). Plus the MCP **logs sub-view**

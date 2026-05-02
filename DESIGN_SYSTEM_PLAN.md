@@ -34,13 +34,17 @@
       chips, cursor-style Newer/Older pagination, `/logs/:id` Sheet on
       lg+ / DetailPage on smaller, `j`/`k`/`esc` keyboard nav, JsonTree
       viewer with §7.8 coloring, Request/Response/Trace/Metadata tabs.
-- [x] **Phases 6–7 (mixed)** — Keys, Models, Providers wrapped in the
-      new ListPage template (chrome only); their internal logic still
-      uses legacy `components/ui/*` primitives. **MCP fully migrated**
-      (server CRUD with TanStack Table, Sheet + react-hook-form/zod
-      form, AlertDialog confirms, StatusPill, header field-array
-      editor, AlertDialog for deletes). MCP logs sub-view punted for a
-      future iteration.
+- [x] **Phases 6–7 (mixed)** — Models, Providers wrapped in the new
+      ListPage template (chrome only); their internal logic still
+      uses legacy `components/ui/*` primitives. **MCP and Keys fully
+      migrated**:
+      * MCP: server CRUD with TanStack Table, Sheet + react-hook-form/
+        zod, header field-array editor, AlertDialog deletes.
+      * Keys: list table per §12.8 columns, Sheet-based create/edit,
+        §12.8 one-time secret display surface, MultiSelectChips
+        (Popover + Command) for allowed/excluded providers and models,
+        AlertDialog deletes. User Quotas sub-tab is a known regression
+        — needs its own surface in a future iteration.
 - [x] **Errors / Debug fixes** — replaced the negative-margin tricks
       that were left over from the old MainLayout's outer padding so
       content no longer overflows the viewport edge.
@@ -56,14 +60,14 @@
 
 Remaining (legacy aliases keep these rendering until migrated):
 
-- [ ] **Phase 6 content** — Keys: split into `pages/keys/` subdir, use
-      shadcn Table + react-hook-form/zod schemas, Sheet-based create
-      flow, one-time-secret display per §12.8. MCP **logs sub-view**
-      (the server CRUD is done): a Recent Invocations panel under the
-      servers table using the existing `useMcpLogs` hook. Models:
-      split into `pages/models/`, refresh the Targets editor with
-      drag-to-reorder + weight inputs + live preview pane (most
-      important sub-feature per §12.4).
+- [ ] **Phase 6 content** — Models: split into `pages/models/`,
+      refresh the Targets editor with drag-to-reorder + weight inputs
+      + live preview pane (most important sub-feature per §12.4). MCP
+      **logs sub-view** (server CRUD is done): a Recent Invocations
+      panel under the servers table using the existing `useMcpLogs`
+      hook. Keys **User Quotas** management — needs a dedicated
+      surface (e.g. `/quotas?tab=user` or a `pages/users-quotas/`
+      route) to replace the dropped tab.
 - [ ] **Phase 7 content** — Providers: split into 4–6 files, full
       migration of the OAuth multi-step Sheet (device-code flow,
       countdown, manual cancel), restyled quota config sub-components
