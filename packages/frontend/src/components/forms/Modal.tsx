@@ -1,8 +1,14 @@
-import React, { useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { clsx } from 'clsx';
-import { X } from 'lucide-react';
-import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+/**
+ * Legacy Modal shim — delegates to the shadcn ui-v2 Dialog while preserving
+ * the legacy `isOpen` / `onClose` / `title` / `footer` API. The 2 remaining
+ * Models + Providers consumers (alias edit and provider edit) keep working
+ * unchanged. New code should compose Dialog (or Sheet for >4 fields) from
+ * `components/ui-v2/dialog` directly.
+ */
+
+import React from 'react';
+import { cn } from '../../lib/cn';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../ui-v2/dialog';
 
 interface ModalProps {
   isOpen: boolean;
@@ -13,6 +19,12 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
+const sizeClass: Record<NonNullable<ModalProps['size']>, string> = {
+  sm: 'sm:max-w-[420px]',
+  md: 'sm:max-w-[640px]',
+  lg: 'sm:max-w-[960px]',
+};
+
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -20,62 +32,20 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   footer,
   size = 'md',
-}) => {
-  useBodyScrollLock(isOpen);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [isOpen, onClose]);
-
-  const handleBackdropClick = () => {
-    // Don't close when clicking on the backdrop
-  };
-
-  if (!isOpen) return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-modal flex items-center justify-center p-4 sm:p-5 bg-black/70 backdrop-blur-md animate-[fadeIn_0.2s_ease]"
-      onClick={handleBackdropClick}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
+}) => (
+  <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <DialogContent
+      className={cn('flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0', sizeClass[size])}
     >
-      <div
-        className={clsx(
-          'bg-surface border border-border rounded-xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-md animate-[slideUp_0.3s_ease]',
-          {
-            'max-w-[420px]': size === 'sm',
-            'max-w-[640px]': size === 'md',
-            'max-w-[960px]': size === 'lg',
-          }
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between gap-4 p-4 sm:p-5 md:p-6 border-b border-border">
-          <h2 className="text-xl font-semibold text-foreground m-0 truncate">{title}</h2>
-          <button
-            type="button"
-            className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-md p-1 transition-colors duration-fast hover:text-foreground focus-visible:outline-2 focus-visible:outline focus-visible:outline-primary focus-visible:outline-offset-2"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="p-4 sm:p-5 md:p-6 lg:p-8 overflow-y-auto flex-1">{children}</div>
-        {footer && (
-          <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-4 sm:px-5 sm:py-5 md:px-6 border-t border-border">
-            {footer}
-          </div>
-        )}
-      </div>
-    </div>,
-    document.body
-  );
-};
+      <DialogHeader className="border-b border-border px-6 py-4">
+        <DialogTitle className="truncate">{title}</DialogTitle>
+      </DialogHeader>
+      <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+      {footer && (
+        <DialogFooter className="border-t border-border bg-surface px-6 py-3 sm:justify-end">
+          {footer}
+        </DialogFooter>
+      )}
+    </DialogContent>
+  </Dialog>
+);
