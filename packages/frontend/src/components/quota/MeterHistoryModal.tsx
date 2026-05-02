@@ -163,26 +163,28 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-bg-card border border-border-glass rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+      <div className="bg-surface border border-border rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border-glass">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="min-w-0">
-            <h2 className="font-heading text-h2 font-semibold text-text truncate">{meter.label}</h2>
-            <p className="text-xs text-text-muted mt-0.5 truncate">
+            <h2 className="font-heading text-h2 font-semibold text-foreground truncate">
+              {meter.label}
+            </h2>
+            <p className="text-xs text-foreground-muted mt-0.5 truncate">
               {displayName}
               {quota.oauthAccountId && ` · ${quota.oauthAccountId}`}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="ml-3 flex-shrink-0 p-1.5 rounded-md text-text-muted hover:bg-bg-hover hover:text-text transition-colors"
+            className="ml-3 flex-shrink-0 p-1.5 rounded-md text-foreground-muted hover:bg-surface-elevated hover:text-foreground transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Time-range selector */}
-        <div className="flex items-center gap-1 px-5 py-3 border-b border-border-glass">
+        <div className="flex items-center gap-1 px-5 py-3 border-b border-border">
           {TIME_RANGES.map((r) => (
             <button
               key={r.key}
@@ -190,13 +192,15 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
               className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                 range === r.key
                   ? 'bg-primary/20 text-primary border border-primary/40'
-                  : 'text-text-secondary hover:bg-bg-hover'
+                  : 'text-foreground-muted hover:bg-surface-elevated'
               }`}
             >
               {r.label}
             </button>
           ))}
-          {loading && <RefreshCw size={14} className="animate-spin text-text-muted ml-auto" />}
+          {loading && (
+            <RefreshCw size={14} className="animate-spin text-foreground-muted ml-auto" />
+          )}
         </div>
 
         {/* Body */}
@@ -209,14 +213,13 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
                 { label: 'Min', value: formatTooltip(stats.min) },
                 { label: 'Max', value: formatTooltip(stats.max) },
               ].map(({ label, value }) => (
-                <div
-                  key={label}
-                  className="rounded-lg border border-border-glass bg-bg-subtle px-3 py-2"
-                >
-                  <div className="text-[10px] text-text-muted uppercase tracking-wider">
+                <div key={label} className="rounded-lg border border-border bg-bg-subtle px-3 py-2">
+                  <div className="text-[10px] text-foreground-muted uppercase tracking-wider">
                     {label}
                   </div>
-                  <div className="text-sm font-semibold text-text tabular-nums mt-0.5">{value}</div>
+                  <div className="text-sm font-semibold text-foreground tabular-nums mt-0.5">
+                    {value}
+                  </div>
                 </div>
               ))}
             </div>
@@ -229,12 +232,12 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
                 {error}
               </div>
             ) : loading && chartData.length === 0 ? (
-              <div className="h-full flex items-center justify-center gap-2 text-sm text-text-secondary">
+              <div className="h-full flex items-center justify-center gap-2 text-sm text-foreground-muted">
                 <RefreshCw size={16} className="animate-spin" />
                 Loading…
               </div>
             ) : chartData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-sm text-text-muted">
+              <div className="h-full flex items-center justify-center text-sm text-foreground-muted">
                 No data for this period
               </div>
             ) : (
@@ -249,14 +252,14 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }}
+                    tick={{ fontSize: 10, fill: 'var(--foreground-muted)' }}
                     tickLine={false}
                     axisLine={false}
                     interval="preserveStartEnd"
                   />
                   <YAxis
                     tickFormatter={formatY}
-                    tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }}
+                    tick={{ fontSize: 10, fill: 'var(--foreground-muted)' }}
                     tickLine={false}
                     axisLine={false}
                     width={60}
@@ -267,18 +270,18 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
                             value: '%',
                             position: 'insideTopRight',
                             fontSize: 10,
-                            fill: 'var(--color-text-muted)',
+                            fill: 'var(--foreground-muted)',
                           }
                     }
                   />
                   <Tooltip
                     contentStyle={{
-                      background: 'var(--color-bg-card)',
-                      border: '1px solid var(--color-border-glass)',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
                       borderRadius: 8,
                       fontSize: 12,
                     }}
-                    labelStyle={{ color: 'var(--color-text-secondary)', marginBottom: 2 }}
+                    labelStyle={{ color: 'var(--foreground-muted)', marginBottom: 2 }}
                     itemStyle={{ color: chartColor }}
                     formatter={(value: unknown) =>
                       [formatTooltip(value as number), meter.label] as [string, string]
@@ -300,7 +303,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-border-glass flex justify-end">
+        <div className="px-5 py-3 border-t border-border flex justify-end">
           <Button variant="secondary" size="sm" onClick={onClose}>
             Close
           </Button>

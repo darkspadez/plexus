@@ -14,7 +14,7 @@ export const OllamaQuotaConfig: React.FC<OllamaQuotaConfigProps> = ({ options, o
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-body text-[13px] font-medium text-foreground-muted">
           Session Cookie <span className="text-danger">*</span>
         </label>
         <Input
@@ -23,7 +23,7 @@ export const OllamaQuotaConfig: React.FC<OllamaQuotaConfigProps> = ({ options, o
           onChange={(e) => handleChange('sessionCookie', e.target.value)}
           placeholder="Paste your Ollama __Secure-session cookie"
         />
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-muted">
           Required. Found in browser cookies after logging in to ollama.com. The cookie name is
           __Secure-session (with double underscores).
         </span>

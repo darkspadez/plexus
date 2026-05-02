@@ -14,7 +14,7 @@ export const MiniMaxQuotaConfig: React.FC<MiniMaxQuotaConfigProps> = ({ options,
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-body text-[13px] font-medium text-foreground-muted">
           Group ID <span className="text-danger">*</span>
         </label>
         <Input
@@ -25,7 +25,7 @@ export const MiniMaxQuotaConfig: React.FC<MiniMaxQuotaConfigProps> = ({ options,
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-body text-[13px] font-medium text-foreground-muted">
           HERTZ-SESSION Cookie <span className="text-danger">*</span>
         </label>
         <Input
@@ -34,7 +34,7 @@ export const MiniMaxQuotaConfig: React.FC<MiniMaxQuotaConfigProps> = ({ options,
           onChange={(e) => handleChange('hertzSession', e.target.value)}
           placeholder="Paste HERTZ-SESSION cookie value"
         />
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-muted">
           Treated as a password. Used to query MiniMax balance.
         </span>
       </div>

@@ -14,7 +14,7 @@ export const CopilotQuotaConfig: React.FC<CopilotQuotaConfigProps> = ({ options,
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-body text-[13px] font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input
@@ -24,7 +24,7 @@ export const CopilotQuotaConfig: React.FC<CopilotQuotaConfigProps> = ({ options,
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-body text-[13px] font-medium text-foreground-muted">
           User-Agent (optional)
         </label>
         <Input
@@ -34,7 +34,7 @@ export const CopilotQuotaConfig: React.FC<CopilotQuotaConfigProps> = ({ options,
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-body text-[13px] font-medium text-foreground-muted">
           Editor-Version (optional)
         </label>
         <Input
@@ -44,7 +44,7 @@ export const CopilotQuotaConfig: React.FC<CopilotQuotaConfigProps> = ({ options,
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-body text-[13px] font-medium text-foreground-muted">
           API Version (optional)
         </label>
         <Input
@@ -54,7 +54,7 @@ export const CopilotQuotaConfig: React.FC<CopilotQuotaConfigProps> = ({ options,
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-body text-[13px] font-medium text-foreground-muted">
           Timeout (ms) (optional)
         </label>
         <Input

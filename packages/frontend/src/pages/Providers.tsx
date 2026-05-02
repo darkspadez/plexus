@@ -987,7 +987,7 @@ export const Providers = () => {
 
   const getQuotaDisplay = (provider: Provider) => {
     if (!provider.quotaChecker?.enabled) return null;
-    if (quotasLoading) return <span className="text-text-secondary text-xs">—</span>;
+    if (quotasLoading) return <span className="text-foreground-muted text-xs">—</span>;
     const quota = quotas.find((q) => q.checkerId === provider.id);
     if (!quota?.meters?.length) return null;
 
@@ -1005,7 +1005,7 @@ export const Providers = () => {
       return (
         <Badge
           status="neutral"
-          className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2 bg-bg-subtle border border-border text-text-secondary"
+          className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2 bg-bg-subtle border border-border text-foreground-muted"
           onClick={handleQuotaClick}
         >
           {formatted}
@@ -1052,23 +1052,23 @@ export const Providers = () => {
             <thead>
               <tr>
                 <th
-                  className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider"
+                  className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
                   style={{ paddingLeft: '24px' }}
                 >
                   ID / Name
                 </th>
-                <th className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                   Status
                 </th>
 
-                <th className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                   Models
                 </th>
-                <th className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                   Quota/Balance
                 </th>
                 <th
-                  className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider"
+                  className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
                   style={{ paddingRight: '24px', textAlign: 'right' }}
                 >
                   Actions
@@ -1083,21 +1083,21 @@ export const Providers = () => {
                     key={p.id}
                     onClick={() => handleEdit(p)}
                     style={{ cursor: 'pointer' }}
-                    className="hover:bg-bg-hover"
+                    className="hover:bg-surface-elevated"
                   >
                     <td
-                      className="px-4 py-3 text-left border-b border-border-glass text-text"
+                      className="px-4 py-3 text-left border-b border-border text-foreground"
                       style={{ paddingLeft: '24px' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Edit2 size={12} style={{ opacity: 0.5 }} />
                         <div style={{ fontWeight: 600 }}>{p.id}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
                           ( {p.name} )
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-left border-b border-border-glass text-text">
+                    <td className="px-4 py-3 text-left border-b border-border text-foreground">
                       <div onClick={(e) => e.stopPropagation()}>
                         <Switch
                           checked={p.enabled !== false}
@@ -1107,7 +1107,7 @@ export const Providers = () => {
                       </div>
                     </td>
 
-                    <td className="px-4 py-3 text-left border-b border-border-glass text-text">
+                    <td className="px-4 py-3 text-left border-b border-border text-foreground">
                       {p.models
                         ? Array.isArray(p.models)
                           ? p.models.length
@@ -1116,11 +1116,11 @@ export const Providers = () => {
                             : 0
                         : 0}
                     </td>
-                    <td className="px-4 py-3 text-left border-b border-border-glass text-text">
+                    <td className="px-4 py-3 text-left border-b border-border text-foreground">
                       {getQuotaDisplay(p)}
                     </td>
                     <td
-                      className="px-4 py-3 text-left border-b border-border-glass text-text"
+                      className="px-4 py-3 text-left border-b border-border text-foreground"
                       style={{ paddingRight: '24px', textAlign: 'right' }}
                     >
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -1131,7 +1131,7 @@ export const Providers = () => {
                             e.stopPropagation();
                             openDeleteModal(p);
                           }}
-                          style={{ color: 'var(--color-danger)' }}
+                          style={{ color: 'var(--danger)' }}
                         >
                           <Trash2 size={14} />
                         </Button>
@@ -1191,7 +1191,7 @@ export const Providers = () => {
               disabled={isOAuthMode}
             />
             <div className="flex flex-col gap-2">
-              <label className="font-body text-[13px] font-medium text-text-secondary">
+              <label className="font-body text-[13px] font-medium text-foreground-muted">
                 Enabled
               </label>
               <div style={{ height: '38px', display: 'flex', alignItems: 'center' }}>
@@ -1206,19 +1206,17 @@ export const Providers = () => {
           </div>
 
           {/* Separator */}
-          <div
-            style={{ height: '1px', background: 'var(--color-border-glass)', margin: '4px 0' }}
-          />
+          <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             {/* Left: APIs & Base URLs */}
-            <div className="flex flex-col gap-1 border border-border-glass rounded-md p-3 bg-bg-subtle">
+            <div className="flex flex-col gap-1 border border-border rounded-md p-3 bg-bg-subtle">
               <div className="flex flex-col gap-1" style={{ marginBottom: '6px' }}>
-                <label className="font-body text-[13px] font-medium text-text-secondary">
+                <label className="font-body text-[13px] font-medium text-foreground-muted">
                   Connection Type
                 </label>
                 <select
-                  className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                  className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                   value={isOAuthMode ? 'oauth' : 'url'}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1247,13 +1245,13 @@ export const Providers = () => {
                   <option value="oauth">OAuth (pi-ai)</option>
                 </select>
               </div>
-              <label className="font-body text-[13px] font-medium text-text-secondary">
+              <label className="font-body text-[13px] font-medium text-foreground-muted">
                 Supported APIs & Base URLs
               </label>
               <div
                 style={{
                   fontSize: '11px',
-                  color: 'var(--color-text-secondary)',
+                  color: 'var(--foreground-muted)',
                   marginBottom: '4px',
                   lineHeight: '1.5',
                 }}
@@ -1302,11 +1300,11 @@ export const Providers = () => {
                   }}
                 >
                   <div className="flex flex-col gap-1">
-                    <label className="font-body text-[13px] font-medium text-text-secondary">
+                    <label className="font-body text-[13px] font-medium text-foreground-muted">
                       OAuth Provider
                     </label>
                     <select
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                       value={editingProvider.oauthProvider || OAUTH_PROVIDERS[0].value}
                       onChange={(e) =>
                         setEditingProvider({
@@ -1335,7 +1333,7 @@ export const Providers = () => {
                   />
 
                   <div
-                    className="border border-border-glass rounded-md p-3 bg-bg-subtle"
+                    className="border border-border rounded-md p-3 bg-bg-subtle"
                     style={{ marginTop: '4px' }}
                   >
                     <div
@@ -1348,10 +1346,10 @@ export const Providers = () => {
                       }}
                     >
                       <div>
-                        <div className="font-body text-[13px] font-medium text-text">
+                        <div className="font-body text-[13px] font-medium text-foreground">
                           OAuth Authentication
                         </div>
-                        <div className="text-[11px] text-text-secondary">
+                        <div className="text-[11px] text-foreground-muted">
                           Tokens are saved to auth.json after login.
                         </div>
                       </div>
@@ -1363,15 +1361,15 @@ export const Providers = () => {
                             borderRadius: '999px',
                             background:
                               oauthStatus === 'success' || (!oauthStatus && oauthCredentialReady)
-                                ? 'var(--color-success)'
+                                ? 'var(--success)'
                                 : oauthStatus === 'error' || oauthStatus === 'cancelled'
-                                  ? 'var(--color-danger)'
-                                  : 'var(--color-text-secondary)',
+                                  ? 'var(--danger)'
+                                  : 'var(--foreground-muted)',
                             opacity: oauthCredentialChecking ? 0.6 : 1,
                           }}
                         />
                         <span
-                          className="text-[11px] font-medium text-text-secondary"
+                          className="text-[11px] font-medium text-foreground-muted"
                           style={{ textTransform: 'lowercase' }}
                         >
                           {oauthStatusLabel}
@@ -1400,7 +1398,7 @@ export const Providers = () => {
                           readOnly
                         />
                         {oauthSession.authInfo.instructions && (
-                          <div className="text-[11px] text-text-secondary flex items-center gap-1">
+                          <div className="text-[11px] text-foreground-muted flex items-center gap-1">
                             <Info size={12} />
                             <span>{oauthSession.authInfo.instructions}</span>
                           </div>
@@ -1466,8 +1464,8 @@ export const Providers = () => {
 
                     {oauthSession?.progress && oauthSession.progress.length > 0 && (
                       <div style={{ marginBottom: '8px' }}>
-                        <div className="text-[11px] text-text-secondary">Progress</div>
-                        <div className="text-[11px] text-text" style={{ marginTop: '4px' }}>
+                        <div className="text-[11px] text-foreground-muted">Progress</div>
+                        <div className="text-[11px] text-foreground" style={{ marginTop: '4px' }}>
                           {(oauthSession?.progress ?? []).slice(-3).map((message, idx) => (
                             <div key={`${message}-${idx}`}>{message}</div>
                           ))}
@@ -1509,14 +1507,14 @@ export const Providers = () => {
                   </div>
                 </div>
               ) : (
-                <div className="border border-border-glass rounded-md overflow-hidden">
+                <div className="border border-border rounded-md overflow-hidden">
                   <div
-                    className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover transition-colors duration-200 select-none hover:bg-bg-glass"
+                    className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated transition-colors duration-200 select-none hover:bg-surface-elevated"
                     onClick={() => setIsApiBaseUrlsOpen(!isApiBaseUrlsOpen)}
                   >
                     {isApiBaseUrlsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <label
-                      className="font-body text-[13px] font-medium text-text-secondary"
+                      className="font-body text-[13px] font-medium text-foreground-muted"
                       style={{ marginBottom: 0, flex: 1 }}
                     >
                       Base URL Entries
@@ -1543,12 +1541,12 @@ export const Providers = () => {
                         flexDirection: 'column',
                         gap: '6px',
                         padding: '8px',
-                        borderTop: '1px solid var(--color-border-glass)',
+                        borderTop: '1px solid var(--border)',
                         background: 'var(--color-bg-subtle)',
                       }}
                     >
                       {Object.entries(getApiBaseUrlMap()).length === 0 && (
-                        <div className="font-body text-[11px] text-text-secondary italic">
+                        <div className="font-body text-[11px] text-foreground-muted italic">
                           No base URLs configured yet.
                         </div>
                       )}
@@ -1580,7 +1578,7 @@ export const Providers = () => {
                           >
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                               <select
-                                className="w-full py-1.5 px-3 font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                className="w-full py-1.5 px-3 font-body text-xs text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                                 value={apiType}
                                 onChange={(e) =>
                                   updateApiBaseUrlEntry(
@@ -1594,14 +1592,14 @@ export const Providers = () => {
                                   <option
                                     key={knownType}
                                     value={knownType}
-                                    className="bg-bg-surface text-text"
+                                    className="bg-surface text-foreground"
                                   >
                                     {knownType}
                                   </option>
                                 ))}
                               </select>
                               <input
-                                className="w-full py-1.5 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                className="w-full py-1.5 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                                 placeholder={
                                   apiType === 'ollama'
                                     ? 'http://localhost:11434'
@@ -1675,7 +1673,7 @@ export const Providers = () => {
                               onClick={() => removeApiBaseUrlEntry(apiType)}
                               style={{ padding: '4px', marginTop: '4px' }}
                             >
-                              <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
+                              <Trash2 size={14} style={{ color: 'var(--danger)' }} />
                             </Button>
                           </div>
                         );
@@ -1687,8 +1685,8 @@ export const Providers = () => {
             </div>
 
             {/* Right: Quota Checker */}
-            <div className="flex flex-col gap-1 border border-border-glass rounded-md p-3 bg-bg-subtle">
-              <label className="font-body text-[13px] font-medium text-text-secondary">
+            <div className="flex flex-col gap-1 border border-border rounded-md p-3 bg-bg-subtle">
+              <label className="font-body text-[13px] font-medium text-foreground-muted">
                 Quota Checker
               </label>
               <div
@@ -1701,11 +1699,11 @@ export const Providers = () => {
                 }}
               >
                 <div className="flex flex-col gap-1">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                  <label className="font-body text-[11px] font-medium text-foreground-muted">
                     Type
                   </label>
                   <select
-                    className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                    className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                     value={selectedQuotaCheckerType}
                     onChange={(e) => {
                       const quotaType = e.target.value;
@@ -1736,11 +1734,11 @@ export const Providers = () => {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                  <label className="font-body text-[11px] font-medium text-foreground-muted">
                     Interval (min)
                   </label>
                   <input
-                    className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                    className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                     type="number"
                     min={1}
                     step={1}
@@ -1766,7 +1764,7 @@ export const Providers = () => {
               <div
                 style={{
                   fontSize: '11px',
-                  color: 'var(--color-text-secondary)',
+                  color: 'var(--foreground-muted)',
                   marginTop: '4px',
                   fontStyle: 'italic',
                 }}
@@ -1781,7 +1779,7 @@ export const Providers = () => {
               </div>
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'naga' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <NagaQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1798,7 +1796,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'synthetic' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <SyntheticQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1815,7 +1813,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'nanogpt' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <NanoGPTQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1832,7 +1830,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'zai' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <ZAIQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1849,7 +1847,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'moonshot' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <MoonshotQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1866,7 +1864,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'novita' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <NovitaQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1883,7 +1881,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'minimax' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <MiniMaxQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1900,7 +1898,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'minimax-coding' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <MiniMaxCodingQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1917,7 +1915,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'openrouter' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <OpenRouterQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1934,7 +1932,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'kilo' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <KiloQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1951,7 +1949,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'poe' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <PoeQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1968,7 +1966,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'ollama' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <OllamaQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1985,7 +1983,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'wisdomgate' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-subtle">
                   <WisdomGateQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2002,7 +2000,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'kimi-code' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <KimiCodeQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2019,7 +2017,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'apertis' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <ApertisQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2036,7 +2034,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'antigravity' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <AntigravityQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2053,7 +2051,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'gemini-cli' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <GeminiCliQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2070,7 +2068,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'neuralwatt' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <NeuralwattQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2087,7 +2085,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'zenmux' && (
-                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
                   <ZenmuxQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2113,12 +2111,12 @@ export const Providers = () => {
 
           {/* GPU Profile section for inference energy calculation */}
           <div className="flex flex-col gap-2">
-            <label className="font-body text-[13px] font-medium text-text-secondary">
+            <label className="font-body text-[13px] font-medium text-foreground-muted">
               GPU Profile
             </label>
             <div className="flex gap-3 items-end">
               <select
-                className="flex-1 py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                className="flex-1 py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                 value={editingProvider.gpu_profile || ''}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -2172,14 +2170,14 @@ export const Providers = () => {
               </select>
             </div>
             {editingProvider.gpu_profile === 'custom' && (
-              <div className="mt-2 p-3 border border-border-glass rounded-md bg-bg-subtle">
+              <div className="mt-2 p-3 border border-border rounded-md bg-bg-subtle">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       RAM (GB)
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="1"
                       min="1"
@@ -2194,11 +2192,11 @@ export const Providers = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       Bandwidth (TB/s)
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="0.1"
                       min="0.1"
@@ -2213,11 +2211,11 @@ export const Providers = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       FLOPS (TFLOPs)
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="100"
                       min="1"
@@ -2232,11 +2230,11 @@ export const Providers = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       Power Draw (Watts)
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="10"
                       min="1"
@@ -2253,31 +2251,31 @@ export const Providers = () => {
                 </div>
               </div>
             )}
-            <div className="text-[11px] text-text-muted">
+            <div className="text-[11px] text-foreground-muted">
               Used for inference energy calculation. Select a preset or enter custom GPU specs.
             </div>
           </div>
 
           {/* Advanced accordion */}
-          <div className="border border-border-glass rounded-sm overflow-hidden">
+          <div className="border border-border rounded-sm overflow-hidden">
             <button
               type="button"
               onClick={() => setIsAdvancedOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-bg-hover transition-colors duration-150 text-left"
+              className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-surface-elevated transition-colors duration-150 text-left"
             >
-              <span className="font-body text-[13px] font-medium text-text-secondary">
+              <span className="font-body text-[13px] font-medium text-foreground-muted">
                 Advanced
               </span>
               {isAdvancedOpen ? (
-                <ChevronDown size={14} className="text-text-muted" />
+                <ChevronDown size={14} className="text-foreground-muted" />
               ) : (
-                <ChevronRight size={14} className="text-text-muted" />
+                <ChevronRight size={14} className="text-foreground-muted" />
               )}
             </button>
 
             {isAdvancedOpen && (
               <div
-                className="px-3 py-3 border-t border-border-glass"
+                className="px-3 py-3 border-t border-border"
                 style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
               >
                 {/* Discount */}
@@ -2290,12 +2288,12 @@ export const Providers = () => {
                   }}
                 >
                   <div className="flex flex-col gap-1">
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       Discount (%)
                     </label>
                     <div style={{ position: 'relative' }}>
                       <input
-                        className="w-full py-2 pl-3 pr-7 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                        className="w-full py-2 pl-3 pr-7 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                         type="number"
                         step="1"
                         min="0"
@@ -2308,7 +2306,7 @@ export const Providers = () => {
                         }}
                       />
                       <span
-                        className="font-body text-[12px] text-text-secondary"
+                        className="font-body text-[12px] text-foreground-muted"
                         style={{
                           position: 'absolute',
                           right: '10px',
@@ -2324,14 +2322,14 @@ export const Providers = () => {
                 </div>
 
                 {/* Custom Headers */}
-                <div className="border border-border-glass rounded-md overflow-hidden">
+                <div className="border border-border rounded-md overflow-hidden">
                   <div
-                    className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover transition-colors duration-200 select-none hover:bg-bg-glass"
+                    className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated transition-colors duration-200 select-none hover:bg-surface-elevated"
                     onClick={() => setIsHeadersOpen(!isHeadersOpen)}
                   >
                     {isHeadersOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <label
-                      className="font-body text-[13px] font-medium text-text-secondary"
+                      className="font-body text-[13px] font-medium text-foreground-muted"
                       style={{ marginBottom: 0, flex: 1 }}
                     >
                       Custom Headers
@@ -2358,12 +2356,12 @@ export const Providers = () => {
                         flexDirection: 'column',
                         gap: '4px',
                         padding: '8px',
-                        borderTop: '1px solid var(--color-border-glass)',
-                        background: 'var(--color-bg-deep)',
+                        borderTop: '1px solid var(--border)',
+                        background: 'var(--background)',
                       }}
                     >
                       {Object.entries(editingProvider.headers || {}).length === 0 && (
-                        <div className="font-body text-[11px] text-text-secondary italic">
+                        <div className="font-body text-[11px] text-foreground-muted italic">
                           No custom headers configured.
                         </div>
                       )}
@@ -2396,7 +2394,7 @@ export const Providers = () => {
                             onClick={() => removeKV('headers', key)}
                             style={{ padding: '4px' }}
                           >
-                            <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
+                            <Trash2 size={14} style={{ color: 'var(--danger)' }} />
                           </Button>
                         </div>
                       ))}
@@ -2405,14 +2403,14 @@ export const Providers = () => {
                 </div>
 
                 {/* Extra Body Fields */}
-                <div className="border border-border-glass rounded-md overflow-hidden">
+                <div className="border border-border rounded-md overflow-hidden">
                   <div
-                    className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover transition-colors duration-200 select-none hover:bg-bg-glass"
+                    className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated transition-colors duration-200 select-none hover:bg-surface-elevated"
                     onClick={() => setIsExtraBodyOpen(!isExtraBodyOpen)}
                   >
                     {isExtraBodyOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <label
-                      className="font-body text-[13px] font-medium text-text-secondary"
+                      className="font-body text-[13px] font-medium text-foreground-muted"
                       style={{ marginBottom: 0, flex: 1 }}
                     >
                       Extra Body Fields
@@ -2439,12 +2437,12 @@ export const Providers = () => {
                         flexDirection: 'column',
                         gap: '4px',
                         padding: '8px',
-                        borderTop: '1px solid var(--color-border-glass)',
-                        background: 'var(--color-bg-deep)',
+                        borderTop: '1px solid var(--border)',
+                        background: 'var(--background)',
                       }}
                     >
                       {Object.entries(editingProvider.extraBody || {}).length === 0 && (
-                        <div className="font-body text-[11px] text-text-secondary italic">
+                        <div className="font-body text-[11px] text-foreground-muted italic">
                           No extra body fields configured.
                         </div>
                       )}
@@ -2477,7 +2475,7 @@ export const Providers = () => {
                             onClick={() => removeKV('extraBody', key)}
                             style={{ padding: '4px' }}
                           >
-                            <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
+                            <Trash2 size={14} style={{ color: 'var(--danger)' }} />
                           </Button>
                         </div>
                       ))}
@@ -2486,7 +2484,7 @@ export const Providers = () => {
                 </div>
 
                 {/* Estimate Tokens */}
-                <div className="border border-border-glass rounded-md p-3 bg-bg-subtle">
+                <div className="border border-border rounded-md p-3 bg-bg-subtle">
                   <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
                     <Switch
                       checked={editingProvider.estimateTokens || false}
@@ -2495,14 +2493,14 @@ export const Providers = () => {
                       }
                     />
                     <label
-                      className="font-body text-[13px] font-medium text-text"
+                      className="font-body text-[13px] font-medium text-foreground"
                       style={{ marginBottom: 0 }}
                     >
                       Estimate Tokens
                     </label>
                   </div>
                   <div
-                    className="font-body text-[11px] text-text-secondary"
+                    className="font-body text-[11px] text-foreground-muted"
                     style={{ lineHeight: 1.35, marginTop: '4px' }}
                   >
                     Enable token estimation only when a provider does not return usage data.
@@ -2513,7 +2511,7 @@ export const Providers = () => {
                 </div>
 
                 {/* Disable Cooldown */}
-                <div className="border border-border-glass rounded-md p-3 bg-bg-subtle">
+                <div className="border border-border rounded-md p-3 bg-bg-subtle">
                   <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
                     <Switch
                       checked={editingProvider.disableCooldown || false}
@@ -2522,14 +2520,14 @@ export const Providers = () => {
                       }
                     />
                     <label
-                      className="font-body text-[13px] font-medium text-text"
+                      className="font-body text-[13px] font-medium text-foreground"
                       style={{ marginBottom: 0 }}
                     >
                       Disable Cooldowns
                     </label>
                   </div>
                   <div
-                    className="font-body text-[11px] text-text-secondary"
+                    className="font-body text-[11px] text-foreground-muted"
                     style={{ lineHeight: 1.35, marginTop: '4px' }}
                   >
                     When enabled, this provider will never be placed on cooldown due to errors — it
@@ -2541,7 +2539,7 @@ export const Providers = () => {
                 </div>
 
                 {/* Use Claude Masking */}
-                <div className="border border-border-glass rounded-md p-3 bg-bg-subtle">
+                <div className="border border-border rounded-md p-3 bg-bg-subtle">
                   <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
                     <Switch
                       checked={editingProvider.useClaudeMasking || false}
@@ -2550,14 +2548,14 @@ export const Providers = () => {
                       }
                     />
                     <label
-                      className="font-body text-[13px] font-medium text-text"
+                      className="font-body text-[13px] font-medium text-foreground"
                       style={{ marginBottom: 0 }}
                     >
                       Use Claude Masking
                     </label>
                   </div>
                   <div
-                    className="font-body text-[11px] text-text-secondary"
+                    className="font-body text-[11px] text-foreground-muted"
                     style={{ lineHeight: 1.35, marginTop: '4px' }}
                   >
                     When enabled, requests to this Anthropic provider will be masked as Claude Code
@@ -2574,9 +2572,9 @@ export const Providers = () => {
           </div>
 
           {/* Models Accordion */}
-          <div className="border border-border-glass rounded-md">
+          <div className="border border-border rounded-md">
             <div
-              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover transition-colors duration-200 select-none hover:bg-bg-glass"
+              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated transition-colors duration-200 select-none hover:bg-surface-elevated"
               onClick={() => setIsModelsOpen(!isModelsOpen)}
             >
               {isModelsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -2601,8 +2599,8 @@ export const Providers = () => {
               <div
                 style={{
                   padding: '8px',
-                  borderTop: '1px solid var(--color-border-glass)',
-                  background: 'var(--color-bg-deep)',
+                  borderTop: '1px solid var(--border)',
+                  background: 'var(--background)',
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -2611,9 +2609,9 @@ export const Providers = () => {
                       <div
                         key={mId}
                         style={{
-                          border: '1px solid var(--color-border-glass)',
+                          border: '1px solid var(--border)',
                           borderRadius: 'var(--radius-sm)',
-                          background: 'var(--color-bg-surface)',
+                          background: 'var(--surface)',
                         }}
                       >
                         <div
@@ -2645,7 +2643,10 @@ export const Providers = () => {
                                 title="Test this model"
                               >
                                 {testState?.loading ? (
-                                  <Loader2 size={14} className="animate-spin text-text-secondary" />
+                                  <Loader2
+                                    size={14}
+                                    className="animate-spin text-foreground-muted"
+                                  />
                                 ) : testState?.showResult && testState.result === 'success' ? (
                                   <CheckCircle size={14} className="text-success" />
                                 ) : testState?.showResult && testState.result === 'error' ? (
@@ -2674,7 +2675,7 @@ export const Providers = () => {
                               e.stopPropagation();
                               removeModel(mId);
                             }}
-                            style={{ color: 'var(--color-danger)', padding: '2px' }}
+                            style={{ color: 'var(--danger)', padding: '2px' }}
                           >
                             <X size={12} />
                           </Button>
@@ -2683,7 +2684,7 @@ export const Providers = () => {
                           <div
                             style={{
                               padding: '8px',
-                              borderTop: '1px solid var(--color-border-glass)',
+                              borderTop: '1px solid var(--border)',
                               display: 'flex',
                               flexDirection: 'column',
                               gap: '6px',
@@ -2693,11 +2694,11 @@ export const Providers = () => {
 
                             <div className="grid gap-4 grid-cols-3">
                               <div className="flex flex-col gap-1">
-                                <label className="font-body text-[13px] font-medium text-text-secondary">
+                                <label className="font-body text-[13px] font-medium text-foreground-muted">
                                   Model Type
                                 </label>
                                 <select
-                                  className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                  className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                                   value={mCfg.type || 'chat'}
                                   onChange={(e) => {
                                     const newType = e.target.value as
@@ -2777,11 +2778,11 @@ export const Providers = () => {
                                 </select>
                               </div>
                               <div className="flex flex-col gap-1">
-                                <label className="font-body text-[13px] font-medium text-text-secondary">
+                                <label className="font-body text-[13px] font-medium text-foreground-muted">
                                   Pricing Source
                                 </label>
                                 <select
-                                  className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                  className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                                   value={mCfg.pricing?.source || 'simple'}
                                   onChange={(e) => {
                                     const newSource = e.target.value;
@@ -2831,13 +2832,13 @@ export const Providers = () => {
                                 mCfg.type !== 'image' &&
                                 mCfg.type !== 'responses' && (
                                   <div className="flex flex-col gap-1">
-                                    <label className="font-body text-[13px] font-medium text-text-secondary">
+                                    <label className="font-body text-[13px] font-medium text-foreground-muted">
                                       Access Via (APIs)
                                     </label>
                                     <div
                                       style={{
                                         fontSize: '11px',
-                                        color: 'var(--color-text-secondary)',
+                                        color: 'var(--foreground-muted)',
                                         marginBottom: '4px',
                                         lineHeight: '1.4',
                                       }}
@@ -2925,7 +2926,7 @@ export const Providers = () => {
                                       <div
                                         style={{
                                           fontSize: '11px',
-                                          color: 'var(--color-text-secondary)',
+                                          color: 'var(--foreground-muted)',
                                           marginTop: '4px',
                                           fontStyle: 'italic',
                                         }}
@@ -2978,7 +2979,7 @@ export const Providers = () => {
                                   <div
                                     style={{
                                       fontSize: '11px',
-                                      color: 'var(--color-text-secondary)',
+                                      color: 'var(--foreground-muted)',
                                       marginTop: '4px',
                                       fontStyle: 'italic',
                                       padding: '8px',
@@ -2996,7 +2997,7 @@ export const Providers = () => {
                                   <div
                                     style={{
                                       fontSize: '11px',
-                                      color: 'var(--color-text-secondary)',
+                                      color: 'var(--foreground-muted)',
                                       marginTop: '4px',
                                       fontStyle: 'italic',
                                       padding: '8px',
@@ -3015,7 +3016,7 @@ export const Providers = () => {
                                   <div
                                     style={{
                                       fontSize: '11px',
-                                      color: 'var(--color-text-secondary)',
+                                      color: 'var(--foreground-muted)',
                                       marginTop: '4px',
                                       fontStyle: 'italic',
                                       padding: '8px',
@@ -3033,7 +3034,7 @@ export const Providers = () => {
                                   <div
                                     style={{
                                       fontSize: '11px',
-                                      color: 'var(--color-text-secondary)',
+                                      color: 'var(--foreground-muted)',
                                       marginTop: '4px',
                                       fontStyle: 'italic',
                                       padding: '8px',
@@ -3051,7 +3052,7 @@ export const Providers = () => {
                                   <div
                                     style={{
                                       fontSize: '11px',
-                                      color: 'var(--color-text-secondary)',
+                                      color: 'var(--foreground-muted)',
                                       marginTop: '4px',
                                       fontStyle: 'italic',
                                       padding: '8px',
@@ -3201,7 +3202,7 @@ export const Providers = () => {
                                   }}
                                 >
                                   <label
-                                    className="font-body text-[13px] font-medium text-text-secondary"
+                                    className="font-body text-[13px] font-medium text-foreground-muted"
                                     style={{ marginBottom: 0 }}
                                   >
                                     Pricing Ranges
@@ -3237,7 +3238,7 @@ export const Providers = () => {
                                   <div
                                     key={idx}
                                     style={{
-                                      border: '1px solid var(--color-border-glass)',
+                                      border: '1px solid var(--border)',
                                       padding: '12px',
                                       borderRadius: 'var(--radius-sm)',
                                       position: 'relative',
@@ -3250,7 +3251,7 @@ export const Providers = () => {
                                         position: 'absolute',
                                         top: '8px',
                                         right: '8px',
-                                        color: 'var(--color-danger)',
+                                        color: 'var(--danger)',
                                         padding: '4px',
                                       }}
                                       onClick={() => {
@@ -3374,7 +3375,7 @@ export const Providers = () => {
                                   </div>
                                 ))}
                                 {(!mCfg.pricing.range || mCfg.pricing.range.length === 0) && (
-                                  <div className="text-text-muted italic text-center text-sm p-4">
+                                  <div className="text-foreground-muted italic text-center text-sm p-4">
                                     No ranges defined. Pricing will likely default to 0.
                                   </div>
                                 )}
@@ -3406,7 +3407,7 @@ export const Providers = () => {
                                   }
                                 />
                                 <div
-                                  className="font-body text-[11px] text-text-secondary"
+                                  className="font-body text-[11px] text-foreground-muted"
                                   style={{ fontStyle: 'italic' }}
                                 >
                                   A flat fee charged per API call, regardless of token count. The
@@ -3417,7 +3418,7 @@ export const Providers = () => {
 
                             {/* Per-Model Extra Body Fields */}
                             <div
-                              className="border border-border-glass rounded-md p-3 bg-bg-subtle"
+                              className="border border-border rounded-md p-3 bg-bg-subtle"
                               style={{ marginTop: '12px' }}
                             >
                               <div
@@ -3436,7 +3437,7 @@ export const Providers = () => {
                                   <ChevronRight size={14} />
                                 )}
                                 <label
-                                  className="font-body text-[13px] font-medium text-text-secondary"
+                                  className="font-body text-[13px] font-medium text-foreground-muted"
                                   style={{ marginBottom: 0, flex: 1, cursor: 'pointer' }}
                                 >
                                   Extra Body Fields
@@ -3469,12 +3470,12 @@ export const Providers = () => {
                                     flexDirection: 'column',
                                     gap: '4px',
                                     padding: '8px',
-                                    borderTop: '1px solid var(--color-border-glass)',
-                                    background: 'var(--color-bg-deep)',
+                                    borderTop: '1px solid var(--border)',
+                                    background: 'var(--background)',
                                   }}
                                 >
                                   {Object.entries(mCfg.extraBody || {}).length === 0 && (
-                                    <div className="font-body text-[11px] text-text-secondary italic">
+                                    <div className="font-body text-[11px] text-foreground-muted italic">
                                       No extra body fields configured.
                                     </div>
                                   )}
@@ -3513,10 +3514,7 @@ export const Providers = () => {
                                         onClick={() => removeModelKV(mId, key)}
                                         style={{ padding: '4px' }}
                                       >
-                                        <Trash2
-                                          size={14}
-                                          style={{ color: 'var(--color-danger)' }}
-                                        />
+                                        <Trash2 size={14} style={{ color: 'var(--danger)' }} />
                                       </Button>
                                     </div>
                                   ))}
@@ -3591,7 +3589,7 @@ export const Providers = () => {
                 background: 'rgba(239, 68, 68, 0.1)',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 borderRadius: 'var(--radius-sm)',
-                color: 'var(--color-danger)',
+                color: 'var(--danger)',
                 fontSize: '13px',
               }}
             >
@@ -3604,7 +3602,7 @@ export const Providers = () => {
               <div
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
-                <label className="font-body text-[13px] font-medium text-text-secondary">
+                <label className="font-body text-[13px] font-medium text-foreground-muted">
                   Available Models ({fetchedModels.length})
                 </label>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -3625,9 +3623,9 @@ export const Providers = () => {
                 style={{
                   maxHeight: '400px',
                   overflowY: 'auto',
-                  border: '1px solid var(--color-border-glass)',
+                  border: '1px solid var(--border)',
                   borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-bg-deep)',
+                  background: 'var(--background)',
                 }}
               >
                 {fetchedModels.map((model) => {
@@ -3640,15 +3638,15 @@ export const Providers = () => {
                       key={model.id}
                       style={{
                         padding: '12px',
-                        borderBottom: '1px solid var(--color-border-glass)',
+                        borderBottom: '1px solid var(--border)',
                         cursor: 'pointer',
                         background: selectedModelIds.has(model.id)
-                          ? 'var(--color-bg-hover)'
+                          ? 'var(--surface-elevated)'
                           : 'transparent',
                         transition: 'background 0.2s',
                       }}
                       onClick={() => toggleModelSelection(model.id)}
-                      className="hover:bg-bg-hover"
+                      className="hover:bg-surface-elevated"
                     >
                       <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
                         <input
@@ -3671,7 +3669,7 @@ export const Providers = () => {
                               style={{
                                 fontWeight: 600,
                                 fontSize: '13px',
-                                color: 'var(--color-text)',
+                                color: 'var(--foreground)',
                               }}
                             >
                               {model.id}
@@ -3689,7 +3687,7 @@ export const Providers = () => {
                             <div
                               style={{
                                 fontSize: '12px',
-                                color: 'var(--color-text-secondary)',
+                                color: 'var(--foreground-muted)',
                                 marginBottom: '2px',
                               }}
                             >
@@ -3700,7 +3698,7 @@ export const Providers = () => {
                             <div
                               style={{
                                 fontSize: '11px',
-                                color: 'var(--color-text-muted)',
+                                color: 'var(--foreground-muted)',
                                 marginTop: '4px',
                                 lineHeight: '1.4',
                               }}
@@ -3724,7 +3722,7 @@ export const Providers = () => {
               style={{
                 padding: '32px',
                 textAlign: 'center',
-                color: 'var(--color-text-secondary)',
+                color: 'var(--foreground-muted)',
                 fontSize: '13px',
                 fontStyle: 'italic',
               }}
@@ -3744,14 +3742,14 @@ export const Providers = () => {
         size="lg"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
+          <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>
             Choose how to delete this provider. The action cannot be undone.
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div
               style={{
-                border: '1px solid var(--color-border)',
+                border: '1px solid var(--border)',
                 borderRadius: '8px',
                 padding: '16px',
                 display: 'flex',
@@ -3759,10 +3757,10 @@ export const Providers = () => {
                 gap: '12px',
               }}
             >
-              <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--color-danger)' }}>
+              <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--danger)' }}>
                 Delete Provider (Cascade)
               </div>
-              <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+              <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
                 Removes this provider AND deletes all model alias targets that reference it.
               </div>
               {affectedAliases.length > 0 ? (
@@ -3775,7 +3773,7 @@ export const Providers = () => {
                       margin: 0,
                       paddingLeft: '16px',
                       fontSize: '12px',
-                      color: 'var(--color-text-secondary)',
+                      color: 'var(--foreground-muted)',
                     }}
                   >
                     {affectedAliases.map((a) => (
@@ -3789,7 +3787,7 @@ export const Providers = () => {
                 <div
                   style={{
                     fontSize: '12px',
-                    color: 'var(--color-text-secondary)',
+                    color: 'var(--foreground-muted)',
                     fontStyle: 'italic',
                   }}
                 >
@@ -3800,7 +3798,7 @@ export const Providers = () => {
                 onClick={() => handleDelete(true)}
                 isLoading={deleteModalLoading}
                 style={{
-                  backgroundColor: 'var(--color-danger)',
+                  backgroundColor: 'var(--danger)',
                   marginTop: 'auto',
                 }}
               >
@@ -3810,7 +3808,7 @@ export const Providers = () => {
 
             <div
               style={{
-                border: '1px solid var(--color-border)',
+                border: '1px solid var(--border)',
                 borderRadius: '8px',
                 padding: '16px',
                 display: 'flex',
@@ -3818,17 +3816,15 @@ export const Providers = () => {
                 gap: '12px',
               }}
             >
-              <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--color-text)' }}>
+              <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--foreground)' }}>
                 Delete (Retain Targets)
               </div>
-              <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+              <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
                 Removes only the provider. Model alias targets that reference this provider will
                 remain but may cause errors.
               </div>
               {affectedAliases.length > 0 && (
-                <div
-                  style={{ fontSize: '12px', color: 'var(--color-warning)', fontStyle: 'italic' }}
-                >
+                <div style={{ fontSize: '12px', color: 'var(--warning)', fontStyle: 'italic' }}>
                   {affectedAliases.length} model alias(es) will have orphaned targets.
                 </div>
               )}

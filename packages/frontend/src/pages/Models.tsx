@@ -958,25 +958,25 @@ export const Models = () => {
             <thead>
               <tr>
                 <th
-                  className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider"
+                  className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
                   style={{ paddingLeft: '24px' }}
                 >
                   Alias
                 </th>
-                <th className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                   Type
                 </th>
-                <th className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                   Aliases
                 </th>
-                <th className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                   Selector
                 </th>
-                <th className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                   Metadata
                 </th>
                 <th
-                  className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider"
+                  className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
                   style={{ paddingRight: '24px' }}
                 >
                   Targets
@@ -999,7 +999,7 @@ export const Models = () => {
               ))}
               {filteredAliases.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center text-text-muted p-12">
+                  <td colSpan={5} className="text-center text-foreground-muted p-12">
                     No aliases found
                   </td>
                 </tr>
@@ -1028,11 +1028,11 @@ export const Models = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '-8px' }}>
           <div className="grid grid-cols-4 gap-4">
             <div className="flex flex-col gap-1">
-              <label className="font-body text-[13px] font-medium text-text-secondary">
+              <label className="font-body text-[13px] font-medium text-foreground-muted">
                 Primary Name (ID)
               </label>
               <input
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                 value={editingAlias.id}
                 onChange={(e) => setEditingAlias({ ...editingAlias, id: e.target.value })}
                 placeholder="e.g. gpt-4-turbo"
@@ -1040,11 +1040,11 @@ export const Models = () => {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="font-body text-[13px] font-medium text-text-secondary">
+              <label className="font-body text-[13px] font-medium text-foreground-muted">
                 Model Type
               </label>
               <select
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                 value={editingAlias.type || 'chat'}
                 onChange={(e) =>
                   setEditingAlias({
@@ -1069,11 +1069,11 @@ export const Models = () => {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="font-body text-[13px] font-medium text-text-secondary">
+              <label className="font-body text-[13px] font-medium text-foreground-muted">
                 Selector Strategy
               </label>
               <select
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                 value={editingAlias.selector || 'random'}
                 onChange={(e) => setEditingAlias({ ...editingAlias, selector: e.target.value })}
               >
@@ -1087,11 +1087,11 @@ export const Models = () => {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="font-body text-[13px] font-medium text-text-secondary">
+              <label className="font-body text-[13px] font-medium text-foreground-muted">
                 Priority
               </label>
               <select
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                 value={editingAlias.priority || 'selector'}
                 onChange={(e) =>
                   setEditingAlias({ ...editingAlias, priority: e.target.value as any })
@@ -1103,7 +1103,7 @@ export const Models = () => {
             </div>
           </div>
 
-          <p className="text-xs text-text-muted" style={{ marginTop: '-4px' }}>
+          <p className="text-xs text-foreground-muted" style={{ marginTop: '-4px' }}>
             Priority: "Selector" uses the strategy above. "API Match" matches provider type to
             incoming request format.
           </p>
@@ -1111,47 +1111,47 @@ export const Models = () => {
           <div className="h-px bg-border-glass" style={{ margin: '4px 0' }}></div>
 
           {/* Model Architecture accordion */}
-          <div className="border border-border-glass rounded-sm overflow-hidden">
+          <div className="border border-border rounded-sm overflow-hidden">
             <button
               type="button"
               onClick={() => setIsArchitectureOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-bg-hover transition-colors duration-150 text-left"
+              className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-surface-elevated transition-colors duration-150 text-left"
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Cpu size={13} className="text-text-muted" />
-                <span className="font-body text-[13px] font-medium text-text-secondary">
+                <Cpu size={13} className="text-foreground-muted" />
+                <span className="font-body text-[13px] font-medium text-foreground-muted">
                   Model Architecture
                 </span>
                 {editingAlias.model_architecture?.total_params && (
-                  <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border-glass text-primary bg-bg-hover">
+                  <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border text-primary bg-surface-elevated">
                     {editingAlias.model_architecture.total_params}B params
                   </span>
                 )}
               </div>
               {isArchitectureOpen ? (
-                <ChevronDown size={14} className="text-text-muted" />
+                <ChevronDown size={14} className="text-foreground-muted" />
               ) : (
-                <ChevronRight size={14} className="text-text-muted" />
+                <ChevronRight size={14} className="text-foreground-muted" />
               )}
             </button>
 
             {isArchitectureOpen && (
               <div
-                className="px-3 py-3 border-t border-border-glass"
+                className="px-3 py-3 border-t border-border"
                 style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
               >
-                <p className="font-body text-[11px] text-text-muted">
+                <p className="font-body text-[11px] text-foreground-muted">
                   Fetch model architecture from Hugging Face or enter manually. These values are
                   used for energy calculation.
                 </p>
 
                 {/* Display currently saved architecture values */}
                 {editingAlias.model_architecture?.total_params && (
-                  <div className="px-3 py-2 bg-bg-subtle border border-border-glass rounded-md">
-                    <div className="font-body text-[11px] font-medium text-text-secondary mb-1">
+                  <div className="px-3 py-2 bg-bg-subtle border border-border rounded-md">
+                    <div className="font-body text-[11px] font-medium text-foreground-muted mb-1">
                       Currently Saved:
                     </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground">
                       {editingAlias.model_architecture.total_params && (
                         <span>{editingAlias.model_architecture.total_params}B params</span>
                       )}
@@ -1176,11 +1176,11 @@ export const Models = () => {
                 {/* HuggingFace Model ID input and fetch button */}
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       Hugging Face Model ID
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       value={hfModelId}
                       onChange={(e) => setHfModelId(e.target.value)}
                       placeholder="e.g. meta-llama/Llama-3.1-70B-Instruct"
@@ -1203,13 +1203,13 @@ export const Models = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-2 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                <div className="grid grid-cols-2 gap-2 p-3 border border-border rounded-md bg-bg-subtle">
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       Total Params (B)
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="0.1"
                       min="0"
@@ -1227,11 +1227,11 @@ export const Models = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       Active Params (B)
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="0.1"
                       min="0"
@@ -1249,11 +1249,11 @@ export const Models = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       Layers
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="1"
                       min="1"
@@ -1271,11 +1271,11 @@ export const Models = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       Heads
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="1"
                       min="1"
@@ -1293,11 +1293,11 @@ export const Models = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       KV LoRA Rank
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="1"
                       min="1"
@@ -1315,11 +1315,11 @@ export const Models = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       RoPE Head Dim
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="1"
                       min="1"
@@ -1337,11 +1337,11 @@ export const Models = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       Context Length
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="1"
                       min="1"
@@ -1359,11 +1359,11 @@ export const Models = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary">
+                    <label className="font-body text-[11px] font-medium text-foreground-muted">
                       Data Type
                     </label>
                     <select
-                      className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       value={editingAlias.model_architecture?.dtype || ''}
                       onChange={(e) =>
                         setEditingAlias({
@@ -1392,41 +1392,41 @@ export const Models = () => {
           </div>
 
           {/* Advanced accordion */}
-          <div className="border border-border-glass rounded-sm overflow-hidden">
+          <div className="border border-border rounded-sm overflow-hidden">
             <button
               type="button"
               onClick={() => setIsAdvancedOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-bg-hover transition-colors duration-150 text-left"
+              className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-surface-elevated transition-colors duration-150 text-left"
             >
-              <span className="font-body text-[13px] font-medium text-text-secondary">
+              <span className="font-body text-[13px] font-medium text-foreground-muted">
                 Advanced
               </span>
               {isAdvancedOpen ? (
-                <ChevronDown size={14} className="text-text-muted" />
+                <ChevronDown size={14} className="text-foreground-muted" />
               ) : (
-                <ChevronRight size={14} className="text-text-muted" />
+                <ChevronRight size={14} className="text-foreground-muted" />
               )}
             </button>
 
             {isAdvancedOpen && (
               <div
-                className="px-3 py-3 border-t border-border-glass"
+                className="px-3 py-3 border-t border-border"
                 style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
               >
                 {/* ── Behaviors ── */}
                 <div>
                   <label
-                    className="font-body text-[13px] font-medium text-text-secondary"
+                    className="font-body text-[13px] font-medium text-foreground-muted"
                     style={{ display: 'block', marginBottom: '6px' }}
                   >
                     Behaviors
                   </label>
                   <div className="flex items-center justify-between py-1">
                     <div>
-                      <span className="font-body text-[13px] text-text">
+                      <span className="font-body text-[13px] text-foreground">
                         Strip Adaptive Thinking
                       </span>
-                      <p className="font-body text-[11px] text-text-muted mt-0.5">
+                      <p className="font-body text-[11px] text-foreground-muted mt-0.5">
                         On the <code className="text-primary">/v1/messages</code> path, remove{' '}
                         <code className="text-primary">thinking</code> when set to{' '}
                         <code className="text-primary">adaptive</code> so the provider uses its
@@ -1442,8 +1442,10 @@ export const Models = () => {
 
                   <div className="flex items-center justify-between py-1">
                     <div>
-                      <span className="font-body text-[13px] text-text">Vision Fallthrough</span>
-                      <p className="font-body text-[11px] text-text-muted mt-0.5">
+                      <span className="font-body text-[13px] text-foreground">
+                        Vision Fallthrough
+                      </span>
+                      <p className="font-body text-[11px] text-foreground-muted mt-0.5">
                         If the request contains images and the target model is text-only, use the
                         descriptor model to convert images to text.
                       </p>
@@ -1459,8 +1461,8 @@ export const Models = () => {
 
                   <div className="flex items-center justify-between py-1">
                     <div>
-                      <span className="font-body text-[13px] text-text">Enforce Limits</span>
-                      <p className="font-body text-[11px] text-text-muted mt-0.5">
+                      <span className="font-body text-[13px] text-foreground">Enforce Limits</span>
+                      <p className="font-body text-[11px] text-foreground-muted mt-0.5">
                         Reject oversized prompts locally (400 context_length_exceeded) before
                         dispatch. Uses a fast heuristic estimator with a 10% safety margin, and
                         reserves the smaller of max_tokens and the model's max completion for the
@@ -1471,7 +1473,7 @@ export const Models = () => {
                         !editingAlias.metadata?.overrides?.top_provider?.context_length && (
                           <p
                             className="font-body text-[11px] mt-1 flex items-center gap-1"
-                            style={{ color: 'var(--color-warning)' }}
+                            style={{ color: 'var(--warning)' }}
                           >
                             <AlertTriangle size={12} />
                             No context_length found in metadata — this toggle will have no effect
@@ -1500,7 +1502,7 @@ export const Models = () => {
                     }}
                   >
                     <label
-                      className="font-body text-[13px] font-medium text-text-secondary"
+                      className="font-body text-[13px] font-medium text-foreground-muted"
                       style={{ marginBottom: 0 }}
                     >
                       Additional Aliases
@@ -1516,7 +1518,7 @@ export const Models = () => {
                   </div>
 
                   {(!editingAlias.aliases || editingAlias.aliases.length === 0) && (
-                    <div className="text-text-muted italic text-center text-sm py-2">
+                    <div className="text-foreground-muted italic text-center text-sm py-2">
                       No additional aliases
                     </div>
                   )}
@@ -1534,7 +1536,7 @@ export const Models = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeAlias(idx)}
-                          style={{ color: 'var(--color-danger)' }}
+                          style={{ color: 'var(--danger)' }}
                         >
                           <Trash2 size={16} />
                         </Button>
@@ -1549,36 +1551,36 @@ export const Models = () => {
           <div className="h-px bg-border-glass" style={{ margin: '4px 0' }}></div>
 
           {/* Metadata accordion */}
-          <div className="border border-border-glass rounded-sm overflow-hidden">
+          <div className="border border-border rounded-sm overflow-hidden">
             <button
               type="button"
               onClick={() => setIsMetadataOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-bg-hover transition-colors duration-150 text-left"
+              className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-surface-elevated transition-colors duration-150 text-left"
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <BookOpen size={13} className="text-text-muted" />
-                <span className="font-body text-[13px] font-medium text-text-secondary">
+                <BookOpen size={13} className="text-foreground-muted" />
+                <span className="font-body text-[13px] font-medium text-foreground-muted">
                   Metadata
                 </span>
                 {editingAlias.metadata && (
-                  <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border-glass text-primary bg-bg-hover">
+                  <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border text-primary bg-surface-elevated">
                     {editingAlias.metadata.source}
                   </span>
                 )}
               </div>
               {isMetadataOpen ? (
-                <ChevronDown size={14} className="text-text-muted" />
+                <ChevronDown size={14} className="text-foreground-muted" />
               ) : (
-                <ChevronRight size={14} className="text-text-muted" />
+                <ChevronRight size={14} className="text-foreground-muted" />
               )}
             </button>
 
             {isMetadataOpen && (
               <div
-                className="px-3 py-3 border-t border-border-glass"
+                className="px-3 py-3 border-t border-border"
                 style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
               >
-                <p className="font-body text-[11px] text-text-muted">
+                <p className="font-body text-[11px] text-foreground-muted">
                   Link this alias to a model in an external catalog. When configured, Plexus
                   includes enriched metadata (name, context length, pricing, supported parameters)
                   in the <code className="text-primary">GET /v1/models</code> response.
@@ -1587,13 +1589,13 @@ export const Models = () => {
                 {/* Source selector */}
                 <div>
                   <label
-                    className="font-body text-[12px] font-medium text-text-secondary"
+                    className="font-body text-[12px] font-medium text-foreground-muted"
                     style={{ display: 'block', marginBottom: '4px' }}
                   >
                     Source
                   </label>
                   <select
-                    className="w-full font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
+                    className="w-full font-body text-xs text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
                     style={{ padding: '5px 8px', height: '30px' }}
                     value={editingAlias.metadata?.source ?? 'openrouter'}
                     onChange={(e) => {
@@ -1692,12 +1694,12 @@ export const Models = () => {
                 {editingAlias.metadata?.source !== 'custom' && (
                   <div style={{ position: 'relative' }}>
                     <label
-                      className="font-body text-[12px] font-medium text-text-secondary"
+                      className="font-body text-[12px] font-medium text-foreground-muted"
                       style={{ display: 'block', marginBottom: '4px' }}
                     >
                       Model
                       {editingAlias.metadata?.source_path && (
-                        <span className="ml-2 font-normal text-text-muted">
+                        <span className="ml-2 font-normal text-foreground-muted">
                           ({editingAlias.metadata.source_path})
                         </span>
                       )}
@@ -1738,7 +1740,7 @@ export const Models = () => {
                         {isMetadataSearching && (
                           <Loader2
                             size={14}
-                            className="animate-spin text-text-muted"
+                            className="animate-spin text-foreground-muted"
                             style={{
                               position: 'absolute',
                               right: '8px',
@@ -1754,7 +1756,7 @@ export const Models = () => {
                           size="sm"
                           onClick={clearMetadata}
                           style={{
-                            color: 'var(--color-danger)',
+                            color: 'var(--danger)',
                             padding: '4px',
                             minHeight: 'auto',
                           }}
@@ -1773,8 +1775,8 @@ export const Models = () => {
                     editingAlias.metadata.source_path ||
                     editingAlias.metadata.overrides) && (
                     <div
-                      className="rounded-sm border border-border-glass bg-bg-subtle px-3 py-2"
-                      style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}
+                      className="rounded-sm border border-border bg-bg-subtle px-3 py-2"
+                      style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <CheckCircle size={12} className="text-success" />
@@ -1805,7 +1807,7 @@ export const Models = () => {
                             </>
                           )}
                           {countOverrides(editingAlias.metadata) > 0 && (
-                            <span className="ml-2 text-text-muted">
+                            <span className="ml-2 text-foreground-muted">
                               + {countOverrides(editingAlias.metadata)} field
                               {countOverrides(editingAlias.metadata) === 1 ? '' : 's'} overridden
                             </span>
@@ -1827,7 +1829,7 @@ export const Models = () => {
                         }}
                       >
                         <label
-                          className="font-body text-[12px] font-medium text-text-secondary"
+                          className="font-body text-[12px] font-medium text-foreground-muted"
                           style={{ marginBottom: 0 }}
                         >
                           Override catalog fields
@@ -1888,7 +1890,7 @@ export const Models = () => {
               }}
             >
               <label
-                className="font-body text-[13px] font-medium text-text-secondary"
+                className="font-body text-[13px] font-medium text-foreground-muted"
                 style={{ marginBottom: 0 }}
               >
                 Targets
@@ -1914,7 +1916,7 @@ export const Models = () => {
             </div>
 
             {editingAlias.targets.length === 0 && (
-              <div className="text-text-muted italic text-center text-sm py-2">
+              <div className="text-foreground-muted italic text-center text-sm py-2">
                 No targets configured (Model will not work)
               </div>
             )}
@@ -1944,10 +1946,10 @@ export const Models = () => {
                           : 'var(--color-bg-subtle)',
                       borderRadius: 'var(--radius-sm)',
                       border: isDragging
-                        ? '1px dashed var(--color-border-glass)'
+                        ? '1px dashed var(--border)'
                         : isDragOver
-                          ? '2px solid var(--color-primary)'
-                          : '1px solid var(--color-border-glass)',
+                          ? '2px solid var(--accent)'
+                          : '1px solid var(--border)',
                       cursor: 'grab',
                       opacity: isDragging ? 0.4 : 1,
                       transform: isDragOver ? 'translateY(2px)' : 'none',
@@ -1970,7 +1972,7 @@ export const Models = () => {
                           left: 0,
                           right: 0,
                           height: '2px',
-                          backgroundColor: 'var(--color-primary)',
+                          backgroundColor: 'var(--accent)',
                           zIndex: 20,
                         }}
                       />
@@ -1980,7 +1982,7 @@ export const Models = () => {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '4px',
-                        color: 'var(--color-text-secondary)',
+                        color: 'var(--foreground-muted)',
                         opacity: 0.8,
                         marginRight: '4px',
                         visibility: isDragging ? 'hidden' : 'visible',
@@ -2026,7 +2028,7 @@ export const Models = () => {
                     <div
                       style={{
                         cursor: 'grab',
-                        color: 'var(--color-text-secondary)',
+                        color: 'var(--foreground-muted)',
                         display: 'flex',
                         alignItems: 'center',
                         visibility: isDragging ? 'hidden' : 'visible',
@@ -2042,7 +2044,7 @@ export const Models = () => {
                       }}
                     >
                       <select
-                        className="w-full font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
+                        className="w-full font-body text-xs text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
                         style={{ padding: '4px 8px', height: '28px' }}
                         value={target.provider}
                         onChange={(e) => updateTarget(idx, 'provider', e.target.value)}
@@ -2057,7 +2059,7 @@ export const Models = () => {
                     </div>
                     <div style={{ flex: 1, visibility: isDragging ? 'hidden' : 'visible' }}>
                       <select
-                        className="w-full font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
+                        className="w-full font-body text-xs text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
                         style={{ padding: '4px 8px', height: '28px' }}
                         value={target.model}
                         onChange={(e) => updateTarget(idx, 'model', e.target.value)}
@@ -2085,7 +2087,7 @@ export const Models = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => removeTarget(idx)}
-                        style={{ color: 'var(--color-danger)', padding: '4px', minHeight: 'auto' }}
+                        style={{ color: 'var(--danger)', padding: '4px', minHeight: 'auto' }}
                       >
                         <Trash2 size={14} />
                       </Button>
@@ -2131,7 +2133,7 @@ export const Models = () => {
               style={{
                 maxHeight: '400px',
                 overflowY: 'auto',
-                border: '1px solid var(--color-border-glass)',
+                border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-sm)',
               }}
             >
@@ -2146,7 +2148,7 @@ export const Models = () => {
                 >
                   <tr>
                     <th
-                      className="px-4 py-3 text-left font-semibold text-text-secondary text-[11px] uppercase tracking-wider"
+                      className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
                       style={{ width: '40px' }}
                     >
                       <input
@@ -2185,10 +2187,10 @@ export const Models = () => {
                         }}
                       />
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                       Provider
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                       Model
                     </th>
                   </tr>
@@ -2205,10 +2207,10 @@ export const Models = () => {
                     return (
                       <tr
                         key={key}
-                        className="hover:bg-bg-hover"
+                        className="hover:bg-surface-elevated"
                         style={{ opacity: isDisabled ? 0.5 : 1 }}
                       >
-                        <td className="px-4 py-3 text-left text-text">
+                        <td className="px-4 py-3 text-left text-foreground">
                           <input
                             type="checkbox"
                             checked={isSelected || alreadyExists}
@@ -2216,15 +2218,15 @@ export const Models = () => {
                             onChange={() => handleToggleModelSelection(model.id, provider.id)}
                           />
                         </td>
-                        <td className="px-4 py-3 text-left text-text">{provider.name}</td>
-                        <td className="px-4 py-3 text-left text-text">
+                        <td className="px-4 py-3 text-left text-foreground">{provider.name}</td>
+                        <td className="px-4 py-3 text-left text-foreground">
                           {model.name}
                           {alreadyExists && (
                             <span
                               style={{
                                 marginLeft: '8px',
                                 fontSize: '11px',
-                                color: 'var(--color-text-secondary)',
+                                color: 'var(--foreground-muted)',
                                 fontStyle: 'italic',
                               }}
                             >
@@ -2239,11 +2241,11 @@ export const Models = () => {
               </table>
             </div>
           ) : substring ? (
-            <div className="text-text-muted italic text-center text-sm py-8">
+            <div className="text-foreground-muted italic text-center text-sm py-8">
               No models found matching "{substring}"
             </div>
           ) : (
-            <div className="text-text-muted italic text-center text-sm py-8">
+            <div className="text-foreground-muted italic text-center text-sm py-8">
               Enter a search term to find models
             </div>
           )}
@@ -2291,13 +2293,13 @@ export const Models = () => {
               justifyContent: 'center',
             }}
           >
-            <Trash2 size={24} style={{ color: 'var(--color-danger)' }} />
+            <Trash2 size={24} style={{ color: 'var(--danger)' }} />
           </div>
           <div>
-            <p className="text-text" style={{ marginBottom: '8px', fontWeight: 500 }}>
+            <p className="text-foreground" style={{ marginBottom: '8px', fontWeight: 500 }}>
               Are you sure you want to delete all configured models?
             </p>
-            <p className="text-text-secondary" style={{ fontSize: '14px' }}>
+            <p className="text-foreground-muted" style={{ fontSize: '14px' }}>
               This will permanently remove <strong>{aliases.length}</strong> model alias
               {aliases.length !== 1 ? 'es' : ''} from the configuration.
             </p>
@@ -2346,13 +2348,13 @@ export const Models = () => {
               justifyContent: 'center',
             }}
           >
-            <Trash2 size={24} style={{ color: 'var(--color-danger)' }} />
+            <Trash2 size={24} style={{ color: 'var(--danger)' }} />
           </div>
           <div>
-            <p className="text-text" style={{ marginBottom: '8px', fontWeight: 500 }}>
+            <p className="text-foreground" style={{ marginBottom: '8px', fontWeight: 500 }}>
               Are you sure you want to delete this alias?
             </p>
-            <p className="text-text-secondary" style={{ fontSize: '14px' }}>
+            <p className="text-foreground-muted" style={{ fontSize: '14px' }}>
               <strong>{aliasToDelete?.id}</strong> will be permanently removed from the
               configuration.
             </p>
@@ -2373,7 +2375,7 @@ export const Models = () => {
               width: dropdownRect.width,
               zIndex: 9999,
               backgroundColor: '#1E293B',
-              border: '1px solid var(--color-border-glass)',
+              border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)',
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               maxHeight: '180px',
@@ -2396,12 +2398,14 @@ export const Models = () => {
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  borderBottom: '1px solid var(--color-border-glass)',
+                  borderBottom: '1px solid var(--border)',
                 }}
-                className="hover:bg-bg-hover transition-colors"
+                className="hover:bg-surface-elevated transition-colors"
               >
-                <div className="font-body text-[12px] font-medium text-text">{result.name}</div>
-                <div className="font-body text-[10px] text-text-muted">{result.id}</div>
+                <div className="font-body text-[12px] font-medium text-foreground">
+                  {result.name}
+                </div>
+                <div className="font-body text-[10px] text-foreground-muted">{result.id}</div>
               </button>
             ))}
           </div>,

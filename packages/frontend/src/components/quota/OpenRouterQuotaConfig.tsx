@@ -18,7 +18,7 @@ export const OpenRouterQuotaConfig: React.FC<OpenRouterQuotaConfigProps> = ({
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-body text-[13px] font-medium text-foreground-muted">
           Management API Key <span className="text-danger">*</span>
         </label>
         <Input
@@ -27,7 +27,7 @@ export const OpenRouterQuotaConfig: React.FC<OpenRouterQuotaConfigProps> = ({
           onChange={(e) => handleChange('apiKey', e.target.value)}
           placeholder="Enter your OpenRouter management key"
         />
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-muted">
           Required. Use a management key from{' '}
           <a
             href="https://openrouter.ai/settings/management-keys"
@@ -41,7 +41,7 @@ export const OpenRouterQuotaConfig: React.FC<OpenRouterQuotaConfigProps> = ({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-body text-[13px] font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input

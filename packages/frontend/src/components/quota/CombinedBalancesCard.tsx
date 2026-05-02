@@ -39,14 +39,16 @@ export const CombinedBalancesCard: React.FC<CombinedBalancesCardProps> = ({
     return (
       <div
         key={quota.checkerId}
-        className="px-4 py-3 flex items-center justify-between hover:bg-bg-hover transition-colors"
+        className="px-4 py-3 flex items-center justify-between hover:bg-surface-elevated transition-colors"
       >
         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <Wallet size={14} className="text-info flex-shrink-0" />
-            <span className="text-sm font-semibold text-text">{toTitleCase(quota.checkerId)}</span>
+            <span className="text-sm font-semibold text-foreground">
+              {toTitleCase(quota.checkerId)}
+            </span>
           </div>
-          <div className="text-xs text-text-muted pl-5 truncate">
+          <div className="text-xs text-foreground-muted pl-5 truncate">
             {displayName}
             {quota.oauthAccountId && ` • Account: ${quota.oauthAccountId}`}
           </div>
@@ -73,7 +75,7 @@ export const CombinedBalancesCard: React.FC<CombinedBalancesCardProps> = ({
               />
             ))
           ) : (
-            <span className="text-xs text-text-muted">No data</span>
+            <span className="text-xs text-foreground-muted">No data</span>
           )}
         </div>
 
@@ -97,10 +99,10 @@ export const CombinedBalancesCard: React.FC<CombinedBalancesCardProps> = ({
 
   return (
     <>
-      <div className="bg-bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="px-4 py-3 bg-bg-subtle border-b border-border flex items-center gap-2">
           <Wallet size={18} className="text-info" />
-          <h3 className="font-heading text-base font-semibold text-text">Account Balances</h3>
+          <h3 className="font-heading text-base font-semibold text-foreground">Account Balances</h3>
         </div>
 
         <div

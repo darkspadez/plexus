@@ -53,9 +53,9 @@ export const AllowanceMeterRow: React.FC<AllowanceMeterRowProps> = ({
     return (
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center justify-between gap-1 min-w-0">
-          <span className="text-[11px] text-text-secondary truncate flex-1">{meter.label}</span>
+          <span className="text-[11px] text-foreground-muted truncate flex-1">{meter.label}</span>
           {pct !== null && (
-            <span className="text-[10px] tabular-nums text-text-muted flex-shrink-0">
+            <span className="text-[10px] tabular-nums text-foreground-muted flex-shrink-0">
               {Math.round(pct)}%
             </span>
           )}
@@ -79,12 +79,12 @@ export const AllowanceMeterRow: React.FC<AllowanceMeterRowProps> = ({
     <div
       className={clsx(
         'flex flex-col gap-1 py-0.5',
-        onClick && 'cursor-pointer hover:bg-bg-hover rounded px-1 -mx-1 transition-colors'
+        onClick && 'cursor-pointer hover:bg-surface-elevated rounded px-1 -mx-1 transition-colors'
       )}
       onClick={onClick}
       title={onClick ? 'Click to view history' : undefined}
     >
-      <span className="text-xs text-text-secondary truncate">{meter.label}</span>
+      <span className="text-xs text-foreground-muted truncate">{meter.label}</span>
       {pct !== null && (
         <div className="h-1.5 rounded-full bg-bg-subtle overflow-hidden border border-border/30">
           <div
@@ -98,9 +98,9 @@ export const AllowanceMeterRow: React.FC<AllowanceMeterRowProps> = ({
       )}
       <div className="flex items-center gap-2">
         {remaining !== undefined && (
-          <span className="text-xs tabular-nums text-text">{remaining} left</span>
+          <span className="text-xs tabular-nums text-foreground">{remaining} left</span>
         )}
-        {period && <span className="text-[10px] text-text-muted">{period}</span>}
+        {period && <span className="text-[10px] text-foreground-muted">{period}</span>}
         {pct !== null && (
           <span
             className={clsx(
@@ -109,7 +109,7 @@ export const AllowanceMeterRow: React.FC<AllowanceMeterRowProps> = ({
                 ? 'text-danger'
                 : meter.status === 'warning'
                   ? 'text-warning'
-                  : 'text-text-secondary'
+                  : 'text-foreground-muted'
             )}
           >
             {Math.round(pct)}%

@@ -17,7 +17,7 @@ export const ZenmuxQuotaConfig: React.FC<ZenmuxQuotaConfigProps> = ({ options, o
       <div className="flex flex-col gap-1">
         <label
           htmlFor="zenmux-management-api-key"
-          className="font-body text-[13px] font-medium text-text-secondary"
+          className="font-body text-[13px] font-medium text-foreground-muted"
         >
           Management API Key <span className="text-danger">*</span>
         </label>
@@ -28,7 +28,7 @@ export const ZenmuxQuotaConfig: React.FC<ZenmuxQuotaConfigProps> = ({ options, o
           onChange={(e) => handleChange('managementApiKey', e.target.value)}
           placeholder="Enter your Zenmux management API key"
         />
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-muted">
           Required. Use a management API key from{' '}
           <a
             href="https://zenmux.ai/dashboard"
@@ -44,7 +44,7 @@ export const ZenmuxQuotaConfig: React.FC<ZenmuxQuotaConfigProps> = ({ options, o
       <div className="flex flex-col gap-1">
         <label
           htmlFor="zenmux-endpoint"
-          className="font-body text-[13px] font-medium text-text-secondary"
+          className="font-body text-[13px] font-medium text-foreground-muted"
         >
           Endpoint (optional)
         </label>
@@ -54,7 +54,7 @@ export const ZenmuxQuotaConfig: React.FC<ZenmuxQuotaConfigProps> = ({ options, o
           onChange={(e) => handleChange('endpoint', e.target.value)}
           placeholder="https://zenmux.ai/api/v1/management/subscription/detail"
         />
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-muted">
           Custom endpoint URL. Defaults to Zenmux's API.
         </span>
       </div>
