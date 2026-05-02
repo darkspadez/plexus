@@ -39,6 +39,8 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
+  Copy,
+  ShieldCheck,
 } from 'lucide-react';
 
 import { Switch } from '../components/ui-v2/switch';
@@ -1382,25 +1384,52 @@ export const Providers = () => {
                     )}
 
                     {oauthSession?.authInfo && (
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '6px',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        <Input
-                          label="Authorization URL"
-                          value={oauthSession.authInfo.url}
-                          readOnly
-                        />
-                        {oauthSession.authInfo.instructions && (
-                          <div className="text-[11px] text-foreground-muted flex items-center gap-1">
-                            <Info size={12} />
-                            <span>{oauthSession.authInfo.instructions}</span>
+                      <div className="mb-2 space-y-2 rounded-md border border-border bg-surface-elevated p-3">
+                        <div className="flex items-start gap-2">
+                          <ShieldCheck
+                            className="mt-0.5 size-4 shrink-0 text-info"
+                            strokeWidth={1.75}
+                          />
+                          <div className="flex-1 space-y-1.5">
+                            <div className="text-xs font-medium text-foreground">
+                              Open this URL in your browser
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <code className="flex-1 break-all rounded border border-border bg-surface px-2 py-1.5 font-mono text-[11px] text-foreground">
+                                {oauthSession.authInfo.url}
+                              </code>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(oauthSession.authInfo!.url);
+                                  toast.success('URL copied');
+                                }}
+                                aria-label="Copy URL"
+                                className="shrink-0"
+                              >
+                                <Copy strokeWidth={1.75} />
+                                Copy
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  window.open(oauthSession.authInfo!.url, '_blank', 'noopener')
+                                }
+                                aria-label="Open URL"
+                                className="shrink-0"
+                              >
+                                Open
+                              </Button>
+                            </div>
+                            {oauthSession.authInfo.instructions && (
+                              <div className="text-[11px] text-foreground-muted">
+                                {oauthSession.authInfo.instructions}
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     )}
 
