@@ -26,6 +26,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui-v2/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui-v2/dialog';
 import { Switch } from '../components/ui-v2/switch';
 import { Input } from '../components/ui-v2/input';
 import { ListPage } from '../components/templates';
@@ -2123,157 +2131,163 @@ export const Models = () => {
         </div>
       </Modal>
 
-      <Modal
-        isOpen={isAutoAddModalOpen}
-        onClose={() => setIsAutoAddModalOpen(false)}
-        title="Auto Add Targets"
-        size="lg"
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+      <Dialog
+        open={isAutoAddModalOpen}
+        onOpenChange={(open) => !open && setIsAutoAddModalOpen(false)}
+      >
+        <DialogContent className="sm:max-w-[720px]">
+          <DialogHeader>
+            <DialogTitle>Auto add targets</DialogTitle>
+            <DialogDescription>
+              Search across all enabled providers and bulk-add matching models as targets to this
+              alias.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Search models (e.g. 'gpt-4', 'claude')"
+                value={substring}
+                onChange={(e) => setSubstring(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchModels()}
+                className="flex-1"
+              />
+              <Button onClick={() => handleSearchModels()}>Search</Button>
+            </div>
+
+            {filteredModels.length > 0 ? (
+              <div
+                style={{
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                <table className="w-full border-collapse text-[13px]">
+                  <thead
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      backgroundColor: 'var(--surface-elevated)',
+                      zIndex: 10,
+                    }}
+                  >
+                    <tr>
+                      <th
+                        className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
+                        style={{ width: '40px' }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={
+                            filteredModels.length > 0 &&
+                            filteredModels.every(
+                              (m) =>
+                                selectedModels.has(`${m.provider.id}|${m.model.id}`) ||
+                                editingAlias.targets.some(
+                                  (t) => t.provider === m.provider.id && t.model === m.model.id
+                                )
+                            )
+                          }
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              const newSelection = new Set(selectedModels);
+                              filteredModels.forEach((m) => {
+                                const key = `${m.provider.id}|${m.model.id}`;
+                                if (
+                                  !editingAlias.targets.some(
+                                    (t) => t.provider === m.provider.id && t.model === m.model.id
+                                  )
+                                ) {
+                                  newSelection.add(key);
+                                }
+                              });
+                              setSelectedModels(newSelection);
+                            } else {
+                              const newSelection = new Set(selectedModels);
+                              filteredModels.forEach((m) => {
+                                newSelection.delete(`${m.provider.id}|${m.model.id}`);
+                              });
+                              setSelectedModels(newSelection);
+                            }
+                          }}
+                        />
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                        Provider
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                        Model
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredModels.map(({ model, provider }) => {
+                      const key = `${provider.id}|${model.id}`;
+                      const alreadyExists = editingAlias.targets.some(
+                        (t) => t.provider === provider.id && t.model === model.id
+                      );
+                      const isSelected = selectedModels.has(key);
+                      const isDisabled = alreadyExists;
+
+                      return (
+                        <tr
+                          key={key}
+                          className="hover:bg-surface-elevated"
+                          style={{ opacity: isDisabled ? 0.5 : 1 }}
+                        >
+                          <td className="px-4 py-3 text-left text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={isSelected || alreadyExists}
+                              disabled={isDisabled}
+                              onChange={() => handleToggleModelSelection(model.id, provider.id)}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-left text-foreground">{provider.name}</td>
+                          <td className="px-4 py-3 text-left text-foreground">
+                            {model.name}
+                            {alreadyExists && (
+                              <span
+                                style={{
+                                  marginLeft: '8px',
+                                  fontSize: '11px',
+                                  color: 'var(--foreground-muted)',
+                                  fontStyle: 'italic',
+                                }}
+                              >
+                                (already added)
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : substring ? (
+              <div className="text-foreground-muted italic text-center text-sm py-8">
+                No models found matching "{substring}"
+              </div>
+            ) : (
+              <div className="text-foreground-muted italic text-center text-sm py-8">
+                Enter a search term to find models
+              </div>
+            )}
+          </div>
+          <DialogFooter>
             <Button variant="ghost" onClick={() => setIsAutoAddModalOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleAddSelectedModels} disabled={selectedModels.size === 0}>
-              Add {selectedModels.size} Target{selectedModels.size !== 1 ? 's' : ''}
+              Add {selectedModels.size} Target
+              {selectedModels.size !== 1 ? 's' : ''}
             </Button>
-          </div>
-        }
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Input
-              placeholder="Search models (e.g. 'gpt-4', 'claude')"
-              value={substring}
-              onChange={(e) => setSubstring(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearchModels()}
-              style={{ flex: 1 }}
-            />
-            <Button onClick={() => handleSearchModels()}>Search</Button>
-          </div>
-
-          {filteredModels.length > 0 ? (
-            <div
-              style={{
-                maxHeight: '400px',
-                overflowY: 'auto',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              <table className="w-full border-collapse text-[13px]">
-                <thead
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    backgroundColor: 'var(--surface-elevated)',
-                    zIndex: 10,
-                  }}
-                >
-                  <tr>
-                    <th
-                      className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
-                      style={{ width: '40px' }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={
-                          filteredModels.length > 0 &&
-                          filteredModels.every(
-                            (m) =>
-                              selectedModels.has(`${m.provider.id}|${m.model.id}`) ||
-                              editingAlias.targets.some(
-                                (t) => t.provider === m.provider.id && t.model === m.model.id
-                              )
-                          )
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            const newSelection = new Set(selectedModels);
-                            filteredModels.forEach((m) => {
-                              const key = `${m.provider.id}|${m.model.id}`;
-                              if (
-                                !editingAlias.targets.some(
-                                  (t) => t.provider === m.provider.id && t.model === m.model.id
-                                )
-                              ) {
-                                newSelection.add(key);
-                              }
-                            });
-                            setSelectedModels(newSelection);
-                          } else {
-                            const newSelection = new Set(selectedModels);
-                            filteredModels.forEach((m) => {
-                              newSelection.delete(`${m.provider.id}|${m.model.id}`);
-                            });
-                            setSelectedModels(newSelection);
-                          }
-                        }}
-                      />
-                    </th>
-                    <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                      Provider
-                    </th>
-                    <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                      Model
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredModels.map(({ model, provider }) => {
-                    const key = `${provider.id}|${model.id}`;
-                    const alreadyExists = editingAlias.targets.some(
-                      (t) => t.provider === provider.id && t.model === model.id
-                    );
-                    const isSelected = selectedModels.has(key);
-                    const isDisabled = alreadyExists;
-
-                    return (
-                      <tr
-                        key={key}
-                        className="hover:bg-surface-elevated"
-                        style={{ opacity: isDisabled ? 0.5 : 1 }}
-                      >
-                        <td className="px-4 py-3 text-left text-foreground">
-                          <input
-                            type="checkbox"
-                            checked={isSelected || alreadyExists}
-                            disabled={isDisabled}
-                            onChange={() => handleToggleModelSelection(model.id, provider.id)}
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-left text-foreground">{provider.name}</td>
-                        <td className="px-4 py-3 text-left text-foreground">
-                          {model.name}
-                          {alreadyExists && (
-                            <span
-                              style={{
-                                marginLeft: '8px',
-                                fontSize: '11px',
-                                color: 'var(--foreground-muted)',
-                                fontStyle: 'italic',
-                              }}
-                            >
-                              (already added)
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : substring ? (
-            <div className="text-foreground-muted italic text-center text-sm py-8">
-              No models found matching "{substring}"
-            </div>
-          ) : (
-            <div className="text-foreground-muted italic text-center text-sm py-8">
-              Enter a search term to find models
-            </div>
-          )}
-        </div>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={isDeleteAllModalOpen} onOpenChange={setIsDeleteAllModalOpen}>
         <AlertDialogContent>
