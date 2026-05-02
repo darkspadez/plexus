@@ -1952,6 +1952,37 @@ export const Models = () => {
               </div>
             )}
 
+            {editingAlias.targets.length > 0 &&
+              (() => {
+                const enabled = editingAlias.targets.filter(
+                  (t) => t.enabled !== false && t.provider && t.model
+                );
+                const selector = editingAlias.selector || 'random';
+                const previewText = (() => {
+                  if (enabled.length === 0) return 'No enabled targets — requests will fail.';
+                  const fmtTarget = (t: { provider: string; model: string }) =>
+                    `${t.provider} → ${t.model}`;
+                  switch (selector) {
+                    case 'in_order':
+                      return `Next request routes to: ${fmtTarget(enabled[0]!)}.`;
+                    case 'random':
+                      return `Next request randomly routes to one of ${enabled.length} enabled target${enabled.length !== 1 ? 's' : ''}.`;
+                    case 'cost':
+                      return `Cost-optimized: lowest-priced of ${enabled.length} enabled target${enabled.length !== 1 ? 's' : ''}.`;
+                    case 'latency':
+                      return `Latency-optimized: fastest of ${enabled.length} enabled target${enabled.length !== 1 ? 's' : ''}.`;
+                    default:
+                      return `Routes via "${selector}" across ${enabled.length} enabled target${enabled.length !== 1 ? 's' : ''}.`;
+                  }
+                })();
+                return (
+                  <div className="mb-2 flex items-start gap-2 rounded-md border border-border bg-surface-elevated px-3 py-2 text-[11px] text-foreground-muted">
+                    <Eye className="mt-0.5 size-3.5 shrink-0 text-info" strokeWidth={1.75} />
+                    <span className="font-mono">{previewText}</span>
+                  </div>
+                );
+              })()}
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {editingAlias.targets.map((target, idx) => {
                 const isDragging = dragSourceIndex === idx;
