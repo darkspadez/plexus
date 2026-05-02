@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { FormField } from '../components/ui/FormField';
+import { Card, CardContent } from '../components/ui-v2/card';
+import { Button } from '../components/ui-v2/button';
+import { Input } from '../components/ui-v2/input';
+import { Label } from '../components/ui-v2/label';
 import logo from '../assets/plexus_logo_transparent.png';
 
 export const Login: React.FC = () => {
   const [key, setKey] = useState('');
   const { login, isAuthenticated } = useAuth();
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as any)?.from?.pathname || '/';
+  const from = (location.state as { from?: { pathname?: string } })?.from?.pathname || '/';
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -28,58 +29,69 @@ export const Login: React.FC = () => {
       setError('Please enter a key');
       return;
     }
-    const valid = await login(key.trim());
-    if (!valid) {
-      setError('Invalid key');
+    setSubmitting(true);
+    try {
+      const valid = await login(key.trim());
+      if (!valid) {
+        setError('Invalid key');
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-bg-deep flex items-center justify-center p-4 sm:p-6">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <img src={logo} alt="Plexus" className="h-14 sm:h-16 mx-auto mb-4" />
-          <h1 className="font-heading text-h1 font-bold text-text m-0">Sign in</h1>
-          <p className="mt-2 text-sm text-text-secondary">
+        <div className="mb-8 text-center">
+          <img src={logo} alt="Plexus" className="mx-auto mb-4 h-12 w-12 [filter:grayscale(1)]" />
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Sign in</h1>
+          <p className="mt-2 text-sm text-foreground-muted">
             Enter your admin key for full access, or an API key secret for a scoped view of your
             key's activity.
           </p>
         </div>
 
-        <Card>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <input
-              type="text"
-              name="username"
-              autoComplete="username"
-              defaultValue="admin"
-              className="sr-only"
-              tabIndex={-1}
-              aria-hidden="true"
-            />
-            <FormField
-              label="Admin key or API key secret"
-              htmlFor="adminKey"
-              error={error || undefined}
-            >
-              <Input
-                id="adminKey"
-                type="password"
-                autoComplete="current-password"
-                value={key}
-                onChange={(e) => {
-                  setKey(e.target.value);
-                  if (error) setError('');
-                }}
-                placeholder="sk-admin-... or sk-..."
-                autoFocus
+        <Card className="rounded-xl">
+          <CardContent className="pt-6">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                defaultValue="admin"
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
               />
-            </FormField>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="adminKey">Admin key or API key secret</Label>
+                <Input
+                  id="adminKey"
+                  type="password"
+                  autoComplete="current-password"
+                  value={key}
+                  onChange={(e) => {
+                    setKey(e.target.value);
+                    if (error) setError('');
+                  }}
+                  placeholder="sk-admin-… or sk-…"
+                  autoFocus
+                  aria-invalid={!!error}
+                  aria-describedby={error ? 'adminKey-error' : undefined}
+                />
+                {error && (
+                  <p id="adminKey-error" className="text-xs text-danger">
+                    {error}
+                  </p>
+                )}
+              </div>
 
-            <Button type="submit" className="w-full">
-              Access Dashboard
-            </Button>
-          </form>
+              <Button type="submit" size="lg" disabled={submitting}>
+                {submitting ? 'Signing in…' : 'Access Dashboard'}
+              </Button>
+            </form>
+          </CardContent>
         </Card>
       </div>
     </div>
