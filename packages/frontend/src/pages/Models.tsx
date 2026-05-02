@@ -18,6 +18,16 @@ import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui-v2/alert-dialog';
 import { Switch } from '../components/ui-v2/switch';
 import { SearchInput } from '../components/ui/SearchInput';
 import { ListPage } from '../components/templates';
@@ -2244,115 +2254,50 @@ export const Models = () => {
         </div>
       </Modal>
 
-      <Modal
-        isOpen={isDeleteAllModalOpen}
-        onClose={() => setIsDeleteAllModalOpen(false)}
-        title="Delete All Models"
-        size="sm"
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-            <Button
-              variant="ghost"
-              onClick={() => setIsDeleteAllModalOpen(false)}
+      <AlertDialog open={isDeleteAllModalOpen} onOpenChange={setIsDeleteAllModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete all models?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove{' '}
+              <strong className="text-foreground">{aliases.length}</strong> model alias
+              {aliases.length !== 1 ? 'es' : ''} from the configuration. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingAll}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteAll}
               disabled={isDeletingAll}
+              className="bg-danger text-danger-foreground hover:bg-danger/90"
             >
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmDeleteAll} isLoading={isDeletingAll} variant="danger">
-              Delete All
-            </Button>
-          </div>
-        }
-      >
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            alignItems: 'center',
-            textAlign: 'center',
-            padding: '16px 0',
-          }}
-        >
-          <div
-            style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Trash2 size={24} style={{ color: 'var(--danger)' }} />
-          </div>
-          <div>
-            <p className="text-foreground" style={{ marginBottom: '8px', fontWeight: 500 }}>
-              Are you sure you want to delete all configured models?
-            </p>
-            <p className="text-foreground-muted" style={{ fontSize: '14px' }}>
-              This will permanently remove <strong>{aliases.length}</strong> model alias
-              {aliases.length !== 1 ? 'es' : ''} from the configuration.
-            </p>
-          </div>
-        </div>
-      </Modal>
+              {isDeletingAll ? 'Deleting…' : 'Delete all'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        title="Delete Model Alias"
-        size="sm"
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-            <Button
-              variant="ghost"
-              onClick={() => setIsDeleteModalOpen(false)}
+      <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete model alias?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <code className="font-mono text-foreground">{aliasToDelete?.id}</code> will be
+              permanently removed from the configuration. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
               disabled={isDeleting}
+              className="bg-danger text-danger-foreground hover:bg-danger/90"
             >
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmDelete} isLoading={isDeleting} variant="danger">
-              Delete
-            </Button>
-          </div>
-        }
-      >
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            alignItems: 'center',
-            textAlign: 'center',
-            padding: '16px 0',
-          }}
-        >
-          <div
-            style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Trash2 size={24} style={{ color: 'var(--danger)' }} />
-          </div>
-          <div>
-            <p className="text-foreground" style={{ marginBottom: '8px', fontWeight: 500 }}>
-              Are you sure you want to delete this alias?
-            </p>
-            <p className="text-foreground-muted" style={{ fontSize: '14px' }}>
-              <strong>{aliasToDelete?.id}</strong> will be permanently removed from the
-              configuration.
-            </p>
-          </div>
-        </div>
-      </Modal>
+              {isDeleting ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* Metadata autocomplete portal — rendered outside accordion to avoid overflow:hidden clipping */}
       {showMetadataDropdown &&
         metadataResults.length > 0 &&
