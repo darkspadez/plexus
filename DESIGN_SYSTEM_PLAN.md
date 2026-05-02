@@ -83,11 +83,19 @@ Remaining (legacy aliases keep these rendering until migrated):
       migration of the OAuth multi-step Sheet (device-code flow,
       countdown, manual cancel), restyled quota config sub-components
       under new tokens.
-- [ ] **Phase 8 finish** — Delete `src/components/ui/` legacy dir
-      (still imported by Errors / Debug / Keys / Models / Providers /
-      Config / SystemLogs), drop the legacy token aliases at the
-      bottom of `src/styles/tokens.css`, retire `ToastContext`, trim
-      the `lib/api.ts` TTL cache (TanStack Query owns caching now).
+- [x] **Phase 8 finished (mostly)** — `src/components/ui/` directory
+      DELETED. Legacy token aliases dropped. Of the 24 original legacy
+      `ui/*` primitives: 19 deleted outright, 5 relocated to
+      `src/components/forms/` (Input, Button, Modal, TagSelect,
+      OpenRouterSlugInput) as sanctioned project-style components that
+      back the unmigrated Models + Providers content flows.
+
+      Remaining: retire `ToastContext` once Models/Providers stop using
+      `useToast().confirm()`, trim the `lib/api.ts` 20s TTL cache (now
+      redundant with TanStack Query), and finish the Models +
+      Providers content migrations (5 large Modals → shadcn Sheet,
+      ~43 Button calls swap to ui-v2 with leftIcon→child + isLoading→
+      manual disabled+text).
 
 The `Quotas` migration (`src/pages/Quotas.tsx` + `src/pages/quotas/*`)
 is the recipe for List pages; the `Logs` migration (`src/pages/Logs.tsx`

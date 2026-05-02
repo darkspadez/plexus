@@ -35,12 +35,15 @@ at the repo root). Current state:
   the Providers OAuth multi-step Sheet (§12.6) are the most involved
   sub-flows. Plus the MCP **logs sub-view** (server CRUD is done;
   logs subsection still uses legacy components) and the User Quotas
-  surface that replaced the dropped Keys tab. Token-wise these pages
-  use design-doc semantics directly — the legacy alias bridge has been
-  removed. Final Phase 8 cleanup (delete the 10 remaining
-  `components/ui/*` primitives still imported by Models / Providers,
-  retire `ToastContext`, trim `lib/api.ts` TTL cache) is blocked on
-  those two pages.
+  surface that replaced the dropped Keys tab. The
+  `src/components/ui/` legacy directory has been deleted; the 5
+  surviving project-style form components (Input, Button, Modal,
+  TagSelect, OpenRouterSlugInput) live at `src/components/forms/`.
+  Once Models + Providers convert their Modal/Button call sites,
+  `forms/Modal` and `forms/Button` can be retired in favor of
+  `ui-v2/dialog` + `ui-v2/sheet` + `ui-v2/button`. Retire
+  `ToastContext` once those pages stop using `useToast().confirm()`;
+  trim the `lib/api.ts` 20s TTL cache that TanStack Query supersedes.
 
 When building a new page or changing an existing one:
 
