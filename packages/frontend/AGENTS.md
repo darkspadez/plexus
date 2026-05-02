@@ -17,13 +17,14 @@ at the repo root). Current state:
   `src/components/ui-v2/`, project chips (`src/components/chips/`), chart
   wrappers with capsule bars and palette tokens (`src/components/charts/`),
   page templates (`src/components/templates/`), new `TopBar` + `AppSidebar`
-  shell, TanStack Query provider + Sonner toaster wired in, Quotas page
-  migrated as the canonical recipe.
-- **Pending**: Dashboard, Logs, Providers, Models, Keys, MCP, MyKey,
-  SystemLogs, Errors, Debug pages still consume legacy components/tokens.
-  They render correctly under the new shell via legacy token aliases at
-  the bottom of `tokens.css` — those aliases get deleted in Phase 8 once
-  every page is migrated.
+  shell, TanStack Query provider + Sonner toaster wired in. Pages migrated
+  end-to-end: **Quotas** (recipe), **Dashboard** (showcase per §12.1),
+  **MyKey**, **Logs** (with `/logs/:id` Sheet pattern + JsonTree). Pages
+  with chrome updates only: **SystemLogs**.
+- **Pending**: Keys, MCP, Models, Providers, Errors, Debug — these still
+  consume legacy components/tokens but render correctly under the new
+  shell via the legacy token aliases at the bottom of `tokens.css`. Those
+  aliases get deleted in Phase 8 once every page is migrated.
 
 When building a new page or changing an existing one:
 

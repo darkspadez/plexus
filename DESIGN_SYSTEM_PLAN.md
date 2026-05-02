@@ -29,14 +29,17 @@
       sonner. SystemLogs wrapped with ListPage chrome. Errors and Debug
       retain their custom edge-aligned layouts (full-width detail
       panels) but render under the new shell.
+- [x] **Phase 5** — Logs fully migrated per §12.2: TanStack Query +
+      TanStack Table with the design-doc columns, time-window filter
+      chips, cursor-style Newer/Older pagination, `/logs/:id` Sheet on
+      lg+ / DetailPage on smaller, `j`/`k`/`esc` keyboard nav, JsonTree
+      viewer with §7.8 coloring, Request/Response/Trace/Metadata tabs.
 - [x] **Theme settings UI** added to `Config` page (`ThemeSection`).
 - [x] **Agent docs** — root `AGENTS.md` and `packages/frontend/AGENTS.md`
       both point at `DESIGN_SYSTEM.md` and describe the migration recipe.
 
 Remaining (legacy aliases keep these rendering until migrated):
 
-- [ ] **Phase 5** — Logs with `/logs/:id` Sheet pattern, JSON tree,
-      keyboard nav.
 - [ ] **Phase 6** — Keys (one-time secret display), MCP, Models (split
       into subdir, Targets editor refresh).
 - [ ] **Phase 7** — Providers (split into 4–6 files, OAuth multi-step
