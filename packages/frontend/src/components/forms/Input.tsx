@@ -1,5 +1,15 @@
+/**
+ * Project-style labeled input — a labeled-field wrapper around the shadcn
+ * ui-v2 Input that bundles label + input + hint/error in one component
+ * matching the design-doc §7.2 form pattern (label above, hint below, errors
+ * below hint). Used by Models + Providers + the per-provider quota config
+ * forms; new code building forms with react-hook-form + zod uses ui-v2's
+ * Form/FormField primitives instead.
+ */
+
 import React from 'react';
-import { clsx } from 'clsx';
+import { Input as UiInput } from '../ui-v2/input';
+import { cn } from '../../lib/cn';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -35,16 +45,13 @@ export const Input: React.FC<InputProps> = ({
             {leadingIcon}
           </span>
         )}
-        <input
+        <UiInput
           id={inputId}
           aria-invalid={!!error}
-          className={clsx(
-            'w-full py-2.5 text-sm text-foreground bg-surface-elevated border rounded-md outline-none transition-all duration-fast backdrop-blur-md placeholder:text-foreground-muted',
-            'focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-            leadingIcon ? 'pl-10' : 'pl-3.5',
-            trailingAction ? 'pr-10' : 'pr-3.5',
-            error ? 'border-danger' : 'border-border',
+          className={cn(
+            leadingIcon && 'pl-10',
+            trailingAction && 'pr-10',
+            error && 'border-danger focus-visible:ring-danger',
             className
           )}
           {...props}
@@ -53,8 +60,8 @@ export const Input: React.FC<InputProps> = ({
           <span className="absolute right-2 flex items-center">{trailingAction}</span>
         )}
       </div>
-      {error && <span className="text-danger text-xs">{error}</span>}
-      {!error && hint && <span className="text-foreground-muted text-xs">{hint}</span>}
+      {error && <span className="text-xs text-danger">{error}</span>}
+      {!error && hint && <span className="text-xs text-foreground-muted">{hint}</span>}
     </div>
   );
 };
