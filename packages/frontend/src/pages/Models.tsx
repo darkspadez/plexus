@@ -14,7 +14,6 @@ import {
 import { useModels } from '../hooks/useModels';
 import { AliasTableRow } from '../components/models/AliasTableRow';
 import { MetadataOverrideForm } from '../components/models/MetadataOverrideForm';
-import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import {
@@ -28,7 +27,7 @@ import {
   AlertDialogTitle,
 } from '../components/ui-v2/alert-dialog';
 import { Switch } from '../components/ui-v2/switch';
-import { SearchInput } from '../components/ui/SearchInput';
+import { Input } from '../components/ui-v2/input';
 import { ListPage } from '../components/templates';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -40,6 +39,7 @@ import {
   ChevronUp,
   ChevronRight,
   BookOpen,
+  Search,
   X,
   CheckCircle,
   GripVertical,
@@ -945,7 +945,29 @@ export const Models = () => {
       actions={
         <>
           <div className="w-full sm:w-64">
-            <SearchInput placeholder="Search models..." value={search} onChange={setSearch} />
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-foreground-subtle"
+                strokeWidth={1.75}
+                aria-hidden
+              />
+              <Input
+                placeholder="Search models…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 pl-8 pr-8"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-foreground-muted hover:bg-surface-elevated hover:text-foreground"
+                >
+                  <X className="size-3.5" strokeWidth={1.75} />
+                </button>
+              )}
+            </div>
           </div>
           <Button
             variant="danger"
