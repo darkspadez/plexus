@@ -12,7 +12,7 @@ import type { QuotaCheckerInfo } from '../types/quota';
 import { formatMeterValue } from '../components/quota/MeterValue';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { Input } from '../components/ui/Input';
+import { Input } from '../components/forms/Input';
 import { Pill } from '../components/chips/Pill';
 import { ListPage } from '../components/templates';
 import { useToast } from '../contexts/ToastContext';
@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 import { Switch } from '../components/ui-v2/switch';
-import { OpenRouterSlugInput } from '../components/ui/OpenRouterSlugInput';
+import { OpenRouterSlugInput } from '../components/forms/OpenRouterSlugInput';
 import { NagaQuotaConfig } from '../components/quota/NagaQuotaConfig';
 import { SyntheticQuotaConfig } from '../components/quota/SyntheticQuotaConfig';
 import { NanoGPTQuotaConfig } from '../components/quota/NanoGPTQuotaConfig';

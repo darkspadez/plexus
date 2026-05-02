@@ -1,5 +1,5 @@
 import React from 'react';
-import { Input } from '../ui/Input';
+import { Input } from '../forms/Input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui-v2/select';
 
 export interface ApertisQuotaConfigProps {

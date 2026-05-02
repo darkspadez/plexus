@@ -1,6 +1,6 @@
 import type { MetadataOverrides } from '../../lib/api';
-import { Input } from '../ui/Input';
-import { TagSelect } from '../ui/TagSelect';
+import { Input } from '../forms/Input';
+import { TagSelect } from '../forms/TagSelect';
 
 // Suggested values shown in the TagSelect dropdowns. Users can still enter
 // arbitrary strings via `allowCustom`; these are just hints for the common case.
