@@ -12,6 +12,14 @@ import type { QuotaCheckerInfo } from '../types/quota';
 import { formatMeterValue } from '../components/quota/MeterValue';
 import { Button } from '../components/forms/Button';
 import { Modal } from '../components/forms/Modal';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui-v2/dialog';
 import { Input } from '../components/forms/Input';
 import { Pill } from '../components/chips/Pill';
 import { ListPage } from '../components/templates';
@@ -3719,47 +3727,35 @@ export const Providers = () => {
         </div>
       </Modal>
 
-      <Modal
-        isOpen={!!deleteModalProvider}
-        onClose={() => setDeleteModalProvider(null)}
-        title={`Delete Provider: ${deleteModalProvider?.name || deleteModalProvider?.id || ''}`}
-        size="lg"
+      <Dialog
+        open={!!deleteModalProvider}
+        onOpenChange={(open) => !open && setDeleteModalProvider(null)}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>
-            Choose how to delete this provider. The action cannot be undone.
-          </div>
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle>
+              Delete provider:{' '}
+              <code className="font-mono text-foreground">
+                {deleteModalProvider?.name || deleteModalProvider?.id || ''}
+              </code>
+            </DialogTitle>
+            <DialogDescription>
+              Choose how to delete this provider. The action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-              }}
-            >
-              <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--danger)' }}>
-                Delete Provider (Cascade)
-              </div>
-              <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-3 rounded-md border border-border p-4">
+              <div className="text-base font-semibold text-danger">Delete provider (cascade)</div>
+              <div className="text-xs text-foreground-muted">
                 Removes this provider AND deletes all model alias targets that reference it.
               </div>
               {affectedAliases.length > 0 ? (
-                <div style={{ fontSize: '13px' }}>
-                  <div style={{ fontWeight: 500, marginBottom: '4px' }}>
-                    This will affect {affectedAliases.length} model alias(es):
+                <div className="text-xs">
+                  <div className="mb-1 font-medium text-foreground">
+                    Affects {affectedAliases.length} model alias(es):
                   </div>
-                  <ul
-                    style={{
-                      margin: 0,
-                      paddingLeft: '16px',
-                      fontSize: '12px',
-                      color: 'var(--foreground-muted)',
-                    }}
-                  >
+                  <ul className="list-disc pl-4 text-foreground-muted">
                     {affectedAliases.map((a) => (
                       <li key={a.aliasId}>
                         {a.aliasId} ({a.targetsCount} target(s))
@@ -3768,68 +3764,49 @@ export const Providers = () => {
                   </ul>
                 </div>
               ) : (
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--foreground-muted)',
-                    fontStyle: 'italic',
-                  }}
-                >
+                <div className="text-xs italic text-foreground-muted">
                   No model aliases reference this provider.
                 </div>
               )}
               <Button
+                variant="danger"
                 onClick={() => handleDelete(true)}
-                isLoading={deleteModalLoading}
-                style={{
-                  backgroundColor: 'var(--danger)',
-                  marginTop: 'auto',
-                }}
+                disabled={deleteModalLoading}
+                className="mt-auto"
               >
-                Delete (Cascade)
+                {deleteModalLoading ? 'Deleting…' : 'Delete (cascade)'}
               </Button>
             </div>
 
-            <div
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-              }}
-            >
-              <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--foreground)' }}>
-                Delete (Retain Targets)
-              </div>
-              <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
+            <div className="flex flex-col gap-3 rounded-md border border-border p-4">
+              <div className="text-base font-semibold text-foreground">Delete (retain targets)</div>
+              <div className="text-xs text-foreground-muted">
                 Removes only the provider. Model alias targets that reference this provider will
                 remain but may cause errors.
               </div>
               {affectedAliases.length > 0 && (
-                <div style={{ fontSize: '12px', color: 'var(--warning)', fontStyle: 'italic' }}>
+                <div className="text-xs italic text-warning">
                   {affectedAliases.length} model alias(es) will have orphaned targets.
                 </div>
               )}
               <Button
                 variant="secondary"
                 onClick={() => handleDelete(false)}
-                isLoading={deleteModalLoading}
-                style={{ marginTop: 'auto' }}
+                disabled={deleteModalLoading}
+                className="mt-auto"
               >
-                Delete (Retain)
+                {deleteModalLoading ? 'Deleting…' : 'Delete (retain)'}
               </Button>
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <DialogFooter>
             <Button variant="ghost" onClick={() => setDeleteModalProvider(null)}>
               Cancel
             </Button>
-          </div>
-        </div>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ListPage>
   );
 };
