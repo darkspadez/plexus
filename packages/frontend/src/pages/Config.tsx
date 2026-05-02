@@ -1,16 +1,32 @@
 import { Component, useEffect, useRef, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import Editor from '@monaco-editor/react';
+import { toast } from 'sonner';
 import { RotateCcw, AlertTriangle, Download, Upload, RefreshCw } from 'lucide-react';
 import { api } from '../lib/api';
-import { useToast } from '../contexts/ToastContext';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { PageHeader } from '../components/layout/PageHeader';
-import { PageContainer } from '../components/layout/PageContainer';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../components/ui-v2/card';
+import { Button } from '../components/ui-v2/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui-v2/alert-dialog';
+import { FormPage } from '../components/templates';
 import type { CardLayout } from '../types/card';
 import { DEFAULT_CARD_ORDER, LAYOUT_STORAGE_KEY } from '../types/card';
 import { ThemeSection } from './config/ThemeSection';
+import { useTheme } from '../contexts/ThemeContext';
 
 class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
@@ -26,11 +42,11 @@ class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Er
   render() {
     if (this.state.error) {
       return (
-        <div className="h-[400px] sm:h-[500px] flex items-center justify-center bg-bg-glass/30 text-text-secondary rounded-md">
-          <div className="text-center p-6">
-            <AlertTriangle className="mx-auto mb-3 text-warning" size={32} />
-            <p className="text-sm font-semibold mb-1">Editor failed to load</p>
-            <p className="text-xs text-text-muted">{this.state.error.message}</p>
+        <div className="flex h-[400px] items-center justify-center rounded-md border border-border bg-surface-elevated text-foreground-muted sm:h-[500px]">
+          <div className="p-6 text-center">
+            <AlertTriangle className="mx-auto mb-3 size-8 text-warning" strokeWidth={1.5} />
+            <p className="mb-1 text-sm font-medium text-foreground">Editor failed to load</p>
+            <p className="text-xs text-foreground-muted">{this.state.error.message}</p>
           </div>
         </div>
       );
@@ -40,10 +56,11 @@ class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Er
 }
 
 export const Config = () => {
-  const toast = useToast();
+  const { resolved: themeMode } = useTheme();
   const [config, setConfig] = useState('');
   const [isConfigLoaded, setIsConfigLoaded] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
+  const [restartConfirmOpen, setRestartConfirmOpen] = useState(false);
 
   const loadConfig = async () => {
     try {
@@ -137,114 +154,93 @@ export const Config = () => {
     event.target.value = '';
   };
 
-  const handleRestart = async () => {
-    const ok = await toast.confirm({
-      title: 'Restart Plexus?',
-      message:
-        'This will briefly interrupt all ongoing requests. Are you sure you want to continue?',
-      confirmLabel: 'Restart',
-      variant: 'danger',
-    });
-    if (!ok) return;
-
+  const confirmRestart = async () => {
+    setRestartConfirmOpen(false);
     setIsRestarting(true);
     try {
       await api.restart();
     } catch (e) {
-      toast.error((e as Error).message, 'Restart failed');
+      toast.error((e as Error).message ?? 'Restart failed');
       setIsRestarting(false);
     }
   };
 
   return (
-    <PageContainer>
-      <PageHeader
-        title="Configuration"
-        subtitle="View current system configuration (read-only). Use the Providers, Models, and Keys pages to make changes."
-      />
+    <FormPage
+      title="Settings"
+      subtitle="View current system configuration (read-only). Use the Providers, Models, and Keys pages to make changes."
+    >
+      <ThemeSection />
 
-      <div className="flex flex-col gap-6">
-        <ThemeSection />
-        <Card
-          title="Configuration Export"
-          flush
-          extra={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={loadConfig}
-                leftIcon={<RotateCcw size={14} />}
-              >
-                Refresh
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleRestart}
-                isLoading={isRestarting}
-                leftIcon={<RefreshCw size={14} />}
-              >
-                Restart
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleExportConfig}
-                disabled={!isConfigLoaded}
-                leftIcon={<Download size={14} />}
-              >
-                Export JSON
-              </Button>
-            </div>
-          }
-        >
-          <div className="h-[400px] sm:h-[500px] lg:h-[600px] rounded-sm overflow-hidden">
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <div className="space-y-1">
+            <CardTitle>Configuration export</CardTitle>
+            <CardDescription>
+              The exact configuration the backend is currently running.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={loadConfig}>
+              <RotateCcw strokeWidth={1.75} />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRestartConfirmOpen(true)}
+              disabled={isRestarting}
+            >
+              <RefreshCw className={isRestarting ? 'animate-spin' : undefined} strokeWidth={1.75} />
+              {isRestarting ? 'Restarting…' : 'Restart'}
+            </Button>
+            <Button size="sm" onClick={handleExportConfig} disabled={!isConfigLoaded}>
+              <Download strokeWidth={1.75} />
+              Export JSON
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="px-0 pb-0">
+          <div className="h-[400px] overflow-hidden border-t border-border sm:h-[500px] lg:h-[600px]">
             <EditorErrorBoundary>
               <Editor
                 height="100%"
                 defaultLanguage="json"
                 value={config}
-                theme="vs-dark"
+                theme={themeMode === 'light' ? 'vs' : 'vs-dark'}
                 options={{
                   readOnly: true,
                   minimap: { enabled: false },
                   scrollBeyondLastLine: false,
                   fontSize: 13,
-                  fontFamily: '"Fira Code", "Fira Mono", monospace',
+                  fontFamily: 'Geist Mono, "Fira Code", monospace',
                 }}
               />
             </EditorErrorBoundary>
           </div>
-        </Card>
+        </CardContent>
+      </Card>
 
-        <Card
-          title="Card Layout"
-          extra={
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleExportLayout}
-                leftIcon={<Download size={14} />}
-              >
-                Export
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleImportLayout}
-                leftIcon={<Upload size={14} />}
-              >
-                Import
-              </Button>
-            </div>
-          }
-        >
-          <p className="text-sm text-text-secondary mb-4">
-            Import or export your Live Metrics card layout configuration.
-          </p>
-
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <div className="space-y-1">
+            <CardTitle>Card layout</CardTitle>
+            <CardDescription>
+              Import or export your Live Metrics card layout configuration.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportLayout}>
+              <Download strokeWidth={1.75} />
+              Export
+            </Button>
+            <Button size="sm" onClick={handleImportLayout}>
+              <Upload strokeWidth={1.75} />
+              Import
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
           <input
             ref={fileInputRef}
             type="file"
@@ -253,29 +249,48 @@ export const Config = () => {
             onChange={handleFileSelect}
           />
 
-          <div>
-            <h4 className="font-heading text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
-              Current Card Order
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {cardLayout.length === 0 && (
-                <p className="text-xs text-text-muted italic">
-                  Default layout — no customizations saved.
-                </p>
-              )}
-              {cardLayout.map((card, index) => (
-                <div
+          <h4 className="mb-3 text-xs font-medium uppercase tracking-wider text-foreground-subtle">
+            Current card order
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {cardLayout.length === 0 ? (
+              <p className="text-xs italic text-foreground-subtle">
+                Default layout — no customizations saved.
+              </p>
+            ) : (
+              cardLayout.map((card, index) => (
+                <span
                   key={card.id}
-                  className="px-3 py-1.5 bg-bg-glass rounded-md border border-border-glass text-xs text-text"
+                  className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-elevated px-3 py-1.5 text-xs text-foreground"
                 >
-                  <span className="text-text-muted mr-2">{index + 1}.</span>
-                  {card.id}
-                </div>
-              ))}
-            </div>
+                  <span className="text-foreground-subtle">{index + 1}.</span>
+                  <span className="font-mono">{card.id}</span>
+                </span>
+              ))
+            )}
           </div>
-        </Card>
-      </div>
-    </PageContainer>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={restartConfirmOpen} onOpenChange={setRestartConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restart Plexus?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will briefly interrupt all ongoing requests. Confirm to continue.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRestart}
+              className="bg-danger text-danger-foreground hover:bg-danger/90"
+            >
+              Restart
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </FormPage>
   );
 };
