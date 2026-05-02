@@ -35,7 +35,7 @@ export function Select<V extends string = string>({
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
-        <label htmlFor={selectId} className="font-body text-xs font-medium text-text-secondary">
+        <label htmlFor={selectId} className="text-xs font-medium text-foreground-muted">
           {label}
         </label>
       )}
@@ -46,10 +46,10 @@ export function Select<V extends string = string>({
           onChange={(e) => onChange(e.target.value as V)}
           aria-invalid={!!error}
           className={clsx(
-            'w-full appearance-none py-2.5 pl-3.5 pr-10 font-body text-sm text-text bg-bg-glass border rounded-md outline-none transition-all duration-fast backdrop-blur-md cursor-pointer',
+            'w-full appearance-none py-2.5 pl-3.5 pr-10 text-sm text-foreground bg-surface-elevated border rounded-md outline-none transition-all duration-fast backdrop-blur-md cursor-pointer',
             'focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25',
             'disabled:opacity-50 disabled:cursor-not-allowed',
-            error ? 'border-danger' : 'border-border-glass',
+            error ? 'border-danger' : 'border-border',
             className
           )}
           {...rest}
@@ -67,7 +67,7 @@ export function Select<V extends string = string>({
         </select>
         <ChevronDown
           size={16}
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-muted"
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted"
         />
       </div>
       {error && <span className="text-danger text-xs">{error}</span>}

@@ -200,34 +200,8 @@
   --row-height: 32px;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Legacy aliases — bridge for unmigrated pages. DELETED IN PHASE 8.          */
-/* -------------------------------------------------------------------------- */
-
-:root {
-  --color-bg-deep:     var(--background);
-  --color-bg-surface:  var(--surface);
-  --color-bg-card:     var(--surface);
-  --color-bg-glass:    var(--surface-elevated);
-  --color-bg-hover:    var(--surface-elevated);
-
-  --color-primary:   var(--accent);
-  --color-secondary: var(--accent);
-  --color-cta:       var(--accent);
-  --color-success:   var(--success);
-  --color-warning:   var(--warning);
-  --color-danger:    var(--danger);
-  --color-info:      var(--info);
-  --color-cyan:      var(--hue-chart-cyan);
-
-  --color-text:           var(--foreground);
-  --color-text-secondary: var(--foreground-muted);
-  --color-text-muted:     var(--foreground-subtle);
-
-  --color-border:        var(--border);
-  --color-border-glass:  var(--border);
-  --color-glow:          var(--accent-subtle);
-
-  --color-terminal-bg: var(--surface-sunken);
-  --color-terminal-fg: var(--foreground);
-}
+/*
+ * Legacy alias bridge — deleted in Phase 8 once the last legacy class
+ * reference left the codebase. The tokens above are now the only source
+ * of truth.
+ */

@@ -141,16 +141,16 @@ export const TagSelect: React.FC<TagSelectProps> = ({
   return (
     <div className={clsx('flex flex-col gap-2', className)} ref={containerRef}>
       {label && (
-        <label className="font-body text-[13px] font-medium text-text-secondary whitespace-nowrap">
+        <label className="text-[13px] font-medium text-foreground-muted whitespace-nowrap">
           {label}
         </label>
       )}
       <div
         className={clsx(
-          'w-full py-2.5 px-3.5 font-body text-sm bg-bg-glass border rounded-sm outline-none transition-all duration-200 backdrop-blur-md cursor-text min-h-[42px] flex flex-wrap items-center gap-1.5',
+          'w-full py-2.5 px-3.5 text-sm bg-surface-elevated border rounded-sm outline-none transition-all duration-200 backdrop-blur-md cursor-text min-h-[42px] flex flex-wrap items-center gap-1.5',
           isOpen
             ? 'border-primary shadow-[0_0_0_3px_rgba(245,158,11,0.15)]'
-            : 'border-border-glass hover:border-border-glass'
+            : 'border-border hover:border-border'
         )}
         onClick={handleContainerClick}
       >
@@ -173,7 +173,7 @@ export const TagSelect: React.FC<TagSelectProps> = ({
         {isOpen ? (
           <input
             ref={searchInputRef}
-            className="flex-1 min-w-[80px] bg-transparent border-0 outline-none text-text text-sm p-0 placeholder:text-text-muted"
+            className="flex-1 min-w-[80px] bg-transparent border-0 outline-none text-foreground text-sm p-0 placeholder:text-foreground-muted"
             value={search}
             onChange={handleSearchChange}
             onKeyDown={handleSearchKeyDown}
@@ -192,14 +192,14 @@ export const TagSelect: React.FC<TagSelectProps> = ({
             }
           />
         ) : (
-          <span className="text-text-muted text-sm flex-1">
+          <span className="text-foreground-muted text-sm flex-1">
             {selected.length === 0 ? placeholder : ''}
           </span>
         )}
         <ChevronDown
           size={14}
           className={clsx(
-            'text-text-muted ml-auto shrink-0 transition-transform duration-200',
+            'text-foreground-muted ml-auto shrink-0 transition-transform duration-200',
             isOpen && 'rotate-180'
           )}
         />
@@ -207,9 +207,9 @@ export const TagSelect: React.FC<TagSelectProps> = ({
 
       {isOpen && (
         <div className="relative -mt-1">
-          <div className="absolute z-50 w-full max-h-52 overflow-y-auto bg-bg-surface border border-border-glass rounded-sm shadow-lg">
+          <div className="absolute z-50 w-full max-h-52 overflow-y-auto bg-surface border border-border rounded-sm shadow-lg">
             {filteredOptions.length === 0 && !showCreateOption && (
-              <div className="px-3.5 py-2.5 text-xs text-text-muted">
+              <div className="px-3.5 py-2.5 text-xs text-foreground-muted">
                 {search
                   ? 'No matches found'
                   : allowCustom
@@ -222,8 +222,8 @@ export const TagSelect: React.FC<TagSelectProps> = ({
                 type="button"
                 key={option}
                 className={clsx(
-                  'w-full text-left px-3.5 py-2 text-sm font-body cursor-pointer transition-colors',
-                  'hover:bg-bg-hover text-text'
+                  'w-full text-left px-3.5 py-2 text-sm cursor-pointer transition-colors',
+                  'hover:bg-surface-elevated text-foreground'
                 )}
                 onClick={() => handleToggle(option)}
               >
@@ -234,10 +234,10 @@ export const TagSelect: React.FC<TagSelectProps> = ({
               <button
                 type="button"
                 key={`__create__${searchTrimmed}`}
-                className="w-full text-left px-3.5 py-2 text-sm font-body cursor-pointer transition-colors hover:bg-bg-hover text-text border-t border-border-glass"
+                className="w-full text-left px-3.5 py-2 text-sm cursor-pointer transition-colors hover:bg-surface-elevated text-foreground border-t border-border"
                 onClick={() => commitCustom(searchTrimmed)}
               >
-                <span className="text-text-muted">Create </span>
+                <span className="text-foreground-muted">Create </span>
                 <span className="font-medium">&quot;{searchTrimmed}&quot;</span>
               </button>
             )}

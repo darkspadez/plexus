@@ -17,7 +17,7 @@ export const ZenmuxQuotaConfig: React.FC<ZenmuxQuotaConfigProps> = ({ options, o
       <div className="flex flex-col gap-1">
         <label
           htmlFor="zenmux-management-api-key"
-          className="font-body text-[13px] font-medium text-foreground-muted"
+          className="text-[13px] font-medium text-foreground-muted"
         >
           Management API Key <span className="text-danger">*</span>
         </label>
@@ -42,10 +42,7 @@ export const ZenmuxQuotaConfig: React.FC<ZenmuxQuotaConfigProps> = ({ options, o
       </div>
 
       <div className="flex flex-col gap-1">
-        <label
-          htmlFor="zenmux-endpoint"
-          className="font-body text-[13px] font-medium text-foreground-muted"
-        >
+        <label htmlFor="zenmux-endpoint" className="text-[13px] font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input

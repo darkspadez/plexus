@@ -19,7 +19,7 @@ const statusClasses: Record<BadgeStatus, string> = {
   disconnected: 'text-danger border-danger/30 bg-danger/15',
   error: 'text-danger border-danger/30 bg-danger/15',
   warning: 'text-secondary border-secondary/30 bg-secondary/15',
-  neutral: 'text-text-secondary border-border bg-bg-hover',
+  neutral: 'text-foreground-muted border-border bg-surface-elevated',
 };
 
 export const Badge: React.FC<BadgeProps> = ({

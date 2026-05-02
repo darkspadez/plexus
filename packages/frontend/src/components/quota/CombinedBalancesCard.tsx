@@ -100,9 +100,9 @@ export const CombinedBalancesCard: React.FC<CombinedBalancesCardProps> = ({
   return (
     <>
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
-        <div className="px-4 py-3 bg-bg-subtle border-b border-border flex items-center gap-2">
+        <div className="px-4 py-3 bg-surface-elevated border-b border-border flex items-center gap-2">
           <Wallet size={18} className="text-info" />
-          <h3 className="font-heading text-base font-semibold text-foreground">Account Balances</h3>
+          <h3 className="text-base font-semibold text-foreground">Account Balances</h3>
         </div>
 
         <div

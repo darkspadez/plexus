@@ -48,7 +48,7 @@ export const Modal: React.FC<ModalProps> = ({
     >
       <div
         className={clsx(
-          'bg-bg-surface border border-border-glass rounded-xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-modal animate-[slideUp_0.3s_ease]',
+          'bg-surface border border-border rounded-xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-md animate-[slideUp_0.3s_ease]',
           {
             'max-w-[420px]': size === 'sm',
             'max-w-[640px]': size === 'md',
@@ -57,11 +57,11 @@ export const Modal: React.FC<ModalProps> = ({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between gap-4 p-4 sm:p-5 md:p-6 border-b border-border-glass">
-          <h2 className="font-heading text-h2 font-semibold text-text m-0 truncate">{title}</h2>
+        <div className="flex items-center justify-between gap-4 p-4 sm:p-5 md:p-6 border-b border-border">
+          <h2 className="text-xl font-semibold text-foreground m-0 truncate">{title}</h2>
           <button
             type="button"
-            className="flex-shrink-0 bg-transparent border-0 text-text-muted cursor-pointer rounded-md p-1 transition-colors duration-fast hover:text-text focus-visible:outline-2 focus-visible:outline focus-visible:outline-primary focus-visible:outline-offset-2"
+            className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-md p-1 transition-colors duration-fast hover:text-foreground focus-visible:outline-2 focus-visible:outline focus-visible:outline-primary focus-visible:outline-offset-2"
             onClick={onClose}
             aria-label="Close"
           >
@@ -70,7 +70,7 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
         <div className="p-4 sm:p-5 md:p-6 lg:p-8 overflow-y-auto flex-1">{children}</div>
         {footer && (
-          <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-4 sm:px-5 sm:py-5 md:px-6 border-t border-border-glass">
+          <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-4 sm:px-5 sm:py-5 md:px-6 border-t border-border">
             {footer}
           </div>
         )}

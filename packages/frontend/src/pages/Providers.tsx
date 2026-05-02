@@ -1005,7 +1005,7 @@ export const Providers = () => {
       return (
         <Badge
           status="neutral"
-          className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2 bg-bg-subtle border border-border text-foreground-muted"
+          className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2 bg-surface-elevated border border-border text-foreground-muted"
           onClick={handleQuotaClick}
         >
           {formatted}
@@ -1048,7 +1048,7 @@ export const Providers = () => {
     >
       <Card flush>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse font-body text-[13px]">
+          <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr>
                 <th
@@ -1191,9 +1191,7 @@ export const Providers = () => {
               disabled={isOAuthMode}
             />
             <div className="flex flex-col gap-2">
-              <label className="font-body text-[13px] font-medium text-foreground-muted">
-                Enabled
-              </label>
+              <label className="text-[13px] font-medium text-foreground-muted">Enabled</label>
               <div style={{ height: '38px', display: 'flex', alignItems: 'center' }}>
                 <Switch
                   checked={editingProvider.enabled !== false}
@@ -1210,13 +1208,13 @@ export const Providers = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             {/* Left: APIs & Base URLs */}
-            <div className="flex flex-col gap-1 border border-border rounded-md p-3 bg-bg-subtle">
+            <div className="flex flex-col gap-1 border border-border rounded-md p-3 bg-surface-elevated">
               <div className="flex flex-col gap-1" style={{ marginBottom: '6px' }}>
-                <label className="font-body text-[13px] font-medium text-foreground-muted">
+                <label className="text-[13px] font-medium text-foreground-muted">
                   Connection Type
                 </label>
                 <select
-                  className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                   value={isOAuthMode ? 'oauth' : 'url'}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1245,7 +1243,7 @@ export const Providers = () => {
                   <option value="oauth">OAuth (pi-ai)</option>
                 </select>
               </div>
-              <label className="font-body text-[13px] font-medium text-foreground-muted">
+              <label className="text-[13px] font-medium text-foreground-muted">
                 Supported APIs & Base URLs
               </label>
               <div
@@ -1263,7 +1261,7 @@ export const Providers = () => {
                     including Ollama&apos;s{' '}
                     <code
                       style={{
-                        background: 'var(--color-bg-subtle)',
+                        background: 'var(--surface-elevated)',
                         padding: '1px 4px',
                         borderRadius: '2px',
                       }}
@@ -1277,7 +1275,7 @@ export const Providers = () => {
                     root URL (e.g.{' '}
                     <code
                       style={{
-                        background: 'var(--color-bg-subtle)',
+                        background: 'var(--surface-elevated)',
                         padding: '1px 4px',
                         borderRadius: '2px',
                       }}
@@ -1294,17 +1292,17 @@ export const Providers = () => {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '8px',
-                    background: 'var(--color-bg-subtle)',
+                    background: 'var(--surface-elevated)',
                     padding: '8px',
                     borderRadius: 'var(--radius-md)',
                   }}
                 >
                   <div className="flex flex-col gap-1">
-                    <label className="font-body text-[13px] font-medium text-foreground-muted">
+                    <label className="text-[13px] font-medium text-foreground-muted">
                       OAuth Provider
                     </label>
                     <select
-                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                       value={editingProvider.oauthProvider || OAUTH_PROVIDERS[0].value}
                       onChange={(e) =>
                         setEditingProvider({
@@ -1333,7 +1331,7 @@ export const Providers = () => {
                   />
 
                   <div
-                    className="border border-border rounded-md p-3 bg-bg-subtle"
+                    className="border border-border rounded-md p-3 bg-surface-elevated"
                     style={{ marginTop: '4px' }}
                   >
                     <div
@@ -1346,7 +1344,7 @@ export const Providers = () => {
                       }}
                     >
                       <div>
-                        <div className="font-body text-[13px] font-medium text-foreground">
+                        <div className="text-[13px] font-medium text-foreground">
                           OAuth Authentication
                         </div>
                         <div className="text-[11px] text-foreground-muted">
@@ -1514,7 +1512,7 @@ export const Providers = () => {
                   >
                     {isApiBaseUrlsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <label
-                      className="font-body text-[13px] font-medium text-foreground-muted"
+                      className="text-[13px] font-medium text-foreground-muted"
                       style={{ marginBottom: 0, flex: 1 }}
                     >
                       Base URL Entries
@@ -1542,11 +1540,11 @@ export const Providers = () => {
                         gap: '6px',
                         padding: '8px',
                         borderTop: '1px solid var(--border)',
-                        background: 'var(--color-bg-subtle)',
+                        background: 'var(--surface-elevated)',
                       }}
                     >
                       {Object.entries(getApiBaseUrlMap()).length === 0 && (
-                        <div className="font-body text-[11px] text-foreground-muted italic">
+                        <div className="text-[11px] text-foreground-muted italic">
                           No base URLs configured yet.
                         </div>
                       )}
@@ -1578,7 +1576,7 @@ export const Providers = () => {
                           >
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                               <select
-                                className="w-full py-1.5 px-3 font-body text-xs text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                className="w-full py-1.5 px-3 text-xs text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                                 value={apiType}
                                 onChange={(e) =>
                                   updateApiBaseUrlEntry(
@@ -1599,7 +1597,7 @@ export const Providers = () => {
                                 ))}
                               </select>
                               <input
-                                className="w-full py-1.5 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                className="w-full py-1.5 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                                 placeholder={
                                   apiType === 'ollama'
                                     ? 'http://localhost:11434'
@@ -1621,7 +1619,7 @@ export const Providers = () => {
                                     expects root URL (e.g.{' '}
                                     <code
                                       style={{
-                                        background: 'var(--color-bg-subtle)',
+                                        background: 'var(--surface-elevated)',
                                         padding: '0 3px',
                                         borderRadius: '2px',
                                       }}
@@ -1631,7 +1629,7 @@ export const Providers = () => {
                                     ). URLs with{' '}
                                     <code
                                       style={{
-                                        background: 'var(--color-bg-subtle)',
+                                        background: 'var(--surface-elevated)',
                                         padding: '0 3px',
                                         borderRadius: '2px',
                                       }}
@@ -1653,7 +1651,7 @@ export const Providers = () => {
                                     This URL contains{' '}
                                     <code
                                       style={{
-                                        background: 'var(--color-bg-subtle)',
+                                        background: 'var(--surface-elevated)',
                                         padding: '0 3px',
                                         borderRadius: '2px',
                                       }}
@@ -1685,10 +1683,8 @@ export const Providers = () => {
             </div>
 
             {/* Right: Quota Checker */}
-            <div className="flex flex-col gap-1 border border-border rounded-md p-3 bg-bg-subtle">
-              <label className="font-body text-[13px] font-medium text-foreground-muted">
-                Quota Checker
-              </label>
+            <div className="flex flex-col gap-1 border border-border rounded-md p-3 bg-surface-elevated">
+              <label className="text-[13px] font-medium text-foreground-muted">Quota Checker</label>
               <div
                 style={{
                   display: 'grid',
@@ -1699,11 +1695,9 @@ export const Providers = () => {
                 }}
               >
                 <div className="flex flex-col gap-1">
-                  <label className="font-body text-[11px] font-medium text-foreground-muted">
-                    Type
-                  </label>
+                  <label className="text-[11px] font-medium text-foreground-muted">Type</label>
                   <select
-                    className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                    className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                     value={selectedQuotaCheckerType}
                     onChange={(e) => {
                       const quotaType = e.target.value;
@@ -1734,11 +1728,11 @@ export const Providers = () => {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="font-body text-[11px] font-medium text-foreground-muted">
+                  <label className="text-[11px] font-medium text-foreground-muted">
                     Interval (min)
                   </label>
                   <input
-                    className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                    className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                     type="number"
                     min={1}
                     step={1}
@@ -1779,7 +1773,7 @@ export const Providers = () => {
               </div>
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'naga' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <NagaQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1796,7 +1790,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'synthetic' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <SyntheticQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1813,7 +1807,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'nanogpt' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <NanoGPTQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1830,7 +1824,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'zai' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <ZAIQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1847,7 +1841,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'moonshot' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <MoonshotQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1864,7 +1858,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'novita' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <NovitaQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1881,7 +1875,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'minimax' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <MiniMaxQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1898,7 +1892,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'minimax-coding' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <MiniMaxCodingQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1915,7 +1909,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'openrouter' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <OpenRouterQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1932,7 +1926,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'kilo' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <KiloQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1949,7 +1943,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'poe' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <PoeQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -1966,7 +1960,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'ollama' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <OllamaQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2000,7 +1994,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'kimi-code' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <KimiCodeQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2017,7 +2011,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'apertis' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <ApertisQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2034,7 +2028,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'antigravity' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <AntigravityQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2051,7 +2045,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'gemini-cli' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <GeminiCliQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2068,7 +2062,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'neuralwatt' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <NeuralwattQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2085,7 +2079,7 @@ export const Providers = () => {
               )}
 
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'zenmux' && (
-                <div className="mt-3 p-3 border border-border rounded-md bg-bg-subtle">
+                <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
                   <ZenmuxQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
@@ -2111,12 +2105,10 @@ export const Providers = () => {
 
           {/* GPU Profile section for inference energy calculation */}
           <div className="flex flex-col gap-2">
-            <label className="font-body text-[13px] font-medium text-foreground-muted">
-              GPU Profile
-            </label>
+            <label className="text-[13px] font-medium text-foreground-muted">GPU Profile</label>
             <div className="flex gap-3 items-end">
               <select
-                className="flex-1 py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                className="flex-1 py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                 value={editingProvider.gpu_profile || ''}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -2170,14 +2162,14 @@ export const Providers = () => {
               </select>
             </div>
             {editingProvider.gpu_profile === 'custom' && (
-              <div className="mt-2 p-3 border border-border rounded-md bg-bg-subtle">
+              <div className="mt-2 p-3 border border-border rounded-md bg-surface-elevated">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="font-body text-[11px] font-medium text-foreground-muted">
+                    <label className="text-[11px] font-medium text-foreground-muted">
                       RAM (GB)
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="1"
                       min="1"
@@ -2192,11 +2184,11 @@ export const Providers = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-foreground-muted">
+                    <label className="text-[11px] font-medium text-foreground-muted">
                       Bandwidth (TB/s)
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="0.1"
                       min="0.1"
@@ -2211,11 +2203,11 @@ export const Providers = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-foreground-muted">
+                    <label className="text-[11px] font-medium text-foreground-muted">
                       FLOPS (TFLOPs)
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="100"
                       min="1"
@@ -2230,11 +2222,11 @@ export const Providers = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-body text-[11px] font-medium text-foreground-muted">
+                    <label className="text-[11px] font-medium text-foreground-muted">
                       Power Draw (Watts)
                     </label>
                     <input
-                      className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
                       type="number"
                       step="10"
                       min="1"
@@ -2261,11 +2253,9 @@ export const Providers = () => {
             <button
               type="button"
               onClick={() => setIsAdvancedOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-surface-elevated transition-colors duration-150 text-left"
+              className="w-full flex items-center justify-between px-3 py-2 bg-surface-elevated hover:bg-surface-elevated transition-colors duration-150 text-left"
             >
-              <span className="font-body text-[13px] font-medium text-foreground-muted">
-                Advanced
-              </span>
+              <span className="text-[13px] font-medium text-foreground-muted">Advanced</span>
               {isAdvancedOpen ? (
                 <ChevronDown size={14} className="text-foreground-muted" />
               ) : (
@@ -2288,12 +2278,12 @@ export const Providers = () => {
                   }}
                 >
                   <div className="flex flex-col gap-1">
-                    <label className="font-body text-[11px] font-medium text-foreground-muted">
+                    <label className="text-[11px] font-medium text-foreground-muted">
                       Discount (%)
                     </label>
                     <div style={{ position: 'relative' }}>
                       <input
-                        className="w-full py-2 pl-3 pr-7 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                        className="w-full py-2 pl-3 pr-7 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                         type="number"
                         step="1"
                         min="0"
@@ -2306,7 +2296,7 @@ export const Providers = () => {
                         }}
                       />
                       <span
-                        className="font-body text-[12px] text-foreground-muted"
+                        className="text-[12px] text-foreground-muted"
                         style={{
                           position: 'absolute',
                           right: '10px',
@@ -2329,7 +2319,7 @@ export const Providers = () => {
                   >
                     {isHeadersOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <label
-                      className="font-body text-[13px] font-medium text-foreground-muted"
+                      className="text-[13px] font-medium text-foreground-muted"
                       style={{ marginBottom: 0, flex: 1 }}
                     >
                       Custom Headers
@@ -2361,7 +2351,7 @@ export const Providers = () => {
                       }}
                     >
                       {Object.entries(editingProvider.headers || {}).length === 0 && (
-                        <div className="font-body text-[11px] text-foreground-muted italic">
+                        <div className="text-[11px] text-foreground-muted italic">
                           No custom headers configured.
                         </div>
                       )}
@@ -2410,7 +2400,7 @@ export const Providers = () => {
                   >
                     {isExtraBodyOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <label
-                      className="font-body text-[13px] font-medium text-foreground-muted"
+                      className="text-[13px] font-medium text-foreground-muted"
                       style={{ marginBottom: 0, flex: 1 }}
                     >
                       Extra Body Fields
@@ -2442,7 +2432,7 @@ export const Providers = () => {
                       }}
                     >
                       {Object.entries(editingProvider.extraBody || {}).length === 0 && (
-                        <div className="font-body text-[11px] text-foreground-muted italic">
+                        <div className="text-[11px] text-foreground-muted italic">
                           No extra body fields configured.
                         </div>
                       )}
@@ -2484,7 +2474,7 @@ export const Providers = () => {
                 </div>
 
                 {/* Estimate Tokens */}
-                <div className="border border-border rounded-md p-3 bg-bg-subtle">
+                <div className="border border-border rounded-md p-3 bg-surface-elevated">
                   <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
                     <Switch
                       checked={editingProvider.estimateTokens || false}
@@ -2493,14 +2483,14 @@ export const Providers = () => {
                       }
                     />
                     <label
-                      className="font-body text-[13px] font-medium text-foreground"
+                      className="text-[13px] font-medium text-foreground"
                       style={{ marginBottom: 0 }}
                     >
                       Estimate Tokens
                     </label>
                   </div>
                   <div
-                    className="font-body text-[11px] text-foreground-muted"
+                    className="text-[11px] text-foreground-muted"
                     style={{ lineHeight: 1.35, marginTop: '4px' }}
                   >
                     Enable token estimation only when a provider does not return usage data.
@@ -2511,7 +2501,7 @@ export const Providers = () => {
                 </div>
 
                 {/* Disable Cooldown */}
-                <div className="border border-border rounded-md p-3 bg-bg-subtle">
+                <div className="border border-border rounded-md p-3 bg-surface-elevated">
                   <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
                     <Switch
                       checked={editingProvider.disableCooldown || false}
@@ -2520,14 +2510,14 @@ export const Providers = () => {
                       }
                     />
                     <label
-                      className="font-body text-[13px] font-medium text-foreground"
+                      className="text-[13px] font-medium text-foreground"
                       style={{ marginBottom: 0 }}
                     >
                       Disable Cooldowns
                     </label>
                   </div>
                   <div
-                    className="font-body text-[11px] text-foreground-muted"
+                    className="text-[11px] text-foreground-muted"
                     style={{ lineHeight: 1.35, marginTop: '4px' }}
                   >
                     When enabled, this provider will never be placed on cooldown due to errors — it
@@ -2539,7 +2529,7 @@ export const Providers = () => {
                 </div>
 
                 {/* Use Claude Masking */}
-                <div className="border border-border rounded-md p-3 bg-bg-subtle">
+                <div className="border border-border rounded-md p-3 bg-surface-elevated">
                   <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
                     <Switch
                       checked={editingProvider.useClaudeMasking || false}
@@ -2548,14 +2538,14 @@ export const Providers = () => {
                       }
                     />
                     <label
-                      className="font-body text-[13px] font-medium text-foreground"
+                      className="text-[13px] font-medium text-foreground"
                       style={{ marginBottom: 0 }}
                     >
                       Use Claude Masking
                     </label>
                   </div>
                   <div
-                    className="font-body text-[11px] text-foreground-muted"
+                    className="text-[11px] text-foreground-muted"
                     style={{ lineHeight: 1.35, marginTop: '4px' }}
                   >
                     When enabled, requests to this Anthropic provider will be masked as Claude Code
@@ -2694,11 +2684,11 @@ export const Providers = () => {
 
                             <div className="grid gap-4 grid-cols-3">
                               <div className="flex flex-col gap-1">
-                                <label className="font-body text-[13px] font-medium text-foreground-muted">
+                                <label className="text-[13px] font-medium text-foreground-muted">
                                   Model Type
                                 </label>
                                 <select
-                                  className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                                   value={mCfg.type || 'chat'}
                                   onChange={(e) => {
                                     const newType = e.target.value as
@@ -2778,11 +2768,11 @@ export const Providers = () => {
                                 </select>
                               </div>
                               <div className="flex flex-col gap-1">
-                                <label className="font-body text-[13px] font-medium text-foreground-muted">
+                                <label className="text-[13px] font-medium text-foreground-muted">
                                   Pricing Source
                                 </label>
                                 <select
-                                  className="w-full py-2 px-3 font-body text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
                                   value={mCfg.pricing?.source || 'simple'}
                                   onChange={(e) => {
                                     const newSource = e.target.value;
@@ -2832,7 +2822,7 @@ export const Providers = () => {
                                 mCfg.type !== 'image' &&
                                 mCfg.type !== 'responses' && (
                                   <div className="flex flex-col gap-1">
-                                    <label className="font-body text-[13px] font-medium text-foreground-muted">
+                                    <label className="text-[13px] font-medium text-foreground-muted">
                                       Access Via (APIs)
                                     </label>
                                     <div
@@ -2983,7 +2973,7 @@ export const Providers = () => {
                                       marginTop: '4px',
                                       fontStyle: 'italic',
                                       padding: '8px',
-                                      background: 'var(--color-bg-subtle)',
+                                      background: 'var(--surface-elevated)',
                                       borderRadius: 'var(--radius-sm)',
                                     }}
                                   >
@@ -3001,7 +2991,7 @@ export const Providers = () => {
                                       marginTop: '4px',
                                       fontStyle: 'italic',
                                       padding: '8px',
-                                      background: 'var(--color-bg-subtle)',
+                                      background: 'var(--surface-elevated)',
                                       borderRadius: 'var(--radius-sm)',
                                     }}
                                   >
@@ -3020,7 +3010,7 @@ export const Providers = () => {
                                       marginTop: '4px',
                                       fontStyle: 'italic',
                                       padding: '8px',
-                                      background: 'var(--color-bg-subtle)',
+                                      background: 'var(--surface-elevated)',
                                       borderRadius: 'var(--radius-sm)',
                                     }}
                                   >
@@ -3038,7 +3028,7 @@ export const Providers = () => {
                                       marginTop: '4px',
                                       fontStyle: 'italic',
                                       padding: '8px',
-                                      background: 'var(--color-bg-subtle)',
+                                      background: 'var(--surface-elevated)',
                                       borderRadius: 'var(--radius-sm)',
                                     }}
                                   >
@@ -3056,7 +3046,7 @@ export const Providers = () => {
                                       marginTop: '4px',
                                       fontStyle: 'italic',
                                       padding: '8px',
-                                      background: 'var(--color-bg-subtle)',
+                                      background: 'var(--surface-elevated)',
                                       borderRadius: 'var(--radius-sm)',
                                     }}
                                   >
@@ -3071,7 +3061,7 @@ export const Providers = () => {
                               <div
                                 className="grid grid-cols-4 gap-4"
                                 style={{
-                                  background: 'var(--color-bg-subtle)',
+                                  background: 'var(--surface-elevated)',
                                   padding: '12px',
                                   borderRadius: 'var(--radius-sm)',
                                 }}
@@ -3138,7 +3128,7 @@ export const Providers = () => {
                             {mCfg.pricing?.source === 'openrouter' && (
                               <div
                                 style={{
-                                  background: 'var(--color-bg-subtle)',
+                                  background: 'var(--surface-elevated)',
                                   padding: '12px',
                                   borderRadius: 'var(--radius-sm)',
                                   display: 'flex',
@@ -3186,7 +3176,7 @@ export const Providers = () => {
                             {mCfg.pricing?.source === 'defined' && (
                               <div
                                 style={{
-                                  background: 'var(--color-bg-subtle)',
+                                  background: 'var(--surface-elevated)',
                                   padding: '12px',
                                   borderRadius: 'var(--radius-sm)',
                                   display: 'flex',
@@ -3202,7 +3192,7 @@ export const Providers = () => {
                                   }}
                                 >
                                   <label
-                                    className="font-body text-[13px] font-medium text-foreground-muted"
+                                    className="text-[13px] font-medium text-foreground-muted"
                                     style={{ marginBottom: 0 }}
                                   >
                                     Pricing Ranges
@@ -3386,7 +3376,7 @@ export const Providers = () => {
                               <div
                                 className="grid grid-cols-1 gap-4"
                                 style={{
-                                  background: 'var(--color-bg-subtle)',
+                                  background: 'var(--surface-elevated)',
                                   padding: '12px',
                                   borderRadius: 'var(--radius-sm)',
                                 }}
@@ -3407,7 +3397,7 @@ export const Providers = () => {
                                   }
                                 />
                                 <div
-                                  className="font-body text-[11px] text-foreground-muted"
+                                  className="text-[11px] text-foreground-muted"
                                   style={{ fontStyle: 'italic' }}
                                 >
                                   A flat fee charged per API call, regardless of token count. The
@@ -3418,7 +3408,7 @@ export const Providers = () => {
 
                             {/* Per-Model Extra Body Fields */}
                             <div
-                              className="border border-border rounded-md p-3 bg-bg-subtle"
+                              className="border border-border rounded-md p-3 bg-surface-elevated"
                               style={{ marginTop: '12px' }}
                             >
                               <div
@@ -3437,7 +3427,7 @@ export const Providers = () => {
                                   <ChevronRight size={14} />
                                 )}
                                 <label
-                                  className="font-body text-[13px] font-medium text-foreground-muted"
+                                  className="text-[13px] font-medium text-foreground-muted"
                                   style={{ marginBottom: 0, flex: 1, cursor: 'pointer' }}
                                 >
                                   Extra Body Fields
@@ -3475,7 +3465,7 @@ export const Providers = () => {
                                   }}
                                 >
                                   {Object.entries(mCfg.extraBody || {}).length === 0 && (
-                                    <div className="font-body text-[11px] text-foreground-muted italic">
+                                    <div className="text-[11px] text-foreground-muted italic">
                                       No extra body fields configured.
                                     </div>
                                   )}
@@ -3602,7 +3592,7 @@ export const Providers = () => {
               <div
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
-                <label className="font-body text-[13px] font-medium text-foreground-muted">
+                <label className="text-[13px] font-medium text-foreground-muted">
                   Available Models ({fetchedModels.length})
                 </label>
                 <div style={{ display: 'flex', gap: '8px' }}>

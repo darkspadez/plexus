@@ -15,9 +15,7 @@ export const ApertisQuotaConfig: React.FC<ApertisQuotaConfigProps> = ({ options,
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-foreground-muted">
-          Endpoint (optional)
-        </label>
+        <label className="text-[13px] font-medium text-foreground-muted">Endpoint (optional)</label>
         <Input
           value={(options.endpoint as string) ?? ''}
           onChange={(e) => handleChange('endpoint', e.target.value)}
@@ -28,9 +26,7 @@ export const ApertisQuotaConfig: React.FC<ApertisQuotaConfigProps> = ({ options,
         </span>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-foreground-muted">
-          Quota Source
-        </label>
+        <label className="text-[13px] font-medium text-foreground-muted">Quota Source</label>
         <Select
           value={(options.mode as string) ?? 'subscription'}
           onChange={(val) => onChange({ ...options, mode: val })}

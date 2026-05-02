@@ -22,7 +22,7 @@ export const Card: React.FC<CardProps> = ({
   return (
     <div
       className={clsx(
-        'glass-bg backdrop-blur-md rounded-lg overflow-hidden transition-all duration-fast max-w-full shadow-[0_8px_32px_rgba(0,0,0,0.25)]',
+        'border border-border bg-surface backdrop-blur-md rounded-lg overflow-hidden transition-all duration-fast max-w-full shadow-[0_8px_32px_rgba(0,0,0,0.25)]',
         className
       )}
       {...props}
@@ -30,13 +30,11 @@ export const Card: React.FC<CardProps> = ({
       {(title || extra) && (
         <div
           className={clsx(
-            'flex items-center justify-between gap-3 border-b border-border-glass',
+            'flex items-center justify-between gap-3 border-b border-border',
             dense ? 'px-4 py-3' : 'px-4 py-4 sm:px-5 sm:py-4'
           )}
         >
-          {title && (
-            <h3 className="font-heading text-h3 font-semibold text-text m-0 truncate">{title}</h3>
-          )}
+          {title && <h3 className="text-lg font-semibold text-foreground m-0 truncate">{title}</h3>}
           {extra && <div className="flex-shrink-0">{extra}</div>}
         </div>
       )}

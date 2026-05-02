@@ -102,24 +102,22 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             <div
               key={toast.id}
               className={clsx(
-                'pointer-events-auto flex items-start gap-3 bg-bg-surface border rounded-md p-3 shadow-modal backdrop-blur-md animate-[slideUp_0.2s_ease]',
+                'pointer-events-auto flex items-start gap-3 bg-surface border rounded-md p-3 shadow-md backdrop-blur-md animate-[slideUp_0.2s_ease]',
                 variantStyles[toast.variant].classes
               )}
             >
               <div className="mt-0.5 flex-shrink-0">{variantStyles[toast.variant].icon}</div>
               <div className="flex-1 min-w-0">
                 {toast.title && (
-                  <div className="font-heading text-sm font-semibold text-text">{toast.title}</div>
+                  <div className="text-sm font-semibold text-foreground">{toast.title}</div>
                 )}
-                <div className="font-body text-xs text-text-secondary break-words">
-                  {toast.message}
-                </div>
+                <div className="text-xs text-foreground-muted break-words">{toast.message}</div>
               </div>
               <button
                 type="button"
                 onClick={() => dismiss(toast.id)}
                 aria-label="Dismiss"
-                className="flex-shrink-0 text-text-muted hover:text-text transition-colors duration-fast"
+                className="flex-shrink-0 text-foreground-muted hover:text-foreground transition-colors duration-fast"
               >
                 <X size={14} />
               </button>
@@ -137,18 +135,14 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             aria-modal="true"
           >
             <div
-              className="bg-bg-surface border border-border-glass rounded-xl w-full max-w-[420px] shadow-modal animate-[slideUp_0.2s_ease]"
+              className="bg-surface border border-border rounded-xl w-full max-w-[420px] shadow-md animate-[slideUp_0.2s_ease]"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-5 sm:p-6 border-b border-border-glass">
-                <h2 className="font-heading text-h2 font-semibold text-text m-0">
-                  {confirmState.title}
-                </h2>
+              <div className="p-5 sm:p-6 border-b border-border">
+                <h2 className="text-xl font-semibold text-foreground m-0">{confirmState.title}</h2>
               </div>
-              <div className="p-5 sm:p-6 font-body text-sm text-text-secondary">
-                {confirmState.message}
-              </div>
-              <div className="flex items-center justify-end gap-3 px-5 py-4 sm:px-6 border-t border-border-glass">
+              <div className="p-5 sm:p-6 text-sm text-foreground-muted">{confirmState.message}</div>
+              <div className="flex items-center justify-end gap-3 px-5 py-4 sm:px-6 border-t border-border">
                 <Button variant="secondary" onClick={() => resolveConfirm(false)}>
                   {confirmState.cancelLabel ?? 'Cancel'}
                 </Button>

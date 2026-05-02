@@ -128,14 +128,12 @@ export const OpenRouterSlugInput: React.FC<OpenRouterSlugInputProps> = ({
 
   return (
     <div className="flex flex-col gap-2 relative">
-      {label && (
-        <label className="font-body text-[13px] font-medium text-text-secondary">{label}</label>
-      )}
+      {label && <label className="text-[13px] font-medium text-foreground-muted">{label}</label>}
       <div className="relative">
         <input
           ref={inputRef}
           type="text"
-          className="w-full py-2.5 px-3.5 pr-10 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+          className="w-full py-2.5 px-3.5 pr-10 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-accent focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
           placeholder={placeholder}
           value={inputValue}
           onChange={handleInputChange}
@@ -149,19 +147,19 @@ export const OpenRouterSlugInput: React.FC<OpenRouterSlugInputProps> = ({
         <button
           type="button"
           onClick={toggleDropdown}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-bg-subtle rounded transition-colors"
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-surface-elevated rounded transition-colors"
         >
           {isLoading ? (
             <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           ) : (
-            <ChevronsUpDown className="w-4 h-4 text-text-secondary" />
+            <ChevronsUpDown className="w-4 h-4 text-foreground-muted" />
           )}
         </button>
       </div>
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={suggestionsRef}
-          className="absolute top-full left-0 right-0 mt-1 bg-bg-glass border border-border-glass rounded-sm shadow-lg backdrop-blur-md z-50 max-h-60 overflow-y-auto"
+          className="absolute top-full left-0 right-0 mt-1 bg-surface-elevated border border-border rounded-sm shadow-lg backdrop-blur-md z-50 max-h-60 overflow-y-auto"
         >
           {suggestions.map((slug, index) => {
             const isSelected = slug === value;
@@ -171,15 +169,15 @@ export const OpenRouterSlugInput: React.FC<OpenRouterSlugInputProps> = ({
               <div
                 key={slug}
                 className={clsx(
-                  'px-3.5 py-2.5 cursor-pointer font-body text-sm transition-colors flex items-center justify-between',
+                  'px-3.5 py-2.5 cursor-pointer text-sm transition-colors flex items-center justify-between',
                   isHighlighted
-                    ? 'bg-primary/20 text-text'
-                    : 'text-text-secondary hover:bg-bg-subtle hover:text-text'
+                    ? 'bg-primary/20 text-foreground'
+                    : 'text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
                 )}
                 onClick={() => selectSuggestion(slug)}
                 onMouseEnter={() => setSelectedIndex(index)}
               >
-                <span className={clsx(isSelected && 'font-medium text-text')}>{slug}</span>
+                <span className={clsx(isSelected && 'font-medium text-foreground')}>{slug}</span>
                 {isSelected && <Check className="w-4 h-4 text-primary" />}
               </div>
             );
@@ -189,9 +187,9 @@ export const OpenRouterSlugInput: React.FC<OpenRouterSlugInputProps> = ({
       {showSuggestions && suggestions.length === 0 && !isLoading && inputValue.length >= 2 && (
         <div
           ref={suggestionsRef}
-          className="absolute top-full left-0 right-0 mt-1 bg-bg-glass border border-border-glass rounded-sm shadow-lg backdrop-blur-md z-50 px-3.5 py-2.5"
+          className="absolute top-full left-0 right-0 mt-1 bg-surface-elevated border border-border rounded-sm shadow-lg backdrop-blur-md z-50 px-3.5 py-2.5"
         >
-          <span className="font-body text-sm text-text-secondary italic">
+          <span className="text-sm text-foreground-muted italic">
             No models found matching "{inputValue}"
           </span>
         </div>

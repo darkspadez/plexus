@@ -502,7 +502,7 @@ export const Debug: React.FC = () => {
 
           {loadingDetail && (
             <div className="absolute inset-0 bg-[rgba(15,23,42,0.5)] backdrop-blur-sm flex items-center justify-center z-10">
-              <RefreshCw className="animate-spin text-[var(--color-primary)]" size={32} />
+              <RefreshCw className="animate-spin text-[var(--accent)]" size={32} />
             </div>
           )}
         </div>

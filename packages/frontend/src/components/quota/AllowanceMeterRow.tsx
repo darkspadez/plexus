@@ -61,7 +61,7 @@ export const AllowanceMeterRow: React.FC<AllowanceMeterRowProps> = ({
           )}
         </div>
         {pct !== null && (
-          <div className="h-1.5 rounded-full bg-bg-subtle overflow-hidden border border-border/30">
+          <div className="h-1.5 rounded-full bg-surface-elevated overflow-hidden border border-border/30">
             <div
               className={clsx(
                 'h-full rounded-full transition-all duration-500',
@@ -86,7 +86,7 @@ export const AllowanceMeterRow: React.FC<AllowanceMeterRowProps> = ({
     >
       <span className="text-xs text-foreground-muted truncate">{meter.label}</span>
       {pct !== null && (
-        <div className="h-1.5 rounded-full bg-bg-subtle overflow-hidden border border-border/30">
+        <div className="h-1.5 rounded-full bg-surface-elevated overflow-hidden border border-border/30">
           <div
             className={clsx(
               'h-full rounded-full transition-all duration-500',

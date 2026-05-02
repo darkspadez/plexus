@@ -43,7 +43,10 @@ export const QuotaProgressBar: React.FC<QuotaProgressBarProps> = ({
         )}
       </div>
       <div
-        className={clsx('rounded-full bg-bg-subtle overflow-hidden border border-border/30', barH)}
+        className={clsx(
+          'rounded-full bg-surface-elevated overflow-hidden border border-border/30',
+          barH
+        )}
       >
         <div
           className={clsx('h-full rounded-full transition-all duration-500', barColor(status))}

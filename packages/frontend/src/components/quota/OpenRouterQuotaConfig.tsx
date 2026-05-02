@@ -18,7 +18,7 @@ export const OpenRouterQuotaConfig: React.FC<OpenRouterQuotaConfigProps> = ({
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-foreground-muted">
+        <label className="text-[13px] font-medium text-foreground-muted">
           Management API Key <span className="text-danger">*</span>
         </label>
         <Input
@@ -41,9 +41,7 @@ export const OpenRouterQuotaConfig: React.FC<OpenRouterQuotaConfigProps> = ({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-foreground-muted">
-          Endpoint (optional)
-        </label>
+        <label className="text-[13px] font-medium text-foreground-muted">Endpoint (optional)</label>
         <Input
           value={(options.endpoint as string) ?? ''}
           onChange={(e) => handleChange('endpoint', e.target.value)}

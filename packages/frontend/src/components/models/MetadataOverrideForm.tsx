@@ -52,7 +52,7 @@ interface Props {
 
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
   <div
-    className="font-body text-[11px] font-semibold uppercase tracking-wide text-foreground-muted"
+    className="text-[11px] font-semibold uppercase tracking-wide text-foreground-muted"
     style={{ marginBottom: '4px' }}
   >
     {children}
@@ -61,7 +61,7 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => (
 
 const FieldLabel = ({ children }: { children: React.ReactNode }) => (
   <label
-    className="font-body text-[11px] font-medium text-foreground-muted"
+    className="text-[11px] font-medium text-foreground-muted"
     style={{ display: 'block', marginBottom: '2px' }}
   >
     {children}
@@ -89,10 +89,10 @@ export function MetadataOverrideForm({
 
   return (
     <div
-      className="rounded-sm border border-border bg-bg-subtle"
+      className="rounded-sm border border-border bg-surface-elevated"
       style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '12px' }}
     >
-      <p className="font-body text-[11px] text-foreground-muted" style={{ marginBottom: 0 }}>
+      <p className="text-[11px] text-foreground-muted" style={{ marginBottom: 0 }}>
         {helperText}
       </p>
 

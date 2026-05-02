@@ -25,13 +25,13 @@ export const Input: React.FC<InputProps> = ({
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
-        <label htmlFor={inputId} className="font-body text-xs font-medium text-text-secondary">
+        <label htmlFor={inputId} className="text-xs font-medium text-foreground-muted">
           {label}
         </label>
       )}
       <div className="relative flex items-center">
         {leadingIcon && (
-          <span className="pointer-events-none absolute left-3 flex items-center text-text-muted">
+          <span className="pointer-events-none absolute left-3 flex items-center text-foreground-muted">
             {leadingIcon}
           </span>
         )}
@@ -39,12 +39,12 @@ export const Input: React.FC<InputProps> = ({
           id={inputId}
           aria-invalid={!!error}
           className={clsx(
-            'w-full py-2.5 font-body text-sm text-text bg-bg-glass border rounded-md outline-none transition-all duration-fast backdrop-blur-md placeholder:text-text-muted',
+            'w-full py-2.5 text-sm text-foreground bg-surface-elevated border rounded-md outline-none transition-all duration-fast backdrop-blur-md placeholder:text-foreground-muted',
             'focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             leadingIcon ? 'pl-10' : 'pl-3.5',
             trailingAction ? 'pr-10' : 'pr-3.5',
-            error ? 'border-danger' : 'border-border-glass',
+            error ? 'border-danger' : 'border-border',
             className
           )}
           {...props}
@@ -54,7 +54,7 @@ export const Input: React.FC<InputProps> = ({
         )}
       </div>
       {error && <span className="text-danger text-xs">{error}</span>}
-      {!error && hint && <span className="text-text-muted text-xs">{hint}</span>}
+      {!error && hint && <span className="text-foreground-muted text-xs">{hint}</span>}
     </div>
   );
 };

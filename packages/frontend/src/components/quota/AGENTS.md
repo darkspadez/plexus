@@ -26,7 +26,7 @@ This directory contains display and configuration components for quota checkers.
 - [ ] **Config rendering** — add conditional rendering block after the quota checker type/interval selector:
   ```tsx
   {selectedQuotaCheckerType && selectedQuotaCheckerType === 'checkername' && (
-    <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+    <div className="mt-3 p-3 border border-border rounded-md bg-surface-elevated">
       <CheckerNameQuotaConfig
         options={editingProvider.quotaChecker?.options || {}}
         onChange={(options) =>

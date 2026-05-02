@@ -167,9 +167,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="min-w-0">
-            <h2 className="font-heading text-h2 font-semibold text-foreground truncate">
-              {meter.label}
-            </h2>
+            <h2 className="text-xl font-semibold text-foreground truncate">{meter.label}</h2>
             <p className="text-xs text-foreground-muted mt-0.5 truncate">
               {displayName}
               {quota.oauthAccountId && ` · ${quota.oauthAccountId}`}
@@ -213,7 +211,10 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
                 { label: 'Min', value: formatTooltip(stats.min) },
                 { label: 'Max', value: formatTooltip(stats.max) },
               ].map(({ label, value }) => (
-                <div key={label} className="rounded-lg border border-border bg-bg-subtle px-3 py-2">
+                <div
+                  key={label}
+                  className="rounded-lg border border-border bg-surface-elevated px-3 py-2"
+                >
                   <div className="text-[10px] text-foreground-muted uppercase tracking-wider">
                     {label}
                   </div>
