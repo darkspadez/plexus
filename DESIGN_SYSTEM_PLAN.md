@@ -34,21 +34,44 @@
       chips, cursor-style Newer/Older pagination, `/logs/:id` Sheet on
       lg+ / DetailPage on smaller, `j`/`k`/`esc` keyboard nav, JsonTree
       viewer with §7.8 coloring, Request/Response/Trace/Metadata tabs.
+- [x] **Phases 6–7 (chrome only)** — Keys, MCP, Models, Providers
+      wrapped in the new ListPage template so they sit consistently
+      under the new app shell. Their internal logic (cards/modals/
+      tables) still uses legacy `components/ui/*` primitives that
+      render correctly through the legacy token aliases. **Full
+      content migrations are pending** — see "Remaining" below.
+- [x] **Errors / Debug fixes** — replaced the negative-margin tricks
+      that were left over from the old MainLayout's outer padding so
+      content no longer overflows the viewport edge.
+- [x] **Partial cleanup** — deleted legacy `components/layout/AppBar.tsx`
+      and `components/layout/Sidebar.tsx` (replaced by TopBar +
+      AppSidebar in Phases 1-2).
 - [x] **Theme settings UI** added to `Config` page (`ThemeSection`).
 - [x] **Agent docs** — root `AGENTS.md` and `packages/frontend/AGENTS.md`
       both point at `DESIGN_SYSTEM.md` and describe the migration recipe.
 
 Remaining (legacy aliases keep these rendering until migrated):
 
-- [ ] **Phase 6** — Keys (one-time secret display), MCP, Models (split
-      into subdir, Targets editor refresh).
-- [ ] **Phase 7** — Providers (split into 4–6 files, OAuth multi-step
-      Sheet, restyled quota config sub-components).
-- [ ] **Phase 8** — Delete `src/components/ui/` legacy dir, drop legacy
-      token aliases, retire `ToastContext`, trim `lib/api.ts` cache.
+- [ ] **Phase 6 content** — Keys: split into `pages/keys/` subdir, use
+      shadcn Table + react-hook-form/zod schemas, Sheet-based create
+      flow, one-time-secret display per §12.8. MCP: detail tabs (Tools,
+      Recent invocations, Settings), provider chip integration. Models:
+      split into `pages/models/`, refresh the Targets editor with
+      drag-to-reorder + weight inputs + live preview pane (most
+      important sub-feature per §12.4).
+- [ ] **Phase 7 content** — Providers: split into 4–6 files, full
+      migration of the OAuth multi-step Sheet (device-code flow,
+      countdown, manual cancel), restyled quota config sub-components
+      under new tokens.
+- [ ] **Phase 8** — Delete `src/components/ui/` legacy dir (currently
+      blocked by Errors/Debug/Keys/MCP/Models/Providers usage), drop
+      legacy token aliases at the bottom of `tokens.css`, retire
+      `ToastContext`, trim `lib/api.ts` TTL cache.
 
 The `Quotas` migration (`src/pages/Quotas.tsx` + `src/pages/quotas/*`)
-is the recipe — copy its shape for any pending page migration.
+is the recipe for List pages; the `Logs` migration (`src/pages/Logs.tsx`
++ `src/pages/logs/*`) is the recipe for List + Detail Sheet pages with
+keyboard navigation. Copy their shape for any pending content migration.
 
 ---
 
