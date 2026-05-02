@@ -10,7 +10,7 @@ import {
 import { GPU_PROFILE_OPTIONS, resolveGpuParams } from '@plexus/shared';
 import type { QuotaCheckerInfo } from '../types/quota';
 import { formatMeterValue } from '../components/quota/MeterValue';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/forms/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/forms/Input';
 import { Pill } from '../components/chips/Pill';

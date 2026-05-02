@@ -14,7 +14,7 @@ import {
 import { useModels } from '../hooks/useModels';
 import { AliasTableRow } from '../components/models/AliasTableRow';
 import { MetadataOverrideForm } from '../components/models/MetadataOverrideForm';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/forms/Button';
 import { Modal } from '../components/ui/Modal';
 import {
   AlertDialog,
