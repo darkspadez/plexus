@@ -13,7 +13,6 @@ import { formatMeterValue } from '../components/quota/MeterValue';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
-import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { ListPage } from '../components/templates';
 import { useToast } from '../contexts/ToastContext';
@@ -1046,7 +1045,7 @@ export const Providers = () => {
         </Button>
       }
     >
-      <Card flush>
+      <div className="overflow-hidden rounded-lg border border-border bg-surface">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[13px]">
             <thead>
@@ -1142,7 +1141,7 @@ export const Providers = () => {
             </tbody>
           </table>
         </div>
-      </Card>
+      </div>
 
       <Modal
         isOpen={isModalOpen}

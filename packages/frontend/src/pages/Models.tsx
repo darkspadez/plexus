@@ -15,7 +15,6 @@ import { useModels } from '../hooks/useModels';
 import { AliasTableRow } from '../components/models/AliasTableRow';
 import { MetadataOverrideForm } from '../components/models/MetadataOverrideForm';
 import { Input } from '../components/ui/Input';
-import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import {
@@ -962,8 +961,8 @@ export const Models = () => {
         </>
       }
     >
-      <Card className="mb-6">
-        <div className="overflow-x-auto -mx-4 sm:-mx-5 md:-mx-6">
+      <div className="mb-6 overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr>
@@ -1017,7 +1016,7 @@ export const Models = () => {
             </tbody>
           </table>
         </div>
-      </Card>
+      </div>
 
       <Modal
         isOpen={isModalOpen}
