@@ -4,8 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
-import { PageHeader } from '../components/layout/PageHeader';
-import { PageContainer } from '../components/layout/PageContainer';
+import { ListPage } from '../components/templates';
 import { api } from '../lib/api';
 import { clsx } from 'clsx';
 
@@ -185,18 +184,16 @@ export const SystemLogs: React.FC = () => {
   };
 
   return (
-    <PageContainer>
-      <PageHeader
-        title={
-          <span className="inline-flex items-center gap-2">
-            <Terminal size={24} className="text-primary" />
-            System Logs
-          </span>
-        }
-        subtitle="Live stream of backend system logs."
-      />
-
-      <div className="flex flex-col gap-3 glass-bg rounded-lg overflow-hidden">
+    <ListPage
+      title={
+        <span className="inline-flex items-center gap-2">
+          <Terminal className="size-5 text-foreground-subtle" strokeWidth={1.75} />
+          System Logs
+        </span>
+      }
+      subtitle="Live stream of backend system logs."
+    >
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-border-glass">
           <h3 className="font-heading text-h3 font-semibold text-text m-0">Live Output</h3>
           <div className="flex flex-wrap items-center gap-2">
@@ -365,6 +362,6 @@ export const SystemLogs: React.FC = () => {
           <div ref={logsEndRef} />
         </div>
       </div>
-    </PageContainer>
+    </ListPage>
   );
 };

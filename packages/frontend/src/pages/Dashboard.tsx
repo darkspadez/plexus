@@ -1,115 +1,155 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Zap, BarChart2, Gauge, LayoutDashboard } from 'lucide-react';
-import { LiveTab } from '../components/dashboard/tabs/LiveTab';
-import { UsageTab } from '../components/dashboard/tabs/UsageTab';
-import { PerformanceTab } from '../components/dashboard/tabs/PerformanceTab';
-import { OverallTab } from '../components/dashboard/tabs/OverallTab';
-import { Tabs } from '../components/ui/Tabs';
-import { useAuth } from '../contexts/AuthContext';
-import type { CustomDateRange } from '../lib/date';
+import React from 'react';
+import { RefreshCw } from 'lucide-react';
+import { DashboardPage } from '../components/templates';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui-v2/card';
+import { Button } from '../components/ui-v2/button';
+import { LineChart } from '../components/charts';
+import { MetricCard } from './dashboard/MetricCard';
+import { RecentErrors } from './dashboard/RecentErrors';
+import {
+  useDashboardSummary,
+  useRecentErrors,
+  type TimeWindow,
+} from '../hooks/queries/useDashboard';
+import {
+  formatCount,
+  formatCountCompact,
+  formatCostUsd,
+  formatLatencyMs,
+} from '../lib/format-design';
+import { cn } from '../lib/cn';
 
-type TabId = 'overall' | 'live' | 'usage' | 'performance';
-type TimeRange = 'hour' | 'day' | 'week' | 'month' | 'custom';
-type LiveWindowPeriod = 5 | 15 | 30 | 1440 | 10080 | 43200;
-
-const BASE_TABS = [
-  {
-    value: 'live' as const,
-    label: (
-      <span className="inline-flex items-center gap-2">
-        <Zap size={14} /> Live Metrics
-      </span>
-    ),
-  },
-  {
-    value: 'usage' as const,
-    label: (
-      <span className="inline-flex items-center gap-2">
-        <BarChart2 size={14} /> Usage Analytics
-      </span>
-    ),
-  },
-  {
-    value: 'performance' as const,
-    label: (
-      <span className="inline-flex items-center gap-2">
-        <Gauge size={14} /> Performance
-      </span>
-    ),
-  },
+const WINDOW_OPTIONS: { value: TimeWindow; label: string }[] = [
+  { value: '24h', label: '24h' },
+  { value: '7d', label: '7d' },
+  { value: '30d', label: '30d' },
 ];
 
-const OVERALL_TAB = {
-  value: 'overall' as const,
-  label: (
-    <span className="inline-flex items-center gap-2">
-      <LayoutDashboard size={14} /> Overall
-    </span>
-  ),
+const STORAGE_KEY = 'plexus.dashboard.window';
+
+const readStoredWindow = (): TimeWindow => {
+  if (typeof window === 'undefined') return '24h';
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  return raw === '7d' || raw === '30d' ? raw : '24h';
 };
 
-const DEFAULT_POLL_INTERVAL = 10000;
-const DEFAULT_LIVE_WINDOW: LiveWindowPeriod = 5;
+export const Dashboard: React.FC = () => {
+  const [timeWindow, setTimeWindow] = React.useState<TimeWindow>(() => readStoredWindow());
 
-export const Dashboard = () => {
-  const { isLimited } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tabParam = searchParams.get('tab') as TabId | null;
+  React.useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, timeWindow);
+  }, [timeWindow]);
 
-  const tabs = useMemo(() => (isLimited ? [OVERALL_TAB, ...BASE_TABS] : BASE_TABS), [isLimited]);
+  const summary = useDashboardSummary(timeWindow);
+  const errors = useRecentErrors(5);
 
-  const defaultTabId: TabId = isLimited ? 'overall' : 'live';
-  const activeTab: TabId =
-    tabParam && tabs.some((t) => t.value === tabParam) ? tabParam : defaultTabId;
+  const data = summary.data;
+  const seriesPoints = data?.usageData ?? [];
+  const totalRequests = parseInt(String(data?.stats[0]?.value ?? '0').replace(/[^\d]/g, ''), 10);
+  const totalTokens = seriesPoints.reduce((acc, p) => acc + (p.tokens || 0), 0);
+  const avgLatencyMs = (() => {
+    const raw = data?.stats[3]?.value ?? '0';
+    return parseInt(String(raw).replace(/[^\d]/g, ''), 10);
+  })();
+  const todayCost = data?.todayMetrics.totalCost ?? 0;
 
-  const [usageTimeRange, setUsageTimeRange] = useState<TimeRange>('day');
-  const [customDateRange, setCustomDateRange] = useState<CustomDateRange | null>(null);
-  const [pollInterval, setPollInterval] = useState<number>(DEFAULT_POLL_INTERVAL);
-  const [liveWindowPeriod, setLiveWindowPeriod] = useState<LiveWindowPeriod>(DEFAULT_LIVE_WINDOW);
-
-  const setTab = (id: TabId) => {
-    setSearchParams(id === defaultTabId ? {} : { tab: id });
-  };
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [activeTab]);
+  const requestSpark = seriesPoints.slice(-24).map((p) => p.requests);
+  const tokenSpark = seriesPoints.slice(-24).map((p) => p.tokens);
 
   return (
-    <div className="flex flex-col min-h-full -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 lg:-mt-8">
-      <div className="sticky top-0 z-10 border-b border-border-glass bg-bg-surface/80 backdrop-blur-md px-2 sm:px-4">
-        <Tabs<TabId>
-          value={activeTab}
-          onChange={setTab}
-          items={tabs}
-          variant="underline"
-          aria-label="Dashboard sections"
+    <DashboardPage
+      title="Dashboard"
+      subtitle="Provider usage, performance, and recent errors at a glance."
+      actions={
+        <>
+          <SegmentedWindow value={timeWindow} onChange={setTimeWindow} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => summary.refetch()}
+            disabled={summary.isFetching}
+            aria-label="Refresh"
+          >
+            <RefreshCw
+              className={summary.isFetching ? 'animate-spin' : undefined}
+              strokeWidth={1.75}
+            />
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Requests"
+          value={formatCount(totalRequests)}
+          period={timeWindow}
+          spark={requestSpark}
         />
+        <MetricCard
+          label="Tokens"
+          value={formatCountCompact(totalTokens)}
+          period={timeWindow}
+          spark={tokenSpark}
+        />
+        <MetricCard label="Cost (today)" value={formatCostUsd(todayCost)} period="today" />
+        <MetricCard label="Avg latency" value={formatLatencyMs(avgLatencyMs)} period={timeWindow} />
       </div>
 
-      <div className="flex-1 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-8">
-        {activeTab === 'overall' && isLimited && <OverallTab />}
-        {activeTab === 'live' && (
-          <LiveTab
-            pollInterval={pollInterval}
-            onPollIntervalChange={setPollInterval}
-            liveWindowPeriod={liveWindowPeriod}
-            onLiveWindowPeriodChange={(period: number) =>
-              setLiveWindowPeriod(period as LiveWindowPeriod)
-            }
-          />
-        )}
-        {activeTab === 'usage' && (
-          <UsageTab
-            timeRange={usageTimeRange}
-            onTimeRangeChange={setUsageTimeRange}
-            customDateRange={customDateRange}
-            onCustomDateRangeChange={setCustomDateRange}
-          />
-        )}
-        {activeTab === 'performance' && <PerformanceTab />}
-      </div>
-    </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Request volume</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {summary.isLoading ? (
+            <div className="h-[240px] animate-pulse rounded-md bg-surface-elevated" />
+          ) : (
+            <LineChart
+              data={seriesPoints}
+              xKey="timestamp"
+              series={[{ dataKey: 'requests', label: 'Requests' }]}
+              formatValue={(v) => formatCount(v)}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent errors</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RecentErrors errors={errors.data ?? []} loading={errors.isLoading} />
+        </CardContent>
+      </Card>
+    </DashboardPage>
   );
 };
+
+const SegmentedWindow: React.FC<{
+  value: TimeWindow;
+  onChange: (v: TimeWindow) => void;
+}> = ({ value, onChange }) => (
+  <div
+    role="radiogroup"
+    aria-label="Time window"
+    className="inline-flex items-center gap-0.5 rounded-md border border-border bg-surface p-0.5"
+  >
+    {WINDOW_OPTIONS.map((opt) => (
+      <button
+        key={opt.value}
+        type="button"
+        role="radio"
+        aria-checked={value === opt.value}
+        onClick={() => onChange(opt.value)}
+        className={cn(
+          'inline-flex h-7 items-center rounded px-2.5 text-xs font-medium transition-colors',
+          value === opt.value
+            ? 'bg-accent-subtle text-accent'
+            : 'text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
+        )}
+      >
+        {opt.label}
+      </button>
+    ))}
+  </div>
+);
