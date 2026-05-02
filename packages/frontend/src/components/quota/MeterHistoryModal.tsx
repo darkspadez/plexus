@@ -13,7 +13,7 @@ import { createPortal } from 'react-dom';
 import { api } from '../../lib/api';
 import { formatMeterValue } from './MeterValue';
 import type { Meter, QuotaCheckerInfo } from '../../types/quota';
-import { Button } from '../ui/Button';
+import { Button } from '../ui-v2/button';
 
 type TimeRange = '1h' | '3h' | '6h' | '12h' | '24h' | '1w' | '4w';
 
@@ -305,7 +305,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-border flex justify-end">
-          <Button variant="secondary" size="sm" onClick={onClose}>
+          <Button variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>
         </div>

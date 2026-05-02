@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { clsx } from 'clsx';
 import { Wallet, AlertTriangle, RefreshCw } from 'lucide-react';
+import { cn } from '../../lib/cn';
 import { toTitleCase } from '../../lib/format';
 import type { QuotaCheckerInfo, Meter } from '../../types/quota';
-import { Button } from '../ui/Button';
+import { Button } from '../ui-v2/button';
 import { getCheckerDisplayName } from './checker-presentation';
 import { BalanceMeterRow } from './BalanceMeterRow';
 import { MeterHistoryModal } from './MeterHistoryModal';
@@ -88,8 +88,8 @@ export const CombinedBalancesCard: React.FC<CombinedBalancesCardProps> = ({
             className="h-7 w-7 p-0"
           >
             <RefreshCw
-              size={14}
-              className={clsx(refreshing.has(quota.checkerId) && 'animate-spin')}
+              className={cn('size-3.5', refreshing.has(quota.checkerId) && 'animate-spin')}
+              strokeWidth={1.75}
             />
           </Button>
         </div>
@@ -106,7 +106,7 @@ export const CombinedBalancesCard: React.FC<CombinedBalancesCardProps> = ({
         </div>
 
         <div
-          className={clsx('grid gap-0', shouldSplit ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1')}
+          className={cn('grid gap-0', shouldSplit ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1')}
         >
           <div className="divide-y divide-border">{leftColumn.map(renderRow)}</div>
           {rightColumn.length > 0 && (
