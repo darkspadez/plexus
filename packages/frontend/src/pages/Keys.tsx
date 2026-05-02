@@ -3,6 +3,7 @@ import { Key as KeyIcon, Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { ListPage } from '../components/templates';
 import { Button } from '../components/ui-v2/button';
+import { EmptyState } from '../components/ui-v2/empty-state';
 import { Skeleton } from '../components/ui-v2/skeleton';
 import { Input } from '../components/ui-v2/input';
 import {
@@ -96,7 +97,17 @@ export const Keys: React.FC = () => {
           </div>
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState onAdd={() => setEditing(null)} hasSearch={!!search} />
+        <EmptyState
+          icon={KeyIcon}
+          title={search ? 'No matching keys' : 'No API keys yet'}
+          description="API keys grant scoped access to providers, models, and quotas. The secret is shown only once at creation."
+        >
+          {!search && (
+            <Button onClick={() => setEditing(null)}>
+              <Plus strokeWidth={1.75} /> Add key
+            </Button>
+          )}
+        </EmptyState>
       ) : (
         <KeyTable rows={filtered} onEdit={(k) => setEditing(k)} onDelete={setPendingDelete} />
       )}
@@ -135,21 +146,3 @@ export const Keys: React.FC = () => {
     </ListPage>
   );
 };
-
-const EmptyState: React.FC<{ onAdd: () => void; hasSearch: boolean }> = ({ onAdd, hasSearch }) => (
-  <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-6 py-16 text-center">
-    <KeyIcon className="size-6 text-foreground-subtle" strokeWidth={1.5} />
-    <h2 className="text-base font-medium text-foreground">
-      {hasSearch ? 'No matching keys' : 'No API keys yet'}
-    </h2>
-    <p className="max-w-sm text-sm text-foreground-muted">
-      API keys grant scoped access to providers, models, and quotas. The secret is shown only once
-      at creation.
-    </p>
-    {!hasSearch && (
-      <Button onClick={onAdd} className="mt-1">
-        <Plus strokeWidth={1.75} /> Add key
-      </Button>
-    )}
-  </div>
-);

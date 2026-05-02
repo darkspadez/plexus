@@ -3,6 +3,7 @@ import { Plus, RefreshCw, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { ListPage } from '../components/templates';
 import { Button } from '../components/ui-v2/button';
+import { EmptyState } from '../components/ui-v2/empty-state';
 import { Skeleton } from '../components/ui-v2/skeleton';
 import {
   AlertDialog,
@@ -85,7 +86,15 @@ export const UserQuotas: React.FC = () => {
           </div>
         </div>
       ) : rows.length === 0 ? (
-        <EmptyState onAdd={() => setEditing({ name: null, initial: null })} />
+        <EmptyState
+          icon={Shield}
+          title="No user quotas configured"
+          description="Define a quota here, then attach it to one or more API keys from the Keys page."
+        >
+          <Button onClick={() => setEditing({ name: null, initial: null })}>
+            <Plus strokeWidth={1.75} /> Add quota
+          </Button>
+        </EmptyState>
       ) : (
         <UserQuotaTable
           rows={rows}
@@ -128,16 +137,3 @@ export const UserQuotas: React.FC = () => {
     </ListPage>
   );
 };
-
-const EmptyState: React.FC<{ onAdd: () => void }> = ({ onAdd }) => (
-  <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-6 py-16 text-center">
-    <Shield className="size-6 text-foreground-subtle" strokeWidth={1.5} />
-    <h2 className="text-base font-medium text-foreground">No user quotas configured</h2>
-    <p className="max-w-sm text-sm text-foreground-muted">
-      Define a quota here, then attach it to one or more API keys from the Keys page.
-    </p>
-    <Button onClick={onAdd} className="mt-2">
-      <Plus strokeWidth={1.75} /> Add quota
-    </Button>
-  </div>
-);

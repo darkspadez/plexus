@@ -3,6 +3,7 @@ import { Gauge, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { ListPage } from '../components/templates';
 import { Button } from '../components/ui-v2/button';
+import { EmptyState } from '../components/ui-v2/empty-state';
 import { Skeleton } from '../components/ui-v2/skeleton';
 import { Pill } from '../components/chips/Pill';
 import { flattenQuotas, QuotaTable, type QuotaRow } from './quotas/QuotaTable';
@@ -107,7 +108,11 @@ export const Quotas: React.FC = () => {
       ) : isLoading ? (
         <TableSkeleton />
       ) : visibleRows.length === 0 ? (
-        <EmptyState filter={filter} />
+        <EmptyState
+          icon={Gauge}
+          title={filter === 'all' ? 'No quota checkers configured' : `No ${filter} quotas`}
+          description="Configure quota checkers in your provider settings to monitor usage."
+        />
       ) : (
         <QuotaTable
           rows={visibleRows}
@@ -145,18 +150,6 @@ const FilterChip: React.FC<{
   >
     {label}
   </button>
-);
-
-const EmptyState: React.FC<{ filter: Filter }> = ({ filter }) => (
-  <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border bg-surface px-6 py-16 text-center">
-    <Gauge className="size-6 text-foreground-subtle" strokeWidth={1.5} />
-    <h2 className="text-base font-medium text-foreground">
-      {filter === 'all' ? 'No quota checkers configured' : `No ${filter} quotas`}
-    </h2>
-    <p className="max-w-sm text-sm text-foreground-muted">
-      Configure quota checkers in your provider settings to monitor usage.
-    </p>
-  </div>
 );
 
 const ErrorCard: React.FC<{ onRetry: () => void }> = ({ onRetry }) => (

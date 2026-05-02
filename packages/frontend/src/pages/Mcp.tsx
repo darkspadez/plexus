@@ -3,6 +3,7 @@ import { Plug, Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { ListPage } from '../components/templates';
 import { Button } from '../components/ui-v2/button';
+import { EmptyState } from '../components/ui-v2/empty-state';
 import { Skeleton } from '../components/ui-v2/skeleton';
 import {
   AlertDialog,
@@ -103,7 +104,18 @@ export const McpPage: React.FC = () => {
           </div>
         </div>
       ) : rows.length === 0 ? (
-        <EmptyState onAdd={() => setEditing({ name: null, initial: null })} />
+        <EmptyState
+          icon={Plug}
+          title="No MCP servers configured"
+          description="Add an upstream Model Context Protocol server to expose its tools to configured providers."
+        >
+          <Button onClick={() => setEditing({ name: null, initial: null })}>
+            <Plus strokeWidth={1.75} /> Add server
+          </Button>
+          <Pill size="sm" tone="neutral">
+            See setup guide
+          </Pill>
+        </EmptyState>
       ) : (
         <>
           <McpServerTable
@@ -152,21 +164,3 @@ export const McpPage: React.FC = () => {
 };
 
 export default McpPage;
-
-const EmptyState: React.FC<{ onAdd: () => void }> = ({ onAdd }) => (
-  <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-6 py-16 text-center">
-    <Plug className="size-6 text-foreground-subtle" strokeWidth={1.5} />
-    <h2 className="text-base font-medium text-foreground">No MCP servers configured</h2>
-    <p className="max-w-sm text-sm text-foreground-muted">
-      Add an upstream Model Context Protocol server to expose its tools to configured providers.
-    </p>
-    <div className="mt-2 flex items-center gap-2">
-      <Button onClick={onAdd}>
-        <Plus strokeWidth={1.75} /> Add server
-      </Button>
-      <Pill size="sm" tone="neutral">
-        See setup guide
-      </Pill>
-    </div>
-  </div>
-);
