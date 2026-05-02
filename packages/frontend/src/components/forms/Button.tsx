@@ -1,49 +1,66 @@
-import React from 'react';
-import { clsx } from 'clsx';
-import { Loader2 } from 'lucide-react';
+/**
+ * Legacy Button shim — delegates to the shadcn ui-v2 Button while preserving
+ * the legacy API (variant primary/secondary/danger/ghost, size sm/md/lg/icon,
+ * leftIcon, isLoading) so unmigrated call sites in Models + Providers keep
+ * working unchanged. New code should import the shadcn Button from
+ * `components/ui-v2/button` directly.
+ */
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg' | 'icon';
+import React from 'react';
+import { Loader2 } from 'lucide-react';
+import { Button as UiButton } from '../ui-v2/button';
+
+type LegacyVariant =
+  | 'primary'
+  | 'secondary'
+  | 'ghost'
+  | 'danger'
+  | 'destructive'
+  | 'outline'
+  | 'default';
+type LegacySize = 'sm' | 'md' | 'lg' | 'icon' | 'default';
+
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'size'> {
+  variant?: LegacyVariant;
+  size?: LegacySize;
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
 }
 
+const variantMap: Record<LegacyVariant, React.ComponentProps<typeof UiButton>['variant']> = {
+  primary: 'default',
+  secondary: 'outline',
+  ghost: 'ghost',
+  danger: 'destructive',
+  destructive: 'destructive',
+  outline: 'outline',
+  default: 'default',
+};
+
+const sizeMap: Record<LegacySize, React.ComponentProps<typeof UiButton>['size']> = {
+  sm: 'sm',
+  md: 'default',
+  lg: 'lg',
+  icon: 'icon',
+  default: 'default',
+};
+
 export const Button: React.FC<ButtonProps> = ({
   children,
-  className,
   variant = 'primary',
   size = 'md',
   isLoading,
   leftIcon,
   disabled,
-  ...props
-}) => {
-  return (
-    <button
-      className={clsx(
-        'inline-flex items-center justify-center gap-2 font-medium leading-normal border-0 rounded-md cursor-pointer transition-all duration-fast whitespace-nowrap select-none outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-deep disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0',
-        {
-          'text-black bg-gradient-to-br from-primary to-secondary shadow-sm hover:-translate-y-0.5 hover:shadow-md':
-            variant === 'primary',
-          'bg-surface-elevated text-foreground border border-border backdrop-blur-md hover:bg-surface-elevated hover:border-primary':
-            variant === 'secondary',
-          'bg-transparent text-foreground hover:bg-amber-500/10': variant === 'ghost',
-          'bg-danger text-white shadow-md hover:bg-red-700 hover:-translate-y-0.5':
-            variant === 'danger',
-          'py-1.5 px-3.5 text-xs': size === 'sm',
-          'py-2.5 px-5 text-sm': size === 'md',
-          'py-3 px-6 text-base': size === 'lg',
-          'h-9 w-9 p-0': size === 'icon',
-        },
-        className
-      )}
-      disabled={isLoading || disabled}
-      {...props}
-    >
-      {isLoading && <Loader2 className="animate-spin" size={16} />}
-      {!isLoading && leftIcon && <span className="flex items-center">{leftIcon}</span>}
-      {children}
-    </button>
-  );
-};
+  ...rest
+}) => (
+  <UiButton
+    variant={variantMap[variant] ?? 'default'}
+    size={sizeMap[size] ?? 'default'}
+    disabled={isLoading || disabled}
+    {...rest}
+  >
+    {isLoading ? <Loader2 className="animate-spin" strokeWidth={1.75} /> : leftIcon}
+    {children}
+  </UiButton>
+);
