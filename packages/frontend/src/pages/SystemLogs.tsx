@@ -1,12 +1,20 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Terminal, Pause, Play, Trash2, RotateCcw } from 'lucide-react';
+import { Terminal, Pause, Play, Trash2, RotateCcw, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
-import { useToast } from '../contexts/ToastContext';
-import { Button } from '../components/ui/Button';
-import { Select } from '../components/ui/Select';
+import { Button } from '../components/ui-v2/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui-v2/select';
+import { Input } from '../components/ui-v2/input';
+import { Pill } from '../components/chips/Pill';
 import { ListPage } from '../components/templates';
 import { api } from '../lib/api';
-import { clsx } from 'clsx';
+import { cn } from '../lib/cn';
 
 interface LogEntry {
   level: string;
@@ -17,15 +25,14 @@ interface LogEntry {
 
 const LEVEL_CLASS: Record<string, string> = {
   error: 'text-danger',
-  warn: 'text-secondary',
+  warn: 'text-warning',
   info: 'text-info',
-  debug: 'text-text-muted',
-  verbose: 'text-text-muted',
-  silly: 'text-text-muted',
+  debug: 'text-foreground-muted',
+  verbose: 'text-foreground-muted',
+  silly: 'text-foreground-subtle',
 };
 
 export const SystemLogs: React.FC = () => {
-  const toast = useToast();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isPaused, setIsPaused] = useState(false);
   const [currentLevel, setCurrentLevel] = useState('info');
@@ -194,19 +201,26 @@ export const SystemLogs: React.FC = () => {
       subtitle="Live stream of backend system logs."
     >
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-border-glass">
-          <h3 className="font-heading text-h3 font-semibold text-text m-0">Live Output</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-border">
+          <h3 className="text-base font-medium text-foreground m-0">Live output</h3>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="min-w-[120px]">
-              <Select
-                value={selectedLevel}
-                onChange={setSelectedLevel}
-                options={supportedLevels.map((l) => ({ value: l, label: l }))}
-                disabled={isUpdatingLevel}
-              />
-            </div>
+            <Select
+              value={selectedLevel}
+              onValueChange={setSelectedLevel}
+              disabled={isUpdatingLevel}
+            >
+              <SelectTrigger className="h-8 w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {supportedLevels.map((l) => (
+                  <SelectItem key={l} value={l}>
+                    {l}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
-              variant="primary"
               size="sm"
               onClick={applyLoggingLevel}
               disabled={isUpdatingLevel || selectedLevel === currentLevel}
@@ -214,49 +228,38 @@ export const SystemLogs: React.FC = () => {
               Apply
             </Button>
             <Button
-              variant="secondary"
+              variant="outline"
               size="sm"
               onClick={resetLoggingLevel}
               disabled={isUpdatingLevel || currentLevel === startupLevel}
-              leftIcon={<RotateCcw size={14} />}
             >
+              <RotateCcw strokeWidth={1.75} />
               Reset
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setIsPaused(!isPaused)}
-              leftIcon={isPaused ? <Play size={14} /> : <Pause size={14} />}
-            >
+            <Button variant="outline" size="sm" onClick={() => setIsPaused(!isPaused)}>
+              {isPaused ? <Play strokeWidth={1.75} /> : <Pause strokeWidth={1.75} />}
               {isPaused ? 'Resume' : 'Pause'}
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={clearLogs}
-              leftIcon={<Trash2 size={14} />}
-            >
+            <Button variant="outline" size="sm" onClick={clearLogs}>
+              <Trash2 strokeWidth={1.75} />
               Clear
             </Button>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-border-glass">
-          <div className="text-xs text-text-secondary">
-            Current level: <span className="text-text font-semibold">{currentLevel}</span> · Startup
-            default: <span className="text-text font-semibold">{startupLevel}</span> · Runtime
-            changes reset on restart.
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-border">
+          <div className="text-xs text-foreground-muted">
+            Current level: <span className="font-medium text-foreground">{currentLevel}</span> ·
+            Startup default: <span className="font-medium text-foreground">{startupLevel}</span> ·
+            Runtime changes reset on restart.
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap items-center gap-1.5">
               {moduleFilter.length > 0 ? (
                 moduleFilter.map((m) => (
-                  <span
-                    key={m}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/30"
-                  >
-                    {m}
+                  <Pill key={m} tone="accent" size="sm">
+                    <span className="font-mono">{m}</span>
                     <button
                       type="button"
                       onClick={async () => {
@@ -272,17 +275,18 @@ export const SystemLogs: React.FC = () => {
                           setModuleFilterState(moduleFilter);
                         }
                       }}
-                      className="bg-transparent border-0 p-0 cursor-pointer text-primary/60 hover:text-primary leading-none"
+                      className="-mr-0.5 ml-0.5 rounded-full p-0.5 text-accent/70 hover:bg-accent/10 hover:text-accent"
+                      aria-label={`Remove ${m}`}
                     >
-                      ×
+                      <X className="size-3" strokeWidth={2} />
                     </button>
-                  </span>
+                  </Pill>
                 ))
               ) : (
-                <span className="text-xs text-text-muted italic">All modules</span>
+                <span className="text-xs italic text-foreground-subtle">All modules</span>
               )}
             </div>
-            <input
+            <Input
               type="text"
               value={moduleInput}
               onChange={(e) => setModuleInput(e.target.value)}
@@ -304,13 +308,14 @@ export const SystemLogs: React.FC = () => {
                   }
                 }
               }}
-              placeholder="Add module..."
-              className="h-7 w-32 text-xs rounded-md border border-border-glass bg-bg px-2 text-text outline-none focus:border-primary transition-colors"
-              disabled={false}
+              placeholder="Add module…"
+              className="h-7 w-32 text-xs"
             />
             {moduleFilter.length > 0 && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
                 onClick={async () => {
                   setModuleFilterState([]);
                   try {
@@ -319,25 +324,27 @@ export const SystemLogs: React.FC = () => {
                     // ignore
                   }
                 }}
-                className="text-xs text-text-secondary hover:text-danger transition-colors bg-transparent border-0 cursor-pointer"
               >
                 Clear
-              </button>
+              </Button>
             )}
           </div>
         </div>
 
-        <div className="bg-terminal-bg p-3 overflow-y-auto font-mono text-xs text-terminal-fg h-[60vh] min-h-[320px] max-h-[700px]">
+        <div className="bg-surface-sunken p-3 overflow-y-auto font-mono text-xs text-foreground h-[60vh] min-h-[320px] max-h-[700px]">
           {logs.length === 0 && (
-            <div className="text-text-muted italic text-center mt-8">Waiting for logs...</div>
+            <div className="mt-8 text-center italic text-foreground-subtle">Waiting for logs…</div>
           )}
           {logs.map((log, i) => (
-            <div key={i} className="mb-1 break-all py-0.5 px-1 rounded-sm hover:bg-white/5">
-              <span className="text-text-muted mr-2">[{log.timestamp}]</span>
+            <div
+              key={i}
+              className="mb-1 break-all rounded-sm px-1 py-0.5 hover:bg-surface-elevated"
+            >
+              <span className="mr-2 text-foreground-subtle">[{log.timestamp}]</span>
               <span
-                className={clsx(
-                  'font-bold mr-2',
-                  LEVEL_CLASS[log.level?.toLowerCase()] ?? 'text-text-muted'
+                className={cn(
+                  'mr-2 font-medium',
+                  LEVEL_CLASS[log.level?.toLowerCase()] ?? 'text-foreground-muted'
                 )}
               >
                 {log.level?.toUpperCase()}:
@@ -345,7 +352,7 @@ export const SystemLogs: React.FC = () => {
               <span>{log.message}</span>
               {Object.keys(log).filter((k) => !['level', 'message', 'timestamp'].includes(k))
                 .length > 0 && (
-                <pre className="text-text-muted text-[11px] ml-8 mt-1 whitespace-pre-wrap">
+                <pre className="ml-8 mt-1 whitespace-pre-wrap text-[11px] text-foreground-muted">
                   {JSON.stringify(
                     Object.fromEntries(
                       Object.entries(log).filter(
