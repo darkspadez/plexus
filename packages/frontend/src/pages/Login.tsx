@@ -5,7 +5,7 @@ import { Card, CardContent } from '../components/ui-v2/card';
 import { Button } from '../components/ui-v2/button';
 import { Input } from '../components/ui-v2/input';
 import { Label } from '../components/ui-v2/label';
-import logo from '../assets/plexus_logo_transparent.png';
+import { PlexusMark } from '../components/brand/PlexusMark';
 
 export const Login: React.FC = () => {
   const [key, setKey] = useState('');
@@ -44,7 +44,7 @@ export const Login: React.FC = () => {
     <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <img src={logo} alt="Plexus" className="mx-auto mb-4 h-12 w-12 [filter:grayscale(1)]" />
+          <PlexusMark title="Plexus" className="mx-auto mb-4 h-12 w-12 text-foreground" />
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Sign in</h1>
           <p className="mt-2 text-sm text-foreground-muted">
             Enter your admin key for full access, or an API key secret for a scoped view of your

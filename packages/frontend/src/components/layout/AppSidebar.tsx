@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useMatch } from 'react-router-dom';
 import {
   AlertTriangle,
   Bug,
@@ -21,7 +21,7 @@ import { cn } from '../../lib/cn';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui-v2/tooltip';
-import logo from '../../assets/plexus_logo_transparent.png';
+import { PlexusMark } from '../brand/PlexusMark';
 
 interface NavItem {
   to: string;
@@ -41,22 +41,22 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Observability',
     items: [
       { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/logs', label: 'Request Logs', icon: FileText },
+      { to: '/logs', label: 'Requests', icon: FileText },
       { to: '/me', label: 'My Key', icon: UserCircle2, limitedOnly: true },
     ],
   },
   {
     label: 'Routing',
     items: [
-      { to: '/models', label: 'Model Aliases', icon: Network, adminOnly: true },
       { to: '/providers', label: 'Providers', icon: Server, adminOnly: true },
+      { to: '/models', label: 'Models', icon: Network, adminOnly: true },
+      { to: '/quotas', label: 'Quotas', icon: PieChart, adminOnly: true },
     ],
   },
   {
     label: 'Access',
     items: [
       { to: '/keys', label: 'API Keys', icon: Key, adminOnly: true },
-      { to: '/quotas', label: 'Quotas', icon: PieChart, adminOnly: true },
       {
         to: '/user-quotas',
         label: 'User Quotas',
@@ -91,20 +91,21 @@ const NavLinkRow: React.FC<{
   collapsed: boolean;
 }> = ({ item, collapsed }) => {
   const Icon = item.icon;
+  const isActive = !!useMatch({ path: item.to, end: item.to === '/' });
+  const className = cn(
+    'group relative flex w-full items-center rounded-md py-1.5 text-sm font-medium text-foreground-muted no-underline transition-colors',
+    'hover:bg-surface-elevated hover:text-foreground',
+    collapsed ? 'justify-center px-0' : 'gap-2.5 px-2',
+    isActive && 'bg-accent-subtle text-foreground'
+  );
   const inner = (
-    <NavLink
-      to={item.to}
-      end={item.to === '/'}
-      className={({ isActive }) =>
-        cn(
-          'group relative flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm font-medium text-foreground-muted no-underline transition-colors',
-          'hover:bg-surface-elevated hover:text-foreground',
-          collapsed && 'justify-center px-1.5',
-          isActive &&
-            'bg-accent-subtle text-foreground before:absolute before:-left-1 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r before:bg-accent before:content-[""]'
-        )
-      }
-    >
+    <NavLink to={item.to} end={item.to === '/'} className={className}>
+      {isActive && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-r bg-accent"
+        />
+      )}
       <Icon className="size-4 shrink-0" strokeWidth={1.75} />
       {!collapsed && <span className="truncate">{item.label}</span>}
     </NavLink>
@@ -145,17 +146,12 @@ export const AppSidebar: React.FC = () => {
         {/* Logo column header — same height as TopBar (48px) */}
         <div
           className={cn(
-            'flex h-12 shrink-0 items-center gap-2 border-b border-border px-3',
-            isCollapsed && 'justify-center px-2'
+            'flex h-12 shrink-0 items-center border-b border-border',
+            isCollapsed ? 'justify-center px-0' : 'gap-2 px-3'
           )}
         >
-          <img
-            src={logo}
-            alt=""
-            className={cn(
-              'size-6 shrink-0 [filter:grayscale(1)_brightness(1.1)]',
-              '[data-theme=light]_&:[filter:grayscale(1)_brightness(0.4)]'
-            )}
+          <PlexusMark
+            className={cn('shrink-0 text-foreground', isCollapsed ? 'size-7' : 'size-6')}
           />
           {!isCollapsed && (
             <span className="font-sans text-sm font-semibold tracking-tight text-foreground">
@@ -165,11 +161,14 @@ export const AppSidebar: React.FC = () => {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3">
-          {visibleGroups.map((group) => (
-            <div key={group.label} className="mb-4 last:mb-0">
+        <nav className="flex-1 overflow-y-auto px-2 pb-2">
+          {visibleGroups.map((group, groupIdx) => (
+            <div
+              key={group.label}
+              className={cn('pt-2 pb-1 last:pb-0', groupIdx > 0 && 'border-t border-border')}
+            >
               {!isCollapsed && (
-                <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-foreground-subtle">
+                <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-foreground-muted">
                   {group.label}
                 </div>
               )}
@@ -190,16 +189,16 @@ export const AppSidebar: React.FC = () => {
             onClick={toggleSidebar}
             aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={cn(
-              'mt-1 flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground',
-              isCollapsed && 'justify-center px-1.5'
+              'mt-1 flex w-full items-center rounded-md py-1.5 text-sm font-medium text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground',
+              isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2'
             )}
           >
             {isCollapsed ? (
-              <ChevronsRight className="size-4" strokeWidth={1.75} />
+              <ChevronsRight className="size-4 shrink-0" strokeWidth={1.75} />
             ) : (
               <>
-                <ChevronsLeft className="size-4" strokeWidth={1.75} />
-                <span className="truncate text-xs">Collapse</span>
+                <ChevronsLeft className="size-4 shrink-0" strokeWidth={1.75} />
+                <span className="truncate">Collapse</span>
               </>
             )}
           </button>

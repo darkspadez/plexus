@@ -1216,7 +1216,7 @@ export const Providers = () => {
                   Connection Type
                 </label>
                 <select
-                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                  className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   value={isOAuthMode ? 'oauth' : 'url'}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1304,7 +1304,7 @@ export const Providers = () => {
                       OAuth Provider
                     </label>
                     <select
-                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                      className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       value={editingProvider.oauthProvider || OAUTH_PROVIDERS[0].value}
                       onChange={(e) =>
                         setEditingProvider({
@@ -1605,7 +1605,7 @@ export const Providers = () => {
                           >
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                               <select
-                                className="w-full py-1.5 px-3 text-xs text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                className="w-full py-1.5 px-3 text-xs text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 value={apiType}
                                 onChange={(e) =>
                                   updateApiBaseUrlEntry(
@@ -1626,7 +1626,7 @@ export const Providers = () => {
                                 ))}
                               </select>
                               <input
-                                className="w-full py-1.5 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                className="w-full py-1.5 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 placeholder={
                                   apiType === 'ollama'
                                     ? 'http://localhost:11434'
@@ -1726,7 +1726,7 @@ export const Providers = () => {
                 <div className="flex flex-col gap-1">
                   <label className="text-[11px] font-medium text-foreground-muted">Type</label>
                   <select
-                    className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                    className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={selectedQuotaCheckerType}
                     onChange={(e) => {
                       const quotaType = e.target.value;
@@ -1761,7 +1761,7 @@ export const Providers = () => {
                     Interval (min)
                   </label>
                   <input
-                    className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                    className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     type="number"
                     min={1}
                     step={1}
@@ -2137,7 +2137,7 @@ export const Providers = () => {
             <label className="text-[13px] font-medium text-foreground-muted">GPU Profile</label>
             <div className="flex gap-3 items-end">
               <select
-                className="flex-1 py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                className="flex-1 py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 value={editingProvider.gpu_profile || ''}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -2312,7 +2312,7 @@ export const Providers = () => {
                     </label>
                     <div style={{ position: 'relative' }}>
                       <input
-                        className="w-full py-2 pl-3 pr-7 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                        className="w-full py-2 pl-3 pr-7 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         type="number"
                         step="1"
                         min="0"
@@ -2726,7 +2726,7 @@ export const Providers = () => {
                                   Model Type
                                 </label>
                                 <select
-                                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                  className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                   value={mCfg.type || 'chat'}
                                   onChange={(e) => {
                                     const newType = e.target.value as
@@ -2810,7 +2810,7 @@ export const Providers = () => {
                                   Pricing Source
                                 </label>
                                 <select
-                                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+                                  className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                   value={mCfg.pricing?.source || 'simple'}
                                   onChange={(e) => {
                                     const newSource = e.target.value;
