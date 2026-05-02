@@ -12,6 +12,7 @@ import { SystemLogs } from './pages/SystemLogs';
 import { Debug } from './pages/Debug';
 import { Errors } from './pages/Errors';
 import { Quotas } from './pages/Quotas';
+import { UserQuotas } from './pages/UserQuotas';
 import { McpPage } from './pages/Mcp';
 import { Login } from './pages/Login';
 import { MyKey } from './pages/MyKey';
@@ -110,6 +111,14 @@ const AppRoutes = () => {
                   element={
                     <ProtectedRoute requireAdmin>
                       <Quotas />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/user-quotas"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <UserQuotas />
                     </ProtectedRoute>
                   }
                 />

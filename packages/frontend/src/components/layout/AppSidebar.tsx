@@ -14,6 +14,7 @@ import {
   Plug,
   Server,
   Settings,
+  Shield,
   UserCircle2,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
@@ -56,6 +57,12 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/keys', label: 'API Keys', icon: Key, adminOnly: true },
       { to: '/quotas', label: 'Quotas', icon: PieChart, adminOnly: true },
+      {
+        to: '/user-quotas',
+        label: 'User Quotas',
+        icon: Shield,
+        adminOnly: true,
+      },
     ],
   },
   {
