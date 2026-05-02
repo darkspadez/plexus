@@ -40,9 +40,11 @@ import {
   CheckCircle,
   XCircle,
   Copy,
+  Server,
   ShieldCheck,
 } from 'lucide-react';
 
+import { EmptyState } from '../components/ui-v2/empty-state';
 import { Switch } from '../components/ui-v2/switch';
 import { OpenRouterSlugInput } from '../components/forms/OpenRouterSlugInput';
 import { NagaQuotaConfig } from '../components/quota/NagaQuotaConfig';
@@ -249,6 +251,7 @@ export const Providers = () => {
   const toast = useToast();
   const navigate = useNavigate();
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Provider>(EMPTY_PROVIDER);
   const [originalId, setOriginalId] = useState<string | null>(null);
@@ -451,6 +454,8 @@ export const Providers = () => {
       setProviders(p);
     } catch (e) {
       console.error('Failed to load data', e);
+    } finally {
+      setHasLoaded(true);
     }
   };
 
@@ -1048,103 +1053,115 @@ export const Providers = () => {
         </Button>
       }
     >
-      <div className="overflow-hidden rounded-lg border border-border bg-surface">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[13px]">
-            <thead>
-              <tr>
-                <th
-                  className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
-                  style={{ paddingLeft: '24px' }}
-                >
-                  ID / Name
-                </th>
-                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                  Status
-                </th>
-
-                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                  Models
-                </th>
-                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                  Quota/Balance
-                </th>
-                <th
-                  className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
-                  style={{ paddingRight: '24px', textAlign: 'right' }}
-                >
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...providers]
-                .sort((a, b) => a.id.localeCompare(b.id))
-                .map((p) => (
-                  <tr
-                    key={p.id}
-                    onClick={() => handleEdit(p)}
-                    style={{ cursor: 'pointer' }}
-                    className="hover:bg-surface-elevated"
+      {hasLoaded && providers.length === 0 ? (
+        <EmptyState
+          icon={Server}
+          title="No providers configured"
+          description="Add an upstream provider to start routing model traffic. You can wire up credentials and quota checkers from the editor."
+        >
+          <Button leftIcon={<Plus size={16} />} onClick={handleAddNew}>
+            Add Provider
+          </Button>
+        </EmptyState>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  <th
+                    className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
+                    style={{ paddingLeft: '24px' }}
                   >
-                    <td
-                      className="px-4 py-3 text-left border-b border-border text-foreground"
-                      style={{ paddingLeft: '24px' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Edit2 size={12} style={{ opacity: 0.5 }} />
-                        <div style={{ fontWeight: 600 }}>{p.id}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-                          ( {p.name} )
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-left border-b border-border text-foreground">
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <Switch
-                          checked={p.enabled !== false}
-                          onCheckedChange={(val) => handleToggleEnabled(p, val)}
-                          className="scale-75"
-                        />
-                      </div>
-                    </td>
+                    ID / Name
+                  </th>
+                  <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                    Status
+                  </th>
 
-                    <td className="px-4 py-3 text-left border-b border-border text-foreground">
-                      {p.models
-                        ? Array.isArray(p.models)
-                          ? p.models.length
-                          : typeof p.models === 'object'
-                            ? Object.keys(p.models).length
-                            : 0
-                        : 0}
-                    </td>
-                    <td className="px-4 py-3 text-left border-b border-border text-foreground">
-                      {getQuotaDisplay(p)}
-                    </td>
-                    <td
-                      className="px-4 py-3 text-left border-b border-border text-foreground"
-                      style={{ paddingRight: '24px', textAlign: 'right' }}
+                  <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                    Models
+                  </th>
+                  <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                    Quota/Balance
+                  </th>
+                  <th
+                    className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
+                    style={{ paddingRight: '24px', textAlign: 'right' }}
+                  >
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...providers]
+                  .sort((a, b) => a.id.localeCompare(b.id))
+                  .map((p) => (
+                    <tr
+                      key={p.id}
+                      onClick={() => handleEdit(p)}
+                      style={{ cursor: 'pointer' }}
+                      className="hover:bg-surface-elevated"
                     >
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDeleteModal(p);
-                          }}
-                          style={{ color: 'var(--danger)' }}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+                      <td
+                        className="px-4 py-3 text-left border-b border-border text-foreground"
+                        style={{ paddingLeft: '24px' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Edit2 size={12} style={{ opacity: 0.5 }} />
+                          <div style={{ fontWeight: 600 }}>{p.id}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+                            ( {p.name} )
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-left border-b border-border text-foreground">
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Switch
+                            checked={p.enabled !== false}
+                            onCheckedChange={(val) => handleToggleEnabled(p, val)}
+                            className="scale-75"
+                          />
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3 text-left border-b border-border text-foreground">
+                        {p.models
+                          ? Array.isArray(p.models)
+                            ? p.models.length
+                            : typeof p.models === 'object'
+                              ? Object.keys(p.models).length
+                              : 0
+                          : 0}
+                      </td>
+                      <td className="px-4 py-3 text-left border-b border-border text-foreground">
+                        {getQuotaDisplay(p)}
+                      </td>
+                      <td
+                        className="px-4 py-3 text-left border-b border-border text-foreground"
+                        style={{ paddingRight: '24px', textAlign: 'right' }}
+                      >
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDeleteModal(p);
+                            }}
+                            style={{ color: 'var(--danger)' }}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       <Modal
         isOpen={isModalOpen}

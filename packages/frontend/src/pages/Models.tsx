@@ -36,6 +36,7 @@ import {
 } from '../components/ui-v2/dialog';
 import { Switch } from '../components/ui-v2/switch';
 import { Input } from '../components/ui-v2/input';
+import { EmptyState } from '../components/ui-v2/empty-state';
 import { ListPage } from '../components/templates';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -73,6 +74,7 @@ export const Models = () => {
     originalId,
     isSaving,
     testStates,
+    isLoading,
     handleEdit,
     handleAddNew,
     handleSave: hookSave,
@@ -991,62 +993,84 @@ export const Models = () => {
         </>
       }
     >
-      <div className="mb-6 overflow-hidden rounded-lg border border-border bg-surface">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[13px]">
-            <thead>
-              <tr>
-                <th
-                  className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
-                  style={{ paddingLeft: '24px' }}
-                >
-                  Alias
-                </th>
-                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                  Aliases
-                </th>
-                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                  Selector
-                </th>
-                <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                  Metadata
-                </th>
-                <th
-                  className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
-                  style={{ paddingRight: '24px' }}
-                >
-                  Targets
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAliases.map((alias) => (
-                <AliasTableRow
-                  key={alias.id}
-                  alias={alias}
-                  providers={providers}
-                  cooldowns={cooldowns}
-                  testStates={testStates}
-                  onEdit={handleEdit}
-                  onDelete={handleDeleteClick}
-                  onToggleTarget={handleToggleTarget}
-                  onTestTarget={handleTestTarget}
-                />
-              ))}
-              {filteredAliases.length === 0 && (
+      {!isLoading && filteredAliases.length === 0 ? (
+        search ? (
+          <EmptyState
+            icon={Search}
+            title="No matching models"
+            description={
+              <>
+                No model aliases match <code className="font-mono text-foreground">{search}</code>.
+                Try a different search term, or clear the filter.
+              </>
+            }
+          >
+            <Button variant="ghost" onClick={() => setSearch('')}>
+              Clear search
+            </Button>
+          </EmptyState>
+        ) : (
+          <EmptyState
+            icon={Cpu}
+            title="No models configured"
+            description="Add a model alias to expose it to API keys. An alias bundles one or more provider targets so you can fall back across upstreams."
+          >
+            <Button leftIcon={<Plus size={16} />} onClick={handleAddNew}>
+              Add Model
+            </Button>
+          </EmptyState>
+        )
+      ) : (
+        <div className="mb-6 overflow-hidden rounded-lg border border-border bg-surface">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="text-center text-foreground-muted p-12">
-                    No aliases found
-                  </td>
+                  <th
+                    className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
+                    style={{ paddingLeft: '24px' }}
+                  >
+                    Alias
+                  </th>
+                  <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                    Aliases
+                  </th>
+                  <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                    Selector
+                  </th>
+                  <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                    Metadata
+                  </th>
+                  <th
+                    className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
+                    style={{ paddingRight: '24px' }}
+                  >
+                    Targets
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredAliases.map((alias) => (
+                  <AliasTableRow
+                    key={alias.id}
+                    alias={alias}
+                    providers={providers}
+                    cooldowns={cooldowns}
+                    testStates={testStates}
+                    onEdit={handleEdit}
+                    onDelete={handleDeleteClick}
+                    onToggleTarget={handleToggleTarget}
+                    onTestTarget={handleTestTarget}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       <Modal
         isOpen={isModalOpen}
