@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useMemo, useRef, useStat
 import { createPortal } from 'react-dom';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui-v2/button';
 
 type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 
@@ -143,11 +143,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               </div>
               <div className="p-5 sm:p-6 text-sm text-foreground-muted">{confirmState.message}</div>
               <div className="flex items-center justify-end gap-3 px-5 py-4 sm:px-6 border-t border-border">
-                <Button variant="secondary" onClick={() => resolveConfirm(false)}>
+                <Button variant="outline" onClick={() => resolveConfirm(false)}>
                   {confirmState.cancelLabel ?? 'Cancel'}
                 </Button>
                 <Button
-                  variant={confirmState.variant === 'danger' ? 'danger' : 'primary'}
+                  variant={confirmState.variant === 'danger' ? 'destructive' : 'default'}
                   onClick={() => resolveConfirm(true)}
                 >
                   {confirmState.confirmLabel ?? 'Confirm'}
