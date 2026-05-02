@@ -1,17 +1,26 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
-import { clsx } from 'clsx';
-import { Button } from '../components/ui-v2/button';
+/**
+ * Legacy ToastContext shim — bridges the legacy `useToast()` API
+ * (showToast/success/error/warning/info + confirm()) onto sonner toasts +
+ * a shadcn AlertDialog. Kept so unmigrated callers (Models, Providers,
+ * useModels hook) keep working unchanged. New code should import
+ * `toast` from `sonner` directly and use shadcn AlertDialog inline for
+ * confirmation prompts.
+ */
+
+import React from 'react';
+import { toast as sonnerToast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui-v2/alert-dialog';
 
 type ToastVariant = 'success' | 'error' | 'warning' | 'info';
-
-interface Toast {
-  id: number;
-  variant: ToastVariant;
-  message: React.ReactNode;
-  title?: React.ReactNode;
-}
 
 interface ConfirmOptions {
   title: string;
@@ -30,63 +39,48 @@ interface ToastContextValue {
   confirm: (options: ConfirmOptions) => Promise<boolean>;
 }
 
-const ToastContext = createContext<ToastContextValue | undefined>(undefined);
+const ToastContext = React.createContext<ToastContextValue | undefined>(undefined);
 
-const variantStyles: Record<ToastVariant, { icon: React.ReactNode; classes: string }> = {
-  success: {
-    icon: <CheckCircle2 size={18} className="text-success" />,
-    classes: 'border-success/40',
-  },
-  error: {
-    icon: <AlertCircle size={18} className="text-danger" />,
-    classes: 'border-danger/40',
-  },
-  warning: {
-    icon: <AlertTriangle size={18} className="text-secondary" />,
-    classes: 'border-secondary/40',
-  },
-  info: {
-    icon: <Info size={18} className="text-info" />,
-    classes: 'border-info/40',
-  },
+const dispatch = (variant: ToastVariant, message: React.ReactNode, title?: React.ReactNode) => {
+  const text = typeof message === 'string' ? message : String(message ?? '');
+  const description = typeof title === 'string' ? title : title ? String(title) : undefined;
+  switch (variant) {
+    case 'success':
+      sonnerToast.success(text, { description });
+      break;
+    case 'error':
+      sonnerToast.error(text, { description });
+      break;
+    case 'warning':
+      sonnerToast.warning(text, { description });
+      break;
+    case 'info':
+    default:
+      sonnerToast.info(text, { description });
+  }
 };
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const [confirmState, setConfirmState] = useState<
+  const [confirmState, setConfirmState] = React.useState<
     (ConfirmOptions & { resolve: (v: boolean) => void }) | null
   >(null);
-  const idRef = useRef(0);
 
-  const dismiss = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
-
-  const showToast = useCallback(
-    (variant: ToastVariant, message: React.ReactNode, title?: React.ReactNode) => {
-      const id = ++idRef.current;
-      setToasts((prev) => [...prev, { id, variant, message, title }]);
-      setTimeout(() => dismiss(id), 5000);
-    },
-    [dismiss]
-  );
-
-  const value = useMemo<ToastContextValue>(
+  const value = React.useMemo<ToastContextValue>(
     () => ({
-      showToast,
-      success: (m, t) => showToast('success', m, t),
-      error: (m, t) => showToast('error', m, t),
-      warning: (m, t) => showToast('warning', m, t),
-      info: (m, t) => showToast('info', m, t),
+      showToast: dispatch,
+      success: (m, t) => dispatch('success', m, t),
+      error: (m, t) => dispatch('error', m, t),
+      warning: (m, t) => dispatch('warning', m, t),
+      info: (m, t) => dispatch('info', m, t),
       confirm: (options) =>
         new Promise<boolean>((resolve) => {
           setConfirmState({ ...options, resolve });
         }),
     }),
-    [showToast]
+    []
   );
 
-  const resolveConfirm = (result: boolean) => {
+  const handleConfirm = (result: boolean) => {
     if (confirmState) {
       confirmState.resolve(result);
       setConfirmState(null);
@@ -96,73 +90,39 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {createPortal(
-        <div className="fixed top-4 right-4 z-toast flex flex-col gap-2 max-w-[90vw] sm:max-w-sm pointer-events-none">
-          {toasts.map((toast) => (
-            <div
-              key={toast.id}
-              className={clsx(
-                'pointer-events-auto flex items-start gap-3 bg-surface border rounded-md p-3 shadow-md backdrop-blur-md animate-[slideUp_0.2s_ease]',
-                variantStyles[toast.variant].classes
-              )}
-            >
-              <div className="mt-0.5 flex-shrink-0">{variantStyles[toast.variant].icon}</div>
-              <div className="flex-1 min-w-0">
-                {toast.title && (
-                  <div className="text-sm font-semibold text-foreground">{toast.title}</div>
-                )}
-                <div className="text-xs text-foreground-muted break-words">{toast.message}</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => dismiss(toast.id)}
-                aria-label="Dismiss"
-                className="flex-shrink-0 text-foreground-muted hover:text-foreground transition-colors duration-fast"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ))}
-        </div>,
-        document.body
-      )}
-      {confirmState &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-modal flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
-            onClick={() => resolveConfirm(false)}
-            role="dialog"
-            aria-modal="true"
-          >
-            <div
-              className="bg-surface border border-border rounded-xl w-full max-w-[420px] shadow-md animate-[slideUp_0.2s_ease]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-5 sm:p-6 border-b border-border">
-                <h2 className="text-xl font-semibold text-foreground m-0">{confirmState.title}</h2>
-              </div>
-              <div className="p-5 sm:p-6 text-sm text-foreground-muted">{confirmState.message}</div>
-              <div className="flex items-center justify-end gap-3 px-5 py-4 sm:px-6 border-t border-border">
-                <Button variant="outline" onClick={() => resolveConfirm(false)}>
+      <AlertDialog open={!!confirmState} onOpenChange={(open) => !open && handleConfirm(false)}>
+        <AlertDialogContent>
+          {confirmState && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{confirmState.title}</AlertDialogTitle>
+                <AlertDialogDescription>{confirmState.message}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => handleConfirm(false)}>
                   {confirmState.cancelLabel ?? 'Cancel'}
-                </Button>
-                <Button
-                  variant={confirmState.variant === 'danger' ? 'destructive' : 'default'}
-                  onClick={() => resolveConfirm(true)}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => handleConfirm(true)}
+                  className={
+                    confirmState.variant === 'danger'
+                      ? 'bg-danger text-danger-foreground hover:bg-danger/90'
+                      : undefined
+                  }
                 >
                   {confirmState.confirmLabel ?? 'Confirm'}
-                </Button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
     </ToastContext.Provider>
   );
 };
 
 export const useToast = (): ToastContextValue => {
-  const ctx = useContext(ToastContext);
+  const ctx = React.useContext(ToastContext);
   if (!ctx) {
     throw new Error('useToast must be used within a ToastProvider');
   }
