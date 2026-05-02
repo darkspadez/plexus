@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '../lib/cn';
 import {
   api,
   Provider,
@@ -3537,195 +3538,149 @@ export const Providers = () => {
       </Modal>
 
       {/* Fetch Models Modal */}
-      <Modal
-        isOpen={isFetchModelsModalOpen}
-        onClose={() => setIsFetchModelsModalOpen(false)}
-        title="Fetch Models from Provider"
-        size="md"
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+      <Dialog
+        open={isFetchModelsModalOpen}
+        onOpenChange={(open) => !open && setIsFetchModelsModalOpen(false)}
+      >
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle>Fetch models from provider</DialogTitle>
+            <DialogDescription>
+              Pull a list of available models from the provider's API and pick which ones to
+              register.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Input
+                  label="Models endpoint URL"
+                  value={modelsUrl}
+                  onChange={(e) => setModelsUrl(e.target.value)}
+                  placeholder={
+                    isOAuthMode
+                      ? 'OAuth providers use built-in model lists'
+                      : 'https://api.example.com/v1/models'
+                  }
+                  disabled={isOAuthMode}
+                />
+              </div>
+              <Button
+                onClick={handleFetchModels}
+                isLoading={isFetchingModels}
+                leftIcon={<Download size={16} />}
+              >
+                Fetch
+              </Button>
+            </div>
+
+            {fetchError && (
+              <div className="rounded-md border border-danger/40 bg-danger-subtle p-3 text-xs text-danger">
+                {fetchError}
+              </div>
+            )}
+
+            {fetchedModels.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[13px] font-medium text-foreground-muted">
+                    Available models ({fetchedModels.length})
+                  </label>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setSelectedModelIds(new Set(fetchedModels.map((m) => m.id)))}
+                    >
+                      Select all
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setSelectedModelIds(new Set())}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="max-h-[400px] overflow-y-auto rounded-md border border-border bg-background">
+                  {fetchedModels.map((model) => {
+                    const contextLengthK = model.context_length
+                      ? `${(model.context_length / 1000).toFixed(0)}K`
+                      : null;
+                    const isSelected = selectedModelIds.has(model.id);
+
+                    return (
+                      <div
+                        key={model.id}
+                        onClick={() => toggleModelSelection(model.id)}
+                        className={cn(
+                          'cursor-pointer border-b border-border p-3 transition-colors hover:bg-surface-elevated last:border-b-0',
+                          isSelected && 'bg-surface-elevated'
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleModelSelection(model.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-0.5 cursor-pointer"
+                          />
+                          <div className="flex-1">
+                            <div className="mb-1 flex items-center gap-2">
+                              <span className="text-[13px] font-semibold text-foreground">
+                                {model.id}
+                              </span>
+                              {contextLengthK && (
+                                <Pill tone="success" size="sm">
+                                  {contextLengthK}
+                                </Pill>
+                              )}
+                            </div>
+                            {model.name && model.name !== model.id && (
+                              <div className="mb-0.5 text-xs text-foreground-muted">
+                                {model.name}
+                              </div>
+                            )}
+                            {model.description && (
+                              <div className="mt-1 text-[11px] leading-relaxed text-foreground-muted">
+                                {model.description.length > 150
+                                  ? `${model.description.substring(0, 150)}…`
+                                  : model.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {!isFetchingModels && fetchedModels.length === 0 && !fetchError && (
+              <div className="px-8 py-8 text-center text-xs italic text-foreground-muted">
+                {isOAuthMode
+                  ? 'Click Fetch to load known OAuth models'
+                  : 'Enter a URL and click Fetch to load available models'}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
             <Button variant="ghost" onClick={() => setIsFetchModelsModalOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleAddSelectedModels} disabled={selectedModelIds.size === 0}>
-              Add {selectedModelIds.size} Model{selectedModelIds.size !== 1 ? 's' : ''}
+              Add {selectedModelIds.size} Model
+              {selectedModelIds.size !== 1 ? 's' : ''}
             </Button>
-          </div>
-        }
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'end' }}>
-            <div style={{ flex: 1 }}>
-              <Input
-                label="Models Endpoint URL"
-                value={modelsUrl}
-                onChange={(e) => setModelsUrl(e.target.value)}
-                placeholder={
-                  isOAuthMode
-                    ? 'OAuth providers use built-in model lists'
-                    : 'https://api.example.com/v1/models'
-                }
-                disabled={isOAuthMode}
-              />
-            </div>
-            <Button
-              onClick={handleFetchModels}
-              isLoading={isFetchingModels}
-              leftIcon={<Download size={16} />}
-            >
-              Fetch
-            </Button>
-          </div>
-
-          {fetchError && (
-            <div
-              style={{
-                padding: '12px',
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--danger)',
-                fontSize: '13px',
-              }}
-            >
-              {fetchError}
-            </div>
-          )}
-
-          {fetchedModels.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-              >
-                <label className="text-[13px] font-medium text-foreground-muted">
-                  Available Models ({fetchedModels.length})
-                </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSelectedModelIds(new Set(fetchedModels.map((m) => m.id)))}
-                  >
-                    Select All
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedModelIds(new Set())}>
-                    Clear
-                  </Button>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  maxHeight: '400px',
-                  overflowY: 'auto',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--background)',
-                }}
-              >
-                {fetchedModels.map((model) => {
-                  const contextLengthK = model.context_length
-                    ? `${(model.context_length / 1000).toFixed(0)}K`
-                    : null;
-
-                  return (
-                    <div
-                      key={model.id}
-                      style={{
-                        padding: '12px',
-                        borderBottom: '1px solid var(--border)',
-                        cursor: 'pointer',
-                        background: selectedModelIds.has(model.id)
-                          ? 'var(--surface-elevated)'
-                          : 'transparent',
-                        transition: 'background 0.2s',
-                      }}
-                      onClick={() => toggleModelSelection(model.id)}
-                      className="hover:bg-surface-elevated"
-                    >
-                      <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedModelIds.has(model.id)}
-                          onChange={() => toggleModelSelection(model.id)}
-                          style={{ marginTop: '2px', cursor: 'pointer' }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div style={{ flex: 1 }}>
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              marginBottom: '4px',
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontWeight: 600,
-                                fontSize: '13px',
-                                color: 'var(--foreground)',
-                              }}
-                            >
-                              {model.id}
-                            </span>
-                            {contextLengthK && (
-                              <Pill tone="success" size="sm">
-                                {contextLengthK}
-                              </Pill>
-                            )}
-                          </div>
-                          {model.name && model.name !== model.id && (
-                            <div
-                              style={{
-                                fontSize: '12px',
-                                color: 'var(--foreground-muted)',
-                                marginBottom: '2px',
-                              }}
-                            >
-                              {model.name}
-                            </div>
-                          )}
-                          {model.description && (
-                            <div
-                              style={{
-                                fontSize: '11px',
-                                color: 'var(--foreground-muted)',
-                                marginTop: '4px',
-                                lineHeight: '1.4',
-                              }}
-                            >
-                              {model.description.length > 150
-                                ? `${model.description.substring(0, 150)}...`
-                                : model.description}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {!isFetchingModels && fetchedModels.length === 0 && !fetchError && (
-            <div
-              style={{
-                padding: '32px',
-                textAlign: 'center',
-                color: 'var(--foreground-muted)',
-                fontSize: '13px',
-                fontStyle: 'italic',
-              }}
-            >
-              {isOAuthMode
-                ? 'Click Fetch to load known OAuth models'
-                : 'Enter a URL and click Fetch to load available models'}
-            </div>
-          )}
-        </div>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!deleteModalProvider}
