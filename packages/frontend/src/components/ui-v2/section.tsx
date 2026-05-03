@@ -62,7 +62,7 @@ const Section = React.forwardRef<HTMLDivElement, SectionProps>(
       }
     };
 
-    const headerPadding = size === 'md' ? 'px-3 py-2' : 'p-2 px-3';
+    const headerPadding = size === 'md' ? 'px-3 py-2.5 min-h-[56px]' : 'p-2 px-3';
 
     return (
       <div ref={ref} className={cn('border border-border rounded-md overflow-hidden', className)}>

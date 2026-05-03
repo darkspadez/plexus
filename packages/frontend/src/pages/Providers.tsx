@@ -48,6 +48,12 @@ import { EmptyState } from '../components/ui-v2/empty-state';
 import { Section } from '../components/ui-v2/section';
 import { Switch } from '../components/ui-v2/switch';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../components/ui-v2/tooltip';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -86,6 +92,41 @@ const KNOWN_APIS = [
   'responses',
   'ollama',
 ];
+
+const BASE_URL_TYPES_TOOLTIP = (
+  <div className="text-[11px]" style={{ lineHeight: '1.5' }}>
+    <span style={{ fontStyle: 'italic' }}>API types determine the protocol:</span>
+    <ul style={{ margin: '4px 0 0 0', paddingLeft: '16px' }}>
+      <li>
+        <span style={{ fontWeight: 600 }}>chat</span> — OpenAI-compatible endpoints, including
+        Ollama&apos;s{' '}
+        <code
+          style={{
+            background: 'var(--surface-elevated)',
+            padding: '1px 4px',
+            borderRadius: '2px',
+          }}
+        >
+          /v1
+        </code>{' '}
+        API
+      </li>
+      <li>
+        <span style={{ fontWeight: 600 }}>ollama</span> — Native Ollama API, use the root URL (e.g.{' '}
+        <code
+          style={{
+            background: 'var(--surface-elevated)',
+            padding: '1px 4px',
+            borderRadius: '2px',
+          }}
+        >
+          http://localhost:11434
+        </code>
+        )
+      </li>
+    </ul>
+  </div>
+);
 
 const OAUTH_PROVIDERS = [
   { value: 'anthropic', label: 'Anthropic (Claude Code Pro/Max)' },
@@ -373,7 +414,7 @@ export const Providers = () => {
   // Accordion state for Modal
   const [isModelsOpen, setIsModelsOpen] = useState(false);
   const [openModelIdx, setOpenModelIdx] = useState<string | null>(null);
-  const [isApiBaseUrlsOpen, setIsApiBaseUrlsOpen] = useState(true);
+  const [isApiBaseUrlsOpen, setIsApiBaseUrlsOpen] = useState(false);
   const [isHeadersOpen, setIsHeadersOpen] = useState(false);
   const [isExtraBodyOpen, setIsExtraBodyOpen] = useState(false);
   const [isModelExtraBodyOpen, setIsModelExtraBodyOpen] = useState<Record<string, boolean>>({});
@@ -470,12 +511,14 @@ export const Providers = () => {
   const handleEdit = (provider: Provider) => {
     setOriginalId(provider.id);
     setEditingProvider(JSON.parse(JSON.stringify(provider)));
+    setIsModelsOpen(Object.keys(provider.models || {}).length > 0);
     setIsModalOpen(true);
   };
 
   const handleAddNew = () => {
     setOriginalId(null);
     setEditingProvider(JSON.parse(JSON.stringify(EMPTY_PROVIDER)));
+    setIsModelsOpen(false);
     setIsModalOpen(true);
   };
 
@@ -731,13 +774,20 @@ export const Providers = () => {
     return {};
   };
 
-  const addApiBaseUrlEntry = () => {
+  // Adds an entry to the "Additional Base URLs" list (Advanced section),
+  // never to the primary slot. Materializes the primary first if the map
+  // is empty, so the new key appends as position 1+, not 0.
+  const addAdditionalBaseUrlEntry = () => {
     if (isOAuthMode) return;
     const currentMap = getApiBaseUrlMap();
-    const nextType = KNOWN_APIS.find((apiType) => !(apiType in currentMap));
+    const { type: primaryType, url: primaryUrl } = getPrimaryEntry();
+    const baseMap: Record<string, string> =
+      currentMap[primaryType] !== undefined
+        ? { ...currentMap }
+        : { [primaryType]: primaryUrl, ...currentMap };
+    const nextType = KNOWN_APIS.find((apiType) => !(apiType in baseMap));
     if (!nextType) return;
-
-    const updated = { ...currentMap, [nextType]: '' };
+    const updated = { ...baseMap, [nextType]: '' };
     setEditingProvider({
       ...editingProvider,
       apiBaseUrl: updated,
@@ -772,6 +822,29 @@ export const Providers = () => {
     const updated = { ...currentMap };
     delete updated[apiType];
 
+    setEditingProvider({
+      ...editingProvider,
+      apiBaseUrl: updated,
+      type: inferProviderTypes(updated),
+    });
+  };
+
+  const getPrimaryEntry = (): { type: string; url: string } => {
+    const entries = Object.entries(getApiBaseUrlMap());
+    if (entries.length === 0) return { type: 'chat', url: '' };
+    const [type, url] = entries[0];
+    return { type, url: typeof url === 'string' ? url : '' };
+  };
+
+  // Rebuilds the Record so the primary stays at insertion-position 0
+  // even when its type is renamed. updateApiBaseUrlEntry would push the
+  // renamed key to the end, which would steal the primary slot from us.
+  const setPrimaryEntry = (newType: string, newUrl: string) => {
+    if (isOAuthMode) return;
+    const entries = Object.entries(getApiBaseUrlMap());
+    const rest = entries.slice(1).filter(([k]) => k !== newType);
+    const updated: Record<string, string> = { [newType]: newUrl };
+    for (const [k, v] of rest) updated[k] = typeof v === 'string' ? v : '';
     setEditingProvider({
       ...editingProvider,
       apiBaseUrl: updated,
@@ -1235,7 +1308,11 @@ export const Providers = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             {/* Left: Connection */}
-            <div className="flex flex-col gap-3">
+            <Section
+              title="Connection"
+              size="md"
+              bodyStyle={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+            >
               <div className="flex flex-col gap-1">
                 <label className="text-[13px] font-medium text-foreground-muted">
                   Connection Type
@@ -1276,6 +1353,7 @@ export const Providers = () => {
               {isOAuthMode ? (
                 <Section
                   title="OAuth Configuration"
+                  size="md"
                   rightSlot={
                     <div className="flex items-center gap-2">
                       <span
@@ -1492,110 +1570,56 @@ export const Providers = () => {
                   </div>
                 </Section>
               ) : (
-                <Section
-                  title="Base URL Entries"
-                  collapsible
-                  open={isApiBaseUrlsOpen}
-                  onOpenChange={setIsApiBaseUrlsOpen}
-                  info={
-                    <div className="text-[11px]" style={{ lineHeight: '1.5' }}>
-                      <span style={{ fontStyle: 'italic' }}>API types determine the protocol:</span>
-                      <ul style={{ margin: '4px 0 0 0', paddingLeft: '16px' }}>
-                        <li>
-                          <span style={{ fontWeight: 600 }}>chat</span> — OpenAI-compatible
-                          endpoints, including Ollama&apos;s{' '}
-                          <code
-                            style={{
-                              background: 'var(--surface-elevated)',
-                              padding: '1px 4px',
-                              borderRadius: '2px',
-                            }}
-                          >
-                            /v1
-                          </code>{' '}
-                          API
-                        </li>
-                        <li>
-                          <span style={{ fontWeight: 600 }}>ollama</span> — Native Ollama API, use
-                          the root URL (e.g.{' '}
-                          <code
-                            style={{
-                              background: 'var(--surface-elevated)',
-                              padding: '1px 4px',
-                              borderRadius: '2px',
-                            }}
-                          >
-                            http://localhost:11434
-                          </code>
-                          )
-                        </li>
-                      </ul>
-                    </div>
-                  }
-                  rightSlot={
-                    <>
-                      <Pill tone="neutral" size="sm">
-                        {Object.keys(getApiBaseUrlMap()).length}
-                      </Pill>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addApiBaseUrlEntry();
-                        }}
-                        disabled={Object.keys(getApiBaseUrlMap()).length >= KNOWN_APIS.length}
-                      >
-                        <Plus size={14} />
-                      </Button>
-                    </>
-                  }
-                  bodyStyle={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                    padding: '8px',
-                  }}
-                >
-                  {Object.entries(getApiBaseUrlMap()).length === 0 && (
-                    <div className="text-[11px] text-foreground-muted italic">
-                      No base URLs configured yet.
-                    </div>
-                  )}
-                  {Object.entries(getApiBaseUrlMap()).map(([apiType, url]) => {
-                    // Detect URL/API type mismatches based on endpoint-shape only
-                    const urlLower = typeof url === 'string' ? url.toLowerCase() : '';
-                    // Native Ollama API paths (not hostname-based, only path-based)
-                    const hasNativeOllamaPath =
-                      urlLower.includes('/api/chat') ||
-                      urlLower.includes('/api/generate') ||
-                      urlLower.includes('/api/embeddings') ||
-                      urlLower.includes('/api/tags');
-                    const hasV1Suffix = urlLower.includes('/v1');
-                    // Warn when native Ollama type is selected but URL has /v1 (OpenAI-compatible)
-                    const showOllamaV1Warning = apiType === 'ollama' && hasV1Suffix;
-                    // Warn when chat type is selected but URL looks like native Ollama (path-based, no /v1)
-                    const showChatOllamaWarning =
-                      apiType === 'chat' && hasNativeOllamaPath && !hasV1Suffix;
+                (() => {
+                  const { type: primaryType, url: primaryUrl } = getPrimaryEntry();
+                  const urlLower = primaryUrl.toLowerCase();
+                  const hasNativeOllamaPath =
+                    urlLower.includes('/api/chat') ||
+                    urlLower.includes('/api/generate') ||
+                    urlLower.includes('/api/embeddings') ||
+                    urlLower.includes('/api/tags');
+                  const hasV1Suffix = urlLower.includes('/v1');
+                  const showOllamaV1Warning = primaryType === 'ollama' && hasV1Suffix;
+                  const showChatOllamaWarning =
+                    primaryType === 'chat' && hasNativeOllamaPath && !hasV1Suffix;
 
-                    return (
+                  return (
+                    <div className="flex flex-col gap-2">
                       <div
-                        key={apiType}
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: '1fr auto',
+                          gridTemplateColumns: '140px 1fr',
                           gap: '8px',
-                          alignItems: 'start',
+                          alignItems: 'end',
                         }}
                       >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <label className="text-[11px] font-medium text-foreground-muted">
+                              Type
+                            </label>
+                            <TooltipProvider delayDuration={150}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="text-foreground-muted hover:text-foreground inline-flex items-center"
+                                    aria-label="API type information"
+                                  >
+                                    <Info size={12} />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-[360px]">
+                                  {BASE_URL_TYPES_TOOLTIP}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
                           <Select
-                            value={apiType}
-                            onValueChange={(v) =>
-                              updateApiBaseUrlEntry(apiType, v, typeof url === 'string' ? url : '')
-                            }
+                            value={primaryType}
+                            onValueChange={(v) => setPrimaryEntry(v, primaryUrl)}
                           >
-                            <SelectTrigger size="sm">
+                            <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1606,88 +1630,82 @@ export const Providers = () => {
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[11px] font-medium text-foreground-muted">
+                            Base URL
+                          </label>
                           <input
-                            className="w-full py-1.5 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             placeholder={
-                              apiType === 'ollama'
+                              primaryType === 'ollama'
                                 ? 'http://localhost:11434'
                                 : 'https://api.example.com/v1/...'
                             }
-                            value={typeof url === 'string' ? url : ''}
-                            onChange={(e) =>
-                              updateApiBaseUrlEntry(apiType, apiType, e.target.value)
-                            }
+                            value={primaryUrl}
+                            onChange={(e) => setPrimaryEntry(primaryType, e.target.value)}
                           />
-                          {showOllamaV1Warning && (
-                            <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
-                              <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
-                              <span className="text-[11px] text-warning">
-                                <span style={{ fontWeight: 600 }}>native ollama</span> type expects
-                                root URL (e.g.{' '}
-                                <code
-                                  style={{
-                                    background: 'var(--surface-elevated)',
-                                    padding: '0 3px',
-                                    borderRadius: '2px',
-                                  }}
-                                >
-                                  http://localhost:11434
-                                </code>
-                                ). URLs with{' '}
-                                <code
-                                  style={{
-                                    background: 'var(--surface-elevated)',
-                                    padding: '0 3px',
-                                    borderRadius: '2px',
-                                  }}
-                                >
-                                  /v1
-                                </code>{' '}
-                                are OpenAI-compatible — use{' '}
-                                <span style={{ fontWeight: 600 }}>chat</span> type instead.
-                              </span>
-                            </div>
-                          )}
-                          {showChatOllamaWarning && (
-                            <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
-                              <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
-                              <span className="text-[11px] text-warning">
-                                This URL contains{' '}
-                                <code
-                                  style={{
-                                    background: 'var(--surface-elevated)',
-                                    padding: '0 3px',
-                                    borderRadius: '2px',
-                                  }}
-                                >
-                                  /api/
-                                </code>{' '}
-                                paths typical of native Ollama. If this is a native Ollama endpoint,
-                                use <span style={{ fontWeight: 600 }}>ollama</span> type instead.
-                              </span>
-                            </div>
-                          )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeApiBaseUrlEntry(apiType)}
-                          style={{ padding: '4px', marginTop: '4px' }}
-                        >
-                          <Trash2 size={14} style={{ color: 'var(--danger)' }} />
-                        </Button>
                       </div>
-                    );
-                  })}
-                </Section>
+                      {showOllamaV1Warning && (
+                        <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
+                          <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
+                          <span className="text-[11px] text-warning">
+                            <span style={{ fontWeight: 600 }}>native ollama</span> type expects root
+                            URL (e.g.{' '}
+                            <code
+                              style={{
+                                background: 'var(--surface-elevated)',
+                                padding: '0 3px',
+                                borderRadius: '2px',
+                              }}
+                            >
+                              http://localhost:11434
+                            </code>
+                            ). URLs with{' '}
+                            <code
+                              style={{
+                                background: 'var(--surface-elevated)',
+                                padding: '0 3px',
+                                borderRadius: '2px',
+                              }}
+                            >
+                              /v1
+                            </code>{' '}
+                            are OpenAI-compatible — use{' '}
+                            <span style={{ fontWeight: 600 }}>chat</span> type instead.
+                          </span>
+                        </div>
+                      )}
+                      {showChatOllamaWarning && (
+                        <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
+                          <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
+                          <span className="text-[11px] text-warning">
+                            This URL contains{' '}
+                            <code
+                              style={{
+                                background: 'var(--surface-elevated)',
+                                padding: '0 3px',
+                                borderRadius: '2px',
+                              }}
+                            >
+                              /api/
+                            </code>{' '}
+                            paths typical of native Ollama. If this is a native Ollama endpoint, use{' '}
+                            <span style={{ fontWeight: 600 }}>ollama</span> type instead.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               )}
-            </div>
+            </Section>
 
             {/* Right: Quota Checker */}
             <Section
               title="Quota Checker"
-              collapsible
-              defaultOpen={!!selectedQuotaCheckerType}
+              size="md"
               rightSlot={
                 <Pill tone={selectedQuotaCheckerType ? 'success' : 'neutral'} size="sm">
                   {selectedQuotaCheckerType ? 'Active' : 'Disabled'}
@@ -2123,113 +2141,396 @@ export const Providers = () => {
           {/* Advanced */}
           <Section
             title="Advanced"
+            size="md"
             collapsible
             open={isAdvancedOpen}
             onOpenChange={setIsAdvancedOpen}
             bodyStyle={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
           >
-            {/* Discount */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '140px',
-                gap: '12px',
-                alignItems: 'end',
-              }}
-            >
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-medium text-foreground-muted">
-                  Discount (%)
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    className="w-full py-2 pl-3 pr-7 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    type="number"
-                    step="1"
-                    min="0"
-                    max="100"
-                    value={Math.round((editingProvider.discount ?? 0) * 100)}
-                    onChange={(e) => {
-                      const percent = Number(e.target.value || '0');
-                      const clamped = Math.min(100, Math.max(0, percent));
-                      setEditingProvider({ ...editingProvider, discount: clamped / 100 });
-                    }}
-                  />
-                  <span
-                    className="text-[12px] text-foreground-muted"
-                    style={{
-                      position: 'absolute',
-                      right: '10px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    %
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* GPU Profile (used for inference energy calculation) */}
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-medium text-foreground-muted">GPU Profile</label>
-              <Select
-                value={editingProvider.gpu_profile || '__default__'}
-                onValueChange={(v) => {
-                  const value = v === '__default__' ? '' : v;
-                  if (!value) {
-                    const resolved = resolveGpuParams('B200');
-                    setEditingProvider({
-                      ...editingProvider,
-                      gpu_profile: undefined,
-                      gpu_ram_gb: resolved.ram_gb,
-                      gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                      gpu_flops_tflop: resolved.flops_tflop,
-                      gpu_power_draw_watts: resolved.power_draw_watts,
-                    });
-                  } else if (value === 'custom') {
-                    const resolved = resolveGpuParams('custom', {
-                      ram_gb: editingProvider.gpu_ram_gb,
-                      bandwidth_tb_s: editingProvider.gpu_bandwidth_tb_s,
-                      flops_tflop: editingProvider.gpu_flops_tflop,
-                      power_draw_watts: editingProvider.gpu_power_draw_watts,
-                    });
-                    setEditingProvider({
-                      ...editingProvider,
-                      gpu_profile: 'custom',
-                      gpu_ram_gb: resolved.ram_gb,
-                      gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                      gpu_flops_tflop: resolved.flops_tflop,
-                      gpu_power_draw_watts: resolved.power_draw_watts,
-                    });
-                  } else {
-                    const resolved = resolveGpuParams(value);
-                    setEditingProvider({
-                      ...editingProvider,
-                      gpu_profile: value,
-                      gpu_ram_gb: resolved.ram_gb,
-                      gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                      gpu_flops_tflop: resolved.flops_tflop,
-                      gpu_power_draw_watts: resolved.power_draw_watts,
-                    });
-                  }
+            {/* Additional Base URLs */}
+            {!isOAuthMode && (
+              <Section
+                title="Additional Base URLs"
+                size="md"
+                collapsible
+                open={isApiBaseUrlsOpen}
+                onOpenChange={setIsApiBaseUrlsOpen}
+                info={BASE_URL_TYPES_TOOLTIP}
+                rightSlot={
+                  <>
+                    <Pill tone="neutral" size="sm">
+                      {Math.max(0, Object.keys(getApiBaseUrlMap()).length - 1)}
+                    </Pill>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addAdditionalBaseUrlEntry();
+                      }}
+                      disabled={Object.keys(getApiBaseUrlMap()).length >= KNOWN_APIS.length}
+                    >
+                      <Plus size={14} />
+                    </Button>
+                  </>
+                }
+                bodyStyle={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  padding: '8px',
                 }}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Default (B200)</SelectItem>
-                  {GPU_PROFILE_OPTIONS.map((profile) => (
-                    <SelectItem key={profile.value} value={profile.value}>
-                      {profile.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {Object.entries(getApiBaseUrlMap()).slice(1).length === 0 && (
+                  <div className="text-[11px] text-foreground-muted italic">
+                    No additional base URLs configured.
+                  </div>
+                )}
+                {Object.entries(getApiBaseUrlMap())
+                  .slice(1)
+                  .map(([apiType, url]) => {
+                    const urlLower = typeof url === 'string' ? url.toLowerCase() : '';
+                    const hasNativeOllamaPath =
+                      urlLower.includes('/api/chat') ||
+                      urlLower.includes('/api/generate') ||
+                      urlLower.includes('/api/embeddings') ||
+                      urlLower.includes('/api/tags');
+                    const hasV1Suffix = urlLower.includes('/v1');
+                    const showOllamaV1Warning = apiType === 'ollama' && hasV1Suffix;
+                    const showChatOllamaWarning =
+                      apiType === 'chat' && hasNativeOllamaPath && !hasV1Suffix;
+
+                    return (
+                      <div
+                        key={apiType}
+                        style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
+                      >
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '140px 1fr auto',
+                            gap: '8px',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <Select
+                            value={apiType}
+                            onValueChange={(v) =>
+                              updateApiBaseUrlEntry(apiType, v, typeof url === 'string' ? url : '')
+                            }
+                          >
+                            <SelectTrigger size="sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {KNOWN_APIS.map((knownType) => (
+                                <SelectItem key={knownType} value={knownType}>
+                                  {knownType}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <input
+                            className="w-full py-1.5 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder={
+                              apiType === 'ollama'
+                                ? 'http://localhost:11434'
+                                : 'https://api.example.com/v1/...'
+                            }
+                            value={typeof url === 'string' ? url : ''}
+                            onChange={(e) =>
+                              updateApiBaseUrlEntry(apiType, apiType, e.target.value)
+                            }
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeApiBaseUrlEntry(apiType)}
+                            style={{ padding: '4px' }}
+                          >
+                            <Trash2 size={14} style={{ color: 'var(--danger)' }} />
+                          </Button>
+                        </div>
+                        {showOllamaV1Warning && (
+                          <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
+                            <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
+                            <span className="text-[11px] text-warning">
+                              <span style={{ fontWeight: 600 }}>native ollama</span> type expects
+                              root URL (e.g.{' '}
+                              <code
+                                style={{
+                                  background: 'var(--surface-elevated)',
+                                  padding: '0 3px',
+                                  borderRadius: '2px',
+                                }}
+                              >
+                                http://localhost:11434
+                              </code>
+                              ). URLs with{' '}
+                              <code
+                                style={{
+                                  background: 'var(--surface-elevated)',
+                                  padding: '0 3px',
+                                  borderRadius: '2px',
+                                }}
+                              >
+                                /v1
+                              </code>{' '}
+                              are OpenAI-compatible — use{' '}
+                              <span style={{ fontWeight: 600 }}>chat</span> type instead.
+                            </span>
+                          </div>
+                        )}
+                        {showChatOllamaWarning && (
+                          <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
+                            <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
+                            <span className="text-[11px] text-warning">
+                              This URL contains{' '}
+                              <code
+                                style={{
+                                  background: 'var(--surface-elevated)',
+                                  padding: '0 3px',
+                                  borderRadius: '2px',
+                                }}
+                              >
+                                /api/
+                              </code>{' '}
+                              paths typical of native Ollama. If this is a native Ollama endpoint,
+                              use <span style={{ fontWeight: 600 }}>ollama</span> type instead.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </Section>
+            )}
+
+            {/* Custom Headers */}
+            <Section
+              title="Custom Headers"
+              size="md"
+              collapsible
+              open={isHeadersOpen}
+              onOpenChange={setIsHeadersOpen}
+              rightSlot={
+                <>
+                  <Pill tone="neutral" size="sm">
+                    {Object.keys(editingProvider.headers || {}).length}
+                  </Pill>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addKV('headers');
+                      setIsHeadersOpen(true);
+                    }}
+                  >
+                    <Plus size={14} />
+                  </Button>
+                </>
+              }
+              bodyStyle={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                padding: '8px',
+              }}
+            >
+              {Object.entries(editingProvider.headers || {}).length === 0 && (
+                <div className="text-[11px] text-foreground-muted italic">
+                  No custom headers configured.
+                </div>
+              )}
+              {Object.entries(editingProvider.headers || {}).map(([key, val], idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '6px' }}>
+                  <Input
+                    placeholder="Header Name"
+                    value={key}
+                    onChange={(e) => updateKV('headers', key, e.target.value, val)}
+                    style={{ flex: 1 }}
+                  />
+                  <Input
+                    placeholder="Value"
+                    value={typeof val === 'object' ? JSON.stringify(val) : val}
+                    onChange={(e) => {
+                      const rawValue = e.target.value;
+                      let parsedValue;
+                      try {
+                        parsedValue = JSON.parse(rawValue);
+                      } catch {
+                        parsedValue = rawValue;
+                      }
+                      updateKV('headers', key, key, parsedValue);
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeKV('headers', key)}
+                    style={{ padding: '4px' }}
+                  >
+                    <Trash2 size={14} style={{ color: 'var(--danger)' }} />
+                  </Button>
+                </div>
+              ))}
+            </Section>
+
+            {/* Extra Body Fields */}
+            <Section
+              title="Extra Body Fields"
+              size="md"
+              collapsible
+              open={isExtraBodyOpen}
+              onOpenChange={setIsExtraBodyOpen}
+              rightSlot={
+                <>
+                  <Pill tone="neutral" size="sm">
+                    {Object.keys(editingProvider.extraBody || {}).length}
+                  </Pill>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addKV('extraBody');
+                      setIsExtraBodyOpen(true);
+                    }}
+                  >
+                    <Plus size={14} />
+                  </Button>
+                </>
+              }
+              bodyStyle={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                padding: '8px',
+              }}
+            >
+              {Object.entries(editingProvider.extraBody || {}).length === 0 && (
+                <div className="text-[11px] text-foreground-muted italic">
+                  No extra body fields configured.
+                </div>
+              )}
+              {Object.entries(editingProvider.extraBody || {}).map(([key, val], idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '6px' }}>
+                  <Input
+                    placeholder="Field Name"
+                    value={key}
+                    onChange={(e) => updateKV('extraBody', key, e.target.value, val)}
+                    style={{ flex: 1 }}
+                  />
+                  <Input
+                    placeholder="Value"
+                    value={typeof val === 'object' ? JSON.stringify(val) : val}
+                    onChange={(e) => {
+                      const rawValue = e.target.value;
+                      let parsedValue;
+                      try {
+                        parsedValue = JSON.parse(rawValue);
+                      } catch {
+                        parsedValue = rawValue;
+                      }
+                      updateKV('extraBody', key, key, parsedValue);
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeKV('extraBody', key)}
+                    style={{ padding: '4px' }}
+                  >
+                    <Trash2 size={14} style={{ color: 'var(--danger)' }} />
+                  </Button>
+                </div>
+              ))}
+            </Section>
+
+            {/* GPU Profile */}
+            <div className="border border-border rounded-md p-3 bg-surface-elevated">
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 240px',
+                  gap: '12px',
+                  alignItems: 'center',
+                }}
+              >
+                <div className="flex flex-col gap-1">
+                  <label
+                    className="text-[13px] font-medium text-foreground"
+                    style={{ marginBottom: 0 }}
+                  >
+                    GPU Profile
+                  </label>
+                  <div className="text-[11px] text-foreground-muted" style={{ lineHeight: 1.35 }}>
+                    Used for inference energy calculation. Select a preset or enter custom GPU
+                    specs.
+                  </div>
+                </div>
+                <div>
+                  <Select
+                    value={editingProvider.gpu_profile || '__default__'}
+                    onValueChange={(v) => {
+                      const value = v === '__default__' ? '' : v;
+                      if (!value) {
+                        const resolved = resolveGpuParams('B200');
+                        setEditingProvider({
+                          ...editingProvider,
+                          gpu_profile: undefined,
+                          gpu_ram_gb: resolved.ram_gb,
+                          gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
+                          gpu_flops_tflop: resolved.flops_tflop,
+                          gpu_power_draw_watts: resolved.power_draw_watts,
+                        });
+                      } else if (value === 'custom') {
+                        const resolved = resolveGpuParams('custom', {
+                          ram_gb: editingProvider.gpu_ram_gb,
+                          bandwidth_tb_s: editingProvider.gpu_bandwidth_tb_s,
+                          flops_tflop: editingProvider.gpu_flops_tflop,
+                          power_draw_watts: editingProvider.gpu_power_draw_watts,
+                        });
+                        setEditingProvider({
+                          ...editingProvider,
+                          gpu_profile: 'custom',
+                          gpu_ram_gb: resolved.ram_gb,
+                          gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
+                          gpu_flops_tflop: resolved.flops_tflop,
+                          gpu_power_draw_watts: resolved.power_draw_watts,
+                        });
+                      } else {
+                        const resolved = resolveGpuParams(value);
+                        setEditingProvider({
+                          ...editingProvider,
+                          gpu_profile: value,
+                          gpu_ram_gb: resolved.ram_gb,
+                          gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
+                          gpu_flops_tflop: resolved.flops_tflop,
+                          gpu_power_draw_watts: resolved.power_draw_watts,
+                        });
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__default__">Default (B200)</SelectItem>
+                      {GPU_PROFILE_OPTIONS.map((profile) => (
+                        <SelectItem key={profile.value} value={profile.value}>
+                          {profile.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               {editingProvider.gpu_profile === 'custom' && (
-                <div className="mt-2 p-3 border border-border rounded-md bg-surface-elevated">
+                <div className="mt-3 p-3 border border-border rounded-md bg-background">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-medium text-foreground-muted">
@@ -2310,152 +2611,46 @@ export const Providers = () => {
                   </div>
                 </div>
               )}
-              <div className="text-[11px] text-foreground-muted">
-                Used for inference energy calculation. Select a preset or enter custom GPU specs.
-              </div>
             </div>
 
-            {/* Custom Headers */}
-            <Section
-              title="Custom Headers"
-              collapsible
-              open={isHeadersOpen}
-              onOpenChange={setIsHeadersOpen}
-              rightSlot={
-                <>
-                  <Pill tone="neutral" size="sm">
-                    {Object.keys(editingProvider.headers || {}).length}
-                  </Pill>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addKV('headers');
-                      setIsHeadersOpen(true);
-                    }}
-                  >
-                    <Plus size={14} />
-                  </Button>
-                </>
-              }
-              bodyStyle={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                padding: '8px',
-              }}
-            >
-              {Object.entries(editingProvider.headers || {}).length === 0 && (
-                <div className="text-[11px] text-foreground-muted italic">
-                  No custom headers configured.
-                </div>
-              )}
-              {Object.entries(editingProvider.headers || {}).map(([key, val], idx) => (
-                <div key={idx} style={{ display: 'flex', gap: '6px' }}>
-                  <Input
-                    placeholder="Header Name"
-                    value={key}
-                    onChange={(e) => updateKV('headers', key, e.target.value, val)}
-                    style={{ flex: 1 }}
-                  />
-                  <Input
-                    placeholder="Value"
-                    value={typeof val === 'object' ? JSON.stringify(val) : val}
+            {/* Discount */}
+            <div className="border border-border rounded-md p-3 bg-surface-elevated">
+              <div className="flex items-center gap-3" style={{ minHeight: '38px' }}>
+                <label
+                  className="text-[13px] font-medium text-foreground"
+                  style={{ flex: 1, marginBottom: 0 }}
+                >
+                  Discount
+                </label>
+                <div style={{ position: 'relative', width: '120px' }}>
+                  <input
+                    className="w-full py-2 pl-3 pr-7 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="100"
+                    value={Math.round((editingProvider.discount ?? 0) * 100)}
                     onChange={(e) => {
-                      const rawValue = e.target.value;
-                      let parsedValue;
-                      try {
-                        parsedValue = JSON.parse(rawValue);
-                      } catch {
-                        parsedValue = rawValue;
-                      }
-                      updateKV('headers', key, key, parsedValue);
+                      const percent = Number(e.target.value || '0');
+                      const clamped = Math.min(100, Math.max(0, percent));
+                      setEditingProvider({ ...editingProvider, discount: clamped / 100 });
                     }}
-                    style={{ flex: 1 }}
                   />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeKV('headers', key)}
-                    style={{ padding: '4px' }}
-                  >
-                    <Trash2 size={14} style={{ color: 'var(--danger)' }} />
-                  </Button>
-                </div>
-              ))}
-            </Section>
-
-            {/* Extra Body Fields */}
-            <Section
-              title="Extra Body Fields"
-              collapsible
-              open={isExtraBodyOpen}
-              onOpenChange={setIsExtraBodyOpen}
-              rightSlot={
-                <>
-                  <Pill tone="neutral" size="sm">
-                    {Object.keys(editingProvider.extraBody || {}).length}
-                  </Pill>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addKV('extraBody');
-                      setIsExtraBodyOpen(true);
+                  <span
+                    className="text-[12px] text-foreground-muted"
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
                     }}
                   >
-                    <Plus size={14} />
-                  </Button>
-                </>
-              }
-              bodyStyle={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                padding: '8px',
-              }}
-            >
-              {Object.entries(editingProvider.extraBody || {}).length === 0 && (
-                <div className="text-[11px] text-foreground-muted italic">
-                  No extra body fields configured.
+                    %
+                  </span>
                 </div>
-              )}
-              {Object.entries(editingProvider.extraBody || {}).map(([key, val], idx) => (
-                <div key={idx} style={{ display: 'flex', gap: '6px' }}>
-                  <Input
-                    placeholder="Field Name"
-                    value={key}
-                    onChange={(e) => updateKV('extraBody', key, e.target.value, val)}
-                    style={{ flex: 1 }}
-                  />
-                  <Input
-                    placeholder="Value"
-                    value={typeof val === 'object' ? JSON.stringify(val) : val}
-                    onChange={(e) => {
-                      const rawValue = e.target.value;
-                      let parsedValue;
-                      try {
-                        parsedValue = JSON.parse(rawValue);
-                      } catch {
-                        parsedValue = rawValue;
-                      }
-                      updateKV('extraBody', key, key, parsedValue);
-                    }}
-                    style={{ flex: 1 }}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeKV('extraBody', key)}
-                    style={{ padding: '4px' }}
-                  >
-                    <Trash2 size={14} style={{ color: 'var(--danger)' }} />
-                  </Button>
-                </div>
-              ))}
-            </Section>
+              </div>
+            </div>
 
             {/* Estimate Tokens */}
             <div className="border border-border rounded-md p-3 bg-surface-elevated">
@@ -2554,6 +2749,7 @@ export const Providers = () => {
           {/* Models */}
           <Section
             title="Provider Models"
+            size="md"
             collapsible
             open={isModelsOpen}
             onOpenChange={setIsModelsOpen}
@@ -3032,14 +3228,7 @@ export const Providers = () => {
                       </div>
 
                       {mCfg.pricing?.source === 'simple' && (
-                        <div
-                          className="grid grid-cols-4 gap-4"
-                          style={{
-                            background: 'var(--surface-elevated)',
-                            padding: '12px',
-                            borderRadius: 'var(--radius-sm)',
-                          }}
-                        >
+                        <div className="grid grid-cols-4 gap-4">
                           <Input
                             label="Input $/M"
                             type="number"
@@ -3102,9 +3291,6 @@ export const Providers = () => {
                       {mCfg.pricing?.source === 'openrouter' && (
                         <div
                           style={{
-                            background: 'var(--surface-elevated)',
-                            padding: '12px',
-                            borderRadius: 'var(--radius-sm)',
                             display: 'flex',
                             gap: '12px',
                             alignItems: 'end',
@@ -3150,9 +3336,6 @@ export const Providers = () => {
                       {mCfg.pricing?.source === 'defined' && (
                         <div
                           style={{
-                            background: 'var(--surface-elevated)',
-                            padding: '12px',
-                            borderRadius: 'var(--radius-sm)',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '12px',
@@ -3343,14 +3526,7 @@ export const Providers = () => {
                       )}
 
                       {mCfg.pricing?.source === 'per_request' && (
-                        <div
-                          className="grid grid-cols-1 gap-4"
-                          style={{
-                            background: 'var(--surface-elevated)',
-                            padding: '12px',
-                            borderRadius: 'var(--radius-sm)',
-                          }}
-                        >
+                        <div className="grid grid-cols-1 gap-4">
                           <Input
                             label="Cost Per Request ($)"
                             type="number"
