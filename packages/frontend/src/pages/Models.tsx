@@ -38,6 +38,13 @@ import { Switch } from '../components/ui-v2/switch';
 import { Input } from '../components/ui-v2/input';
 import { SearchInput } from '../components/ui-v2/search-input';
 import { EmptyState } from '../components/ui-v2/empty-state';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui-v2/select';
 import { ListPage } from '../components/templates';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -935,18 +942,25 @@ export const Models = () => {
           <span className="inline-flex items-center gap-2 px-3 h-9 rounded-md bg-surface-elevated border border-border">
             <Eye size={14} className="text-foreground-muted" />
             <span className="text-xs font-medium text-foreground-muted">Vision Fall Through:</span>
-            <select
-              className="bg-transparent border-none text-xs text-foreground outline-none focus:ring-0 cursor-pointer max-w-[140px]"
-              value={globalDescriptorModel}
-              onChange={(e) => setGlobalDescriptorModel(e.target.value)}
+            <Select
+              value={globalDescriptorModel || '__none__'}
+              onValueChange={(v) => setGlobalDescriptorModel(v === '__none__' ? '' : v)}
             >
-              <option value="">(None)</option>
-              {sortedAliases.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.id}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                size="sm"
+                className="h-auto w-auto max-w-[140px] border-0 bg-transparent px-0 py-0 text-xs focus:ring-0 focus:ring-offset-0"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">(None)</SelectItem>
+                {sortedAliases.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <button
               onClick={handleSaveDescriptor}
               disabled={isSavingDescriptor}
@@ -1080,13 +1094,12 @@ export const Models = () => {
 
             <div className="flex flex-col gap-1">
               <label className="text-[13px] font-medium text-foreground-muted">Model Type</label>
-              <select
-                className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+              <Select
                 value={editingAlias.type || 'chat'}
-                onChange={(e) =>
+                onValueChange={(v) =>
                   setEditingAlias({
                     ...editingAlias,
-                    type: e.target.value as
+                    type: v as
                       | 'chat'
                       | 'embeddings'
                       | 'transcriptions'
@@ -1096,45 +1109,56 @@ export const Models = () => {
                   })
                 }
               >
-                <option value="chat">Chat</option>
-                <option value="embeddings">Embeddings</option>
-                <option value="transcriptions">Transcriptions</option>
-                <option value="speech">Speech</option>
-                <option value="image">Image</option>
-                <option value="responses">Responses</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="chat">Chat</SelectItem>
+                  <SelectItem value="embeddings">Embeddings</SelectItem>
+                  <SelectItem value="transcriptions">Transcriptions</SelectItem>
+                  <SelectItem value="speech">Speech</SelectItem>
+                  <SelectItem value="image">Image</SelectItem>
+                  <SelectItem value="responses">Responses</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-[13px] font-medium text-foreground-muted">
                 Selector Strategy
               </label>
-              <select
-                className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+              <Select
                 value={editingAlias.selector || 'random'}
-                onChange={(e) => setEditingAlias({ ...editingAlias, selector: e.target.value })}
+                onValueChange={(v) => setEditingAlias({ ...editingAlias, selector: v })}
               >
-                <option value="random">Random</option>
-                <option value="in_order">In Order</option>
-                <option value="cost">Lowest Cost</option>
-                <option value="latency">Lowest Latency</option>
-                <option value="usage">Usage Balanced</option>
-                <option value="performance">Best Performance</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="random">Random</SelectItem>
+                  <SelectItem value="in_order">In Order</SelectItem>
+                  <SelectItem value="cost">Lowest Cost</SelectItem>
+                  <SelectItem value="latency">Lowest Latency</SelectItem>
+                  <SelectItem value="usage">Usage Balanced</SelectItem>
+                  <SelectItem value="performance">Best Performance</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-[13px] font-medium text-foreground-muted">Priority</label>
-              <select
-                className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+              <Select
                 value={editingAlias.priority || 'selector'}
-                onChange={(e) =>
-                  setEditingAlias({ ...editingAlias, priority: e.target.value as any })
-                }
+                onValueChange={(v) => setEditingAlias({ ...editingAlias, priority: v as any })}
               >
-                <option value="selector">Selector</option>
-                <option value="api_match">API Match</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="selector">Selector</SelectItem>
+                  <SelectItem value="api_match">API Match</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -1389,33 +1413,37 @@ export const Models = () => {
                       placeholder="e.g. 128000"
                     />
                   </div>
-                  <div>
+                  <div className="flex flex-col gap-1">
                     <label className="text-[11px] font-medium text-foreground-muted">
                       Data Type
                     </label>
-                    <select
-                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
-                      value={editingAlias.model_architecture?.dtype || ''}
-                      onChange={(e) =>
+                    <Select
+                      value={editingAlias.model_architecture?.dtype || '__default__'}
+                      onValueChange={(v) =>
                         setEditingAlias({
                           ...editingAlias,
                           model_architecture: {
                             ...editingAlias.model_architecture,
-                            dtype: (e.target.value as any) || undefined,
+                            dtype: v === '__default__' ? undefined : (v as any),
                           },
                         })
                       }
                     >
-                      <option value="">Default (FP16)</option>
-                      <option value="fp16">FP16</option>
-                      <option value="bf16">BF16</option>
-                      <option value="fp8">FP8</option>
-                      <option value="fp8_e4m3">FP8 E4M3</option>
-                      <option value="fp8_e5m2">FP8 E5M2</option>
-                      <option value="nvfp4">NVFP4</option>
-                      <option value="int4">INT4</option>
-                      <option value="int8">INT8</option>
-                    </select>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__default__">Default (FP16)</SelectItem>
+                        <SelectItem value="fp16">FP16</SelectItem>
+                        <SelectItem value="bf16">BF16</SelectItem>
+                        <SelectItem value="fp8">FP8</SelectItem>
+                        <SelectItem value="fp8_e4m3">FP8 E4M3</SelectItem>
+                        <SelectItem value="fp8_e5m2">FP8 E5M2</SelectItem>
+                        <SelectItem value="nvfp4">NVFP4</SelectItem>
+                        <SelectItem value="int4">INT4</SelectItem>
+                        <SelectItem value="int8">INT8</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -1625,12 +1653,10 @@ export const Models = () => {
                   >
                     Source
                   </label>
-                  <select
-                    className="w-full text-xs text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
-                    style={{ padding: '5px 8px', height: '30px' }}
+                  <Select
                     value={editingAlias.metadata?.source ?? 'openrouter'}
-                    onChange={(e) => {
-                      const source = e.target.value as MetadataSource;
+                    onValueChange={(v) => {
+                      const source = v as MetadataSource;
                       const prevSource = editingAlias.metadata?.source;
                       const existingOverrides = editingAlias.metadata?.overrides;
                       const existingSourcePath = editingAlias.metadata?.source_path;
@@ -1714,11 +1740,16 @@ export const Models = () => {
                         handleMetadataSearch(metadataQuery, source);
                     }}
                   >
-                    <option value="openrouter">OpenRouter</option>
-                    <option value="models.dev">models.dev</option>
-                    <option value="catwalk">Catwalk (Charm)</option>
-                    <option value="custom">Custom (manual entry)</option>
-                  </select>
+                    <SelectTrigger size="sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openrouter">OpenRouter</SelectItem>
+                      <SelectItem value="models.dev">models.dev</SelectItem>
+                      <SelectItem value="catwalk">Catwalk (Charm)</SelectItem>
+                      <SelectItem value="custom">Custom (manual entry)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Search / source_path — hidden for 'custom' (no catalog) */}
@@ -2105,37 +2136,41 @@ export const Models = () => {
                         visibility: isDragging ? 'hidden' : 'visible',
                       }}
                     >
-                      <select
-                        className="w-full text-xs text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
-                        style={{ padding: '4px 8px', height: '28px' }}
-                        value={target.provider}
-                        onChange={(e) => updateTarget(idx, 'provider', e.target.value)}
+                      <Select
+                        value={target.provider || undefined}
+                        onValueChange={(v) => updateTarget(idx, 'provider', v)}
                       >
-                        <option value="">Select Provider...</option>
-                        {providers.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger size="sm">
+                          <SelectValue placeholder="Select Provider..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {providers.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div style={{ flex: 1, visibility: isDragging ? 'hidden' : 'visible' }}>
-                      <select
-                        className="w-full text-xs text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
-                        style={{ padding: '4px 8px', height: '28px' }}
-                        value={target.model}
-                        onChange={(e) => updateTarget(idx, 'model', e.target.value)}
+                      <Select
+                        value={target.model || undefined}
+                        onValueChange={(v) => updateTarget(idx, 'model', v)}
                         disabled={!target.provider}
                       >
-                        <option value="">Select Model...</option>
-                        {availableModels
-                          .filter((m) => m.providerId === target.provider)
-                          .map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.name}
-                            </option>
-                          ))}
-                      </select>
+                        <SelectTrigger size="sm">
+                          <SelectValue placeholder="Select Model..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels
+                            .filter((m) => m.providerId === target.provider)
+                            .map((m) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div style={{ visibility: isDragging ? 'hidden' : 'visible' }}>
                       <Switch

@@ -46,6 +46,13 @@ import {
 
 import { EmptyState } from '../components/ui-v2/empty-state';
 import { Switch } from '../components/ui-v2/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui-v2/select';
 import { OpenRouterSlugInput } from '../components/forms/OpenRouterSlugInput';
 import { NagaQuotaConfig } from '../components/quota/NagaQuotaConfig';
 import { SyntheticQuotaConfig } from '../components/quota/SyntheticQuotaConfig';
@@ -1232,11 +1239,9 @@ export const Providers = () => {
                 <label className="text-[13px] font-medium text-foreground-muted">
                   Connection Type
                 </label>
-                <select
-                  className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                <Select
                   value={isOAuthMode ? 'oauth' : 'url'}
-                  onChange={(e) => {
-                    const value = e.target.value;
+                  onValueChange={(value) => {
                     if (value === 'oauth') {
                       setEditingProvider({
                         ...editingProvider,
@@ -1258,9 +1263,14 @@ export const Providers = () => {
                     }
                   }}
                 >
-                  <option value="url">Custom API URL</option>
-                  <option value="oauth">OAuth (pi-ai)</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="url">Custom API URL</SelectItem>
+                    <SelectItem value="oauth">OAuth (pi-ai)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <label className="text-[13px] font-medium text-foreground-muted">
                 Supported APIs & Base URLs
@@ -1320,22 +1330,26 @@ export const Providers = () => {
                     <label className="text-[13px] font-medium text-foreground-muted">
                       OAuth Provider
                     </label>
-                    <select
-                      className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    <Select
                       value={editingProvider.oauthProvider || OAUTH_PROVIDERS[0].value}
-                      onChange={(e) =>
+                      onValueChange={(v) =>
                         setEditingProvider({
                           ...editingProvider,
-                          oauthProvider: e.target.value,
+                          oauthProvider: v,
                         })
                       }
                     >
-                      {OAUTH_PROVIDERS.map((provider) => (
-                        <option key={provider.value} value={provider.value}>
-                          {provider.label}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OAUTH_PROVIDERS.map((provider) => (
+                          <SelectItem key={provider.value} value={provider.value}>
+                            {provider.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Input
                     label="OAuth Account"
@@ -1621,27 +1635,27 @@ export const Providers = () => {
                             }}
                           >
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              <select
-                                className="w-full py-1.5 px-3 text-xs text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              <Select
                                 value={apiType}
-                                onChange={(e) =>
+                                onValueChange={(v) =>
                                   updateApiBaseUrlEntry(
                                     apiType,
-                                    e.target.value,
+                                    v,
                                     typeof url === 'string' ? url : ''
                                   )
                                 }
                               >
-                                {KNOWN_APIS.map((knownType) => (
-                                  <option
-                                    key={knownType}
-                                    value={knownType}
-                                    className="bg-surface text-foreground"
-                                  >
-                                    {knownType}
-                                  </option>
-                                ))}
-                              </select>
+                                <SelectTrigger size="sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {KNOWN_APIS.map((knownType) => (
+                                    <SelectItem key={knownType} value={knownType}>
+                                      {knownType}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               <input
                                 className="w-full py-1.5 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 placeholder={
@@ -1742,11 +1756,10 @@ export const Providers = () => {
               >
                 <div className="flex flex-col gap-1">
                   <label className="text-[11px] font-medium text-foreground-muted">Type</label>
-                  <select
-                    className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={selectedQuotaCheckerType}
-                    onChange={(e) => {
-                      const quotaType = e.target.value;
+                  <Select
+                    value={selectedQuotaCheckerType || '__none__'}
+                    onValueChange={(v) => {
+                      const quotaType = v === '__none__' ? '' : v;
                       if (!quotaType) {
                         setEditingProvider({ ...editingProvider, quotaChecker: undefined });
                         return;
@@ -1765,13 +1778,18 @@ export const Providers = () => {
                       });
                     }}
                   >
-                    {<option value="">&lt;none&gt;</option>}
-                    {selectableQuotaCheckerTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">&lt;none&gt;</SelectItem>
+                      {selectableQuotaCheckerTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-[11px] font-medium text-foreground-muted">
@@ -2153,59 +2171,65 @@ export const Providers = () => {
           <div className="flex flex-col gap-2">
             <label className="text-[13px] font-medium text-foreground-muted">GPU Profile</label>
             <div className="flex gap-3 items-end">
-              <select
-                className="flex-1 py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={editingProvider.gpu_profile || ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) {
-                    // "Default (B200)" selected — resolve B200 preset
-                    const resolved = resolveGpuParams('B200');
-                    setEditingProvider({
-                      ...editingProvider,
-                      gpu_profile: undefined,
-                      gpu_ram_gb: resolved.ram_gb,
-                      gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                      gpu_flops_tflop: resolved.flops_tflop,
-                      gpu_power_draw_watts: resolved.power_draw_watts,
-                    });
-                  } else if (value === 'custom') {
-                    // Custom selected — merge any existing overrides with H100 defaults
-                    const resolved = resolveGpuParams('custom', {
-                      ram_gb: editingProvider.gpu_ram_gb,
-                      bandwidth_tb_s: editingProvider.gpu_bandwidth_tb_s,
-                      flops_tflop: editingProvider.gpu_flops_tflop,
-                      power_draw_watts: editingProvider.gpu_power_draw_watts,
-                    });
-                    setEditingProvider({
-                      ...editingProvider,
-                      gpu_profile: 'custom',
-                      gpu_ram_gb: resolved.ram_gb,
-                      gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                      gpu_flops_tflop: resolved.flops_tflop,
-                      gpu_power_draw_watts: resolved.power_draw_watts,
-                    });
-                  } else {
-                    // Named preset selected — resolve immediately to concrete params
-                    const resolved = resolveGpuParams(value);
-                    setEditingProvider({
-                      ...editingProvider,
-                      gpu_profile: value,
-                      gpu_ram_gb: resolved.ram_gb,
-                      gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                      gpu_flops_tflop: resolved.flops_tflop,
-                      gpu_power_draw_watts: resolved.power_draw_watts,
-                    });
-                  }
-                }}
-              >
-                <option value="">Default (B200)</option>
-                {GPU_PROFILE_OPTIONS.map((profile) => (
-                  <option key={profile.value} value={profile.value}>
-                    {profile.label}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1">
+                <Select
+                  value={editingProvider.gpu_profile || '__default__'}
+                  onValueChange={(v) => {
+                    const value = v === '__default__' ? '' : v;
+                    if (!value) {
+                      // "Default (B200)" selected — resolve B200 preset
+                      const resolved = resolveGpuParams('B200');
+                      setEditingProvider({
+                        ...editingProvider,
+                        gpu_profile: undefined,
+                        gpu_ram_gb: resolved.ram_gb,
+                        gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
+                        gpu_flops_tflop: resolved.flops_tflop,
+                        gpu_power_draw_watts: resolved.power_draw_watts,
+                      });
+                    } else if (value === 'custom') {
+                      // Custom selected — merge any existing overrides with H100 defaults
+                      const resolved = resolveGpuParams('custom', {
+                        ram_gb: editingProvider.gpu_ram_gb,
+                        bandwidth_tb_s: editingProvider.gpu_bandwidth_tb_s,
+                        flops_tflop: editingProvider.gpu_flops_tflop,
+                        power_draw_watts: editingProvider.gpu_power_draw_watts,
+                      });
+                      setEditingProvider({
+                        ...editingProvider,
+                        gpu_profile: 'custom',
+                        gpu_ram_gb: resolved.ram_gb,
+                        gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
+                        gpu_flops_tflop: resolved.flops_tflop,
+                        gpu_power_draw_watts: resolved.power_draw_watts,
+                      });
+                    } else {
+                      // Named preset selected — resolve immediately to concrete params
+                      const resolved = resolveGpuParams(value);
+                      setEditingProvider({
+                        ...editingProvider,
+                        gpu_profile: value,
+                        gpu_ram_gb: resolved.ram_gb,
+                        gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
+                        gpu_flops_tflop: resolved.flops_tflop,
+                        gpu_power_draw_watts: resolved.power_draw_watts,
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__default__">Default (B200)</SelectItem>
+                    {GPU_PROFILE_OPTIONS.map((profile) => (
+                      <SelectItem key={profile.value} value={profile.value}>
+                        {profile.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             {editingProvider.gpu_profile === 'custom' && (
               <div className="mt-2 p-3 border border-border rounded-md bg-surface-elevated">
@@ -2742,11 +2766,10 @@ export const Providers = () => {
                                 <label className="text-[13px] font-medium text-foreground-muted">
                                   Model Type
                                 </label>
-                                <select
-                                  className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                <Select
                                   value={mCfg.type || 'chat'}
-                                  onChange={(e) => {
-                                    const newType = e.target.value as
+                                  onValueChange={(v) => {
+                                    const newType = v as
                                       | 'chat'
                                       | 'embeddings'
                                       | 'transcriptions'
@@ -2814,23 +2837,27 @@ export const Providers = () => {
                                     }
                                   }}
                                 >
-                                  <option value="chat">Chat</option>
-                                  <option value="embeddings">Embeddings</option>
-                                  <option value="transcriptions">Transcriptions</option>
-                                  <option value="speech">Speech</option>
-                                  <option value="image">Image</option>
-                                  <option value="responses">Responses</option>
-                                </select>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="chat">Chat</SelectItem>
+                                    <SelectItem value="embeddings">Embeddings</SelectItem>
+                                    <SelectItem value="transcriptions">Transcriptions</SelectItem>
+                                    <SelectItem value="speech">Speech</SelectItem>
+                                    <SelectItem value="image">Image</SelectItem>
+                                    <SelectItem value="responses">Responses</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </div>
                               <div className="flex flex-col gap-1">
                                 <label className="text-[13px] font-medium text-foreground-muted">
                                   Pricing Source
                                 </label>
-                                <select
-                                  className="w-full py-2 px-3 text-sm text-foreground bg-background border border-border rounded-md ring-offset-background focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                <Select
                                   value={mCfg.pricing?.source || 'simple'}
-                                  onChange={(e) => {
-                                    const newSource = e.target.value;
+                                  onValueChange={(v) => {
+                                    const newSource = v;
                                     let newPricing: any;
 
                                     // Create a clean pricing object based on the selected source
@@ -2865,11 +2892,18 @@ export const Providers = () => {
                                     updateModelConfig(mId, { pricing: newPricing });
                                   }}
                                 >
-                                  <option value="simple">Simple</option>
-                                  <option value="openrouter">OpenRouter</option>
-                                  <option value="defined">Ranges (Complex)</option>
-                                  <option value="per_request">Per Request (Flat Fee)</option>
-                                </select>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="simple">Simple</SelectItem>
+                                    <SelectItem value="openrouter">OpenRouter</SelectItem>
+                                    <SelectItem value="defined">Ranges (Complex)</SelectItem>
+                                    <SelectItem value="per_request">
+                                      Per Request (Flat Fee)
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </div>
                               {mCfg.type !== 'embeddings' &&
                                 mCfg.type !== 'transcriptions' &&
