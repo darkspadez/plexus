@@ -201,7 +201,10 @@ export const Models = () => {
   };
 
   const handleSave = async () => {
-    if (!editingAlias.id) return;
+    if (!editingAlias.id || !editingAlias.id.trim()) {
+      toast.error('Model (ID) is required.');
+      return;
+    }
     // Custom metadata requires a non-empty name — the backend Zod schema will
     // reject it otherwise. Surface a clear error here instead of letting the
     // save API call fail generically.
@@ -1063,7 +1066,7 @@ export const Models = () => {
         size="lg"
         footer={
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
+            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleSave} isLoading={isSaving}>
@@ -1223,12 +1226,11 @@ export const Models = () => {
 
             {/* HuggingFace Model ID input and fetch button */}
             <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <label className="text-[11px] font-medium text-foreground-muted">
+              <div className="flex flex-1 flex-col gap-1">
+                <label className="text-[13px] font-medium text-foreground-muted">
                   Hugging Face Model ID
                 </label>
-                <input
-                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                <Input
                   value={hfModelId}
                   onChange={(e) => setHfModelId(e.target.value)}
                   placeholder="e.g. meta-llama/Llama-3.1-70B-Instruct"
@@ -1252,12 +1254,11 @@ export const Models = () => {
             )}
 
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[11px] font-medium text-foreground-muted">
+              <div className="flex flex-col gap-1">
+                <label className="text-[13px] font-medium text-foreground-muted">
                   Total Params (B)
                 </label>
-                <input
-                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                <Input
                   type="number"
                   step="0.1"
                   min="0"
@@ -1274,12 +1275,11 @@ export const Models = () => {
                   placeholder="e.g. 1.76"
                 />
               </div>
-              <div>
-                <label className="text-[11px] font-medium text-foreground-muted">
+              <div className="flex flex-col gap-1">
+                <label className="text-[13px] font-medium text-foreground-muted">
                   Active Params (B)
                 </label>
-                <input
-                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                <Input
                   type="number"
                   step="0.1"
                   min="0"
@@ -1296,10 +1296,9 @@ export const Models = () => {
                   placeholder="e.g. 1.76"
                 />
               </div>
-              <div>
-                <label className="text-[11px] font-medium text-foreground-muted">Layers</label>
-                <input
-                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+              <div className="flex flex-col gap-1">
+                <label className="text-[13px] font-medium text-foreground-muted">Layers</label>
+                <Input
                   type="number"
                   step="1"
                   min="1"
@@ -1316,10 +1315,9 @@ export const Models = () => {
                   placeholder="e.g. 120"
                 />
               </div>
-              <div>
-                <label className="text-[11px] font-medium text-foreground-muted">Heads</label>
-                <input
-                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+              <div className="flex flex-col gap-1">
+                <label className="text-[13px] font-medium text-foreground-muted">Heads</label>
+                <Input
                   type="number"
                   step="1"
                   min="1"
@@ -1336,12 +1334,11 @@ export const Models = () => {
                   placeholder="e.g. 96"
                 />
               </div>
-              <div>
-                <label className="text-[11px] font-medium text-foreground-muted">
+              <div className="flex flex-col gap-1">
+                <label className="text-[13px] font-medium text-foreground-muted">
                   KV LoRA Rank
                 </label>
-                <input
-                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                <Input
                   type="number"
                   step="1"
                   min="1"
@@ -1358,12 +1355,11 @@ export const Models = () => {
                   placeholder="e.g. 128"
                 />
               </div>
-              <div>
-                <label className="text-[11px] font-medium text-foreground-muted">
+              <div className="flex flex-col gap-1">
+                <label className="text-[13px] font-medium text-foreground-muted">
                   RoPE Head Dim
                 </label>
-                <input
-                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                <Input
                   type="number"
                   step="1"
                   min="1"
@@ -1380,12 +1376,11 @@ export const Models = () => {
                   placeholder="e.g. 96"
                 />
               </div>
-              <div>
-                <label className="text-[11px] font-medium text-foreground-muted">
+              <div className="flex flex-col gap-1">
+                <label className="text-[13px] font-medium text-foreground-muted">
                   Context Length
                 </label>
-                <input
-                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                <Input
                   type="number"
                   step="1"
                   min="1"
@@ -1403,7 +1398,7 @@ export const Models = () => {
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-medium text-foreground-muted">Data Type</label>
+                <label className="text-[13px] font-medium text-foreground-muted">Data Type</label>
                 <Select
                   value={editingAlias.model_architecture?.dtype || '__default__'}
                   onValueChange={(v) =>
@@ -1913,61 +1908,79 @@ export const Models = () => {
               )}
 
             {/* Override toggle + editable form */}
-            {editingAlias.metadata && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {editingAlias.metadata.source !== 'custom' && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
+            {editingAlias.metadata && editingAlias.metadata.source !== 'custom' && (
+              <div className="border border-border rounded-md overflow-hidden">
+                <div
+                  className="bg-surface-elevated"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto',
+                    gap: '12px',
+                    alignItems: 'center',
+                    padding: '12px',
+                  }}
+                >
+                  <div className="flex flex-col gap-1">
                     <label
-                      className="text-[12px] font-medium text-foreground-muted"
+                      className="text-[13px] font-medium text-foreground"
                       style={{ marginBottom: 0 }}
                     >
                       Override catalog fields
                     </label>
-                    <Switch
-                      checked={isOverrideOpen}
-                      onCheckedChange={(v) => {
-                        setIsOverrideOpen(v);
-                        if (!v) {
-                          // Flipping override off clears any existing overrides.
-                          const current = editingAlias.metadata;
-                          if (current) {
-                            const { overrides: _o, ...rest } = current;
-                            setEditingAlias({
-                              ...editingAlias,
-                              metadata: rest as AliasMetadata,
-                            });
-                          }
-                        } else {
-                          // Flipping override on auto-populates the form with
-                          // the catalog's current values so the user sees what
-                          // they're overriding instead of a blank form.
-                          const cur = editingAlias.metadata;
-                          if (cur && cur.source !== 'custom' && cur.source_path) {
-                            populateOverridesFromCatalog(cur.source, cur.source_path);
-                          }
+                    <div className="text-[11px] text-foreground-muted" style={{ lineHeight: 1.35 }}>
+                      Fields left blank fall back to the catalog value.
+                    </div>
+                  </div>
+                  <Switch
+                    checked={isOverrideOpen}
+                    onCheckedChange={(v) => {
+                      setIsOverrideOpen(v);
+                      if (!v) {
+                        // Flipping override off clears any existing overrides.
+                        const current = editingAlias.metadata;
+                        if (current) {
+                          const { overrides: _o, ...rest } = current;
+                          setEditingAlias({
+                            ...editingAlias,
+                            metadata: rest as AliasMetadata,
+                          });
                         }
-                      }}
+                      } else {
+                        // Flipping override on auto-populates the form with
+                        // the catalog's current values so the user sees what
+                        // they're overriding instead of a blank form.
+                        const cur = editingAlias.metadata;
+                        if (cur && cur.source !== 'custom' && cur.source_path) {
+                          populateOverridesFromCatalog(cur.source, cur.source_path);
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                {isOverrideOpen && (
+                  <div className="border-t border-border" style={{ padding: '12px' }}>
+                    <MetadataOverrideForm
+                      overrides={editingAlias.metadata.overrides ?? {}}
+                      isCustom={false}
+                      onSetField={setOverrideField}
+                      onSetPricing={setPricingField}
+                      onSetArchitecture={setArchitectureField}
+                      onSetTopProvider={setTopProviderField}
                     />
                   </div>
                 )}
-
-                {(isOverrideOpen || editingAlias.metadata.source === 'custom') && (
-                  <MetadataOverrideForm
-                    overrides={editingAlias.metadata.overrides ?? {}}
-                    isCustom={editingAlias.metadata.source === 'custom'}
-                    onSetField={setOverrideField}
-                    onSetPricing={setPricingField}
-                    onSetArchitecture={setArchitectureField}
-                    onSetTopProvider={setTopProviderField}
-                  />
-                )}
               </div>
+            )}
+
+            {editingAlias.metadata && editingAlias.metadata.source === 'custom' && (
+              <MetadataOverrideForm
+                overrides={editingAlias.metadata.overrides ?? {}}
+                isCustom
+                onSetField={setOverrideField}
+                onSetPricing={setPricingField}
+                onSetArchitecture={setArchitectureField}
+                onSetTopProvider={setTopProviderField}
+              />
             )}
           </Section>
 

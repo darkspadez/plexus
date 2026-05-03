@@ -75,15 +75,13 @@ export function MetadataOverrideForm({
   onSetArchitecture,
   onSetTopProvider,
 }: Props) {
-  const helperText = isCustom
-    ? 'All fields below come from your manual entry — no catalog is consulted.'
-    : 'Fields left blank fall back to the catalog value.';
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <p className="text-[11px] text-foreground-muted" style={{ marginBottom: 0 }}>
-        {helperText}
-      </p>
+      {isCustom && (
+        <p className="text-[11px] text-foreground-muted" style={{ marginBottom: 0 }}>
+          All fields below come from your manual entry — no catalog is consulted.
+        </p>
+      )}
 
       {/* Basic */}
       <Section

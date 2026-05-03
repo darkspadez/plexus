@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { clsx } from 'clsx';
 import { ChevronDown, X } from 'lucide-react';
+import { Popover, PopoverAnchor, PopoverContent } from '../ui-v2/popover';
 
 interface TagSelectProps {
   label?: string;
@@ -16,35 +17,16 @@ interface TagSelectProps {
    */
   allowCustom?: boolean;
   /**
-   * When true, render each chip in a deterministic Pill tone derived from the
-   * tag string (so semantically distinct tags read at a glance) instead of the
-   * default primary-pink fill.
+   * When true, render chips in the user's selected accent tone (via the
+   * `--accent` CSS variable) instead of the default primary-pink fill.
    */
   colorize?: boolean;
 }
 
-// Tone palette used when `colorize` is on. Excludes 'neutral' so colored chips
-// are visually distinct from neutral count badges.
-const COLORIZE_TONES = ['accent', 'success', 'warning', 'info', 'danger'] as const;
-type ColorizeTone = (typeof COLORIZE_TONES)[number];
-
-const COLORIZE_TONE_CLASSES: Record<ColorizeTone, string> = {
-  accent: 'bg-accent-subtle text-accent border-accent/30',
-  success: 'bg-success-subtle text-success border-success/30',
-  warning: 'bg-warning-subtle text-warning border-warning/30',
-  info: 'bg-info-subtle text-info border-info/30',
-  danger: 'bg-danger-subtle text-danger border-danger/30',
-};
-
-// DJB2-style hash → stable tone per tag string (case-insensitive).
-const toneForTag = (tag: string): ColorizeTone => {
-  let h = 5381;
-  const lower = tag.toLowerCase();
-  for (let i = 0; i < lower.length; i++) {
-    h = (h * 33) ^ lower.charCodeAt(i);
-  }
-  return COLORIZE_TONES[Math.abs(h) % COLORIZE_TONES.length];
-};
+// Single accent-tone chip style used when `colorize` is on. Uses the runtime
+// `--accent` / `--accent-subtle` CSS variables, so chips track whichever
+// accent the user has picked from the palette in the top bar.
+const ACCENT_CHIP_CLASSES = 'bg-accent-subtle text-accent border-accent/30';
 
 export const TagSelect: React.FC<TagSelectProps> = ({
   label,
@@ -61,19 +43,8 @@ export const TagSelect: React.FC<TagSelectProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Close on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-        setSearch('');
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Focus search input when opening
+  // Focus search input when opening. Outside-click dismissal is handled by
+  // Radix Popover's `onOpenChange` below — no manual document listener needed.
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
       searchInputRef.current.focus();
@@ -105,8 +76,13 @@ export const TagSelect: React.FC<TagSelectProps> = ({
     onChange(selected.filter((s) => s !== option));
   };
 
+  // Toggle on click so a second click on the chevron / trigger box closes the
+  // popover. Without this, Radix's outside-pointer-down would fire first and
+  // close the popover, then the bubbling click would re-open it (race).
+  // `onPointerDownOutside` on PopoverContent below filters trigger-box clicks
+  // out of Radix's auto-close so this toggle is the single source of truth.
   const handleContainerClick = () => {
-    setIsOpen(true);
+    setIsOpen((o) => !o);
   };
 
   // Add one or more free-form tags in a single onChange call. Skips empty,
@@ -175,111 +151,152 @@ export const TagSelect: React.FC<TagSelectProps> = ({
           {label}
         </label>
       )}
-      <div
-        className={clsx(
-          'w-full py-2.5 px-3.5 text-sm bg-surface-elevated border rounded-sm outline-none transition-all duration-200 backdrop-blur-md cursor-text min-h-[42px] flex flex-wrap items-center gap-1.5',
-          isOpen
-            ? 'border-primary shadow-[0_0_0_3px_rgba(245,158,11,0.15)]'
-            : 'border-border hover:border-border'
-        )}
-        onClick={handleContainerClick}
+      <Popover
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsOpen(false);
+            setSearch('');
+          }
+        }}
       >
-        {selected.map((tag) => (
-          <span
-            key={tag}
+        <PopoverAnchor asChild>
+          <div
             className={clsx(
-              'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md border whitespace-nowrap',
-              colorize
-                ? COLORIZE_TONE_CLASSES[toneForTag(tag)]
-                : 'bg-primary/15 text-primary border-primary/30'
+              'w-full py-2 px-3 text-sm bg-background border rounded-md outline-none transition-colors cursor-text min-h-10 flex flex-wrap items-center gap-1.5',
+              isOpen
+                ? 'border-accent ring-2 ring-accent ring-offset-2 ring-offset-background'
+                : 'border-border hover:border-border'
             )}
+            onClick={handleContainerClick}
           >
-            {tag}
+            {selected.map((tag) => (
+              <span
+                key={tag}
+                className={clsx(
+                  'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md border whitespace-nowrap',
+                  colorize ? ACCENT_CHIP_CLASSES : 'bg-primary/15 text-primary border-primary/30'
+                )}
+              >
+                {tag}
+                <button
+                  type="button"
+                  className="bg-transparent border-0 p-0 m-0 cursor-pointer leading-none opacity-70 hover:opacity-100"
+                  style={{ color: 'currentColor' }}
+                  onClick={(e) => handleRemove(tag, e)}
+                  title={`Remove ${tag}`}
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+            {isOpen ? (
+              <input
+                ref={searchInputRef}
+                className="flex-1 min-w-[80px] bg-transparent border-0 outline-none text-foreground text-sm p-0 placeholder:text-foreground-muted"
+                value={search}
+                onChange={handleSearchChange}
+                onKeyDown={handleSearchKeyDown}
+                onClick={(e) => {
+                  // Don't let a click on the search input bubble to the
+                  // trigger box's toggle handler — typing should not close
+                  // the popover.
+                  e.stopPropagation();
+                }}
+                onBlur={(e) => {
+                  if (!allowCustom) return;
+                  // Only commit when focus leaves the component entirely. A
+                  // blur to another element inside the popover (e.g. clicking
+                  // a dropdown item) would otherwise commit the partial
+                  // search text as a new tag before the item's click handler
+                  // fires. The PopoverContent is portalled, so check both
+                  // the anchor container AND any open popover content.
+                  const related = e.relatedTarget as Element | null;
+                  if (related && containerRef.current?.contains(related)) return;
+                  if (related && related.closest('[data-radix-popper-content-wrapper]')) return;
+                  commitCustom(search);
+                }}
+                placeholder={
+                  selected.length === 0 ? placeholder : allowCustom ? 'Type to add...' : 'Search...'
+                }
+              />
+            ) : (
+              <span className="text-foreground-muted text-sm flex-1">
+                {selected.length === 0 ? placeholder : ''}
+              </span>
+            )}
+            <ChevronDown
+              size={14}
+              className={clsx(
+                'text-foreground-muted ml-auto shrink-0 transition-transform duration-200',
+                isOpen && 'rotate-180'
+              )}
+            />
+          </div>
+        </PopoverAnchor>
+        <PopoverContent
+          align="start"
+          sideOffset={4}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => {
+            // Clicks within the trigger box are handled by the trigger's
+            // onClick toggle. If we let Radix close on those pointer-downs,
+            // the close races with the click re-open and the popover
+            // appears to bounce shut-then-open.
+            const target = e.target as Node | null;
+            if (target && containerRef.current?.contains(target)) {
+              e.preventDefault();
+            }
+          }}
+          className="p-0 max-h-52 overflow-y-auto bg-surface border border-border rounded-md shadow-md"
+          style={{ width: 'var(--radix-popper-anchor-width)' }}
+          onWheel={(e) => {
+            // The parent Sheet's react-remove-scroll suppresses wheel events
+            // at the document capture phase, so even the portalled popover
+            // doesn't scroll natively. Drive scrollTop imperatively and stop
+            // propagation so the lock doesn't see it.
+            const el = e.currentTarget;
+            if (el.scrollHeight > el.clientHeight) {
+              el.scrollTop += e.deltaY;
+              e.stopPropagation();
+            }
+          }}
+        >
+          {filteredOptions.length === 0 && !showCreateOption && (
+            <div className="px-3.5 py-2.5 text-xs text-foreground-muted">
+              {search
+                ? 'No matches found'
+                : allowCustom
+                  ? 'Type to add a new tag'
+                  : 'All items selected'}
+            </div>
+          )}
+          {filteredOptions.map((option) => (
             <button
               type="button"
-              className="bg-transparent border-0 p-0 m-0 cursor-pointer leading-none opacity-70 hover:opacity-100"
-              style={{ color: 'currentColor' }}
-              onClick={(e) => handleRemove(tag, e)}
-              title={`Remove ${tag}`}
+              key={option}
+              className={clsx(
+                'w-full text-left px-3.5 py-2 text-sm cursor-pointer transition-colors',
+                'hover:bg-surface-elevated text-foreground'
+              )}
+              onClick={() => handleToggle(option)}
             >
-              <X size={12} />
+              {option}
             </button>
-          </span>
-        ))}
-        {isOpen ? (
-          <input
-            ref={searchInputRef}
-            className="flex-1 min-w-[80px] bg-transparent border-0 outline-none text-foreground text-sm p-0 placeholder:text-foreground-muted"
-            value={search}
-            onChange={handleSearchChange}
-            onKeyDown={handleSearchKeyDown}
-            onBlur={(e) => {
-              if (!allowCustom) return;
-              // Only commit when focus leaves the component entirely. A blur
-              // to another element inside the container (e.g. clicking a
-              // dropdown item) would otherwise commit the partial search text
-              // as a new tag before the item's click handler fires.
-              const related = e.relatedTarget as Node | null;
-              if (related && containerRef.current?.contains(related)) return;
-              commitCustom(search);
-            }}
-            placeholder={
-              selected.length === 0 ? placeholder : allowCustom ? 'Type to add...' : 'Search...'
-            }
-          />
-        ) : (
-          <span className="text-foreground-muted text-sm flex-1">
-            {selected.length === 0 ? placeholder : ''}
-          </span>
-        )}
-        <ChevronDown
-          size={14}
-          className={clsx(
-            'text-foreground-muted ml-auto shrink-0 transition-transform duration-200',
-            isOpen && 'rotate-180'
+          ))}
+          {showCreateOption && (
+            <button
+              type="button"
+              key={`__create__${searchTrimmed}`}
+              className="w-full text-left px-3.5 py-2 text-sm cursor-pointer transition-colors hover:bg-surface-elevated text-foreground border-t border-border"
+              onClick={() => commitCustom(searchTrimmed)}
+            >
+              <span className="text-foreground-muted">Create </span>
+              <span className="font-medium">&quot;{searchTrimmed}&quot;</span>
+            </button>
           )}
-        />
-      </div>
-
-      {isOpen && (
-        <div className="relative -mt-1">
-          <div className="absolute z-50 w-full max-h-52 overflow-y-auto bg-surface border border-border rounded-sm shadow-lg">
-            {filteredOptions.length === 0 && !showCreateOption && (
-              <div className="px-3.5 py-2.5 text-xs text-foreground-muted">
-                {search
-                  ? 'No matches found'
-                  : allowCustom
-                    ? 'Type to add a new tag'
-                    : 'All items selected'}
-              </div>
-            )}
-            {filteredOptions.map((option) => (
-              <button
-                type="button"
-                key={option}
-                className={clsx(
-                  'w-full text-left px-3.5 py-2 text-sm cursor-pointer transition-colors',
-                  'hover:bg-surface-elevated text-foreground'
-                )}
-                onClick={() => handleToggle(option)}
-              >
-                {option}
-              </button>
-            ))}
-            {showCreateOption && (
-              <button
-                type="button"
-                key={`__create__${searchTrimmed}`}
-                className="w-full text-left px-3.5 py-2 text-sm cursor-pointer transition-colors hover:bg-surface-elevated text-foreground border-t border-border"
-                onClick={() => commitCustom(searchTrimmed)}
-              >
-                <span className="text-foreground-muted">Create </span>
-                <span className="font-medium">&quot;{searchTrimmed}&quot;</span>
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 };

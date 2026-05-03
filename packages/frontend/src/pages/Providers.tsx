@@ -1261,7 +1261,7 @@ export const Providers = () => {
         size="lg"
         footer={
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
+            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleSave} isLoading={isSaving} disabled={!!quotaValidationError}>
