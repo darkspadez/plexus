@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import {
   api,
   Alias,
@@ -39,6 +38,9 @@ import { Input } from '../components/ui-v2/input';
 import { SearchInput } from '../components/ui-v2/search-input';
 import { EmptyState } from '../components/ui-v2/empty-state';
 import { Section } from '../components/ui-v2/section';
+import { Pill } from '../components/chips/Pill';
+import { Popover, PopoverAnchor, PopoverContent } from '../components/ui-v2/popover';
+import { Command, CommandList, CommandItem, CommandEmpty } from '../components/ui-v2/command';
 import {
   Select,
   SelectContent,
@@ -108,6 +110,7 @@ export const Models = () => {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isArchitectureOpen, setIsArchitectureOpen] = useState(false);
   const [isMetadataOpen, setIsMetadataOpen] = useState(false);
+  const [isAliasesOpen, setIsAliasesOpen] = useState(false);
   // "Override" toggle for non-custom sources. When on, the editable field
   // grid is shown so the user can override individual enriched fields.
   const [isOverrideOpen, setIsOverrideOpen] = useState(false);
@@ -121,14 +124,7 @@ export const Models = () => {
   const [hfModelId, setHfModelId] = useState('');
   const [isFetchingHfModel, setIsFetchingHfModel] = useState(false);
   const [hfFetchError, setHfFetchError] = useState<string | null>(null);
-  const [showMetadataDropdown, setShowMetadataDropdown] = useState(false);
   const metadataSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const metadataInputWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [dropdownRect, setDropdownRect] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
 
   // Delete Confirmation State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -184,9 +180,9 @@ export const Models = () => {
     const meta = editingAlias.metadata;
     setIsOverrideOpen(!!meta && (meta.source === 'custom' || !!meta.overrides));
     setMetadataQuery(meta?.source_path ?? '');
-    setShowMetadataDropdown(false);
     setMetadataResults([]);
     setIsMetadataSearching(false);
+    setIsAliasesOpen((editingAlias.aliases?.length ?? 0) > 0);
     // Only re-run when the modal transitions open (or editingAlias.id changes).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isModalOpen, editingAlias.id]);
@@ -410,7 +406,6 @@ export const Models = () => {
       cancelMetadataDebounce();
       setMetadataQuery(query);
       setMetadataResults([]);
-      setShowMetadataDropdown(false);
       setIsMetadataSearching(false);
       return;
     }
@@ -418,12 +413,10 @@ export const Models = () => {
     cancelMetadataDebounce();
     if (!query.trim()) {
       setMetadataResults([]);
-      setShowMetadataDropdown(false);
       setIsMetadataSearching(false);
       return;
     }
     setIsMetadataSearching(true);
-    setShowMetadataDropdown(true);
     metadataSearchRef.current = setTimeout(async () => {
       try {
         const resp = await api.searchModelMetadata(source, query, 30);
@@ -450,7 +443,6 @@ export const Models = () => {
       },
     });
     setMetadataQuery(result.name);
-    setShowMetadataDropdown(false);
     setMetadataResults([]);
     // If override is already on, refresh the form with the newly-selected
     // model's catalog values (still preserving any fields the user typed).
@@ -468,7 +460,6 @@ export const Models = () => {
     setEditingAlias(rest as Alias);
     setMetadataQuery('');
     setMetadataResults([]);
-    setShowMetadataDropdown(false);
     setIsMetadataSearching(false);
     // Without this, re-adding a source would reopen the override form with
     // stale `isOverrideOpen` state from the cleared metadata.
@@ -979,7 +970,7 @@ export const Models = () => {
             <RefreshCw className={isRefreshing ? 'animate-spin' : undefined} strokeWidth={1.75} />
             Refresh
           </Button>
-          <Button leftIcon={<Plus size={16} />} onClick={handleAddNew}>
+          <Button size="sm" leftIcon={<Plus size={16} />} onClick={handleAddNew}>
             Add Model
           </Button>
         </>
@@ -1034,11 +1025,14 @@ export const Models = () => {
                   <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                     Metadata
                   </th>
-                  <th
-                    className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
-                    style={{ paddingRight: '24px' }}
-                  >
+                  <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                     Targets
+                  </th>
+                  <th
+                    className="px-4 py-3 border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
+                    style={{ paddingRight: '24px', textAlign: 'right' }}
+                  >
+                    Actions
                   </th>
                 </tr>
               </thead>
@@ -1078,14 +1072,18 @@ export const Models = () => {
           </div>
         }
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '-8px' }}>
-          <div className="grid grid-cols-4 gap-4">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '-8px' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr 1fr',
+              gap: '12px',
+              alignItems: 'end',
+            }}
+          >
             <div className="flex flex-col gap-1">
-              <label className="text-[13px] font-medium text-foreground-muted">
-                Primary Name (ID)
-              </label>
-              <input
-                className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+              <label className="text-[13px] font-medium text-foreground-muted">Model (ID)</label>
+              <Input
                 value={editingAlias.id}
                 onChange={(e) => setEditingAlias({ ...editingAlias, id: e.target.value })}
                 placeholder="e.g. gpt-4-turbo"
@@ -1167,7 +1165,7 @@ export const Models = () => {
             incoming request format.
           </p>
 
-          <div className="h-px bg-border-glass" style={{ margin: '4px 0' }}></div>
+          <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
 
           {/* Model Architecture */}
           <Section
@@ -1177,6 +1175,7 @@ export const Models = () => {
                 Model Architecture
               </span>
             }
+            size="md"
             collapsible
             open={isArchitectureOpen}
             onOpenChange={setIsArchitectureOpen}
@@ -1252,7 +1251,7 @@ export const Models = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-2 p-3 border border-border rounded-md bg-surface-elevated">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-[11px] font-medium text-foreground-muted">
                   Total Params (B)
@@ -1439,43 +1438,63 @@ export const Models = () => {
           {/* Advanced */}
           <Section
             title="Advanced"
+            size="md"
             collapsible
             open={isAdvancedOpen}
             onOpenChange={setIsAdvancedOpen}
             bodyStyle={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
           >
             {/* ── Behaviors ── */}
-            <div>
-              <label
-                className="text-[13px] font-medium text-foreground-muted"
-                style={{ display: 'block', marginBottom: '6px' }}
+            <div className="border border-border rounded-md p-3 bg-surface-elevated">
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: '12px',
+                  alignItems: 'center',
+                }}
               >
-                Behaviors
-              </label>
-              <div className="flex items-center justify-between py-1">
-                <div>
-                  <span className="text-[13px] text-foreground">Strip Adaptive Thinking</span>
-                  <p className="text-[11px] text-foreground-muted mt-0.5">
+                <div className="flex flex-col gap-1">
+                  <label
+                    className="text-[13px] font-medium text-foreground"
+                    style={{ marginBottom: 0 }}
+                  >
+                    Strip Adaptive Thinking
+                  </label>
+                  <div className="text-[11px] text-foreground-muted" style={{ lineHeight: 1.35 }}>
                     On the <code className="text-primary">/v1/messages</code> path, remove{' '}
                     <code className="text-primary">thinking</code> when set to{' '}
                     <code className="text-primary">adaptive</code> so the provider uses its default
                     behaviour.
-                  </p>
+                  </div>
                 </div>
                 <Switch
                   checked={getBehavior('strip_adaptive_thinking')}
                   onCheckedChange={(val) => setBehavior('strip_adaptive_thinking', val)}
-                  className="scale-75"
                 />
               </div>
+            </div>
 
-              <div className="flex items-center justify-between py-1">
-                <div>
-                  <span className="text-[13px] text-foreground">Vision Fallthrough</span>
-                  <p className="text-[11px] text-foreground-muted mt-0.5">
+            <div className="border border-border rounded-md p-3 bg-surface-elevated">
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: '12px',
+                  alignItems: 'center',
+                }}
+              >
+                <div className="flex flex-col gap-1">
+                  <label
+                    className="text-[13px] font-medium text-foreground"
+                    style={{ marginBottom: 0 }}
+                  >
+                    Vision Fallthrough
+                  </label>
+                  <div className="text-[11px] text-foreground-muted" style={{ lineHeight: 1.35 }}>
                     If the request contains images and the target model is text-only, use the
                     descriptor model to convert images to text.
-                  </p>
+                  </div>
                 </div>
                 <Switch
                   checked={editingAlias.use_image_fallthrough || false}
@@ -1485,30 +1504,43 @@ export const Models = () => {
                       use_image_fallthrough: val,
                     })
                   }
-                  className="scale-75"
                 />
               </div>
+            </div>
 
-              <div className="flex items-center justify-between py-1">
-                <div>
-                  <span className="text-[13px] text-foreground">Enforce Limits</span>
-                  <p className="text-[11px] text-foreground-muted mt-0.5">
+            <div className="border border-border rounded-md p-3 bg-surface-elevated">
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: '12px',
+                  alignItems: 'center',
+                }}
+              >
+                <div className="flex flex-col gap-1">
+                  <label
+                    className="text-[13px] font-medium text-foreground"
+                    style={{ marginBottom: 0 }}
+                  >
+                    Enforce Limits
+                  </label>
+                  <div className="text-[11px] text-foreground-muted" style={{ lineHeight: 1.35 }}>
                     Reject oversized prompts locally (400 context_length_exceeded) before dispatch.
                     Uses a fast heuristic estimator with a 10% safety margin, and reserves the
                     smaller of max_tokens and the model's max completion for the response. Requires
                     a known context_length in metadata (override or catalog).
-                  </p>
+                  </div>
                   {editingAlias.enforce_limits &&
                     !editingAlias.metadata?.overrides?.context_length &&
                     !editingAlias.metadata?.overrides?.top_provider?.context_length && (
-                      <p
+                      <div
                         className="text-[11px] mt-1 flex items-center gap-1"
                         style={{ color: 'var(--warning)' }}
                       >
                         <AlertTriangle size={12} />
                         No context_length found in metadata — this toggle will have no effect until
                         a metadata source with a known context_length is configured.
-                      </p>
+                      </div>
                     )}
                 </div>
                 <Switch
@@ -1519,69 +1551,69 @@ export const Models = () => {
                       enforce_limits: val,
                     })
                   }
-                  className="scale-75"
                 />
               </div>
             </div>
 
-            <div className="h-px bg-border-glass"></div>
-
             {/* ── Additional Aliases ── */}
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '4px',
-                }}
-              >
-                <label
-                  className="text-[13px] font-medium text-foreground-muted"
-                  style={{ marginBottom: 0 }}
-                >
-                  Additional Aliases
-                </label>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={addAlias}
-                  leftIcon={<Plus size={14} />}
-                >
-                  Add Alias
-                </Button>
-              </div>
-
+            <Section
+              title="Additional Aliases"
+              size="md"
+              collapsible
+              open={isAliasesOpen}
+              onOpenChange={setIsAliasesOpen}
+              rightSlot={
+                <>
+                  <Pill tone="neutral" size="sm">
+                    {editingAlias.aliases?.length ?? 0}
+                  </Pill>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addAlias();
+                      setIsAliasesOpen(true);
+                    }}
+                  >
+                    <Plus size={14} />
+                  </Button>
+                </>
+              }
+              bodyStyle={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                padding: '8px',
+              }}
+            >
               {(!editingAlias.aliases || editingAlias.aliases.length === 0) && (
-                <div className="text-foreground-muted italic text-center text-sm py-2">
-                  No additional aliases
+                <div className="text-[11px] text-foreground-muted italic">
+                  No additional aliases configured.
                 </div>
               )}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {editingAlias.aliases?.map((alias, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: '8px' }}>
-                    <Input
-                      value={alias}
-                      onChange={(e) => updateAlias(idx, e.target.value)}
-                      placeholder="e.g. gpt4"
-                      style={{ flex: 1 }}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeAlias(idx)}
-                      style={{ color: 'var(--danger)' }}
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
+              {editingAlias.aliases?.map((alias, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '8px' }}>
+                  <Input
+                    value={alias}
+                    onChange={(e) => updateAlias(idx, e.target.value)}
+                    placeholder="e.g. gpt4"
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeAlias(idx)}
+                    style={{ padding: '4px' }}
+                  >
+                    <Trash2 size={14} style={{ color: 'var(--danger)' }} />
+                  </Button>
+                </div>
+              ))}
+            </Section>
           </Section>
 
-          <div className="h-px bg-border-glass" style={{ margin: '4px 0' }}></div>
+          <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
 
           {/* Metadata */}
           <Section
@@ -1591,6 +1623,7 @@ export const Models = () => {
                 Metadata
               </span>
             }
+            size="md"
             collapsible
             open={isMetadataOpen}
             onOpenChange={setIsMetadataOpen}
@@ -1692,7 +1725,6 @@ export const Models = () => {
                   if (prevSource !== source) {
                     cancelMetadataDebounce();
                     setMetadataResults([]);
-                    setShowMetadataDropdown(false);
                     setIsMetadataSearching(false);
                   }
                   // When we dropped the path, also clear the visible model
@@ -1718,7 +1750,7 @@ export const Models = () => {
 
             {/* Search / source_path — hidden for 'custom' (no catalog) */}
             {editingAlias.metadata?.source !== 'custom' && (
-              <div style={{ position: 'relative' }}>
+              <div>
                 <label
                   className="text-[12px] font-medium text-foreground-muted"
                   style={{ display: 'block', marginBottom: '4px' }}
@@ -1730,52 +1762,89 @@ export const Models = () => {
                     </span>
                   )}
                 </label>
-                <div style={{ position: 'relative', display: 'flex', gap: '4px' }}>
-                  <div ref={metadataInputWrapperRef} style={{ position: 'relative', flex: 1 }}>
-                    <Input
-                      value={metadataQuery}
-                      onChange={(e) => {
-                        const source = editingAlias.metadata?.source ?? 'openrouter';
-                        handleMetadataSearch(e.target.value, source);
-                        // Update rect so portal dropdown follows the input
-                        if (metadataInputWrapperRef.current) {
-                          const r = metadataInputWrapperRef.current.getBoundingClientRect();
-                          setDropdownRect({ top: r.bottom + 2, left: r.left, width: r.width });
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <Popover
+                    open={isMetadataSearching || metadataResults.length > 0}
+                    onOpenChange={(o) => {
+                      if (!o) setMetadataResults([]);
+                    }}
+                  >
+                    <PopoverAnchor asChild>
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <Input
+                          value={metadataQuery}
+                          onChange={(e) => {
+                            const source = editingAlias.metadata?.source ?? 'openrouter';
+                            handleMetadataSearch(e.target.value, source);
+                          }}
+                          placeholder={`Search ${editingAlias.metadata?.source ?? 'openrouter'} catalog...`}
+                          style={{
+                            width: '100%',
+                            paddingRight: isMetadataSearching ? '28px' : undefined,
+                          }}
+                        />
+                        {isMetadataSearching && (
+                          <Loader2
+                            size={14}
+                            className="animate-spin text-foreground-muted"
+                            style={{
+                              position: 'absolute',
+                              right: '8px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                            }}
+                          />
+                        )}
+                      </div>
+                    </PopoverAnchor>
+                    <PopoverContent
+                      align="start"
+                      sideOffset={4}
+                      onOpenAutoFocus={(e) => e.preventDefault()}
+                      className="p-0"
+                      style={{ width: 'var(--radix-popper-anchor-width)' }}
+                      onWheel={(e) => {
+                        // Sheet's react-remove-scroll calls preventDefault on wheel
+                        // events at the document level, which kills native scroll
+                        // inside this nested Popover. Drive the list scroll
+                        // imperatively and stop the bubble so RemoveScroll never
+                        // sees it.
+                        const list = e.currentTarget.querySelector(
+                          '[cmdk-list]'
+                        ) as HTMLDivElement | null;
+                        if (list && list.scrollHeight > list.clientHeight) {
+                          list.scrollTop += e.deltaY;
+                          e.stopPropagation();
                         }
                       }}
-                      onFocus={() => {
-                        if (metadataResults.length > 0) {
-                          if (metadataInputWrapperRef.current) {
-                            const r = metadataInputWrapperRef.current.getBoundingClientRect();
-                            setDropdownRect({
-                              top: r.bottom + 2,
-                              left: r.left,
-                              width: r.width,
-                            });
-                          }
-                          setShowMetadataDropdown(true);
-                        }
-                      }}
-                      placeholder={`Search ${editingAlias.metadata?.source ?? 'openrouter'} catalog...`}
-                      style={{
-                        width: '100%',
-                        paddingRight: isMetadataSearching ? '28px' : undefined,
-                      }}
-                      onBlur={() => setShowMetadataDropdown(false)}
-                    />
-                    {isMetadataSearching && (
-                      <Loader2
-                        size={14}
-                        className="animate-spin text-foreground-muted"
-                        style={{
-                          position: 'absolute',
-                          right: '8px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                        }}
-                      />
-                    )}
-                  </div>
+                    >
+                      <Command shouldFilter={false}>
+                        <CommandList>
+                          {isMetadataSearching && metadataResults.length === 0 && (
+                            <div className="py-3 text-center text-xs text-foreground-muted">
+                              Searching…
+                            </div>
+                          )}
+                          {!isMetadataSearching && metadataResults.length === 0 && (
+                            <CommandEmpty>No results</CommandEmpty>
+                          )}
+                          {metadataResults.map((result) => (
+                            <CommandItem
+                              key={result.id}
+                              value={result.id}
+                              onSelect={() => selectMetadataResult(result)}
+                              className="flex flex-col items-start gap-0.5"
+                            >
+                              <span className="text-[12px] font-medium text-foreground">
+                                {result.name}
+                              </span>
+                              <span className="text-[10px] text-foreground-muted">{result.id}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   {editingAlias.metadata && (
                     <Button
                       variant="ghost"
@@ -1902,7 +1971,7 @@ export const Models = () => {
             )}
           </Section>
 
-          <div className="h-px bg-border-glass" style={{ margin: '4px 0' }}></div>
+          <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
 
           <div>
             <div
@@ -2338,54 +2407,6 @@ export const Models = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {/* Metadata autocomplete portal — rendered outside accordion to avoid overflow:hidden clipping */}
-      {showMetadataDropdown &&
-        metadataResults.length > 0 &&
-        dropdownRect &&
-        createPortal(
-          <div
-            onMouseDown={(e) => e.preventDefault()}
-            style={{
-              position: 'fixed',
-              top: dropdownRect.top,
-              left: dropdownRect.left,
-              width: dropdownRect.width,
-              zIndex: 9999,
-              backgroundColor: '#1E293B',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              maxHeight: '180px',
-              overflowY: 'auto',
-            }}
-          >
-            {metadataResults.map((result) => (
-              <button
-                key={result.id}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  selectMetadataResult(result);
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '6px 10px',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid var(--border)',
-                }}
-                className="hover:bg-surface-elevated transition-colors"
-              >
-                <div className="text-[12px] font-medium text-foreground">{result.name}</div>
-                <div className="text-[10px] text-foreground-muted">{result.id}</div>
-              </button>
-            ))}
-          </div>,
-          document.body
-        )}
     </ListPage>
   );
 };

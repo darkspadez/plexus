@@ -15,7 +15,36 @@ interface TagSelectProps {
    * new tag, and the dropdown shows a "Create '<search>'" affordance.
    */
   allowCustom?: boolean;
+  /**
+   * When true, render each chip in a deterministic Pill tone derived from the
+   * tag string (so semantically distinct tags read at a glance) instead of the
+   * default primary-pink fill.
+   */
+  colorize?: boolean;
 }
+
+// Tone palette used when `colorize` is on. Excludes 'neutral' so colored chips
+// are visually distinct from neutral count badges.
+const COLORIZE_TONES = ['accent', 'success', 'warning', 'info', 'danger'] as const;
+type ColorizeTone = (typeof COLORIZE_TONES)[number];
+
+const COLORIZE_TONE_CLASSES: Record<ColorizeTone, string> = {
+  accent: 'bg-accent-subtle text-accent border-accent/30',
+  success: 'bg-success-subtle text-success border-success/30',
+  warning: 'bg-warning-subtle text-warning border-warning/30',
+  info: 'bg-info-subtle text-info border-info/30',
+  danger: 'bg-danger-subtle text-danger border-danger/30',
+};
+
+// DJB2-style hash → stable tone per tag string (case-insensitive).
+const toneForTag = (tag: string): ColorizeTone => {
+  let h = 5381;
+  const lower = tag.toLowerCase();
+  for (let i = 0; i < lower.length; i++) {
+    h = (h * 33) ^ lower.charCodeAt(i);
+  }
+  return COLORIZE_TONES[Math.abs(h) % COLORIZE_TONES.length];
+};
 
 export const TagSelect: React.FC<TagSelectProps> = ({
   label,
@@ -25,6 +54,7 @@ export const TagSelect: React.FC<TagSelectProps> = ({
   onChange,
   className,
   allowCustom = false,
+  colorize = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -157,12 +187,18 @@ export const TagSelect: React.FC<TagSelectProps> = ({
         {selected.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md bg-primary/15 text-primary border border-primary/30 whitespace-nowrap"
+            className={clsx(
+              'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md border whitespace-nowrap',
+              colorize
+                ? COLORIZE_TONE_CLASSES[toneForTag(tag)]
+                : 'bg-primary/15 text-primary border-primary/30'
+            )}
           >
             {tag}
             <button
               type="button"
-              className="bg-transparent border-0 p-0 m-0 cursor-pointer text-primary/70 hover:text-primary leading-none"
+              className="bg-transparent border-0 p-0 m-0 cursor-pointer leading-none opacity-70 hover:opacity-100"
+              style={{ color: 'currentColor' }}
               onClick={(e) => handleRemove(tag, e)}
               title={`Remove ${tag}`}
             >

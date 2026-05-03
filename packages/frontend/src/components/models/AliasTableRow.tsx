@@ -39,21 +39,8 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
         className="border-b border-border px-4 py-3 text-left text-foreground"
         style={{ fontWeight: 600, paddingLeft: '24px' }}
       >
-        <div className="flex items-center justify-between gap-2">
-          <div
-            onClick={() => onEdit(alias)}
-            className="flex flex-1 cursor-pointer items-center gap-2"
-          >
-            <Edit2 className="size-3 opacity-50" strokeWidth={1.75} />
-            <span className="font-mono">{alias.id}</span>
-          </div>
-          <button
-            onClick={() => onDelete(alias)}
-            className="rounded p-1 text-foreground-muted opacity-60 transition-all hover:bg-danger-subtle hover:text-danger hover:opacity-100"
-            aria-label="Delete alias"
-          >
-            <Trash2 className="size-3.5" strokeWidth={1.75} />
-          </button>
+        <div onClick={() => onEdit(alias)} className="flex cursor-pointer items-center gap-2">
+          <span className="font-mono">{alias.id}</span>
         </div>
       </td>
       <td className="border-b border-border px-4 py-3 text-left text-foreground">
@@ -86,7 +73,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
           <span className="text-xs text-foreground-subtle">—</span>
         )}
       </td>
-      <td className="border-b border-border px-4 py-3 pr-6 text-left text-foreground">
+      <td className="border-b border-border px-4 py-3 text-left text-foreground">
         <div className="flex flex-col gap-1.5">
           {alias.targets.map((t, i) => {
             const provider = providers.find((p) => p.id === t.provider);
@@ -176,6 +163,35 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
               </div>
             );
           })}
+        </div>
+      </td>
+      <td
+        className="border-b border-border px-4 py-3 text-foreground"
+        style={{ paddingRight: '24px', textAlign: 'right' }}
+      >
+        <div className="flex items-center justify-end gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(alias);
+            }}
+            className="rounded p-1 text-foreground-muted opacity-60 transition-all hover:bg-surface-elevated hover:text-foreground hover:opacity-100"
+            aria-label="Edit alias"
+          >
+            <Edit2 className="size-3.5" strokeWidth={1.75} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(alias);
+            }}
+            className="rounded p-1 text-foreground-muted opacity-60 transition-all hover:bg-danger-subtle hover:text-danger hover:opacity-100"
+            aria-label="Delete alias"
+          >
+            <Trash2 className="size-3.5" strokeWidth={1.75} />
+          </button>
         </div>
       </td>
     </tr>

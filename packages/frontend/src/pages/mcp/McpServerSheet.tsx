@@ -52,6 +52,7 @@ const emptyDefaults: McpServerFormValues = {
 export const McpServerSheet: React.FC<Props> = ({ open, onOpenChange, editingName, initial }) => {
   const isEditing = !!editingName;
   const save = useSaveMcpServer();
+  const [isHeadersOpen, setIsHeadersOpen] = React.useState(false);
 
   const form = useForm<McpServerFormValues>({
     resolver: zodResolver(mcpServerFormSchema),
@@ -62,14 +63,17 @@ export const McpServerSheet: React.FC<Props> = ({ open, onOpenChange, editingNam
   React.useEffect(() => {
     if (!open) return;
     if (isEditing && initial) {
+      const initialHeaders = headersToEntries(initial.headers);
       form.reset({
         name: editingName ?? '',
         upstreamUrl: initial.upstream_url ?? '',
         enabled: initial.enabled,
-        headers: headersToEntries(initial.headers),
+        headers: initialHeaders,
       });
+      setIsHeadersOpen(initialHeaders.length > 0);
     } else {
       form.reset(emptyDefaults);
+      setIsHeadersOpen(false);
     }
   }, [open, editingName, initial, isEditing, form]);
 
@@ -158,10 +162,15 @@ export const McpServerSheet: React.FC<Props> = ({ open, onOpenChange, editingNam
                 control={form.control}
                 name="enabled"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-md border border-border bg-surface-elevated px-3 py-2.5">
+                  <FormItem className="flex flex-row items-center justify-between rounded-md border border-border bg-surface-elevated p-3">
                     <div className="space-y-0.5">
-                      <FormLabel className="m-0">Enabled</FormLabel>
-                      <FormDescription className="m-0">
+                      <FormLabel className="m-0 text-[13px] font-medium text-foreground">
+                        Enabled
+                      </FormLabel>
+                      <FormDescription
+                        className="m-0 text-[11px] text-foreground-muted"
+                        style={{ lineHeight: 1.35 }}
+                      >
                         Disabled servers are skipped during routing.
                       </FormDescription>
                     </div>
@@ -174,8 +183,10 @@ export const McpServerSheet: React.FC<Props> = ({ open, onOpenChange, editingNam
 
               <Section
                 title="Headers"
+                size="md"
                 collapsible
-                defaultOpen={headers.fields.length > 0}
+                open={isHeadersOpen}
+                onOpenChange={setIsHeadersOpen}
                 rightSlot={
                   <>
                     <Pill tone={headers.fields.length > 0 ? 'accent' : 'neutral'} size="sm">
@@ -188,6 +199,7 @@ export const McpServerSheet: React.FC<Props> = ({ open, onOpenChange, editingNam
                       onClick={(e) => {
                         e.stopPropagation();
                         headers.append({ key: '', value: '' });
+                        setIsHeadersOpen(true);
                       }}
                     >
                       <Plus strokeWidth={1.75} />

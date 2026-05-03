@@ -279,6 +279,7 @@ export const KeySheet: React.FC<Props> = ({ open, onOpenChange, editing }) => {
 
                 <Section
                   title="Access Scope"
+                  size="md"
                   collapsible
                   defaultOpen={initialScopeOpen}
                   rightSlot={
