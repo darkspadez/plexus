@@ -21,6 +21,7 @@ import {
 } from '../../components/ui-v2/form';
 import { Input } from '../../components/ui-v2/input';
 import { Button } from '../../components/ui-v2/button';
+import { Section } from '../../components/ui-v2/section';
 import {
   Select,
   SelectContent,
@@ -28,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui-v2/select';
+import { Pill } from '../../components/chips/Pill';
 import { keyFormSchema, type KeyFormValues } from './key-schema';
 import { MultiSelectChips } from './MultiSelectChips';
 import { SecretDisplay } from './SecretDisplay';
@@ -116,6 +118,24 @@ export const KeySheet: React.FC<Props> = ({ open, onOpenChange, editing }) => {
   };
 
   const quotaOptions = React.useMemo(() => Object.keys(quotas ?? {}).sort(), [quotas]);
+
+  const watchedScope = form.watch([
+    'allowedProviders',
+    'allowedModels',
+    'excludedProviders',
+    'excludedModels',
+  ]);
+  const totalScopeRules =
+    (watchedScope[0]?.length ?? 0) +
+    (watchedScope[1]?.length ?? 0) +
+    (watchedScope[2]?.length ?? 0) +
+    (watchedScope[3]?.length ?? 0);
+  const initialScopeOpen =
+    (editing?.allowedProviders?.length ?? 0) +
+      (editing?.allowedModels?.length ?? 0) +
+      (editing?.excludedProviders?.length ?? 0) +
+      (editing?.excludedModels?.length ?? 0) >
+    0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -257,87 +277,99 @@ export const KeySheet: React.FC<Props> = ({ open, onOpenChange, editing }) => {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="allowedProviders"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Allowed providers</FormLabel>
-                      <FormControl>
-                        <MultiSelectChips
-                          options={providerIds}
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="Add provider"
-                          ariaLabel="Allowed providers"
-                        />
-                      </FormControl>
-                      <FormDescription>Empty = any provider allowed.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <Section
+                  title="Access Scope"
+                  collapsible
+                  defaultOpen={initialScopeOpen}
+                  rightSlot={
+                    <Pill tone={totalScopeRules > 0 ? 'accent' : 'neutral'} size="sm">
+                      {totalScopeRules}
+                    </Pill>
+                  }
+                  bodyClassName="space-y-5"
+                >
+                  <FormField
+                    control={form.control}
+                    name="allowedProviders"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Allowed providers</FormLabel>
+                        <FormControl>
+                          <MultiSelectChips
+                            options={providerIds}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Add provider"
+                            ariaLabel="Allowed providers"
+                          />
+                        </FormControl>
+                        <FormDescription>Empty = any provider allowed.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="allowedModels"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Allowed models</FormLabel>
-                      <FormControl>
-                        <MultiSelectChips
-                          options={aliasIds}
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="Add model"
-                          ariaLabel="Allowed models"
-                        />
-                      </FormControl>
-                      <FormDescription>Empty = any model alias allowed.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="allowedModels"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Allowed models</FormLabel>
+                        <FormControl>
+                          <MultiSelectChips
+                            options={aliasIds}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Add model"
+                            ariaLabel="Allowed models"
+                          />
+                        </FormControl>
+                        <FormDescription>Empty = any model alias allowed.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="excludedProviders"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Excluded providers</FormLabel>
-                      <FormControl>
-                        <MultiSelectChips
-                          options={providerIds}
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="Add provider"
-                          ariaLabel="Excluded providers"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="excludedProviders"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Excluded providers</FormLabel>
+                        <FormControl>
+                          <MultiSelectChips
+                            options={providerIds}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Add provider"
+                            ariaLabel="Excluded providers"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="excludedModels"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Excluded models</FormLabel>
-                      <FormControl>
-                        <MultiSelectChips
-                          options={aliasIds}
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="Add model"
-                          ariaLabel="Excluded models"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="excludedModels"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Excluded models</FormLabel>
+                        <FormControl>
+                          <MultiSelectChips
+                            options={aliasIds}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Add model"
+                            ariaLabel="Excluded models"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </Section>
               </div>
               <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface px-6 py-3">
                 <Button

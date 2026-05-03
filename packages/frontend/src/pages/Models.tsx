@@ -38,6 +38,7 @@ import { Switch } from '../components/ui-v2/switch';
 import { Input } from '../components/ui-v2/input';
 import { SearchInput } from '../components/ui-v2/search-input';
 import { EmptyState } from '../components/ui-v2/empty-state';
+import { Section } from '../components/ui-v2/section';
 import {
   Select,
   SelectContent,
@@ -54,7 +55,6 @@ import {
   Zap,
   ChevronDown,
   ChevronUp,
-  ChevronRight,
   BookOpen,
   Search,
   X,
@@ -1169,776 +1169,738 @@ export const Models = () => {
 
           <div className="h-px bg-border-glass" style={{ margin: '4px 0' }}></div>
 
-          {/* Model Architecture accordion */}
-          <div className="border border-border rounded-sm overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setIsArchitectureOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-surface-elevated hover:bg-surface-elevated transition-colors duration-150 text-left"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Model Architecture */}
+          <Section
+            title={
+              <span className="inline-flex items-center gap-1.5">
                 <Cpu size={13} className="text-foreground-muted" />
-                <span className="text-[13px] font-medium text-foreground-muted">
-                  Model Architecture
+                Model Architecture
+              </span>
+            }
+            collapsible
+            open={isArchitectureOpen}
+            onOpenChange={setIsArchitectureOpen}
+            rightSlot={
+              editingAlias.model_architecture?.total_params ? (
+                <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border text-primary bg-surface-elevated">
+                  {editingAlias.model_architecture.total_params}B params
                 </span>
-                {editingAlias.model_architecture?.total_params && (
-                  <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border text-primary bg-surface-elevated">
-                    {editingAlias.model_architecture.total_params}B params
-                  </span>
-                )}
-              </div>
-              {isArchitectureOpen ? (
-                <ChevronDown size={14} className="text-foreground-muted" />
-              ) : (
-                <ChevronRight size={14} className="text-foreground-muted" />
-              )}
-            </button>
+              ) : undefined
+            }
+            bodyStyle={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+          >
+            <p className="text-[11px] text-foreground-muted">
+              Fetch model architecture from Hugging Face or enter manually. These values are used
+              for energy calculation.
+            </p>
 
-            {isArchitectureOpen && (
-              <div
-                className="px-3 py-3 border-t border-border"
-                style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
-              >
-                <p className="text-[11px] text-foreground-muted">
-                  Fetch model architecture from Hugging Face or enter manually. These values are
-                  used for energy calculation.
-                </p>
-
-                {/* Display currently saved architecture values */}
-                {editingAlias.model_architecture?.total_params && (
-                  <div className="px-3 py-2 bg-surface-elevated border border-border rounded-md">
-                    <div className="text-[11px] font-medium text-foreground-muted mb-1">
-                      Currently Saved:
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground">
-                      {editingAlias.model_architecture.total_params && (
-                        <span>{editingAlias.model_architecture.total_params}B params</span>
-                      )}
-                      {editingAlias.model_architecture.active_params && (
-                        <span>({editingAlias.model_architecture.active_params}B active)</span>
-                      )}
-                      {editingAlias.model_architecture.layers && (
-                        <span>{editingAlias.model_architecture.layers} layers</span>
-                      )}
-                      {editingAlias.model_architecture.heads && (
-                        <span>{editingAlias.model_architecture.heads} heads</span>
-                      )}
-                      {editingAlias.model_architecture.dtype && (
-                        <span className="text-primary">
-                          {editingAlias.model_architecture.dtype.toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* HuggingFace Model ID input and fetch button */}
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <label className="text-[11px] font-medium text-foreground-muted">
-                      Hugging Face Model ID
-                    </label>
-                    <input
-                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
-                      value={hfModelId}
-                      onChange={(e) => setHfModelId(e.target.value)}
-                      placeholder="e.g. meta-llama/Llama-3.1-70B-Instruct"
-                      onKeyDown={(e) => e.key === 'Enter' && fetchHfModelArchitecture()}
-                    />
-                  </div>
-                  <Button
-                    onClick={fetchHfModelArchitecture}
-                    isLoading={isFetchingHfModel}
-                    disabled={isFetchingHfModel}
-                    variant="secondary"
-                  >
-                    Fetch from HF
-                  </Button>
+            {/* Display currently saved architecture values */}
+            {editingAlias.model_architecture?.total_params && (
+              <div className="px-3 py-2 bg-surface-elevated border border-border rounded-md">
+                <div className="text-[11px] font-medium text-foreground-muted mb-1">
+                  Currently Saved:
                 </div>
-
-                {hfFetchError && (
-                  <div className="text-xs text-danger bg-danger/10 border border-danger/20 rounded px-3 py-2">
-                    {hfFetchError}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-2 p-3 border border-border rounded-md bg-surface-elevated">
-                  <div>
-                    <label className="text-[11px] font-medium text-foreground-muted">
-                      Total Params (B)
-                    </label>
-                    <input
-                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={editingAlias.model_architecture?.total_params || ''}
-                      onChange={(e) =>
-                        setEditingAlias({
-                          ...editingAlias,
-                          model_architecture: {
-                            ...editingAlias.model_architecture,
-                            total_params: parseFloat(e.target.value) || undefined,
-                          },
-                        })
-                      }
-                      placeholder="e.g. 1.76"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-medium text-foreground-muted">
-                      Active Params (B)
-                    </label>
-                    <input
-                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={editingAlias.model_architecture?.active_params || ''}
-                      onChange={(e) =>
-                        setEditingAlias({
-                          ...editingAlias,
-                          model_architecture: {
-                            ...editingAlias.model_architecture,
-                            active_params: parseFloat(e.target.value) || undefined,
-                          },
-                        })
-                      }
-                      placeholder="e.g. 1.76"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-medium text-foreground-muted">Layers</label>
-                    <input
-                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={editingAlias.model_architecture?.layers || ''}
-                      onChange={(e) =>
-                        setEditingAlias({
-                          ...editingAlias,
-                          model_architecture: {
-                            ...editingAlias.model_architecture,
-                            layers: parseInt(e.target.value, 10) || undefined,
-                          },
-                        })
-                      }
-                      placeholder="e.g. 120"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-medium text-foreground-muted">Heads</label>
-                    <input
-                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={editingAlias.model_architecture?.heads || ''}
-                      onChange={(e) =>
-                        setEditingAlias({
-                          ...editingAlias,
-                          model_architecture: {
-                            ...editingAlias.model_architecture,
-                            heads: parseInt(e.target.value, 10) || undefined,
-                          },
-                        })
-                      }
-                      placeholder="e.g. 96"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-medium text-foreground-muted">
-                      KV LoRA Rank
-                    </label>
-                    <input
-                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={editingAlias.model_architecture?.kv_lora_rank || ''}
-                      onChange={(e) =>
-                        setEditingAlias({
-                          ...editingAlias,
-                          model_architecture: {
-                            ...editingAlias.model_architecture,
-                            kv_lora_rank: parseInt(e.target.value, 10) || undefined,
-                          },
-                        })
-                      }
-                      placeholder="e.g. 128"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-medium text-foreground-muted">
-                      RoPE Head Dim
-                    </label>
-                    <input
-                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={editingAlias.model_architecture?.qk_rope_head_dim || ''}
-                      onChange={(e) =>
-                        setEditingAlias({
-                          ...editingAlias,
-                          model_architecture: {
-                            ...editingAlias.model_architecture,
-                            qk_rope_head_dim: parseInt(e.target.value, 10) || undefined,
-                          },
-                        })
-                      }
-                      placeholder="e.g. 96"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-medium text-foreground-muted">
-                      Context Length
-                    </label>
-                    <input
-                      className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={editingAlias.model_architecture?.context_length || ''}
-                      onChange={(e) =>
-                        setEditingAlias({
-                          ...editingAlias,
-                          model_architecture: {
-                            ...editingAlias.model_architecture,
-                            context_length: parseInt(e.target.value, 10) || undefined,
-                          },
-                        })
-                      }
-                      placeholder="e.g. 128000"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[11px] font-medium text-foreground-muted">
-                      Data Type
-                    </label>
-                    <Select
-                      value={editingAlias.model_architecture?.dtype || '__default__'}
-                      onValueChange={(v) =>
-                        setEditingAlias({
-                          ...editingAlias,
-                          model_architecture: {
-                            ...editingAlias.model_architecture,
-                            dtype: v === '__default__' ? undefined : (v as any),
-                          },
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__default__">Default (FP16)</SelectItem>
-                        <SelectItem value="fp16">FP16</SelectItem>
-                        <SelectItem value="bf16">BF16</SelectItem>
-                        <SelectItem value="fp8">FP8</SelectItem>
-                        <SelectItem value="fp8_e4m3">FP8 E4M3</SelectItem>
-                        <SelectItem value="fp8_e5m2">FP8 E5M2</SelectItem>
-                        <SelectItem value="nvfp4">NVFP4</SelectItem>
-                        <SelectItem value="int4">INT4</SelectItem>
-                        <SelectItem value="int8">INT8</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground">
+                  {editingAlias.model_architecture.total_params && (
+                    <span>{editingAlias.model_architecture.total_params}B params</span>
+                  )}
+                  {editingAlias.model_architecture.active_params && (
+                    <span>({editingAlias.model_architecture.active_params}B active)</span>
+                  )}
+                  {editingAlias.model_architecture.layers && (
+                    <span>{editingAlias.model_architecture.layers} layers</span>
+                  )}
+                  {editingAlias.model_architecture.heads && (
+                    <span>{editingAlias.model_architecture.heads} heads</span>
+                  )}
+                  {editingAlias.model_architecture.dtype && (
+                    <span className="text-primary">
+                      {editingAlias.model_architecture.dtype.toUpperCase()}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Advanced accordion */}
-          <div className="border border-border rounded-sm overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setIsAdvancedOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-surface-elevated hover:bg-surface-elevated transition-colors duration-150 text-left"
-            >
-              <span className="text-[13px] font-medium text-foreground-muted">Advanced</span>
-              {isAdvancedOpen ? (
-                <ChevronDown size={14} className="text-foreground-muted" />
-              ) : (
-                <ChevronRight size={14} className="text-foreground-muted" />
-              )}
-            </button>
-
-            {isAdvancedOpen && (
-              <div
-                className="px-3 py-3 border-t border-border"
-                style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+            {/* HuggingFace Model ID input and fetch button */}
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <label className="text-[11px] font-medium text-foreground-muted">
+                  Hugging Face Model ID
+                </label>
+                <input
+                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                  value={hfModelId}
+                  onChange={(e) => setHfModelId(e.target.value)}
+                  placeholder="e.g. meta-llama/Llama-3.1-70B-Instruct"
+                  onKeyDown={(e) => e.key === 'Enter' && fetchHfModelArchitecture()}
+                />
+              </div>
+              <Button
+                onClick={fetchHfModelArchitecture}
+                isLoading={isFetchingHfModel}
+                disabled={isFetchingHfModel}
+                variant="secondary"
               >
-                {/* ── Behaviors ── */}
+                Fetch from HF
+              </Button>
+            </div>
+
+            {hfFetchError && (
+              <div className="text-xs text-danger bg-danger/10 border border-danger/20 rounded px-3 py-2">
+                {hfFetchError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 p-3 border border-border rounded-md bg-surface-elevated">
+              <div>
+                <label className="text-[11px] font-medium text-foreground-muted">
+                  Total Params (B)
+                </label>
+                <input
+                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={editingAlias.model_architecture?.total_params || ''}
+                  onChange={(e) =>
+                    setEditingAlias({
+                      ...editingAlias,
+                      model_architecture: {
+                        ...editingAlias.model_architecture,
+                        total_params: parseFloat(e.target.value) || undefined,
+                      },
+                    })
+                  }
+                  placeholder="e.g. 1.76"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground-muted">
+                  Active Params (B)
+                </label>
+                <input
+                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={editingAlias.model_architecture?.active_params || ''}
+                  onChange={(e) =>
+                    setEditingAlias({
+                      ...editingAlias,
+                      model_architecture: {
+                        ...editingAlias.model_architecture,
+                        active_params: parseFloat(e.target.value) || undefined,
+                      },
+                    })
+                  }
+                  placeholder="e.g. 1.76"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground-muted">Layers</label>
+                <input
+                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={editingAlias.model_architecture?.layers || ''}
+                  onChange={(e) =>
+                    setEditingAlias({
+                      ...editingAlias,
+                      model_architecture: {
+                        ...editingAlias.model_architecture,
+                        layers: parseInt(e.target.value, 10) || undefined,
+                      },
+                    })
+                  }
+                  placeholder="e.g. 120"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground-muted">Heads</label>
+                <input
+                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={editingAlias.model_architecture?.heads || ''}
+                  onChange={(e) =>
+                    setEditingAlias({
+                      ...editingAlias,
+                      model_architecture: {
+                        ...editingAlias.model_architecture,
+                        heads: parseInt(e.target.value, 10) || undefined,
+                      },
+                    })
+                  }
+                  placeholder="e.g. 96"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground-muted">
+                  KV LoRA Rank
+                </label>
+                <input
+                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={editingAlias.model_architecture?.kv_lora_rank || ''}
+                  onChange={(e) =>
+                    setEditingAlias({
+                      ...editingAlias,
+                      model_architecture: {
+                        ...editingAlias.model_architecture,
+                        kv_lora_rank: parseInt(e.target.value, 10) || undefined,
+                      },
+                    })
+                  }
+                  placeholder="e.g. 128"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground-muted">
+                  RoPE Head Dim
+                </label>
+                <input
+                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={editingAlias.model_architecture?.qk_rope_head_dim || ''}
+                  onChange={(e) =>
+                    setEditingAlias({
+                      ...editingAlias,
+                      model_architecture: {
+                        ...editingAlias.model_architecture,
+                        qk_rope_head_dim: parseInt(e.target.value, 10) || undefined,
+                      },
+                    })
+                  }
+                  placeholder="e.g. 96"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground-muted">
+                  Context Length
+                </label>
+                <input
+                  className="w-full py-2 px-3 text-sm text-foreground bg-surface-elevated border border-border rounded-sm outline-none focus:border-primary"
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={editingAlias.model_architecture?.context_length || ''}
+                  onChange={(e) =>
+                    setEditingAlias({
+                      ...editingAlias,
+                      model_architecture: {
+                        ...editingAlias.model_architecture,
+                        context_length: parseInt(e.target.value, 10) || undefined,
+                      },
+                    })
+                  }
+                  placeholder="e.g. 128000"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-medium text-foreground-muted">Data Type</label>
+                <Select
+                  value={editingAlias.model_architecture?.dtype || '__default__'}
+                  onValueChange={(v) =>
+                    setEditingAlias({
+                      ...editingAlias,
+                      model_architecture: {
+                        ...editingAlias.model_architecture,
+                        dtype: v === '__default__' ? undefined : (v as any),
+                      },
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__default__">Default (FP16)</SelectItem>
+                    <SelectItem value="fp16">FP16</SelectItem>
+                    <SelectItem value="bf16">BF16</SelectItem>
+                    <SelectItem value="fp8">FP8</SelectItem>
+                    <SelectItem value="fp8_e4m3">FP8 E4M3</SelectItem>
+                    <SelectItem value="fp8_e5m2">FP8 E5M2</SelectItem>
+                    <SelectItem value="nvfp4">NVFP4</SelectItem>
+                    <SelectItem value="int4">INT4</SelectItem>
+                    <SelectItem value="int8">INT8</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </Section>
+
+          {/* Advanced */}
+          <Section
+            title="Advanced"
+            collapsible
+            open={isAdvancedOpen}
+            onOpenChange={setIsAdvancedOpen}
+            bodyStyle={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          >
+            {/* ── Behaviors ── */}
+            <div>
+              <label
+                className="text-[13px] font-medium text-foreground-muted"
+                style={{ display: 'block', marginBottom: '6px' }}
+              >
+                Behaviors
+              </label>
+              <div className="flex items-center justify-between py-1">
                 <div>
-                  <label
-                    className="text-[13px] font-medium text-foreground-muted"
-                    style={{ display: 'block', marginBottom: '6px' }}
-                  >
-                    Behaviors
-                  </label>
-                  <div className="flex items-center justify-between py-1">
-                    <div>
-                      <span className="text-[13px] text-foreground">Strip Adaptive Thinking</span>
-                      <p className="text-[11px] text-foreground-muted mt-0.5">
-                        On the <code className="text-primary">/v1/messages</code> path, remove{' '}
-                        <code className="text-primary">thinking</code> when set to{' '}
-                        <code className="text-primary">adaptive</code> so the provider uses its
-                        default behaviour.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={getBehavior('strip_adaptive_thinking')}
-                      onCheckedChange={(val) => setBehavior('strip_adaptive_thinking', val)}
-                      className="scale-75"
-                    />
-                  </div>
+                  <span className="text-[13px] text-foreground">Strip Adaptive Thinking</span>
+                  <p className="text-[11px] text-foreground-muted mt-0.5">
+                    On the <code className="text-primary">/v1/messages</code> path, remove{' '}
+                    <code className="text-primary">thinking</code> when set to{' '}
+                    <code className="text-primary">adaptive</code> so the provider uses its default
+                    behaviour.
+                  </p>
+                </div>
+                <Switch
+                  checked={getBehavior('strip_adaptive_thinking')}
+                  onCheckedChange={(val) => setBehavior('strip_adaptive_thinking', val)}
+                  className="scale-75"
+                />
+              </div>
 
-                  <div className="flex items-center justify-between py-1">
-                    <div>
-                      <span className="text-[13px] text-foreground">Vision Fallthrough</span>
-                      <p className="text-[11px] text-foreground-muted mt-0.5">
-                        If the request contains images and the target model is text-only, use the
-                        descriptor model to convert images to text.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={editingAlias.use_image_fallthrough || false}
-                      onCheckedChange={(val) =>
-                        setEditingAlias({
-                          ...editingAlias,
-                          use_image_fallthrough: val,
-                        })
-                      }
-                      className="scale-75"
-                    />
-                  </div>
+              <div className="flex items-center justify-between py-1">
+                <div>
+                  <span className="text-[13px] text-foreground">Vision Fallthrough</span>
+                  <p className="text-[11px] text-foreground-muted mt-0.5">
+                    If the request contains images and the target model is text-only, use the
+                    descriptor model to convert images to text.
+                  </p>
+                </div>
+                <Switch
+                  checked={editingAlias.use_image_fallthrough || false}
+                  onCheckedChange={(val) =>
+                    setEditingAlias({
+                      ...editingAlias,
+                      use_image_fallthrough: val,
+                    })
+                  }
+                  className="scale-75"
+                />
+              </div>
 
-                  <div className="flex items-center justify-between py-1">
-                    <div>
-                      <span className="text-[13px] text-foreground">Enforce Limits</span>
-                      <p className="text-[11px] text-foreground-muted mt-0.5">
-                        Reject oversized prompts locally (400 context_length_exceeded) before
-                        dispatch. Uses a fast heuristic estimator with a 10% safety margin, and
-                        reserves the smaller of max_tokens and the model's max completion for the
-                        response. Requires a known context_length in metadata (override or catalog).
+              <div className="flex items-center justify-between py-1">
+                <div>
+                  <span className="text-[13px] text-foreground">Enforce Limits</span>
+                  <p className="text-[11px] text-foreground-muted mt-0.5">
+                    Reject oversized prompts locally (400 context_length_exceeded) before dispatch.
+                    Uses a fast heuristic estimator with a 10% safety margin, and reserves the
+                    smaller of max_tokens and the model's max completion for the response. Requires
+                    a known context_length in metadata (override or catalog).
+                  </p>
+                  {editingAlias.enforce_limits &&
+                    !editingAlias.metadata?.overrides?.context_length &&
+                    !editingAlias.metadata?.overrides?.top_provider?.context_length && (
+                      <p
+                        className="text-[11px] mt-1 flex items-center gap-1"
+                        style={{ color: 'var(--warning)' }}
+                      >
+                        <AlertTriangle size={12} />
+                        No context_length found in metadata — this toggle will have no effect until
+                        a metadata source with a known context_length is configured.
                       </p>
-                      {editingAlias.enforce_limits &&
-                        !editingAlias.metadata?.overrides?.context_length &&
-                        !editingAlias.metadata?.overrides?.top_provider?.context_length && (
-                          <p
-                            className="text-[11px] mt-1 flex items-center gap-1"
-                            style={{ color: 'var(--warning)' }}
-                          >
-                            <AlertTriangle size={12} />
-                            No context_length found in metadata — this toggle will have no effect
-                            until a metadata source with a known context_length is configured.
-                          </p>
-                        )}
-                    </div>
-                    <Switch
-                      checked={editingAlias.enforce_limits || false}
-                      onCheckedChange={(val) =>
-                        setEditingAlias({
-                          ...editingAlias,
-                          enforce_limits: val,
-                        })
-                      }
-                      className="scale-75"
+                    )}
+                </div>
+                <Switch
+                  checked={editingAlias.enforce_limits || false}
+                  onCheckedChange={(val) =>
+                    setEditingAlias({
+                      ...editingAlias,
+                      enforce_limits: val,
+                    })
+                  }
+                  className="scale-75"
+                />
+              </div>
+            </div>
+
+            <div className="h-px bg-border-glass"></div>
+
+            {/* ── Additional Aliases ── */}
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '4px',
+                }}
+              >
+                <label
+                  className="text-[13px] font-medium text-foreground-muted"
+                  style={{ marginBottom: 0 }}
+                >
+                  Additional Aliases
+                </label>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={addAlias}
+                  leftIcon={<Plus size={14} />}
+                >
+                  Add Alias
+                </Button>
+              </div>
+
+              {(!editingAlias.aliases || editingAlias.aliases.length === 0) && (
+                <div className="text-foreground-muted italic text-center text-sm py-2">
+                  No additional aliases
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {editingAlias.aliases?.map((alias, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '8px' }}>
+                    <Input
+                      value={alias}
+                      onChange={(e) => updateAlias(idx, e.target.value)}
+                      placeholder="e.g. gpt4"
+                      style={{ flex: 1 }}
                     />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAlias(idx)}
+                      style={{ color: 'var(--danger)' }}
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Section>
+
+          <div className="h-px bg-border-glass" style={{ margin: '4px 0' }}></div>
+
+          {/* Metadata */}
+          <Section
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                <BookOpen size={13} className="text-foreground-muted" />
+                Metadata
+              </span>
+            }
+            collapsible
+            open={isMetadataOpen}
+            onOpenChange={setIsMetadataOpen}
+            rightSlot={
+              editingAlias.metadata ? (
+                <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border text-primary bg-surface-elevated">
+                  {editingAlias.metadata.source}
+                </span>
+              ) : undefined
+            }
+            bodyStyle={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+          >
+            <p className="text-[11px] text-foreground-muted">
+              Link this alias to a model in an external catalog. When configured, Plexus includes
+              enriched metadata (name, context length, pricing, supported parameters) in the{' '}
+              <code className="text-primary">GET /v1/models</code> response.
+            </p>
+
+            {/* Source selector */}
+            <div>
+              <label
+                className="text-[12px] font-medium text-foreground-muted"
+                style={{ display: 'block', marginBottom: '4px' }}
+              >
+                Source
+              </label>
+              <Select
+                value={editingAlias.metadata?.source ?? 'openrouter'}
+                onValueChange={(v) => {
+                  const source = v as MetadataSource;
+                  const prevSource = editingAlias.metadata?.source;
+                  const existingOverrides = editingAlias.metadata?.overrides;
+                  const existingSourcePath = editingAlias.metadata?.source_path;
+                  // Different catalogs use different path formats (e.g.
+                  // openrouter's "openai/gpt-4.1-nano" ≠ models.dev's
+                  // "openai.gpt-4.1-nano"), so a path from the old catalog
+                  // is always wrong under a new one. Only carry the path
+                  // when the source is unchanged or switching to 'custom'
+                  // (where source_path is a free-form label).
+                  const carryPath = prevSource === source || source === 'custom';
+                  const carriedSourcePath = carryPath ? existingSourcePath : undefined;
+                  let next: AliasMetadata;
+                  if (source === 'custom') {
+                    // Seed defaults, then layer any existing overrides on top so
+                    // user-typed values take precedence while missing required
+                    // fields (e.g., name) still have a sensible default. Nested
+                    // objects (architecture/pricing/top_provider) are merged
+                    // field-by-field so a partial user override (e.g. only
+                    // input_modalities) doesn't wipe default sibling fields
+                    // (e.g. output_modalities).
+                    const defaults = buildCustomDefaults(editingAlias.id);
+                    const existing = existingOverrides ?? {};
+                    const mergedOverrides = {
+                      ...defaults,
+                      ...existing,
+                      ...(defaults.pricing || existing.pricing
+                        ? {
+                            pricing: {
+                              ...(defaults.pricing ?? {}),
+                              ...(existing.pricing ?? {}),
+                            },
+                          }
+                        : {}),
+                      ...(defaults.architecture || existing.architecture
+                        ? {
+                            architecture: {
+                              ...(defaults.architecture ?? {}),
+                              ...(existing.architecture ?? {}),
+                            },
+                          }
+                        : {}),
+                      ...(defaults.top_provider || existing.top_provider
+                        ? {
+                            top_provider: {
+                              ...(defaults.top_provider ?? {}),
+                              ...(existing.top_provider ?? {}),
+                            },
+                          }
+                        : {}),
+                    } as MetadataOverrides & { name: string };
+                    next = {
+                      source: 'custom',
+                      ...(carriedSourcePath ? { source_path: carriedSourcePath } : {}),
+                      overrides: mergedOverrides,
+                    };
+                    setIsOverrideOpen(true);
+                  } else {
+                    next = {
+                      source,
+                      source_path: carriedSourcePath ?? '',
+                      ...(existingOverrides ? { overrides: existingOverrides } : {}),
+                    };
+                  }
+                  setEditingAlias({ ...editingAlias, metadata: next });
+                  // Changing catalogs (or switching to custom) can leave
+                  // a pending debounced search from the prior source that
+                  // would overwrite `metadataResults` with stale data; kill
+                  // it before any conditional re-run below.
+                  if (prevSource !== source) {
+                    cancelMetadataDebounce();
+                    setMetadataResults([]);
+                    setShowMetadataDropdown(false);
+                    setIsMetadataSearching(false);
+                  }
+                  // When we dropped the path, also clear the visible model
+                  // query input so it doesn't show a stale value that no
+                  // longer matches metadata.source_path.
+                  if (!carryPath) setMetadataQuery('');
+                  // Re-run search only when we kept the query (same catalog).
+                  if (carryPath && source !== 'custom' && metadataQuery)
+                    handleMetadataSearch(metadataQuery, source);
+                }}
+              >
+                <SelectTrigger size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openrouter">OpenRouter</SelectItem>
+                  <SelectItem value="models.dev">models.dev</SelectItem>
+                  <SelectItem value="catwalk">Catwalk (Charm)</SelectItem>
+                  <SelectItem value="custom">Custom (manual entry)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Search / source_path — hidden for 'custom' (no catalog) */}
+            {editingAlias.metadata?.source !== 'custom' && (
+              <div style={{ position: 'relative' }}>
+                <label
+                  className="text-[12px] font-medium text-foreground-muted"
+                  style={{ display: 'block', marginBottom: '4px' }}
+                >
+                  Model
+                  {editingAlias.metadata?.source_path && (
+                    <span className="ml-2 font-normal text-foreground-muted">
+                      ({editingAlias.metadata.source_path})
+                    </span>
+                  )}
+                </label>
+                <div style={{ position: 'relative', display: 'flex', gap: '4px' }}>
+                  <div ref={metadataInputWrapperRef} style={{ position: 'relative', flex: 1 }}>
+                    <Input
+                      value={metadataQuery}
+                      onChange={(e) => {
+                        const source = editingAlias.metadata?.source ?? 'openrouter';
+                        handleMetadataSearch(e.target.value, source);
+                        // Update rect so portal dropdown follows the input
+                        if (metadataInputWrapperRef.current) {
+                          const r = metadataInputWrapperRef.current.getBoundingClientRect();
+                          setDropdownRect({ top: r.bottom + 2, left: r.left, width: r.width });
+                        }
+                      }}
+                      onFocus={() => {
+                        if (metadataResults.length > 0) {
+                          if (metadataInputWrapperRef.current) {
+                            const r = metadataInputWrapperRef.current.getBoundingClientRect();
+                            setDropdownRect({
+                              top: r.bottom + 2,
+                              left: r.left,
+                              width: r.width,
+                            });
+                          }
+                          setShowMetadataDropdown(true);
+                        }
+                      }}
+                      placeholder={`Search ${editingAlias.metadata?.source ?? 'openrouter'} catalog...`}
+                      style={{
+                        width: '100%',
+                        paddingRight: isMetadataSearching ? '28px' : undefined,
+                      }}
+                      onBlur={() => setShowMetadataDropdown(false)}
+                    />
+                    {isMetadataSearching && (
+                      <Loader2
+                        size={14}
+                        className="animate-spin text-foreground-muted"
+                        style={{
+                          position: 'absolute',
+                          right: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                        }}
+                      />
+                    )}
+                  </div>
+                  {editingAlias.metadata && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearMetadata}
+                      style={{
+                        color: 'var(--danger)',
+                        padding: '4px',
+                        minHeight: 'auto',
+                      }}
+                      title="Remove metadata"
+                    >
+                      <X size={14} />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Selected metadata preview */}
+            {editingAlias.metadata &&
+              (editingAlias.metadata.source === 'custom' ||
+                editingAlias.metadata.source_path ||
+                editingAlias.metadata.overrides) && (
+                <div
+                  className="rounded-sm border border-border bg-surface-elevated px-3 py-2"
+                  style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CheckCircle size={12} className="text-success" />
+                    <span>
+                      {editingAlias.metadata.source === 'custom' ? (
+                        <>
+                          Custom metadata
+                          {editingAlias.metadata.source_path && (
+                            <>
+                              :{' '}
+                              <code className="text-primary">
+                                {editingAlias.metadata.source_path}
+                              </code>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          Metadata assigned from <strong>{editingAlias.metadata.source}</strong>
+                          {editingAlias.metadata.source_path && (
+                            <>
+                              :{' '}
+                              <code className="text-primary">
+                                {editingAlias.metadata.source_path}
+                              </code>
+                            </>
+                          )}
+                        </>
+                      )}
+                      {countOverrides(editingAlias.metadata) > 0 && (
+                        <span className="ml-2 text-foreground-muted">
+                          + {countOverrides(editingAlias.metadata)} field
+                          {countOverrides(editingAlias.metadata) === 1 ? '' : 's'} overridden
+                        </span>
+                      )}
+                    </span>
                   </div>
                 </div>
+              )}
 
-                <div className="h-px bg-border-glass"></div>
-
-                {/* ── Additional Aliases ── */}
-                <div>
+            {/* Override toggle + editable form */}
+            {editingAlias.metadata && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {editingAlias.metadata.source !== 'custom' && (
                   <div
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      marginBottom: '4px',
                     }}
                   >
-                    <label
-                      className="text-[13px] font-medium text-foreground-muted"
-                      style={{ marginBottom: 0 }}
-                    >
-                      Additional Aliases
-                    </label>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={addAlias}
-                      leftIcon={<Plus size={14} />}
-                    >
-                      Add Alias
-                    </Button>
-                  </div>
-
-                  {(!editingAlias.aliases || editingAlias.aliases.length === 0) && (
-                    <div className="text-foreground-muted italic text-center text-sm py-2">
-                      No additional aliases
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {editingAlias.aliases?.map((alias, idx) => (
-                      <div key={idx} style={{ display: 'flex', gap: '8px' }}>
-                        <Input
-                          value={alias}
-                          onChange={(e) => updateAlias(idx, e.target.value)}
-                          placeholder="e.g. gpt4"
-                          style={{ flex: 1 }}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeAlias(idx)}
-                          style={{ color: 'var(--danger)' }}
-                        >
-                          <Trash2 size={16} />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="h-px bg-border-glass" style={{ margin: '4px 0' }}></div>
-
-          {/* Metadata accordion */}
-          <div className="border border-border rounded-sm overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setIsMetadataOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-surface-elevated hover:bg-surface-elevated transition-colors duration-150 text-left"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <BookOpen size={13} className="text-foreground-muted" />
-                <span className="text-[13px] font-medium text-foreground-muted">Metadata</span>
-                {editingAlias.metadata && (
-                  <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border text-primary bg-surface-elevated">
-                    {editingAlias.metadata.source}
-                  </span>
-                )}
-              </div>
-              {isMetadataOpen ? (
-                <ChevronDown size={14} className="text-foreground-muted" />
-              ) : (
-                <ChevronRight size={14} className="text-foreground-muted" />
-              )}
-            </button>
-
-            {isMetadataOpen && (
-              <div
-                className="px-3 py-3 border-t border-border"
-                style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
-              >
-                <p className="text-[11px] text-foreground-muted">
-                  Link this alias to a model in an external catalog. When configured, Plexus
-                  includes enriched metadata (name, context length, pricing, supported parameters)
-                  in the <code className="text-primary">GET /v1/models</code> response.
-                </p>
-
-                {/* Source selector */}
-                <div>
-                  <label
-                    className="text-[12px] font-medium text-foreground-muted"
-                    style={{ display: 'block', marginBottom: '4px' }}
-                  >
-                    Source
-                  </label>
-                  <Select
-                    value={editingAlias.metadata?.source ?? 'openrouter'}
-                    onValueChange={(v) => {
-                      const source = v as MetadataSource;
-                      const prevSource = editingAlias.metadata?.source;
-                      const existingOverrides = editingAlias.metadata?.overrides;
-                      const existingSourcePath = editingAlias.metadata?.source_path;
-                      // Different catalogs use different path formats (e.g.
-                      // openrouter's "openai/gpt-4.1-nano" ≠ models.dev's
-                      // "openai.gpt-4.1-nano"), so a path from the old catalog
-                      // is always wrong under a new one. Only carry the path
-                      // when the source is unchanged or switching to 'custom'
-                      // (where source_path is a free-form label).
-                      const carryPath = prevSource === source || source === 'custom';
-                      const carriedSourcePath = carryPath ? existingSourcePath : undefined;
-                      let next: AliasMetadata;
-                      if (source === 'custom') {
-                        // Seed defaults, then layer any existing overrides on top so
-                        // user-typed values take precedence while missing required
-                        // fields (e.g., name) still have a sensible default. Nested
-                        // objects (architecture/pricing/top_provider) are merged
-                        // field-by-field so a partial user override (e.g. only
-                        // input_modalities) doesn't wipe default sibling fields
-                        // (e.g. output_modalities).
-                        const defaults = buildCustomDefaults(editingAlias.id);
-                        const existing = existingOverrides ?? {};
-                        const mergedOverrides = {
-                          ...defaults,
-                          ...existing,
-                          ...(defaults.pricing || existing.pricing
-                            ? {
-                                pricing: {
-                                  ...(defaults.pricing ?? {}),
-                                  ...(existing.pricing ?? {}),
-                                },
-                              }
-                            : {}),
-                          ...(defaults.architecture || existing.architecture
-                            ? {
-                                architecture: {
-                                  ...(defaults.architecture ?? {}),
-                                  ...(existing.architecture ?? {}),
-                                },
-                              }
-                            : {}),
-                          ...(defaults.top_provider || existing.top_provider
-                            ? {
-                                top_provider: {
-                                  ...(defaults.top_provider ?? {}),
-                                  ...(existing.top_provider ?? {}),
-                                },
-                              }
-                            : {}),
-                        } as MetadataOverrides & { name: string };
-                        next = {
-                          source: 'custom',
-                          ...(carriedSourcePath ? { source_path: carriedSourcePath } : {}),
-                          overrides: mergedOverrides,
-                        };
-                        setIsOverrideOpen(true);
-                      } else {
-                        next = {
-                          source,
-                          source_path: carriedSourcePath ?? '',
-                          ...(existingOverrides ? { overrides: existingOverrides } : {}),
-                        };
-                      }
-                      setEditingAlias({ ...editingAlias, metadata: next });
-                      // Changing catalogs (or switching to custom) can leave
-                      // a pending debounced search from the prior source that
-                      // would overwrite `metadataResults` with stale data; kill
-                      // it before any conditional re-run below.
-                      if (prevSource !== source) {
-                        cancelMetadataDebounce();
-                        setMetadataResults([]);
-                        setShowMetadataDropdown(false);
-                        setIsMetadataSearching(false);
-                      }
-                      // When we dropped the path, also clear the visible model
-                      // query input so it doesn't show a stale value that no
-                      // longer matches metadata.source_path.
-                      if (!carryPath) setMetadataQuery('');
-                      // Re-run search only when we kept the query (same catalog).
-                      if (carryPath && source !== 'custom' && metadataQuery)
-                        handleMetadataSearch(metadataQuery, source);
-                    }}
-                  >
-                    <SelectTrigger size="sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="openrouter">OpenRouter</SelectItem>
-                      <SelectItem value="models.dev">models.dev</SelectItem>
-                      <SelectItem value="catwalk">Catwalk (Charm)</SelectItem>
-                      <SelectItem value="custom">Custom (manual entry)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Search / source_path — hidden for 'custom' (no catalog) */}
-                {editingAlias.metadata?.source !== 'custom' && (
-                  <div style={{ position: 'relative' }}>
                     <label
                       className="text-[12px] font-medium text-foreground-muted"
-                      style={{ display: 'block', marginBottom: '4px' }}
+                      style={{ marginBottom: 0 }}
                     >
-                      Model
-                      {editingAlias.metadata?.source_path && (
-                        <span className="ml-2 font-normal text-foreground-muted">
-                          ({editingAlias.metadata.source_path})
-                        </span>
-                      )}
+                      Override catalog fields
                     </label>
-                    <div style={{ position: 'relative', display: 'flex', gap: '4px' }}>
-                      <div ref={metadataInputWrapperRef} style={{ position: 'relative', flex: 1 }}>
-                        <Input
-                          value={metadataQuery}
-                          onChange={(e) => {
-                            const source = editingAlias.metadata?.source ?? 'openrouter';
-                            handleMetadataSearch(e.target.value, source);
-                            // Update rect so portal dropdown follows the input
-                            if (metadataInputWrapperRef.current) {
-                              const r = metadataInputWrapperRef.current.getBoundingClientRect();
-                              setDropdownRect({ top: r.bottom + 2, left: r.left, width: r.width });
-                            }
-                          }}
-                          onFocus={() => {
-                            if (metadataResults.length > 0) {
-                              if (metadataInputWrapperRef.current) {
-                                const r = metadataInputWrapperRef.current.getBoundingClientRect();
-                                setDropdownRect({
-                                  top: r.bottom + 2,
-                                  left: r.left,
-                                  width: r.width,
-                                });
-                              }
-                              setShowMetadataDropdown(true);
-                            }
-                          }}
-                          placeholder={`Search ${editingAlias.metadata?.source ?? 'openrouter'} catalog...`}
-                          style={{
-                            width: '100%',
-                            paddingRight: isMetadataSearching ? '28px' : undefined,
-                          }}
-                          onBlur={() => setShowMetadataDropdown(false)}
-                        />
-                        {isMetadataSearching && (
-                          <Loader2
-                            size={14}
-                            className="animate-spin text-foreground-muted"
-                            style={{
-                              position: 'absolute',
-                              right: '8px',
-                              top: '50%',
-                              transform: 'translateY(-50%)',
-                            }}
-                          />
-                        )}
-                      </div>
-                      {editingAlias.metadata && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={clearMetadata}
-                          style={{
-                            color: 'var(--danger)',
-                            padding: '4px',
-                            minHeight: 'auto',
-                          }}
-                          title="Remove metadata"
-                        >
-                          <X size={14} />
-                        </Button>
-                      )}
-                    </div>
+                    <Switch
+                      checked={isOverrideOpen}
+                      onCheckedChange={(v) => {
+                        setIsOverrideOpen(v);
+                        if (!v) {
+                          // Flipping override off clears any existing overrides.
+                          const current = editingAlias.metadata;
+                          if (current) {
+                            const { overrides: _o, ...rest } = current;
+                            setEditingAlias({
+                              ...editingAlias,
+                              metadata: rest as AliasMetadata,
+                            });
+                          }
+                        } else {
+                          // Flipping override on auto-populates the form with
+                          // the catalog's current values so the user sees what
+                          // they're overriding instead of a blank form.
+                          const cur = editingAlias.metadata;
+                          if (cur && cur.source !== 'custom' && cur.source_path) {
+                            populateOverridesFromCatalog(cur.source, cur.source_path);
+                          }
+                        }
+                      }}
+                    />
                   </div>
                 )}
 
-                {/* Selected metadata preview */}
-                {editingAlias.metadata &&
-                  (editingAlias.metadata.source === 'custom' ||
-                    editingAlias.metadata.source_path ||
-                    editingAlias.metadata.overrides) && (
-                    <div
-                      className="rounded-sm border border-border bg-surface-elevated px-3 py-2"
-                      style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <CheckCircle size={12} className="text-success" />
-                        <span>
-                          {editingAlias.metadata.source === 'custom' ? (
-                            <>
-                              Custom metadata
-                              {editingAlias.metadata.source_path && (
-                                <>
-                                  :{' '}
-                                  <code className="text-primary">
-                                    {editingAlias.metadata.source_path}
-                                  </code>
-                                </>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              Metadata assigned from <strong>{editingAlias.metadata.source}</strong>
-                              {editingAlias.metadata.source_path && (
-                                <>
-                                  :{' '}
-                                  <code className="text-primary">
-                                    {editingAlias.metadata.source_path}
-                                  </code>
-                                </>
-                              )}
-                            </>
-                          )}
-                          {countOverrides(editingAlias.metadata) > 0 && (
-                            <span className="ml-2 text-foreground-muted">
-                              + {countOverrides(editingAlias.metadata)} field
-                              {countOverrides(editingAlias.metadata) === 1 ? '' : 's'} overridden
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                {/* Override toggle + editable form */}
-                {editingAlias.metadata && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {editingAlias.metadata.source !== 'custom' && (
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <label
-                          className="text-[12px] font-medium text-foreground-muted"
-                          style={{ marginBottom: 0 }}
-                        >
-                          Override catalog fields
-                        </label>
-                        <Switch
-                          checked={isOverrideOpen}
-                          onCheckedChange={(v) => {
-                            setIsOverrideOpen(v);
-                            if (!v) {
-                              // Flipping override off clears any existing overrides.
-                              const current = editingAlias.metadata;
-                              if (current) {
-                                const { overrides: _o, ...rest } = current;
-                                setEditingAlias({
-                                  ...editingAlias,
-                                  metadata: rest as AliasMetadata,
-                                });
-                              }
-                            } else {
-                              // Flipping override on auto-populates the form with
-                              // the catalog's current values so the user sees what
-                              // they're overriding instead of a blank form.
-                              const cur = editingAlias.metadata;
-                              if (cur && cur.source !== 'custom' && cur.source_path) {
-                                populateOverridesFromCatalog(cur.source, cur.source_path);
-                              }
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {(isOverrideOpen || editingAlias.metadata.source === 'custom') && (
-                      <MetadataOverrideForm
-                        overrides={editingAlias.metadata.overrides ?? {}}
-                        isCustom={editingAlias.metadata.source === 'custom'}
-                        onSetField={setOverrideField}
-                        onSetPricing={setPricingField}
-                        onSetArchitecture={setArchitectureField}
-                        onSetTopProvider={setTopProviderField}
-                      />
-                    )}
-                  </div>
+                {(isOverrideOpen || editingAlias.metadata.source === 'custom') && (
+                  <MetadataOverrideForm
+                    overrides={editingAlias.metadata.overrides ?? {}}
+                    isCustom={editingAlias.metadata.source === 'custom'}
+                    onSetField={setOverrideField}
+                    onSetPricing={setPricingField}
+                    onSetArchitecture={setArchitectureField}
+                    onSetTopProvider={setTopProviderField}
+                  />
                 )}
               </div>
             )}
-          </div>
+          </Section>
 
           <div className="h-px bg-border-glass" style={{ margin: '4px 0' }}></div>
 

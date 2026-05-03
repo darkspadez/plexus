@@ -22,7 +22,8 @@ import {
 import { Input } from '../../components/ui-v2/input';
 import { Button } from '../../components/ui-v2/button';
 import { Switch } from '../../components/ui-v2/switch';
-import { Label } from '../../components/ui-v2/label';
+import { Section } from '../../components/ui-v2/section';
+import { Pill } from '../../components/chips/Pill';
 import {
   mcpServerFormSchema,
   type McpServerFormValues,
@@ -171,77 +172,87 @@ export const McpServerSheet: React.FC<Props> = ({ open, onOpenChange, editingNam
                 )}
               />
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Headers</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => headers.append({ key: '', value: '' })}
-                  >
-                    <Plus strokeWidth={1.75} /> Add header
-                  </Button>
-                </div>
+              <Section
+                title="Headers"
+                collapsible
+                defaultOpen={headers.fields.length > 0}
+                rightSlot={
+                  <>
+                    <Pill tone={headers.fields.length > 0 ? 'accent' : 'neutral'} size="sm">
+                      {headers.fields.length}
+                    </Pill>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        headers.append({ key: '', value: '' });
+                      }}
+                    >
+                      <Plus strokeWidth={1.75} />
+                    </Button>
+                  </>
+                }
+                bodyClassName="space-y-2"
+              >
                 {headers.fields.length === 0 ? (
                   <p className="rounded-md border border-dashed border-border bg-surface-sunken px-3 py-2 text-xs text-foreground-muted">
                     No custom headers.
                   </p>
                 ) : (
-                  <div className="space-y-2">
-                    {headers.fields.map((field, idx) => (
-                      <div key={field.id} className="flex items-start gap-2">
-                        <div className="flex-1">
-                          <FormField
-                            control={form.control}
-                            name={`headers.${idx}.key`}
-                            render={({ field: f }) => (
-                              <FormItem>
-                                <FormControl>
-                                  <Input
-                                    {...f}
-                                    placeholder="Authorization"
-                                    aria-label={`Header ${idx + 1} name`}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <FormField
-                            control={form.control}
-                            name={`headers.${idx}.value`}
-                            render={({ field: f }) => (
-                              <FormItem>
-                                <FormControl>
-                                  <Input
-                                    {...f}
-                                    placeholder="Bearer …"
-                                    aria-label={`Header ${idx + 1} value`}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 shrink-0 text-foreground-muted hover:text-danger"
-                          aria-label="Remove header"
-                          onClick={() => headers.remove(idx)}
-                        >
-                          <Trash2 strokeWidth={1.75} />
-                        </Button>
+                  headers.fields.map((field, idx) => (
+                    <div key={field.id} className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <FormField
+                          control={form.control}
+                          name={`headers.${idx}.key`}
+                          render={({ field: f }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input
+                                  {...f}
+                                  placeholder="Authorization"
+                                  aria-label={`Header ${idx + 1} name`}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
-                    ))}
-                  </div>
+                      <div className="flex-1">
+                        <FormField
+                          control={form.control}
+                          name={`headers.${idx}.value`}
+                          render={({ field: f }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input
+                                  {...f}
+                                  placeholder="Bearer …"
+                                  aria-label={`Header ${idx + 1} value`}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-foreground-muted hover:text-danger"
+                        aria-label="Remove header"
+                        onClick={() => headers.remove(idx)}
+                      >
+                        <Trash2 strokeWidth={1.75} />
+                      </Button>
+                    </div>
+                  ))
                 )}
-              </div>
+              </Section>
             </div>
 
             <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface px-6 py-3">
