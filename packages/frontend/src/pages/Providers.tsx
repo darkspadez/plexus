@@ -1189,7 +1189,6 @@ export const Providers = () => {
                         style={{ paddingLeft: '24px' }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Edit2 size={12} style={{ opacity: 0.5 }} />
                           <div style={{ fontWeight: 600 }}>{p.id}</div>
                           <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
                             ( {p.name} )
@@ -1222,18 +1221,29 @@ export const Providers = () => {
                         className="px-4 py-3 text-left border-b border-border text-foreground"
                         style={{ paddingRight: '24px', textAlign: 'right' }}
                       >
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                          <Button
-                            size="sm"
-                            variant="ghost"
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(p);
+                            }}
+                            className="rounded p-1 text-foreground-muted opacity-60 transition-all hover:bg-surface-elevated hover:text-foreground hover:opacity-100"
+                            aria-label="Edit provider"
+                          >
+                            <Edit2 className="size-3.5" strokeWidth={1.75} />
+                          </button>
+                          <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               openDeleteModal(p);
                             }}
-                            style={{ color: 'var(--danger)' }}
+                            className="rounded p-1 text-foreground-muted opacity-60 transition-all hover:bg-danger-subtle hover:text-danger hover:opacity-100"
+                            aria-label="Delete provider"
                           >
-                            <Trash2 size={14} />
-                          </Button>
+                            <Trash2 className="size-3.5" strokeWidth={1.75} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -2155,7 +2165,6 @@ export const Providers = () => {
                 collapsible
                 open={isApiBaseUrlsOpen}
                 onOpenChange={setIsApiBaseUrlsOpen}
-                info={BASE_URL_TYPES_TOOLTIP}
                 rightSlot={
                   <>
                     <Pill tone="neutral" size="sm">
@@ -2181,6 +2190,36 @@ export const Providers = () => {
                   padding: '8px',
                 }}
               >
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '140px 1fr 28px',
+                    gap: '8px',
+                    alignItems: 'center',
+                  }}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] font-medium text-foreground-muted">Type</span>
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-foreground-muted hover:text-foreground inline-flex items-center"
+                            aria-label="API type information"
+                          >
+                            <Info size={12} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[360px]">
+                          {BASE_URL_TYPES_TOOLTIP}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <span className="text-[11px] font-medium text-foreground-muted">Base URL</span>
+                  <span />
+                </div>
                 {Object.entries(getApiBaseUrlMap()).slice(1).length === 0 && (
                   <div className="text-[11px] text-foreground-muted italic">
                     No additional base URLs configured.
@@ -2208,7 +2247,7 @@ export const Providers = () => {
                         <div
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: '140px 1fr auto',
+                            gridTemplateColumns: '140px 1fr 28px',
                             gap: '8px',
                             alignItems: 'center',
                           }}
@@ -2654,7 +2693,28 @@ export const Providers = () => {
 
             {/* Estimate Tokens */}
             <div className="border border-border rounded-md p-3 bg-surface-elevated">
-              <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: '12px',
+                  alignItems: 'center',
+                }}
+              >
+                <div className="flex flex-col gap-1">
+                  <label
+                    className="text-[13px] font-medium text-foreground"
+                    style={{ marginBottom: 0 }}
+                  >
+                    Estimate Tokens
+                  </label>
+                  <div className="text-[11px] text-foreground-muted" style={{ lineHeight: 1.35 }}>
+                    Enable token estimation only when a provider does not return usage data.
+                    <span className="text-warning" style={{ marginLeft: '6px' }}>
+                      Use sparingly—this is rarely needed.
+                    </span>
+                  </div>
+                </div>
                 <Switch
                   checked={editingProvider.estimateTokens || false}
                   onCheckedChange={(checked) =>
@@ -2664,27 +2724,34 @@ export const Providers = () => {
                     })
                   }
                 />
-                <label
-                  className="text-[13px] font-medium text-foreground"
-                  style={{ marginBottom: 0 }}
-                >
-                  Estimate Tokens
-                </label>
-              </div>
-              <div
-                className="text-[11px] text-foreground-muted"
-                style={{ lineHeight: 1.35, marginTop: '4px' }}
-              >
-                Enable token estimation only when a provider does not return usage data.
-                <span className="text-warning" style={{ marginLeft: '6px' }}>
-                  Use sparingly—this is rarely needed.
-                </span>
               </div>
             </div>
 
             {/* Disable Cooldown */}
             <div className="border border-border rounded-md p-3 bg-surface-elevated">
-              <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: '12px',
+                  alignItems: 'center',
+                }}
+              >
+                <div className="flex flex-col gap-1">
+                  <label
+                    className="text-[13px] font-medium text-foreground"
+                    style={{ marginBottom: 0 }}
+                  >
+                    Disable Cooldowns
+                  </label>
+                  <div className="text-[11px] text-foreground-muted" style={{ lineHeight: 1.35 }}>
+                    When enabled, this provider will never be placed on cooldown due to errors — it
+                    will always remain eligible for routing regardless of consecutive failures.
+                    <span className="text-warning" style={{ marginLeft: '6px' }}>
+                      Use only for providers with reliable external rate-limit handling.
+                    </span>
+                  </div>
+                </div>
                 <Switch
                   checked={editingProvider.disableCooldown || false}
                   onCheckedChange={(checked) =>
@@ -2694,28 +2761,36 @@ export const Providers = () => {
                     })
                   }
                 />
-                <label
-                  className="text-[13px] font-medium text-foreground"
-                  style={{ marginBottom: 0 }}
-                >
-                  Disable Cooldowns
-                </label>
-              </div>
-              <div
-                className="text-[11px] text-foreground-muted"
-                style={{ lineHeight: 1.35, marginTop: '4px' }}
-              >
-                When enabled, this provider will never be placed on cooldown due to errors — it will
-                always remain eligible for routing regardless of consecutive failures.
-                <span className="text-warning" style={{ marginLeft: '6px' }}>
-                  Use only for providers with reliable external rate-limit handling.
-                </span>
               </div>
             </div>
 
             {/* Use Claude Masking */}
             <div className="border border-border rounded-md p-3 bg-surface-elevated">
-              <div className="flex items-center gap-2" style={{ minHeight: '38px' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: '12px',
+                  alignItems: 'center',
+                }}
+              >
+                <div className="flex flex-col gap-1">
+                  <label
+                    className="text-[13px] font-medium text-foreground"
+                    style={{ marginBottom: 0 }}
+                  >
+                    Use Claude Masking
+                  </label>
+                  <div className="text-[11px] text-foreground-muted" style={{ lineHeight: 1.35 }}>
+                    When enabled, requests to this Anthropic provider will be masked as Claude Code
+                    CLI sessions — tool names are prefixed to avoid conflicts with built-in tools,
+                    and Claude Code headers are injected. Applies regardless of API key type or
+                    OAuth.
+                    <span className="text-warning" style={{ marginLeft: '6px' }}>
+                      Only effective for Anthropic providers.
+                    </span>
+                  </div>
+                </div>
                 <Switch
                   checked={editingProvider.useClaudeMasking || false}
                   onCheckedChange={(checked) =>
@@ -2725,23 +2800,6 @@ export const Providers = () => {
                     })
                   }
                 />
-                <label
-                  className="text-[13px] font-medium text-foreground"
-                  style={{ marginBottom: 0 }}
-                >
-                  Use Claude Masking
-                </label>
-              </div>
-              <div
-                className="text-[11px] text-foreground-muted"
-                style={{ lineHeight: 1.35, marginTop: '4px' }}
-              >
-                When enabled, requests to this Anthropic provider will be masked as Claude Code CLI
-                sessions — tool names are prefixed to avoid conflicts with built-in tools, and
-                Claude Code headers are injected. Applies regardless of API key type or OAuth.
-                <span className="text-warning" style={{ marginLeft: '6px' }}>
-                  Only effective for Anthropic providers.
-                </span>
               </div>
             </div>
           </Section>
