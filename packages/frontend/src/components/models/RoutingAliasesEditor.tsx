@@ -52,7 +52,7 @@ export const RoutingAliasesEditor: React.FC<RoutingAliasesEditorProps> = ({
             <button
               type="button"
               onClick={() => remove(a)}
-              className="ml-1 -mr-1 rounded p-0.5 text-foreground-muted hover:bg-danger-subtle hover:text-danger"
+              className="ml-1 -mr-1 cursor-pointer rounded p-0.5 text-foreground-muted hover:bg-danger-subtle hover:text-danger"
               aria-label={`Remove alias ${a}`}
             >
               <X size={10} strokeWidth={2.5} />
@@ -79,7 +79,7 @@ export const RoutingAliasesEditor: React.FC<RoutingAliasesEditorProps> = ({
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-0.5 text-[11px] font-medium text-foreground-muted hover:border-accent hover:text-accent"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-dashed border-border px-2 py-0.5 text-[11px] font-medium text-foreground-muted hover:border-accent hover:text-accent"
           >
             <Plus size={11} strokeWidth={2} />
             Add alias

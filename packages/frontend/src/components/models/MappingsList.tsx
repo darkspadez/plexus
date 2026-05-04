@@ -111,7 +111,7 @@ export const MappingsList: React.FC<MappingsListProps> = ({
       <button
         type="button"
         onClick={addBlank}
-        className="inline-flex items-center justify-center gap-1 rounded-md border border-dashed border-border py-2 text-[12px] font-medium text-foreground-muted transition-colors hover:border-accent hover:text-accent"
+        className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-dashed border-border py-2 text-[12px] font-medium text-foreground-muted transition-colors hover:border-accent hover:text-accent"
       >
         <Plus size={13} strokeWidth={2} />
         Add mapping

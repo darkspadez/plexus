@@ -141,7 +141,7 @@ export const MappingRow: React.FC<MappingRowProps> = ({
         type="button"
         onClick={onTest}
         disabled={isDisabled || !target.provider || !target.model}
-        className="rounded p-1 text-foreground-muted hover:bg-surface hover:text-accent disabled:opacity-40"
+        className="cursor-pointer rounded p-1 text-foreground-muted hover:bg-success-subtle hover:text-success disabled:cursor-not-allowed disabled:opacity-40"
         aria-label="Test mapping"
         title={testState?.message || 'Test'}
       >
@@ -158,7 +158,7 @@ export const MappingRow: React.FC<MappingRowProps> = ({
       <button
         type="button"
         onClick={onDelete}
-        className="rounded p-1 text-foreground-muted hover:bg-danger-subtle hover:text-danger"
+        className="cursor-pointer rounded p-1 text-foreground-muted hover:bg-danger-subtle hover:text-danger"
         aria-label="Delete mapping"
       >
         <Trash2 size={14} />
