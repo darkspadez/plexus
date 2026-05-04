@@ -97,6 +97,7 @@ export const Models = () => {
     handleDelete: hookDelete,
     handleUpdateAlias,
     handleTestTarget,
+    handleTestAllTargets,
     loadData,
   } = useModels();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1054,14 +1055,19 @@ export const Models = () => {
               <tbody>
                 {filteredAliases.map((alias) => {
                   const isExpanded = expandedAliases.has(alias.id);
+                  const isTesting = alias.targets.some(
+                    (_, i) => testStates[`${alias.id}-${i}`]?.loading === true
+                  );
                   return (
                     <React.Fragment key={alias.id}>
                       <AliasTableRow
                         alias={alias}
                         isExpanded={isExpanded}
+                        isTesting={isTesting}
                         onToggleExpand={() => toggleExpanded(alias.id)}
                         onEdit={handleEdit}
                         onDelete={handleDeleteClick}
+                        onTestAll={handleTestAllTargets}
                       />
                       {isExpanded && (
                         <AliasExpandedRow

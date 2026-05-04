@@ -1,6 +1,7 @@
 // packages/frontend/src/components/models/AliasExpandedRow.tsx
 import React from 'react';
 import { Alias, Cooldown, Model, Provider } from '../../lib/api';
+import { getAliasTestApiTypes } from '../../hooks/useModels';
 import { MappingsList } from './MappingsList';
 import { RoutingAliasesEditor } from './RoutingAliasesEditor';
 
@@ -38,12 +39,7 @@ export const AliasExpandedRow: React.FC<AliasExpandedRowProps> = ({
   onUpdateAlias,
   onTestTarget,
 }) => {
-  const aliasTestApiTypes = (() => {
-    if (alias.type === 'embeddings') return ['embeddings'];
-    if (alias.type === 'image') return ['images'];
-    if (alias.type === 'responses') return ['responses'];
-    return ['chat'];
-  })();
+  const aliasTestApiTypes = getAliasTestApiTypes(alias);
 
   return (
     <tr className="bg-surface-subtle">

@@ -25,7 +25,7 @@ export const AliasIdentityCell: React.FC<AliasIdentityCellProps> = ({
           e.stopPropagation();
           onToggleExpand();
         }}
-        className="flex size-5 items-center justify-center rounded text-foreground-muted hover:bg-surface-elevated hover:text-foreground"
+        className="flex size-5 cursor-pointer items-center justify-center rounded text-foreground-muted hover:bg-surface-elevated hover:text-foreground"
         aria-label={isExpanded ? 'Collapse model' : 'Expand model'}
         aria-expanded={isExpanded}
       >

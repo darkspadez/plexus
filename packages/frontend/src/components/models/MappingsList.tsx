@@ -74,7 +74,7 @@ export const MappingsList: React.FC<MappingsListProps> = ({
   };
 
   const addBlank = () => {
-    onChange([...targets, { provider: '', model: '', enabled: true }]);
+    onChange([...targets, { provider: '', model: '', enabled: false }]);
   };
 
   return (

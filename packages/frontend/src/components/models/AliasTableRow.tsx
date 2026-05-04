@@ -1,6 +1,6 @@
 // packages/frontend/src/components/models/AliasTableRow.tsx
 import React from 'react';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit2, Loader2, Play, Trash2 } from 'lucide-react';
 import { Alias } from '../../lib/api';
 import { Pill } from '../chips/Pill';
 import { ActiveDots } from './ActiveDots';
@@ -10,23 +10,31 @@ import { ModelTypeBadge } from './ModelTypeBadge';
 interface AliasTableRowProps {
   alias: Alias;
   isExpanded: boolean;
+  isTesting: boolean;
   onToggleExpand: () => void;
   onEdit: (alias: Alias) => void;
   onDelete: (alias: Alias) => void;
+  onTestAll: (alias: Alias) => void;
 }
 
 export const AliasTableRow: React.FC<AliasTableRowProps> = ({
   alias,
   isExpanded,
+  isTesting,
   onToggleExpand,
   onEdit,
   onDelete,
+  onTestAll,
 }) => {
   const total = alias.targets.length;
   const active = alias.targets.filter((t) => t.enabled !== false).length;
+  const testableCount = alias.targets.filter(
+    (t) => t.enabled !== false && t.provider && t.model
+  ).length;
+  const testDisabled = isTesting || testableCount === 0;
 
   return (
-    <tr className="hover:bg-surface-elevated">
+    <tr className="cursor-pointer hover:bg-surface-elevated" onClick={onToggleExpand}>
       <td
         className="border-b border-border px-4 py-3 text-left text-foreground"
         style={{ paddingLeft: '24px' }}
@@ -67,9 +75,26 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              onTestAll(alias);
+            }}
+            disabled={testDisabled}
+            className="cursor-pointer rounded p-1 text-foreground-muted opacity-60 transition-all hover:bg-success-subtle hover:text-success hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-foreground-muted"
+            aria-label="Test all targets"
+            title={isTesting ? 'Testing…' : 'Test all targets'}
+          >
+            {isTesting ? (
+              <Loader2 className="size-3.5 animate-spin" strokeWidth={1.75} />
+            ) : (
+              <Play className="size-3.5" strokeWidth={1.75} />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
               onEdit(alias);
             }}
-            className="rounded p-1 text-foreground-muted opacity-60 transition-all hover:bg-surface-elevated hover:text-foreground hover:opacity-100"
+            className="cursor-pointer rounded p-1 text-foreground-muted opacity-60 transition-all hover:bg-accent-subtle hover:text-accent hover:opacity-100"
             aria-label="Edit alias"
           >
             <Edit2 className="size-3.5" strokeWidth={1.75} />
@@ -80,7 +105,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
               e.stopPropagation();
               onDelete(alias);
             }}
-            className="rounded p-1 text-foreground-muted opacity-60 transition-all hover:bg-danger-subtle hover:text-danger hover:opacity-100"
+            className="cursor-pointer rounded p-1 text-foreground-muted opacity-60 transition-all hover:bg-danger-subtle hover:text-danger hover:opacity-100"
             aria-label="Delete alias"
           >
             <Trash2 className="size-3.5" strokeWidth={1.75} />

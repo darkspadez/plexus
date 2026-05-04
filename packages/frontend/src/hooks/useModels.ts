@@ -10,6 +10,13 @@ const EMPTY_ALIAS: Alias = {
   targets: [],
 };
 
+export const getAliasTestApiTypes = (alias: Alias): string[] => {
+  if (alias.type === 'embeddings') return ['embeddings'];
+  if (alias.type === 'image') return ['images'];
+  if (alias.type === 'responses') return ['responses'];
+  return ['chat'];
+};
+
 export const useModels = () => {
   const toast = useToast();
   const [aliases, setAliases] = useState<Alias[]>([]);
@@ -170,6 +177,15 @@ export const useModels = () => {
     }
   };
 
+  const handleTestAllTargets = (alias: Alias) => {
+    const apiTypes = getAliasTestApiTypes(alias);
+    alias.targets.forEach((t, i) => {
+      if (t.enabled === false) return;
+      if (!t.provider || !t.model) return;
+      handleTestTarget(alias.id, i, t.provider, t.model, apiTypes);
+    });
+  };
+
   const filteredAliases = aliases.filter((a) => a.id.toLowerCase().includes(search.toLowerCase()));
 
   return {
@@ -195,6 +211,7 @@ export const useModels = () => {
     handleDeleteAll,
     handleUpdateAlias,
     handleTestTarget,
+    handleTestAllTargets,
     loadData,
   };
 };
