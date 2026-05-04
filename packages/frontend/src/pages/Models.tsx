@@ -1062,6 +1062,7 @@ export const Models = () => {
                     <React.Fragment key={alias.id}>
                       <AliasTableRow
                         alias={alias}
+                        cooldowns={cooldowns}
                         isExpanded={isExpanded}
                         isTesting={isTesting}
                         onToggleExpand={() => toggleExpanded(alias.id)}

@@ -1,14 +1,15 @@
 // packages/frontend/src/components/models/AliasTableRow.tsx
 import React from 'react';
 import { Edit2, Loader2, Play, Trash2 } from 'lucide-react';
-import { Alias } from '../../lib/api';
+import { Alias, Cooldown } from '../../lib/api';
 import { Pill } from '../chips/Pill';
-import { ActiveDots } from './ActiveDots';
+import { ActiveDots, DotState } from './ActiveDots';
 import { AliasIdentityCell } from './AliasIdentityCell';
 import { ModelTypeBadge } from './ModelTypeBadge';
 
 interface AliasTableRowProps {
   alias: Alias;
+  cooldowns: Cooldown[];
   isExpanded: boolean;
   isTesting: boolean;
   onToggleExpand: () => void;
@@ -19,6 +20,7 @@ interface AliasTableRowProps {
 
 export const AliasTableRow: React.FC<AliasTableRowProps> = ({
   alias,
+  cooldowns,
   isExpanded,
   isTesting,
   onToggleExpand,
@@ -26,8 +28,13 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
   onDelete,
   onTestAll,
 }) => {
-  const total = alias.targets.length;
-  const active = alias.targets.filter((t) => t.enabled !== false).length;
+  const dotStates: DotState[] = alias.targets.map((t) => {
+    if (t.enabled === false) return 'disabled';
+    const onCooldown = cooldowns.some(
+      (c) => c.provider === t.provider && c.model === t.model && !c.accountId
+    );
+    return onCooldown ? 'cooldown' : 'active';
+  });
   const testableCount = alias.targets.filter(
     (t) => t.enabled !== false && t.provider && t.model
   ).length;
@@ -64,7 +71,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
         )}
       </td>
       <td className="border-b border-border px-4 py-3 text-left text-foreground">
-        <ActiveDots total={total} active={active} />
+        <ActiveDots states={dotStates} />
       </td>
       <td
         className="border-b border-border px-4 py-3 text-foreground"
