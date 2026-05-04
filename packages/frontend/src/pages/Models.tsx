@@ -71,7 +71,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
-const COLUMN_COUNT = 5;
+const COLUMN_COUNT = 6;
 
 export const Models = () => {
   const toast = useToast();
@@ -1029,13 +1029,16 @@ export const Models = () => {
                     className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
                     style={{ paddingLeft: '24px' }}
                   >
-                    Alias
+                    Model
                   </th>
                   <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                     Type
                   </th>
                   <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                     Selector
+                  </th>
+                  <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                    Metadata
                   </th>
                   <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                     Active

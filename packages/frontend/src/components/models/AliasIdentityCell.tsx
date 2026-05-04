@@ -11,17 +11,12 @@ interface AliasIdentityCellProps {
   onToggleExpand: () => void;
 }
 
-const INLINE_LIMIT = 2;
-
 export const AliasIdentityCell: React.FC<AliasIdentityCellProps> = ({
   id,
   aliases,
   isExpanded,
   onToggleExpand,
 }) => {
-  const inline = aliases.slice(0, INLINE_LIMIT);
-  const overflow = aliases.slice(INLINE_LIMIT);
-
   return (
     <div className="flex items-center gap-2">
       <button
@@ -37,38 +32,30 @@ export const AliasIdentityCell: React.FC<AliasIdentityCellProps> = ({
         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </button>
       <span className="font-mono font-semibold">{id}</span>
-      {inline.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {inline.map((a) => (
-            <Pill key={a} size="sm" tone="neutral">
-              <span className="font-mono">{a}</span>
-            </Pill>
-          ))}
-          {overflow.length > 0 && (
-            <TooltipProvider delayDuration={150}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={(e) => e.stopPropagation()}
-                    className="cursor-default"
-                  >
-                    <Pill size="sm" tone="neutral">
-                      +{overflow.length}
-                    </Pill>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="flex flex-col gap-1 font-mono text-xs">
-                    {overflow.map((a) => (
-                      <span key={a}>{a}</span>
-                    ))}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </div>
+      {aliases.length > 0 && (
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => e.stopPropagation()}
+                className="cursor-default"
+                aria-label={`${aliases.length} routing ${aliases.length === 1 ? 'alias' : 'aliases'}`}
+              >
+                <Pill size="sm" tone="neutral">
+                  +{aliases.length}
+                </Pill>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="flex flex-col gap-1 font-mono text-xs">
+                {aliases.map((a) => (
+                  <span key={a}>{a}</span>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </div>
   );

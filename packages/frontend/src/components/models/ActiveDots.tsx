@@ -14,10 +14,7 @@ export const ActiveDots: React.FC<ActiveDotsProps> = ({ total, active, className
   }
   return (
     <div
-      className={cn(
-        'flex w-full items-center justify-between gap-3 text-[11px] text-foreground-muted',
-        className
-      )}
+      className={cn('inline-flex items-center gap-2 text-[11px] text-foreground-muted', className)}
     >
       <div className="flex items-center gap-1" aria-label={`${active} of ${total} active`}>
         {Array.from({ length: total }).map((_, i) => (

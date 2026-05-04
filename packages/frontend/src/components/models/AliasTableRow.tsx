@@ -2,6 +2,7 @@
 import React from 'react';
 import { Edit2, Trash2 } from 'lucide-react';
 import { Alias } from '../../lib/api';
+import { Pill } from '../chips/Pill';
 import { ActiveDots } from './ActiveDots';
 import { AliasIdentityCell } from './AliasIdentityCell';
 import { ModelTypeBadge } from './ModelTypeBadge';
@@ -44,6 +45,15 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
         <span className="text-[11px] capitalize text-foreground-muted">
           {alias.selector || 'random'}
         </span>
+      </td>
+      <td className="border-b border-border px-4 py-3 text-left text-foreground">
+        {alias.metadata ? (
+          <Pill size="sm" tone="accent" className="capitalize">
+            {alias.metadata.source}
+          </Pill>
+        ) : (
+          <span className="text-xs text-foreground-subtle">—</span>
+        )}
       </td>
       <td className="border-b border-border px-4 py-3 text-left text-foreground">
         <ActiveDots total={total} active={active} />
