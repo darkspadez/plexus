@@ -125,6 +125,18 @@ export const useModels = () => {
     }
   };
 
+  const handleUpdateAlias = async (updated: Alias) => {
+    const previous = aliases;
+    setAliases((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+    try {
+      await api.saveAlias(updated, updated.id);
+    } catch (e) {
+      console.error('Update alias error', e);
+      toast.error('Failed to update model: ' + e);
+      setAliases(previous);
+    }
+  };
+
   const handleTestTarget = async (
     aliasId: string,
     targetIndex: number,
@@ -197,6 +209,7 @@ export const useModels = () => {
     handleDelete,
     handleDeleteAll,
     handleToggleTarget,
+    handleUpdateAlias,
     handleTestTarget,
     loadData,
   };
