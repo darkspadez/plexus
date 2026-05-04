@@ -110,21 +110,6 @@ export const useModels = () => {
     }
   };
 
-  const handleToggleTarget = async (alias: Alias, targetIndex: number, newState: boolean) => {
-    const updatedAlias = JSON.parse(JSON.stringify(alias));
-    updatedAlias.targets[targetIndex].enabled = newState;
-
-    setAliases((prev) => prev.map((a) => (a.id === alias.id ? updatedAlias : a)));
-
-    try {
-      await api.saveAlias(updatedAlias, alias.id);
-    } catch (e) {
-      console.error('Toggle error', e);
-      toast.error('Failed to update target status: ' + e);
-      loadData();
-    }
-  };
-
   const handleUpdateAlias = async (updated: Alias) => {
     const previous = aliases;
     setAliases((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
@@ -208,7 +193,6 @@ export const useModels = () => {
     handleSave,
     handleDelete,
     handleDeleteAll,
-    handleToggleTarget,
     handleUpdateAlias,
     handleTestTarget,
     loadData,
