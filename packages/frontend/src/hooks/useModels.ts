@@ -132,7 +132,7 @@ export const useModels = () => {
       await api.saveAlias(updated, updated.id);
     } catch (e) {
       console.error('Update alias error', e);
-      toast.error('Failed to update model: ' + e);
+      toast.error('Failed to update alias: ' + e);
       setAliases(previous);
     }
   };
