@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   api,
   Alias,
@@ -12,6 +12,7 @@ import {
 } from '../lib/api';
 import { useModels } from '../hooks/useModels';
 import { AliasTableRow } from '../components/models/AliasTableRow';
+import { AliasExpandedRow } from '../components/models/AliasExpandedRow';
 import { MetadataOverrideForm } from '../components/models/MetadataOverrideForm';
 import { Button } from '../components/forms/Button';
 import { Modal } from '../components/forms/Modal';
@@ -70,6 +71,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
+const COLUMN_COUNT = 5;
+
 export const Models = () => {
   const toast = useToast();
   const {
@@ -92,7 +95,7 @@ export const Models = () => {
     handleAddNew,
     handleSave: hookSave,
     handleDelete: hookDelete,
-    handleToggleTarget,
+    handleUpdateAlias,
     handleTestTarget,
     loadData,
   } = useModels();
@@ -138,6 +141,18 @@ export const Models = () => {
     []
   );
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
+
+  // Alias expand state
+  const [expandedAliases, setExpandedAliases] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedAliases((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   // Drag and Drop State
   const [dragSourceIndex, setDragSourceIndex] = useState<number | null>(null);
@@ -1020,16 +1035,10 @@ export const Models = () => {
                     Type
                   </th>
                   <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                    Aliases
-                  </th>
-                  <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                     Selector
                   </th>
                   <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                    Metadata
-                  </th>
-                  <th className="px-4 py-3 text-left border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
-                    Targets
+                    Active
                   </th>
                   <th
                     className="px-4 py-3 border-b border-border bg-surface-elevated font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
@@ -1040,19 +1049,32 @@ export const Models = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredAliases.map((alias) => (
-                  <AliasTableRow
-                    key={alias.id}
-                    alias={alias}
-                    providers={providers}
-                    cooldowns={cooldowns}
-                    testStates={testStates}
-                    onEdit={handleEdit}
-                    onDelete={handleDeleteClick}
-                    onToggleTarget={handleToggleTarget}
-                    onTestTarget={handleTestTarget}
-                  />
-                ))}
+                {filteredAliases.map((alias) => {
+                  const isExpanded = expandedAliases.has(alias.id);
+                  return (
+                    <React.Fragment key={alias.id}>
+                      <AliasTableRow
+                        alias={alias}
+                        isExpanded={isExpanded}
+                        onToggleExpand={() => toggleExpanded(alias.id)}
+                        onEdit={handleEdit}
+                        onDelete={handleDeleteClick}
+                      />
+                      {isExpanded && (
+                        <AliasExpandedRow
+                          alias={alias}
+                          providers={providers}
+                          availableModels={availableModels}
+                          cooldowns={cooldowns}
+                          testStates={testStates}
+                          columnCount={COLUMN_COUNT}
+                          onUpdateAlias={handleUpdateAlias}
+                          onTestTarget={handleTestTarget}
+                        />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
