@@ -31,7 +31,7 @@
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.15.0",
     "recharts": "^3.8.1",
-    "yaml": "^2.8.4"
+    "yaml": "^2.9.0"
   },
   "peerDependencies": {
     "typescript": "^6.0.3"
