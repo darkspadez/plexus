@@ -29,9 +29,22 @@ Always edit the correct dialect subdirectory. When adding a new table, **update 
 ### The Only Correct Workflow
 
 1. Edit schema `.ts` files in `postgres/` or `sqlite/`.
-2. Validate locally (optional): `bunx drizzle-kit generate` — verify the SQL looks right, then **discard the output** (do not commit).
+2. Validate locally (optional): `bun run generate-migrations --name <descriptive-name>` — verify the SQL looks right, then **discard the output** (do not commit). **Never run `drizzle-kit generate` directly.**
 3. Commit only the schema `.ts` changes. The pre-commit hook blocks migration artifacts.
 4. After the PR merges to `main`, CI auto-generates and commits the migrations.
+
+### Migration Naming
+
+Migrations **must** have a descriptive, semantic name. The wrapper script enforces this:
+
+```bash
+bun run generate-migrations --name add_quota_checkers
+```
+
+This produces files like `0044_add_quota_checkers.sql` instead of `0044_rare_skullbuster.sql`.
+
+- Use `snake_case` starting with a verb: `add_`, `create_`, `drop_`, `rename_`, `update_`, `fix_`, `remove_`, `convert_`, `jsonb_`, etc.
+- Do **not** use random or meaningless names. The `lint:migrations` script rejects them.
 
 **Bypasses (maintainers only):**
 - Pre-commit hook: `ALLOW_MIGRATIONS=1 git commit`
@@ -42,7 +55,7 @@ Always edit the correct dialect subdirectory. When adding a new table, **update 
 - [ ] Create the table definition in the appropriate dialect directory.
 - [ ] Export the new table from `drizzle/schema/index.ts`.
 - [ ] If Postgres, add any new enum values to `postgres/enums.ts` (e.g. `quotaCheckerTypeEnum`).
-- [ ] Validate with `bunx drizzle-kit generate` locally if desired — discard output.
+- [ ] Validate with `bun run generate-migrations --name <descriptive-name>` locally if desired — discard output.
 - [ ] Commit only `.ts` schema files.
 
 ## Type Definitions
