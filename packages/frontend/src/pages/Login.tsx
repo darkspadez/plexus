@@ -24,6 +24,16 @@ export const Login: React.FC = () => {
     }
   }, [isAuthenticated, navigate, from]);
 
+  useEffect(() => {
+    if (isAuthenticated) return;
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    if (token) {
+      navigate('/login', { replace: true });
+      login(token);
+    }
+  }, [isAuthenticated, location.search, navigate, login]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!key.trim()) {
