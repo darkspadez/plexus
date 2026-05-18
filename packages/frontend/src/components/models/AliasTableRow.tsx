@@ -72,7 +72,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
           </div>
         </div>
         {alias.aliases && alias.aliases.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5 pl-5">
+          <div className="flex flex-col gap-1 mt-1.5 pl-5">
             {alias.aliases.map((a) => (
               <span
                 key={a}
