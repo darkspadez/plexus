@@ -43,7 +43,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
   return (
     <tr className="hover:bg-bg-hover">
       <td
-        className="px-4 py-3 text-left border-b border-border-glass text-text"
+        className="px-4 py-1.5 text-left border-b border-border-glass text-text"
         style={{ fontWeight: 600, paddingLeft: '24px' }}
       >
         <div className="flex items-center gap-2">
@@ -82,27 +82,25 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
         )}
       </td>
 
-      <td className="px-4 py-3 text-left border-b border-border-glass text-text pr-6">
-        <div className="flex flex-col gap-2">
+      <td className="px-4 py-1.5 text-left border-b border-border-glass text-text pr-6">
+        <div className="flex flex-row gap-2 items-stretch">
           {alias.target_groups.map((group, groupIdx) => (
             <div
               key={group.name}
-              className="flex flex-col gap-1 rounded border border-border-glass/50 p-1.5 bg-bg-glass/30"
+              className="flex flex-col gap-0.5 rounded border border-border-glass/50 p-1.5 bg-bg-glass/30 flex-1 min-w-0"
             >
               <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted flex items-center gap-1">
+                <span className="opacity-40">{groupIdx + 1}.</span>
                 <span>{group.name}</span>
                 <span className="opacity-50">·</span>
                 <span className="capitalize">{group.selector}</span>
-                <span className="opacity-40 ml-2 normal-case">
-                  direct/{alias.id}/{group.name}
-                </span>
                 <CopyButton
                   value={`direct/${alias.id}/${group.name}`}
                   size="sm"
                   className="ml-0.5"
                 />
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-0.5">
                 {group.targets.map((t, targetIdx) => {
                   const provider = providers.find((p) => p.id === t.provider);
                   const isProviderDisabled = provider?.enabled === false;
@@ -122,7 +120,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
                   return (
                     <React.Fragment key={`${t.provider}-${t.model}-${targetIdx}`}>
                       <div
-                        className={`flex items-center gap-2 text-xs transition-opacity ${
+                        className={`flex items-center gap-1.5 text-[11px] transition-opacity ${
                           isDisabled ? 'opacity-70 line-through text-danger' : 'text-text-secondary'
                         }`}
                       >
@@ -149,7 +147,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
                           }}
                           className={`flex items-center cursor-pointer transition-opacity ${
                             isDisabled ? 'cursor-not-allowed opacity-50' : 'opacity-100'
-                          } mr-4`}
+                          }`}
                         >
                           {testState?.loading ? (
                             <Loader2 size={14} className="animate-spin text-text-secondary" />
