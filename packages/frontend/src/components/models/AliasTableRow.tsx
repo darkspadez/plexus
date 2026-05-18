@@ -4,16 +4,7 @@ import { CopyButton } from '../ui/CopyButton';
 import { Switch } from '../ui/Switch';
 import { Alias, Provider, Cooldown } from '../../lib/api';
 import { formatMsToMinSec } from '@plexus/shared';
-
-const SELECTOR_LABELS: Record<string, string> = {
-  random: 'Random',
-  in_order: 'In Order',
-  cost: 'Lowest Cost',
-  latency: 'Lowest Latency',
-  usage: 'Least Used',
-  performance: 'Performance',
-  e2e_performance: 'E2E Performance',
-};
+import { SELECTOR_LABELS } from '../../lib/selectors';
 
 interface AliasTableRowProps {
   alias: Alias;
