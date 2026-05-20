@@ -357,6 +357,18 @@ export class Dispatcher {
         continue;
       }
 
+      // Pre-dispatch context limit enforcement (opt-in per alias). Runs on
+      // the finalized per-target request — after any vision fallthrough has
+      // expanded the prompt and after cooldown has selected a live target —
+      // so we reject oversized prompts locally with a 400 instead of
+      // burning an upstream round trip on a guaranteed failure. Checked
+      // BEFORE acquiring a concurrency slot so that a thrown
+      // ContextLengthExceededError (a client-side problem; failing over to
+      // another target won't help) never leaks an acquired slot.
+      if (aliasConfig?.enforce_limits && route.canonicalModel) {
+        enforceContextLimit(currentRequest, aliasConfig, route.canonicalModel);
+      }
+
       // Acquire concurrency slot before upstream request
       const acquired = ConcurrencyTracker.getInstance().acquire(route.provider, route.model);
       if (!acquired) {
@@ -370,17 +382,6 @@ export class Dispatcher {
           `Provider ${route.provider}/${route.model} concurrency limit exceeded`
         );
         continue;
-      }
-
-      // Pre-dispatch context limit enforcement (opt-in per alias). Runs on
-      // the finalized per-target request — after any vision fallthrough has
-      // expanded the prompt and after cooldown has selected a live target —
-      // so we reject oversized prompts locally with a 400 instead of
-      // burning an upstream round trip on a guaranteed failure. A thrown
-      // ContextLengthExceededError escapes the loop (it's a client-side
-      // problem; failing over to another target won't help).
-      if (aliasConfig?.enforce_limits && route.canonicalModel) {
-        enforceContextLimit(currentRequest, aliasConfig, route.canonicalModel);
       }
 
       attemptedProviders.push(`${route.provider}/${route.model}`);

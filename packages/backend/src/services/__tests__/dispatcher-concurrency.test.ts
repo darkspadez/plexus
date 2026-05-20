@@ -317,4 +317,48 @@ describe('Dispatcher concurrency slot release', () => {
     // Verify no slots are leaked after a normal non-streaming dispatch
     expect(tracker.getProviderCount('p1')).toBe(0);
   });
+
+  test('enforceContextLimit does not leak concurrency slot', async () => {
+    setConfigForTesting({
+      ...makeConfig(2),
+      models: {
+        'test-alias': {
+          selector: 'in_order',
+          target_groups: [
+            {
+              name: 'default',
+              selector: 'in_order',
+              targets: [{ provider: 'p1', model: 'model-a', enabled: true }],
+            },
+          ],
+        },
+        // model-a config with enforce_limits enabled and a tiny context window
+        'model-a': {
+          enforce_limits: true,
+          context_length: 100,
+        },
+      },
+    } as any);
+
+    const tracker = ConcurrencyTracker.getInstance();
+    expect(tracker.getTargetCount('p1', 'model-a')).toBe(0);
+
+    const dispatcher = new Dispatcher();
+    try {
+      // Request with messages that exceed the tiny 100-token context limit
+      await dispatcher.dispatch({
+        model: 'test-alias',
+        messages: [{ role: 'user', content: 'x'.repeat(1000) }],
+        incomingApiType: 'chat',
+        stream: false,
+      });
+    } catch (e: any) {
+      // Error is expected (may be wrapped by buildAllTargetsFailedError)
+      expect(e).toBeDefined();
+    }
+
+    // The slot must NOT be leaked — enforceContextLimit ran before acquire()
+    expect(tracker.getTargetCount('p1', 'model-a')).toBe(0);
+    expect(tracker.getProviderCount('p1')).toBe(0);
+  });
 });
