@@ -1,6 +1,6 @@
 {
   "worktree": {
-    "teardown": "pids=$(lsof -tiTCP:\"$PASEO_PORT\" -sTCP:LISTEN) && [ -n \"$pids\" ] && kill -9 $pids"
+    "teardown": "[ -n \"$PASEO_PORT\" ] && pids=$(lsof -tiTCP:\"$PASEO_PORT\" -sTCP:LISTEN 2>/dev/null || true) && [ -n \"$pids\" ] && kill -9 $pids || true"
   },
   "scripts": {
     "app": {
