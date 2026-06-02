@@ -421,6 +421,13 @@
       "when": 1779666862922,
       "tag": "0059_add_debug_log_http_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1780438860788,
+      "tag": "0060_auto_darkspadez_main",
+      "breakpoints": true
     }
   ]
 }
