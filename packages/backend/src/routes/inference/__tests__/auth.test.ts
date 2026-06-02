@@ -604,3 +604,96 @@ describe('Key Access Policy Exclusion Propagation', () => {
     });
   });
 });
+
+describe('Key IP Allowlist', () => {
+  let fastify: FastifyInstance;
+  let mockUsageStorage: UsageStorageService;
+
+  beforeAll(async () => {
+    fastify = Fastify();
+
+    const mockDispatcher = {
+      dispatch: vi.fn(async () => ({
+        id: '123',
+        model: 'gpt-4',
+        created: 123,
+        content: 'test content',
+        usage: { input_tokens: 10, output_tokens: 10, total_tokens: 20 },
+      })),
+    } as unknown as Dispatcher;
+
+    mockUsageStorage = {
+      saveRequest: vi.fn(),
+      saveError: vi.fn(),
+      updatePerformanceMetrics: vi.fn(),
+      emitStartedAsync: vi.fn(),
+      emitUpdatedAsync: vi.fn(),
+    } as unknown as UsageStorageService;
+
+    DebugManager.getInstance().setStorage(mockUsageStorage);
+    SelectorFactory.setUsageStorage(mockUsageStorage);
+
+    setConfigForTesting({
+      providers: {},
+      models: {
+        'gpt-4': {
+          priority: 'selector',
+          targets: [{ provider: 'openai', model: 'gpt-4' }],
+        },
+      },
+      keys: {
+        'ip-restricted': { secret: 'sk-ip-restricted', allowedIps: ['10.0.0.0/8'] },
+        'ip-open': { secret: 'sk-ip-open', allowedIps: ['0.0.0.0/0'] },
+        'ip-none': { secret: 'sk-ip-none' },
+      },
+      failover: {
+        enabled: false,
+        retryableStatusCodes: [429, 500, 502, 503, 504],
+        retryableErrors: ['ECONNREFUSED', 'ETIMEDOUT'],
+      },
+      quotas: [],
+    });
+
+    await registerInferenceRoutes(fastify, mockDispatcher, mockUsageStorage);
+    await fastify.ready();
+  });
+
+  const post = (secret: string, forwardedFor?: string) =>
+    fastify.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: {
+        authorization: `Bearer ${secret}`,
+        'content-type': 'application/json',
+        ...(forwardedFor ? { 'x-forwarded-for': forwardedFor } : {}),
+      },
+      payload: { model: 'gpt-4', messages: [] },
+    });
+
+  it('allows a request from an IP inside the allowlist', async () => {
+    const res = await post('sk-ip-restricted', '10.1.2.3');
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('rejects a request from an IP outside the allowlist', async () => {
+    const res = await post('sk-ip-restricted', '8.8.8.8');
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('allows any IP when the allowlist is 0.0.0.0/0', async () => {
+    const res = await post('sk-ip-open', '8.8.8.8');
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('allows any IP when no allowlist is configured', async () => {
+    const res = await post('sk-ip-none', '8.8.8.8');
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('rejects a restricted key when the request IP is not in range (no forwarding header)', async () => {
+    // Without a proxy header the resolved IP is loopback (or null), neither of
+    // which is in 10.0.0.0/8 — restricted keys are denied (fail-closed).
+    const res = await post('sk-ip-restricted');
+    expect(res.statusCode).toBe(401);
+  });
+});

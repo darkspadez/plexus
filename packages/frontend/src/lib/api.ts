@@ -886,6 +886,7 @@ export interface KeyConfig {
   allowedProviders?: string[];
   excludedModels?: string[];
   excludedProviders?: string[];
+  allowedIps?: string[];
 }
 
 export type UsageSortField =
@@ -1577,6 +1578,7 @@ export const api = {
           allowedProviders?: string[];
           excludedModels?: string[];
           excludedProviders?: string[];
+          allowedIps?: string[];
         }
       >;
 
@@ -1589,6 +1591,7 @@ export const api = {
         allowedProviders: val.allowedProviders,
         excludedModels: val.excludedModels,
         excludedProviders: val.excludedProviders,
+        allowedIps: val.allowedIps,
       }));
     } catch (e) {
       console.error('API Error getKeys', e);
@@ -1610,12 +1613,15 @@ export const api = {
           allowedProviders: keyConfig.allowedProviders ?? [],
           excludedModels: keyConfig.excludedModels ?? [],
           excludedProviders: keyConfig.excludedProviders ?? [],
+          allowedIps: keyConfig.allowedIps ?? [],
         }),
       }
     );
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to save key');
+      const detail =
+        Array.isArray(err.details) && err.details[0]?.message ? `: ${err.details[0].message}` : '';
+      throw new Error(`${err.error || 'Failed to save key'}${detail}`);
     }
 
     // Delete old key only after new one is saved successfully

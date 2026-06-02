@@ -916,6 +916,7 @@ export class ConfigRepository {
       const allowedProviders = parseStringArray(row.allowedProviders);
       const excludedModels = parseStringArray(row.excludedModels);
       const excludedProviders = parseStringArray(row.excludedProviders);
+      const allowedIps = parseStringArray(row.allowedIps);
 
       result[row.name] = {
         secret: decrypt(row.secret),
@@ -925,6 +926,7 @@ export class ConfigRepository {
         ...(allowedProviders ? { allowedProviders } : {}),
         ...(excludedModels ? { excludedModels } : {}),
         ...(excludedProviders ? { excludedProviders } : {}),
+        ...(allowedIps ? { allowedIps } : {}),
       };
     }
 
@@ -965,6 +967,7 @@ export class ConfigRepository {
     const allowedProviders = parseStringArray(row.allowedProviders);
     const excludedModels = parseStringArray(row.excludedModels);
     const excludedProviders = parseStringArray(row.excludedProviders);
+    const allowedIps = parseStringArray(row.allowedIps);
 
     return {
       name: row.name,
@@ -976,6 +979,7 @@ export class ConfigRepository {
         ...(allowedProviders ? { allowedProviders } : {}),
         ...(excludedModels ? { excludedModels } : {}),
         ...(excludedProviders ? { excludedProviders } : {}),
+        ...(allowedIps ? { allowedIps } : {}),
       },
     };
   }
@@ -1004,6 +1008,7 @@ export class ConfigRepository {
           allowedProviders: stringifyStringArray(config.allowedProviders),
           excludedModels: stringifyStringArray(config.excludedModels),
           excludedProviders: stringifyStringArray(config.excludedProviders),
+          allowedIps: stringifyStringArray(config.allowedIps),
           updatedAt: timestamp,
         })
         .where(eq(schema.apiKeys.name, name));
@@ -1020,6 +1025,7 @@ export class ConfigRepository {
           allowedProviders: stringifyStringArray(config.allowedProviders),
           excludedModels: stringifyStringArray(config.excludedModels),
           excludedProviders: stringifyStringArray(config.excludedProviders),
+          allowedIps: stringifyStringArray(config.allowedIps),
           createdAt: timestamp,
           updatedAt: timestamp,
         });
