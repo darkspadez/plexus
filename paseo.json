@@ -1,6 +1,6 @@
 {
   "worktree": {
-    "setup": ["mise trust", "mise install", "bun i", "bun run build:frontend"]
+    "setup": ["bun run scripts/init_worktree.ts"]
   },
   "metadataGeneration": {
     "agentTitle": {
