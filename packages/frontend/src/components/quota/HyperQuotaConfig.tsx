@@ -22,6 +22,9 @@ export const HyperQuotaConfig: React.FC<HyperQuotaConfigProps> = ({ options, onC
           onChange={(e) => handleChange('endpoint', e.target.value)}
           placeholder="https://hyper.charm.land/v1/credits"
         />
+        <span className="text-[10px] text-text-muted">
+          Custom endpoint URL. Defaults to Hyper&apos;s credits endpoint.
+        </span>
       </div>
     </div>
   );
