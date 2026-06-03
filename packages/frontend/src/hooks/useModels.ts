@@ -461,6 +461,11 @@ export const useModels = () => {
     });
   }, []);
 
+  const handleUnsuppressAllImportModels = useCallback(() => {
+    saveSuppressedImportModels(new Set());
+    handleOpenImport();
+  }, [handleOpenImport]);
+
   const handleSaveImports = useCallback(async () => {
     setIsImporting(true);
     try {
@@ -571,6 +576,7 @@ export const useModels = () => {
     isImporting,
     handleOpenImport,
     handleSuppressImportModel,
+    handleUnsuppressAllImportModels,
     handleSaveImports,
   };
 };

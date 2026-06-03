@@ -55,6 +55,7 @@ export const Models = () => {
     isImporting,
     handleOpenImport,
     handleSuppressImportModel,
+    handleUnsuppressAllImportModels,
     handleSaveImports,
   } = useModels();
 
@@ -463,6 +464,7 @@ export const Models = () => {
           selectedAliases={selectedImportAliases}
           setSelectedAliases={setSelectedImportAliases}
           onSuppress={handleSuppressImportModel}
+          onUnsuppressAll={handleUnsuppressAllImportModels}
           onImport={handleSaveImports}
           isImporting={isImporting}
         />

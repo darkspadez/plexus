@@ -13,6 +13,7 @@ interface Props {
   selectedAliases: Map<string, string>;
   setSelectedAliases: React.Dispatch<React.SetStateAction<Map<string, string>>>;
   onSuppress: (modelId: string) => void;
+  onUnsuppressAll: () => void;
   onImport: () => Promise<boolean>;
   isImporting: boolean;
 }
@@ -28,6 +29,7 @@ export function ImportModelsModal({
   selectedAliases,
   setSelectedAliases,
   onSuppress,
+  onUnsuppressAll,
   onImport,
   isImporting,
 }: Props) {
@@ -58,6 +60,11 @@ export function ImportModelsModal({
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" onClick={onUnsuppressAll}>
+            Unsuppress all
+          </Button>
+        </div>
         {orphanGroups.length === 0 ? (
           <div className="text-text-muted italic text-center text-sm py-8">
             No orphaned models found. All provider models are covered by aliases or suppressed
