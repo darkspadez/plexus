@@ -138,15 +138,17 @@ function step(n: number, label: string) {
  */
 function docker(
   args: string[],
-  opts: { fatal?: boolean; silent?: boolean; stream?: boolean } = {}
+  opts: { fatal?: boolean; silent?: boolean; stream?: boolean; env?: Record<string, string> } = {}
 ): { success: boolean; stdout: string; stderr: string } {
   const cmd = ['docker', '--context', CTX, ...args];
   if (!opts.silent) {
     console.log(`  $ ${cmd.join(' ')}`);
   }
 
+  const env = opts.env ? { ...process.env, ...opts.env } : undefined;
+
   if (opts.stream) {
-    const result = spawnSync(cmd[0]!, cmd.slice(1), { stdio: 'inherit' });
+    const result = spawnSync(cmd[0]!, cmd.slice(1), { stdio: 'inherit', env });
     const success = result.status === 0;
     if (!success && opts.fatal !== false) {
       console.error(`\n❌ Command failed: ${cmd.join(' ')}\n`);
@@ -155,7 +157,7 @@ function docker(
     return { success, stdout: '', stderr: '' };
   }
 
-  const result = spawnSync(cmd[0]!, cmd.slice(1), { encoding: 'utf-8' });
+  const result = spawnSync(cmd[0]!, cmd.slice(1), { encoding: 'utf-8', env });
   const stdout = result.stdout?.trim() ?? '';
   const stderr = result.stderr?.trim() ?? '';
   const success = result.status === 0;
@@ -341,6 +343,10 @@ docker(
   {
     fatal: true,
     stream: true,
+    // DOCKER_BUILDKIT=1 enables BuildKit on the remote daemon so it
+    // injects TARGETPLATFORM natively (in addition to our --build-arg).
+    // The build still runs on the remote host via the Docker context.
+    env: { DOCKER_BUILDKIT: '1' },
   }
 );
 console.log(`  ✓ Built ${NEW_TAG}`);

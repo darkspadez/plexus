@@ -4,7 +4,7 @@ FROM oven/bun:1 AS builder
 WORKDIR /app
 
 ARG APP_VERSION=dev
-ARG TARGETPLATFORM=linux/amd64
+ARG TARGETPLATFORM
 ENV APP_VERSION=${APP_VERSION}
 
 # Copy root package files
@@ -28,7 +28,7 @@ COPY . .
 # Frontend assets (HTML, JS, CSS, images) and migration SQL files are all embedded
 # inside the binary via `bun build --compile` — no runtime file copies needed.
 # Use TARGETPLATFORM to select the correct build target (e.g., linux/amd64, linux/arm64).
-# BuildKit sets this automatically; deploy scripts for legacy builders pass it explicitly.
+# BuildKit sets this automatically; deploy-staging.ts also passes it explicitly as --build-arg.
 RUN case "${TARGETPLATFORM}" in \
          linux/arm64) bun run compile:linux-arm64 && mv plexus-linux-arm64 plexus ;; \
          linux/amd64) bun run compile:linux-amd64 && mv plexus-linux-amd64 plexus ;; \
