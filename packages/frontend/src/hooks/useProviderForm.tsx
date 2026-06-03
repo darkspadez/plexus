@@ -730,10 +730,20 @@ export function useProviderForm() {
   };
 
   const toggleModelSelection = (modelId: string) => {
-    const next = new Set(selectedModelIds);
-    if (next.has(modelId)) next.delete(modelId);
-    else next.add(modelId);
-    setSelectedModelIds(next);
+    setSelectedModelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(modelId)) next.delete(modelId);
+      else next.add(modelId);
+      return next;
+    });
+  };
+
+  const selectAllFetchedModels = () => {
+    setSelectedModelIds(new Set(fetchedModels.map((model) => model.id)));
+  };
+
+  const clearSelectedModels = () => {
+    setSelectedModelIds(new Set());
   };
 
   const handleAddSelectedModels = () => {
@@ -936,6 +946,8 @@ export function useProviderForm() {
     handleOpenFetchModels,
     handleFetchModels,
     toggleModelSelection,
+    selectAllFetchedModels,
+    clearSelectedModels,
     handleAddSelectedModels,
     // Quota
     getQuotaDisplay,

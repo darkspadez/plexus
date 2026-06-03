@@ -209,6 +209,8 @@ export const Providers = () => {
           isOAuthMode={f.isOAuthMode}
           onFetch={f.handleFetchModels}
           onToggleSelection={f.toggleModelSelection}
+          onSelectAll={f.selectAllFetchedModels}
+          onClearSelection={f.clearSelectedModels}
           onAddSelected={f.handleAddSelectedModels}
         />
 
