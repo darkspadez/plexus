@@ -21,10 +21,15 @@ import {
   CheckCircle,
   Zap,
   ZapOff,
+  Download,
 } from 'lucide-react';
 import { Switch } from '../components/ui/Switch';
 import { clsx } from 'clsx';
 import { formatMs } from '../lib/format';
+import { isClipboardAvailable, copyToClipboard } from '../lib/clipboard';
+import plexusAdminSkill from '../../../../.agents/skills/plexus-management/SKILL.md' with {
+  type: 'text',
+};
 
 const EMPTY_SERVER: McpServer = {
   upstream_url: '',
@@ -291,15 +296,73 @@ export const McpPage: React.FC = () => {
     );
   }
 
+  const triggerDownload = (content: string, filename: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopySkill = async () => {
+    const canCopy = isClipboardAvailable();
+    if (!canCopy) {
+      toast.error('Copy requires HTTPS connection');
+      return;
+    }
+    const success = await copyToClipboard(plexusAdminSkill);
+    if (success) {
+      toast.success('Skill copied to clipboard');
+    } else {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  const handleDownloadSkill = () => {
+    triggerDownload(plexusAdminSkill, 'SKILL.md', 'text/markdown');
+  };
+
   return (
     <div className="flex flex-col min-h-full">
       <PageHeader
-        title="MCP servers"
-        subtitle="Model Context Protocol connections — exposes tools and resources to clients"
+        title="MCP & Skills"
+        subtitle="Model Context Protocol connections and the Plexus admin skill"
         actions={
-          <Button leftIcon={<Plus size={14} />} onClick={handleAddNew} size="sm">
-            Add server
-          </Button>
+          <>
+            <div className="inline-flex rounded-md overflow-hidden border border-border-glass">
+              <button
+                type="button"
+                onClick={handleCopySkill}
+                className={clsx(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all duration-fast',
+                  'bg-gradient-to-br from-secondary to-primary text-[#1A1006]',
+                  'hover:brightness-105',
+                  'border-r border-[#1A1006]/20'
+                )}
+              >
+                Plexus Admin Skill
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadSkill}
+                title="Download as file"
+                className={clsx(
+                  'inline-flex items-center justify-center px-2 py-1.5 text-xs',
+                  'bg-gradient-to-br from-secondary to-primary text-[#1A1006]',
+                  'hover:brightness-105'
+                )}
+              >
+                <Download size={14} />
+              </button>
+            </div>
+            <Button leftIcon={<Plus size={14} />} onClick={handleAddNew} size="sm">
+              Add server
+            </Button>
+          </>
         }
       />
       <PageContainer>
