@@ -1,7 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { logger } from '../../utils/logger';
 import { Dispatcher } from '../../services/dispatcher';
-import { EmbeddingsTransformer } from '../../transformers';
+import { OpenAIEmbeddingsTransformer } from '../../transformers/embeddings';
+import { UnifiedEmbeddingsRequest } from '../../types/unified';
 import { UsageStorageService } from '../../services/usage-storage';
 import { UsageRecord } from '../../types/usage';
 import { getClientIp } from '../../utils/ip';
@@ -54,11 +55,17 @@ export async function registerEmbeddingsRoute(
 
       logger.silly('Incoming Embeddings Request', body);
 
-      const transformer = new EmbeddingsTransformer();
-      let unifiedRequest = await transformer.parseRequest(body);
-      unifiedRequest.incomingApiType = 'embeddings';
-      unifiedRequest.originalBody = body;
-      unifiedRequest.requestId = requestId;
+      const transformer = new OpenAIEmbeddingsTransformer();
+      let unifiedRequest: UnifiedEmbeddingsRequest = {
+        model: body.model,
+        input: body.input,
+        encoding_format: body.encoding_format,
+        dimensions: body.dimensions,
+        user: body.user,
+        incomingApiType: 'embeddings',
+        originalBody: body,
+        requestId,
+      };
       unifiedRequest = attachKeyAccessPolicy(request, unifiedRequest);
 
       DebugManager.getInstance().startLog(requestId, body, sanitizeHeaders(request.headers as any));

@@ -1,75 +1,41 @@
 import { test, expect, describe } from 'vitest';
-import { EmbeddingsTransformer } from '../embeddings';
+import { OpenAIEmbeddingsTransformer } from '../embeddings/openai';
 
-describe('EmbeddingsTransformer', () => {
-  const transformer = new EmbeddingsTransformer();
-
-  describe('parseRequest', () => {
-    test('should parse single text input', async () => {
-      const input = {
-        model: 'text-embedding-3-small',
-        input: 'Hello world',
-      };
-
-      const result = await transformer.parseRequest(input);
-
-      expect(result.model).toBe('text-embedding-3-small');
-      expect(result.input).toBe('Hello world');
-    });
-
-    test('should parse array of texts', async () => {
-      const input = {
-        model: 'text-embedding-3-small',
-        input: ['Text 1', 'Text 2', 'Text 3'],
-      };
-
-      const result = await transformer.parseRequest(input);
-
-      expect(result.model).toBe('text-embedding-3-small');
-      expect(result.input).toEqual(['Text 1', 'Text 2', 'Text 3']);
-    });
-
-    test('should parse optional parameters', async () => {
-      const input = {
-        model: 'text-embedding-3-large',
-        input: 'Test',
-        encoding_format: 'float' as const,
-        dimensions: 256,
-        user: 'user-123',
-      };
-
-      const result = await transformer.parseRequest(input);
-
-      expect(result.encoding_format).toBe('float');
-      expect(result.dimensions).toBe(256);
-      expect(result.user).toBe('user-123');
-    });
-  });
+describe('OpenAIEmbeddingsTransformer', () => {
+  const transformer = new OpenAIEmbeddingsTransformer();
 
   describe('transformRequest', () => {
-    test('should pass through request unchanged', async () => {
+    test('should pass through originalBody with model override', async () => {
       const request = {
         model: 'text-embedding-3-small',
         input: 'Test text',
-        encoding_format: 'float' as const,
-        dimensions: 512,
+        originalBody: {
+          model: 'text-embedding-3-small',
+          input: 'Test text',
+          encoding_format: 'float',
+          dimensions: 512,
+        },
       };
 
-      const result = await transformer.transformRequest(request);
+      const result = await transformer.transformRequest(request as any);
 
-      expect(result.model).toBe(request.model);
-      expect(result.input).toBe(request.input);
-      expect(result.encoding_format).toBe(request.encoding_format);
-      expect(result.dimensions).toBe(request.dimensions);
+      expect(result.model).toBe('text-embedding-3-small');
+      expect(result.input).toBe('Test text');
+      expect(result.encoding_format).toBe('float');
+      expect(result.dimensions).toBe(512);
     });
 
     test('should handle array input', async () => {
       const request = {
         model: 'text-embedding-3-small',
         input: ['A', 'B', 'C'],
+        originalBody: {
+          model: 'text-embedding-3-small',
+          input: ['A', 'B', 'C'],
+        },
       };
 
-      const result = await transformer.transformRequest(request);
+      const result = await transformer.transformRequest(request as any);
 
       expect(result.input).toEqual(['A', 'B', 'C']);
     });
@@ -99,7 +65,7 @@ describe('EmbeddingsTransformer', () => {
       expect(result.data).toHaveLength(1);
       expect(result.data[0]!.embedding).toEqual([0.1, 0.2, 0.3]);
       expect(result.model).toBe('text-embedding-3-small');
-      expect(result.usage.prompt_tokens).toBe(5);
+      expect(result.usage!.prompt_tokens).toBe(5);
     });
 
     test('should transform batch embedding response', async () => {
@@ -162,7 +128,7 @@ describe('EmbeddingsTransformer', () => {
 
   describe('properties', () => {
     test('should have correct name', () => {
-      expect(transformer.name).toBe('embeddings');
+      expect(transformer.name).toBe('openai');
     });
 
     test('should have correct endpoint', () => {
