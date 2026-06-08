@@ -175,7 +175,8 @@ async function filterGroupTargets(
       }
 
       if (alias.type === 'embeddings') return true;
-      return getProviderTypes(providerConfig).includes('embeddings');
+      const providerTypes = getProviderTypes(providerConfig);
+      return providerTypes.includes('embeddings') || providerTypes.includes('gemini');
     });
 
     if (embeddingsTargets.length > 0) {

@@ -170,8 +170,10 @@ export class ProbeService {
 
         response = await this.dispatcher.dispatch(unifiedRequest as any);
       } else if (apiType === 'embeddings') {
+        const embReq = testRequest as { model: string; input: string | string[] };
         response = await this.dispatcher.dispatchEmbeddings({
           model: directModelPath,
+          input: embReq.input,
           originalBody: testRequest,
           requestId,
           incomingApiType: 'embeddings',

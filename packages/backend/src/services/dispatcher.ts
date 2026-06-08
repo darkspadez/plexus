@@ -23,6 +23,7 @@ import { UsageStorageService } from './usage-storage';
 import { CooldownParserRegistry } from './cooldown-parsers';
 import { getConfig, getProviderTypes } from '../config';
 import { applyModelBehaviors } from './model-behaviors';
+import { EmbeddingsTransformerFactory } from './embeddings-transformer-factory';
 import { resolveAdapters } from './adapter-resolver';
 import type { ResolvedAdapter } from '../types/provider-adapter';
 import { getModels } from '@earendil-works/pi-ai';
@@ -63,11 +64,24 @@ interface RetryHistoryLikeEntry {
 type ResolveTimeoutMs = (timeoutMs?: number | null) => number;
 
 /**
+ * Request-level API types (e.g. embeddings, transcriptions) share base URLs
+ * with their provider-level counterparts (e.g. chat, gemini). This map defines
+ * which provider-level URL keys to try when no exact or default URL is configured.
+ */
+const API_TYPE_ALIASES: Record<string, string[]> = {
+  embeddings: ['chat', 'gemini'],
+  transcriptions: ['chat', 'gemini'],
+  speech: ['chat', 'gemini'],
+  images: ['chat', 'gemini'],
+};
+
+/**
  * Strips trailing /v1beta* path segments from Gemini base URLs.
  * Gemini's transformer adds /v1beta to the path, so we need to ensure
  * the base URL doesn't include it to avoid duplication like /v1beta/v1beta/...
  * Only strips beta versions (e.g. /v1beta, /v1beta1) — plain /v1 is valid for other APIs.
  */
+
 function stripTrailingApiVersion(url: string): string {
   return url.replace(/\/(v\d+beta\d*)$/i, '');
 }
@@ -1684,26 +1698,33 @@ export class Dispatcher {
         rawBaseUrl = defaultUrl;
         logger.debug(`Dispatcher: Using default base URL.`);
       } else {
-        // If we can't find a specific URL for this type, and no default, fall back to the first one?
-        // Or throw error.
-        const firstKey = Object.keys(urlMap)[0];
+        // Resolve via API_TYPE_ALIASES before falling back to the first key.
+        const aliases = API_TYPE_ALIASES[typeKey];
+        const aliasKey = aliases?.find((a) => urlMap[a]);
 
-        if (firstKey) {
-          const firstUrl = urlMap[firstKey];
-          if (firstUrl) {
-            rawBaseUrl = firstUrl;
-            logger.warn(
-              `No specific base URL found for api type '${targetApiType}'. using '${firstKey}' as fallback.`
-            );
+        if (aliasKey) {
+          rawBaseUrl = urlMap[aliasKey]!;
+          logger.debug(`Dispatcher: Using '${aliasKey}' base URL for api type '${targetApiType}'.`);
+        } else {
+          const firstKey = Object.keys(urlMap)[0];
+
+          if (firstKey) {
+            const firstUrl = urlMap[firstKey];
+            if (firstUrl) {
+              rawBaseUrl = firstUrl;
+              logger.warn(
+                `No specific base URL found for api type '${targetApiType}'. using '${firstKey}' as fallback.`
+              );
+            } else {
+              throw new Error(
+                `No base URL configured for api type '${targetApiType}' and no default found.`
+              );
+            }
           } else {
             throw new Error(
               `No base URL configured for api type '${targetApiType}' and no default found.`
             );
           }
-        } else {
-          throw new Error(
-            `No base URL configured for api type '${targetApiType}' and no default found.`
-          );
         }
       }
     }
@@ -3158,10 +3179,10 @@ export class Dispatcher {
 
   /**
    * Dispatch embeddings request to provider
-   * Simplified version of dispatch() since embeddings:
-   * - Don't support streaming
-   * - Use universal API format (no transformation needed)
-   * - Always use /embeddings endpoint
+   * Uses EmbeddingsTransformerFactory for provider-type-aware:
+   * - URL construction (e.g. Gemini /v1beta/models/{model}:embedContent)
+   * - Auth headers (e.g. x-goog-api-key for Gemini)
+   * - Request/response transformation
    */
   async dispatchEmbeddings(request: any): Promise<any> {
     const config = getConfig();
@@ -3230,27 +3251,32 @@ export class Dispatcher {
       this.emitRoutingUpdate(request.requestId, route);
 
       try {
+        const providerTypes = getProviderTypes(route.config);
+        const transformer = EmbeddingsTransformerFactory.resolveTransformer(providerTypes);
+        const requestWithModel = { ...request, model: route.model };
+
         const baseUrl = this.resolveBaseUrl(route, 'embeddings');
-        const url = `${baseUrl}/embeddings`;
+        const endpoint = transformer.getEndpoint
+          ? transformer.getEndpoint(requestWithModel)
+          : transformer.defaultEndpoint;
+        const url = `${baseUrl}${endpoint}`;
 
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         };
-
         if (route.config.api_key) {
-          headers['Authorization'] = `Bearer ${route.config.api_key}`;
+          if (transformer.getAuthHeaders) {
+            transformer.getAuthHeaders(route.config.api_key, headers);
+          } else {
+            headers['Authorization'] = `Bearer ${route.config.api_key}`;
+          }
         }
-
         if (route.config.headers) {
           Object.assign(headers, route.config.headers);
         }
 
-        const payload = {
-          ...request.originalBody,
-          model: route.model,
-        };
-
+        let payload = await transformer.transformRequest(requestWithModel);
         if (route.config.extraBody) {
           Object.assign(payload, route.config.extraBody);
         }
@@ -3329,24 +3355,28 @@ export class Dispatcher {
           }
         }
 
-        const responseBody = await this.parseJsonResponseBody(
+        const rawResponseBody = await this.parseJsonResponseBody(
           response,
           request.requestId,
           route,
           'embeddings'
         );
-        logger.silly('Embeddings Response Payload', responseBody);
+        logger.silly('Embeddings Response Payload', rawResponseBody);
 
         if (request.requestId) {
-          DebugManager.getInstance().addRawResponse(request.requestId, responseBody);
+          DebugManager.getInstance().addRawResponse(request.requestId, rawResponseBody);
         }
-
+        const transformedResponse = await transformer.transformResponse(
+          rawResponseBody,
+          requestWithModel
+        );
         const enrichedResponse: any = {
-          ...responseBody,
+          ...transformedResponse,
           plexus: {
             provider: route.provider,
             model: route.model,
             apiType: 'embeddings',
+            isPassthrough: true,
             pricing: route.modelConfig?.pricing,
             providerDiscount: route.config.discount,
             canonicalModel: route.canonicalModel,
