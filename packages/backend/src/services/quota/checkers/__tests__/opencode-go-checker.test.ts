@@ -138,6 +138,72 @@ describe('opencode-go checker', () => {
     expect(capturedUA).toContain('Firefox');
   });
 
+  it('parses plain JSON window objects (quoted keys, no $R assignment)', async () => {
+    setFetchMock(
+      async () =>
+        new Response(
+          '<html><body><script>{"rollingUsage":{"status":"ok","resetInSec":9168,"usagePercent":3},' +
+            '"weeklyUsage":{"status":"ok","resetInSec":300000,"usagePercent":42.5}}</script></body></html>',
+          { status: 200 }
+        )
+    );
+
+    const meters = await checkerDef.check(makeCtx());
+    expect(meters).toHaveLength(2);
+
+    const rolling = meters.find((m) => m.key === 'rolling_5h')!;
+    expect(rolling.used).toBe(3);
+    expect(rolling.remaining).toBe(97);
+
+    const weekly = meters.find((m) => m.key === 'weekly')!;
+    expect(weekly.used).toBe(42.5);
+  });
+
+  it('parses bare window objects without $R assignment and with extra fields', async () => {
+    setFetchMock(
+      async () =>
+        new Response(
+          '<html><body>monthlyUsage:{status:"ok",resetInSec:111213,usagePercent:50}</body></html>',
+          { status: 200 }
+        )
+    );
+
+    const meters = await checkerDef.check(makeCtx());
+    expect(meters).toHaveLength(1);
+    expect(meters[0]!.key).toBe('monthly');
+    expect(meters[0]!.used).toBe(50);
+  });
+
+  it('throws a session-expired error when served the OpenAuth login page', async () => {
+    setFetchMock(
+      async () =>
+        new Response(
+          '<html style="--color-background-light:white"><head><title>OpenAuth</title></head>' +
+            '<body><form action="https://auth.opencode.ai/authorize"></form></body></html>',
+          { status: 200 }
+        )
+    );
+
+    await expect(checkerDef.check(makeCtx())).rejects.toThrow(
+      'OpenCode Go session is invalid or expired'
+    );
+  });
+
+  it('throws a session-expired error when redirected to the auth domain', async () => {
+    setFetchMock(async () => {
+      const response = new Response('<html><body>sign in</body></html>', { status: 200 });
+      Object.defineProperty(response, 'redirected', { value: true });
+      Object.defineProperty(response, 'url', {
+        value: 'https://auth.opencode.ai/authorize?client_id=app&response_type=code',
+      });
+      return response;
+    });
+
+    await expect(checkerDef.check(makeCtx())).rejects.toThrow(
+      'OpenCode Go session is invalid or expired'
+    );
+  });
+
   it('throws when no windows can be parsed from HTML', async () => {
     setFetchMock(
       async () => new Response('<html><body>no data here</body></html>', { status: 200 })

@@ -49,6 +49,7 @@ export const CompactQuotasCard: React.FC<CompactQuotasCardProps> = ({
           return (
             <div
               key={quota.checkerId}
+              title={quota.error}
               className={clsx(
                 'flex items-center gap-2 min-w-0 py-1',
                 !isLast && 'border-b border-border pb-1.5'

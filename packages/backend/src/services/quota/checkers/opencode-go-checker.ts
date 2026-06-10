@@ -7,18 +7,39 @@ const DASHBOARD_URL_SUFFIX = '/go';
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Gecko/20100101 Firefox/148.0';
 const SCRAPE_TIMEOUT_MS = 10_000;
 
+const SESSION_EXPIRED_MESSAGE =
+  'OpenCode Go session is invalid or expired — sign in at opencode.ai again, then copy the fresh "auth" cookie value into this provider\'s quota checker options (DevTools → Application → Cookies → opencode.ai → auth)';
+
 interface OpenCodeGoWindow {
   usagePercent: number;
   resetInSec: number;
 }
 
+// An invalid/expired auth cookie makes the dashboard redirect (followed
+// silently by fetch, ending in HTTP 200) to the OpenAuth login page.
+function isLoginPage(html: string, finalUrl: string, redirected: boolean): boolean {
+  if (redirected && (finalUrl.includes('auth.opencode.ai') || finalUrl.includes('/authorize'))) {
+    return true;
+  }
+  return (
+    /<title>\s*OpenAuth\s*<\/title>/i.test(html) || html.includes('auth.opencode.ai/authorize')
+  );
+}
+
+// Keys may appear bare (seroval: rollingUsage:$R[1]={...}), JSON-quoted, or
+// quote-escaped inside a JS string; the $R[n]= assignment is optional.
+const key = (name: string) => `(?:\\\\?["'])?${name}(?:\\\\?["'])?\\s*:\\s*`;
+const NUM = '(-?\\d+(?:\\.\\d+)?)';
+
+function windowPattern(field: string, firstKey: string, secondKey: string): RegExp {
+  return new RegExp(
+    `${key(field)}(?:\\$R\\[\\d+\\]=)?\\{[^}]*${key(firstKey)}${NUM}[^}]*${key(secondKey)}${NUM}[^}]*\\}`
+  );
+}
+
 function parseWindowUsage(html: string, field: string): OpenCodeGoWindow | null {
-  const rePctFirst = new RegExp(
-    `${field}:\\$R\\[\\d+\\]=\\{[^}]*usagePercent:(-?\\d+(?:\\.\\d+)?)[^}]*resetInSec:(-?\\d+(?:\\.\\d+)?)[^}]*\\}`
-  );
-  const reResetFirst = new RegExp(
-    `${field}:\\$R\\[\\d+\\]=\\{[^}]*resetInSec:(-?\\d+(?:\\.\\d+)?)[^}]*usagePercent:(-?\\d+(?:\\.\\d+)?)[^}]*\\}`
-  );
+  const rePctFirst = windowPattern(field, 'usagePercent', 'resetInSec');
+  const reResetFirst = windowPattern(field, 'resetInSec', 'usagePercent');
 
   const pctFirstMatch = rePctFirst.exec(html);
   if (pctFirstMatch) {
@@ -72,6 +93,8 @@ export default defineChecker({
     const timeout = setTimeout(() => controller.abort(), SCRAPE_TIMEOUT_MS);
 
     let html: string;
+    let finalUrl = '';
+    let redirected = false;
     try {
       const response = await fetch(endpoint, {
         method: 'GET',
@@ -87,9 +110,15 @@ export default defineChecker({
         throw new Error(`OpenCode Go dashboard error ${response.status}: ${response.statusText}`);
       }
 
+      finalUrl = response.url ?? '';
+      redirected = response.redirected;
       html = await response.text();
     } finally {
       clearTimeout(timeout);
+    }
+
+    if (isLoginPage(html, finalUrl, redirected)) {
+      throw new Error(SESSION_EXPIRED_MESSAGE);
     }
 
     const rolling = parseWindowUsage(html, 'rollingUsage');

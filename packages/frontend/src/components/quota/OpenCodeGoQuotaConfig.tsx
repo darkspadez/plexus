@@ -61,6 +61,9 @@ export const OpenCodeGoQuotaConfig: React.FC<OpenCodeGoQuotaConfigProps> = ({
         <span className="text-[10px] text-text-muted">
           Required. Open your browser's DevTools (F12) → Application/Storage → Cookies → opencode.ai
           → copy the <span className="font-mono">auth</span> cookie value. Treat it like a password.
+          OpenCode invalidates sessions from time to time — if this quota stops rendering with a
+          "session is invalid or expired" error, sign in to opencode.ai again and re-copy the
+          cookie.
         </span>
       </div>
 
