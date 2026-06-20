@@ -1,4 +1,5 @@
 import { getEncoding, type Tiktoken } from 'js-tiktoken';
+import type { Context } from '@earendil-works/pi-ai';
 import { logger } from './logger';
 
 // ---------------------------------------------------------------------------
@@ -611,6 +612,88 @@ export function estimateInputTokens(originalBody: any, apiType: string): number 
       return Number.MAX_SAFE_INTEGER;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// pi-ai Context token estimator
+// ---------------------------------------------------------------------------
+
+/**
+ * Estimate the input-token count of a pi-ai `Context`. This is the
+ * Context-shaped equivalent of `estimateInputTokens` for the v2/beta
+ * inference path, which parses every wire format into a single `Context`
+ * (no `originalBody` available there).
+ *
+ * Counting strategy (intentionally errs toward over-counting for enforcement):
+ *  - systemPrompt via estimateTokens
+ *  - user messages: string content via estimateTokens; array content: text
+ *    blocks via estimateTokens, image blocks via estimateImageTokens
+ *  - assistant messages: text via estimateTokens, thinking via estimateTokens,
+ *    toolCall arguments via tokensForStringOrJson
+ *  - toolResult messages: text via estimateTokens, image via estimateImageTokens
+ *
+ * @param context  The pi-ai Context to estimate.
+ * @param apiType  Optional API type string forwarded to `estimateImageTokens`
+ *                 for per-provider image-cost formulas. Omitting (or passing
+ *                 an unknown value) falls back to the conservative Claude
+ *                 default (1600 tokens), which is the right direction for
+ *                 enforcement — err toward rejecting.
+ */
+export function estimateContextTokens(context: Context, apiType?: string): number {
+  let total = 0;
+
+  // 1. System prompt
+  total += estimateTokens(context.systemPrompt ?? '');
+
+  // 2. Messages
+  for (const message of context.messages) {
+    if (message.role === 'user') {
+      const { content } = message;
+      if (typeof content === 'string') {
+        total += estimateTokens(content);
+      } else {
+        for (const block of content) {
+          if (block.type === 'text') {
+            total += estimateTokens(block.text);
+          } else if (block.type === 'image') {
+            total += estimateImageTokens(
+              { base64: block.data, mediaType: block.mimeType },
+              apiType ?? ''
+            );
+          }
+        }
+      }
+    } else if (message.role === 'assistant') {
+      for (const block of message.content) {
+        if (block.type === 'text') {
+          total += estimateTokens(block.text);
+        } else if (block.type === 'thinking') {
+          total += estimateTokens(block.thinking);
+        } else if (block.type === 'toolCall') {
+          total += tokensForStringOrJson(block.arguments);
+        }
+      }
+    } else if (message.role === 'toolResult') {
+      for (const block of message.content) {
+        if (block.type === 'text') {
+          total += estimateTokens(block.text);
+        } else if (block.type === 'image') {
+          total += estimateImageTokens(
+            { base64: block.data, mediaType: block.mimeType },
+            apiType ?? ''
+          );
+        }
+      }
+    }
+  }
+
+  // Tool definitions are sent to the provider and consume input tokens; mirror
+  // v1's estimateInputTokens, which counts originalBody.tools for every format.
+  if (context.tools) {
+    total += tokensForStringOrJson(context.tools);
+  }
+
+  return total;
 }
 
 // ---------------------------------------------------------------------------

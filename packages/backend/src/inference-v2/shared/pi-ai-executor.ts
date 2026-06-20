@@ -55,6 +55,7 @@ import type { GenerationIntent } from './generation';
 import { splitReasoningSuffix } from './reasoning';
 import { consumeTtfb } from './fetch-tap';
 import { extractPiAiErrorMessage } from '../../transformers/oauth/type-mappers';
+import { enforceContextLimitForRoute } from '../../services/enforce-limits';
 
 // ─── AsyncLocalStorage for debug raw-capture correlation ─────────────────────
 
@@ -475,6 +476,27 @@ export async function runPiAiExecutor<TResponse>(
       attemptTimeout.cleanup();
       appendSkippedAttempt(retryHistory, route, 'Provider in cooldown', incomingApiType);
       continue;
+    }
+
+    // ── Force-limit enforcement (opt-in per alias) ─────────────────────────
+    // Mirrors dispatcher.ts:384-394. Checked AFTER cooldown and BEFORE
+    // acquiring a concurrency slot, so a thrown ContextLengthExceededError
+    // (client-side; failover won't help) never leaks an acquired slot.
+    const aliasForLimit = route.canonicalModel
+      ? getConfig().models?.[route.canonicalModel]
+      : undefined;
+    try {
+      enforceContextLimitForRoute(
+        context,
+        route,
+        aliasForLimit,
+        (streamOptions as any).maxTokens,
+        incomingApiType
+      );
+    } catch (limitErr) {
+      attemptTimeout.cleanup();
+      appendFailureAttempt(retryHistory, route, limitErr, incomingApiType, false);
+      throw limitErr;
     }
 
     // ── Concurrency acquire ────────────────────────────────────────────────
