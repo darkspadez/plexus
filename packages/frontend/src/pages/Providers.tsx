@@ -192,6 +192,7 @@ export const Providers = () => {
               onTestModel={f.handleTestModel}
               onDismissTestMessage={f.dismissTestMessage}
               getApiBaseUrlMap={f.getApiBaseUrlMap}
+              isNewProvider={!f.originalId}
             />
           </div>
         </Modal>

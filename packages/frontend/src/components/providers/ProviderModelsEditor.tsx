@@ -113,6 +113,7 @@ interface Props {
   onOpenFetchModels: () => void;
   onTestModel: (providerId: string, modelId: string, modelType?: string) => void;
   getApiBaseUrlMap: () => Record<string, string>;
+  isNewProvider: boolean;
 }
 
 export function ProviderModelsEditor({
@@ -136,6 +137,7 @@ export function ProviderModelsEditor({
   onTestModel,
   onDismissTestMessage,
   getApiBaseUrlMap,
+  isNewProvider,
 }: Props) {
   const [modelAdaptersOpen, setModelAdaptersOpen] = useState<Record<string, boolean>>({});
   const [modelAdvancedOpen, setModelAdvancedOpen] = useState<Record<string, boolean>>({});
@@ -236,11 +238,20 @@ export function ProviderModelsEditor({
                     <span style={{ fontWeight: 600, fontSize: '12px', flex: 1 }}>{mId}</span>
                     <div
                       onClick={(e) => {
+                        if (isNewProvider) return;
                         e.stopPropagation();
                         onTestModel(editingProvider.id, mId, mCfg.type);
                       }}
-                      className="flex items-center cursor-pointer"
-                      title="Test this model"
+                      className={
+                        isNewProvider
+                          ? 'flex items-center cursor-not-allowed opacity-40'
+                          : 'flex items-center cursor-pointer'
+                      }
+                      title={
+                        isNewProvider
+                          ? 'Save the provider first to probe models'
+                          : 'Test this model'
+                      }
                     >
                       {testState?.loading ? (
                         <Loader2 size={14} className="animate-spin text-text-secondary" />
