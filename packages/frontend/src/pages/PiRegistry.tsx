@@ -319,26 +319,27 @@ function CompatEditor({
         const v = value[f.key];
         const title = f.default ? `${f.desc} (default: ${f.default})` : f.desc;
         if (f.control === 'bool') {
-          // Tri-state: unset (indeterminate) → true → false → unset.
-          const isSet = v === true || v === false;
+          // Optional boolean override: three states (unset / true / false).
+          // Rendered as a dropdown since a checkbox can't express "unset" —
+          // some fields default to "auto-detected", not just true/false.
           return (
-            <label key={f.key} className="flex items-center gap-1.5 cursor-pointer" title={title}>
-              <input
-                type="checkbox"
-                checked={v === true}
-                ref={(el) => {
-                  if (el) el.indeterminate = !isSet;
+            <label key={f.key} className="flex flex-col gap-0.5" title={title}>
+              <span className="font-body text-[11px] text-text-secondary">
+                {f.key}
+                {f.default && <span className="text-text-muted"> (def: {f.default})</span>}
+              </span>
+              <select
+                className={selectClass}
+                value={v === undefined ? '' : v ? 'true' : 'false'}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setField(f.key, raw === '' ? undefined : raw === 'true');
                 }}
-                onChange={() => {
-                  if (v === undefined) setField(f.key, true);
-                  else if (v === true) setField(f.key, false);
-                  else setField(f.key, undefined);
-                }}
-              />
-              <span className="font-body text-[12px] text-text">{f.key}</span>
-              {f.default && (
-                <span className="font-body text-[10px] text-text-muted">def: {f.default}</span>
-              )}
+              >
+                <option value="">— default —</option>
+                <option value="true">true</option>
+                <option value="false">false</option>
+              </select>
             </label>
           );
         }
@@ -430,41 +431,76 @@ const THINKING_LEVELS: { key: string; desc: string }[] = [
   { key: 'off', desc: 'reasoning disabled' },
 ];
 
-/** Renders help for the thinkingLevelMap JSON field. */
-function ThinkingLevelMapHelp() {
+/**
+ * Typed editor for `thinkingLevelMap`. Each of the 6 levels gets a row with a
+ * text input for the provider-specific value and a checkbox to mark the level
+ * unsupported (null). A level is only stored when set; omitted levels fall back
+ * to the provider's default.
+ */
+function ThinkingLevelMapEditor({
+  value,
+  onChange,
+}: {
+  value: Record<string, string | null>;
+  onChange: (next: Record<string, string | null>) => void;
+}) {
+  const setLevel = (key: string, v: string | null | undefined) => {
+    const next = { ...value };
+    if (v === undefined || v === '') delete next[key];
+    else next[key] = v;
+    onChange(next);
+  };
+
   return (
-    <details className={helpClass}>
-      <summary className="cursor-pointer">
-        Valid keys ({THINKING_LEVELS.length}). Values are provider-specific strings, or{' '}
-        <span className={helpKeyClass}>null</span> to mark a level unsupported. Omitted keys use
-        provider defaults.
-      </summary>
-      <ul className="mt-1 ml-3 list-disc">
-        {THINKING_LEVELS.map((l) => (
-          <li key={l.key}>
-            <span className={helpKeyClass}>{l.key}</span> — {l.desc}
-          </li>
-        ))}
-      </ul>
-    </details>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+        gap: '6px 12px',
+        background: 'var(--color-bg-subtle)',
+        padding: '8px',
+        borderRadius: 'var(--radius-sm)',
+      }}
+    >
+      {THINKING_LEVELS.map((l) => {
+        const v = value[l.key];
+        const unsupported = v === null;
+        return (
+          <label key={l.key} className="flex flex-col gap-0.5" title={l.desc}>
+            <span className="font-body text-[11px] text-text-secondary">{l.key}</span>
+            <div className="flex items-center gap-1.5">
+              <input
+                className={`${selectClass} flex-1`}
+                placeholder="provider value"
+                value={unsupported ? '' : (v ?? '')}
+                disabled={unsupported}
+                onChange={(e) => setLevel(l.key, e.target.value || undefined)}
+              />
+              <label className="flex items-center gap-1 cursor-pointer font-body text-[11px] text-text-muted whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={unsupported}
+                  onChange={(e) => setLevel(l.key, e.target.checked ? null : undefined)}
+                />
+                n/a
+              </label>
+            </div>
+          </label>
+        );
+      })}
+    </div>
   );
 }
 
-/** Parse a JSON textarea, returning undefined for empty and throwing on invalid. */
-function parseJsonField(raw: string): Record<string, any> | undefined {
-  const t = raw.trim();
-  if (!t) return undefined;
-  const parsed = JSON.parse(t);
-  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
-  throw new Error('Must be a JSON object');
-}
-
-/** Allowed thinking-level keys. */
-const THINKING_LEVEL_KEYS = new Set(THINKING_LEVELS.map((l) => l.key));
-
-/** Validate thinkingLevelMap keys against the allowed set. */
-function unknownThinkingLevelKeys(obj: Record<string, any>): string[] {
-  return Object.keys(obj).filter((k) => !THINKING_LEVEL_KEYS.has(k));
+/** Normalize a thinkingLevelMap for saving: drop empty entries; keep nulls. */
+function tlmValueForSave(
+  raw: Record<string, string | null>
+): Record<string, string | null> | undefined {
+  const out: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (v === null || (typeof v === 'string' && v !== '')) out[k] = v;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 export function PiRegistry() {
@@ -784,9 +820,7 @@ function ModelRow({
   const [maxTokens, setMaxTokens] = useState(def.maxTokens?.toString() ?? '');
   const [reasoning, setReasoning] = useState(def.reasoning ?? false);
   const [compat, setCompat] = useState<Record<string, any>>(def.compat ?? {});
-  const [tlmText, setTlmText] = useState(
-    def.thinkingLevelMap ? JSON.stringify(def.thinkingLevelMap, null, 2) : ''
-  );
+  const [tlm, setTlm] = useState<Record<string, string | null>>(def.thinkingLevelMap ?? {});
   const [displayName, setDisplayName] = useState(def.name ?? '');
   const [inputText, setInputText] = useState(def.input?.includes('text') ?? false);
   const [inputImage, setInputImage] = useState(def.input?.includes('image') ?? false);
@@ -847,7 +881,7 @@ function ModelRow({
       if (typeof spec.contextWindow === 'number') setContextWindow(String(spec.contextWindow));
       if (typeof spec.maxTokens === 'number') setMaxTokens(String(spec.maxTokens));
       setReasoning(spec.reasoning ?? false);
-      setTlmText(spec.thinkingLevelMap ? JSON.stringify(spec.thinkingLevelMap, null, 2) : '');
+      setTlm(spec.thinkingLevelMap ?? {});
       setCompat(spec.compat ?? {});
       setInputText(spec.input?.includes('text') ?? false);
       setInputImage(spec.input?.includes('image') ?? false);
@@ -1090,15 +1124,8 @@ function ModelRow({
         </div>
       </div>
 
-      <label className={labelClass}>thinkingLevelMap (JSON, optional)</label>
-      <textarea
-        className={`${selectClass} font-mono`}
-        rows={3}
-        placeholder='{ "off": null, "low": "LOW", "high": "HIGH" }'
-        value={tlmText}
-        onChange={(e) => setTlmText(e.target.value)}
-      />
-      <ThinkingLevelMapHelp />
+      <label className={labelClass}>thinking level map (optional)</label>
+      <ThinkingLevelMapEditor value={tlm} onChange={setTlm} />
       <label className={`${labelClass} mt-2`}>compat overrides (optional)</label>
       <CompatEditor
         api={mode === 'standalone' ? apiVal : undefined}
@@ -1113,20 +1140,13 @@ function ModelRow({
           onClick={async () => {
             const compatApi = mode === 'standalone' ? apiVal : undefined;
             let compatOut: Record<string, any> | undefined;
-            let tlm: Record<string, any> | undefined;
+            let tlmOut: Record<string, string | null> | undefined;
             try {
               compatOut = compatValueForSave(compatApi, compat);
-              tlm = parseJsonField(tlmText);
+              tlmOut = tlmValueForSave(tlm);
             } catch (e: any) {
               toast.error(`Invalid input: ${e.message}`);
               return;
-            }
-            if (tlm) {
-              const unknown = unknownThinkingLevelKeys(tlm);
-              if (unknown.length) {
-                toast.error(`Unknown thinkingLevelMap key(s): ${unknown.join(', ')}`);
-                return;
-              }
             }
             const def: PiAiCustomModelDef = {
               // Preserve the parent provider association.
@@ -1142,7 +1162,7 @@ function ModelRow({
               ...(num(contextWindow) ? { contextWindow: num(contextWindow) } : {}),
               ...(num(maxTokens) ? { maxTokens: num(maxTokens) } : {}),
               ...(reasoning ? { reasoning: true } : {}),
-              ...(tlm ? { thinkingLevelMap: tlm } : {}),
+              ...(tlmOut ? { thinkingLevelMap: tlmOut } : {}),
               ...(compatOut ? { compat: compatOut } : {}),
             };
             const inputs: Array<'text' | 'image'> = [];
