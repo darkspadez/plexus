@@ -27,191 +27,392 @@ const helpClass = 'font-body text-[10px] text-text-secondary mt-1 leading-snug';
 const helpKeyClass = 'font-mono text-text-muted';
 
 /**
- * Valid keys for pi-ai's per-API compat override objects. Sourced from
+ * Field-level schema for pi-ai's per-API compat override objects. Sourced from
  * @earendil-works/pi-ai's OpenAICompletionsCompat / OpenAIResponsesCompat /
- * AnthropicMessagesCompat types. Only these APIs accept compat overrides;
- * the Google APIs have no compat shape (`never`).
+ * AnthropicMessagesCompat types. Only these APIs accept compat overrides; the
+ * Google APIs have no compat shape (`never`).
+ *
+ * `control` selects the rendered input:
+ *   - 'bool'    → checkbox (boolean)
+ *   - 'select'  → dropdown over `options` (string enum)
+ *   - 'json'    → small JSON textarea (nested object; advanced/rare)
+ * A field is only stored when the user sets it; omitted keys fall back to the
+ * pi-ai default (shown in `default`).
  */
-const COMPAT_FIELDS: Record<string, { key: string; type: string; desc: string }[]> = {
+type CompatControl = 'bool' | 'select' | 'json';
+interface CompatFieldDef {
+  key: string;
+  control: CompatControl;
+  desc: string;
+  default?: string;
+  options?: string[];
+}
+const COMPAT_FIELDS: Record<string, CompatFieldDef[]> = {
   'openai-completions': [
-    { key: 'supportsStore', type: 'bool', desc: 'supports the `store` field' },
-    { key: 'supportsDeveloperRole', type: 'bool', desc: 'uses `developer` role vs `system`' },
-    { key: 'supportsReasoningEffort', type: 'bool', desc: 'supports `reasoning_effort`' },
+    {
+      key: 'supportsStore',
+      control: 'bool',
+      desc: 'supports the `store` field',
+      default: 'auto-detected',
+    },
+    {
+      key: 'supportsDeveloperRole',
+      control: 'bool',
+      desc: 'uses `developer` role vs `system`',
+      default: 'auto-detected',
+    },
+    {
+      key: 'supportsReasoningEffort',
+      control: 'bool',
+      desc: 'supports `reasoning_effort`',
+      default: 'auto-detected',
+    },
     {
       key: 'supportsUsageInStreaming',
-      type: 'bool',
-      desc: 'stream_options.include_usage (default true)',
+      control: 'bool',
+      desc: 'stream_options.include_usage in streaming',
+      default: 'true',
     },
     {
       key: 'maxTokensField',
-      type: '"max_completion_tokens" | "max_tokens"',
+      control: 'select',
       desc: 'which max-tokens field to send',
+      default: 'auto-detected',
+      options: ['max_completion_tokens', 'max_tokens'],
     },
-    { key: 'requiresToolResultName', type: 'bool', desc: 'tool results require `name`' },
+    {
+      key: 'requiresToolResultName',
+      control: 'bool',
+      desc: 'tool results require `name`',
+      default: 'auto-detected',
+    },
     {
       key: 'requiresAssistantAfterToolResult',
-      type: 'bool',
+      control: 'bool',
       desc: 'need assistant msg between tool result and user',
+      default: 'auto-detected',
     },
     {
       key: 'requiresThinkingAsText',
-      type: 'bool',
+      control: 'bool',
       desc: 'convert thinking blocks to <thinking> text',
+      default: 'auto-detected',
     },
     {
       key: 'requiresReasoningContentOnAssistantMessages',
-      type: 'bool',
+      control: 'bool',
       desc: 'replay empty reasoning_content on assistants',
+      default: 'auto-detected',
     },
     {
       key: 'thinkingFormat',
-      type: 'string',
-      desc: 'openai | openrouter | deepseek | together | zai | qwen | qwen-chat-template | string-thinking | ant-ling',
+      control: 'select',
+      desc: 'reasoning/thinking parameter format',
+      default: 'openai',
+      options: [
+        'openai',
+        'openrouter',
+        'deepseek',
+        'together',
+        'zai',
+        'qwen',
+        'qwen-chat-template',
+        'string-thinking',
+        'ant-ling',
+      ],
     },
-    { key: 'openRouterRouting', type: 'object', desc: 'OpenRouter `provider` routing preferences' },
-    { key: 'vercelGatewayRouting', type: 'object', desc: 'Vercel AI Gateway routing preferences' },
-    { key: 'zaiToolStream', type: 'bool', desc: 'z.ai top-level `tool_stream: true`' },
+    {
+      key: 'openRouterRouting',
+      control: 'json',
+      desc: 'OpenRouter `provider` routing preferences (JSON object)',
+    },
+    {
+      key: 'vercelGatewayRouting',
+      control: 'json',
+      desc: 'Vercel AI Gateway routing preferences (JSON object)',
+    },
+    {
+      key: 'zaiToolStream',
+      control: 'bool',
+      desc: 'z.ai top-level `tool_stream: true`',
+      default: 'false',
+    },
     {
       key: 'supportsStrictMode',
-      type: 'bool',
-      desc: 'supports `strict` on tool defs (default true)',
+      control: 'bool',
+      desc: 'supports `strict` on tool defs',
+      default: 'true',
     },
     {
       key: 'cacheControlFormat',
-      type: '"anthropic"',
-      desc: 'Anthropic-style cache_control markers',
+      control: 'select',
+      desc: 'prompt-cache control convention',
+      default: 'unset',
+      options: ['anthropic'],
     },
     {
       key: 'sendSessionAffinityHeaders',
-      type: 'bool',
+      control: 'bool',
       desc: 'send session-affinity headers when caching',
+      default: 'false',
     },
     {
       key: 'supportsLongCacheRetention',
-      type: 'bool',
-      desc: '24h prompt cache retention (default true)',
+      control: 'bool',
+      desc: '24h prompt cache retention',
+      default: 'true',
     },
   ],
   'openai-responses': [
     {
       key: 'supportsDeveloperRole',
-      type: 'bool',
-      desc: 'uses `developer` role vs `system` (default true)',
+      control: 'bool',
+      desc: 'uses `developer` role vs `system`',
+      default: 'true',
     },
     {
       key: 'sendSessionIdHeader',
-      type: 'bool',
-      desc: 'send OpenAI `session_id` cache-affinity header (default true)',
+      control: 'bool',
+      desc: 'send OpenAI `session_id` cache-affinity header',
+      default: 'true',
     },
     {
       key: 'supportsLongCacheRetention',
-      type: 'bool',
-      desc: 'supports `prompt_cache_retention: "24h"` (default true)',
+      control: 'bool',
+      desc: 'supports `prompt_cache_retention: "24h"`',
+      default: 'true',
     },
   ],
   'azure-openai-responses': [
     {
       key: 'supportsDeveloperRole',
-      type: 'bool',
-      desc: 'uses `developer` role vs `system` (default true)',
+      control: 'bool',
+      desc: 'uses `developer` role vs `system`',
+      default: 'true',
     },
     {
       key: 'sendSessionIdHeader',
-      type: 'bool',
-      desc: 'send OpenAI `session_id` cache-affinity header (default true)',
+      control: 'bool',
+      desc: 'send OpenAI `session_id` cache-affinity header',
+      default: 'true',
     },
     {
       key: 'supportsLongCacheRetention',
-      type: 'bool',
-      desc: 'supports `prompt_cache_retention: "24h"` (default true)',
+      control: 'bool',
+      desc: 'supports `prompt_cache_retention: "24h"`',
+      default: 'true',
     },
   ],
   'openai-codex-responses': [
     {
       key: 'supportsDeveloperRole',
-      type: 'bool',
-      desc: 'uses `developer` role vs `system` (default true)',
+      control: 'bool',
+      desc: 'uses `developer` role vs `system`',
+      default: 'true',
     },
     {
       key: 'sendSessionIdHeader',
-      type: 'bool',
-      desc: 'send OpenAI `session_id` cache-affinity header (default true)',
+      control: 'bool',
+      desc: 'send OpenAI `session_id` cache-affinity header',
+      default: 'true',
     },
     {
       key: 'supportsLongCacheRetention',
-      type: 'bool',
-      desc: 'supports `prompt_cache_retention: "24h"` (default true)',
+      control: 'bool',
+      desc: 'supports `prompt_cache_retention: "24h"`',
+      default: 'true',
     },
   ],
   'anthropic-messages': [
     {
       key: 'supportsEagerToolInputStreaming',
-      type: 'bool',
-      desc: 'per-tool `eager_input_streaming` (default true)',
+      control: 'bool',
+      desc: 'per-tool `eager_input_streaming`',
+      default: 'true',
     },
     {
       key: 'supportsLongCacheRetention',
-      type: 'bool',
-      desc: 'cache_control.ttl "1h" (default true)',
+      control: 'bool',
+      desc: 'cache_control.ttl "1h"',
+      default: 'true',
     },
     {
       key: 'sendSessionAffinityHeaders',
-      type: 'bool',
+      control: 'bool',
       desc: 'send x-session-affinity header when caching',
+      default: 'false',
     },
     {
       key: 'supportsCacheControlOnTools',
-      type: 'bool',
-      desc: 'cache_control on tool defs (default true)',
+      control: 'bool',
+      desc: 'cache_control on tool defs',
+      default: 'true',
     },
-    { key: 'supportsTemperature', type: 'bool', desc: 'accepts `temperature` (default true)' },
+    { key: 'supportsTemperature', control: 'bool', desc: 'accepts `temperature`', default: 'true' },
     {
       key: 'forceAdaptiveThinking',
-      type: 'bool',
+      control: 'bool',
       desc: 'force thinking.type "adaptive" + output_config.effort',
+      default: 'false',
     },
     {
       key: 'allowEmptySignature',
-      type: 'bool',
+      control: 'bool',
       desc: 'replay empty thinking signatures as `signature: ""`',
+      default: 'false',
     },
   ],
 };
 
-/** Renders the valid compat override keys for the given upstream API. */
-function CompatHelp({ api }: { api?: PiAiApi }) {
+/**
+ * Typed editor for a compat override object. Renders one control per field
+ * defined for the given upstream API (checkboxes for bools, dropdowns for
+ * enums, a small JSON textarea for the rare nested-object fields). A field is
+ * only included in the output when the user sets it; omitted keys fall back to
+ * the pi-ai default.
+ */
+function CompatEditor({
+  api,
+  value,
+  onChange,
+}: {
+  api: PiAiApi | undefined;
+  value: Record<string, any>;
+  onChange: (next: Record<string, any>) => void;
+}) {
   if (!api) {
     return (
       <p className={helpClass}>
-        Shape depends on the base model&apos;s upstream API. See the selected API&apos;s compat keys
-        when defining a standalone model.
+        Compat shape depends on the base model&apos;s upstream API. Switch to standalone and pick an
+        API to edit compat.
       </p>
     );
   }
   const fields = COMPAT_FIELDS[api];
-  if (!fields) {
+  if (!fields || fields.length === 0) {
     return (
       <p className={helpClass}>
-        The <span className={helpKeyClass}>{api}</span> API has no compat overrides — leave empty.
+        The <span className={helpKeyClass}>{api}</span> API has no compat overrides.
       </p>
     );
   }
+
+  const setField = (key: string, v: any) => {
+    const next = { ...value };
+    if (v === undefined) delete next[key];
+    else next[key] = v;
+    onChange(next);
+  };
+
   return (
-    <details className={helpClass}>
-      <summary className="cursor-pointer">
-        Valid keys for <span className={helpKeyClass}>{api}</span> ({fields.length}). All optional;
-        deep-merged onto pi-ai defaults.
-      </summary>
-      <ul className="mt-1 ml-3 list-disc">
-        {fields.map((f) => (
-          <li key={f.key}>
-            <span className={helpKeyClass}>{f.key}</span>{' '}
-            <span className="text-text-secondary">({f.type})</span> — {f.desc}
-          </li>
-        ))}
-      </ul>
-    </details>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+        gap: '6px 12px',
+        background: 'var(--color-bg-subtle)',
+        padding: '8px',
+        borderRadius: 'var(--radius-sm)',
+      }}
+    >
+      {fields.map((f) => {
+        const v = value[f.key];
+        const title = f.default ? `${f.desc} (default: ${f.default})` : f.desc;
+        if (f.control === 'bool') {
+          // Tri-state: unset (indeterminate) → true → false → unset.
+          const isSet = v === true || v === false;
+          return (
+            <label key={f.key} className="flex items-center gap-1.5 cursor-pointer" title={title}>
+              <input
+                type="checkbox"
+                checked={v === true}
+                ref={(el) => {
+                  if (el) el.indeterminate = !isSet;
+                }}
+                onChange={() => {
+                  if (v === undefined) setField(f.key, true);
+                  else if (v === true) setField(f.key, false);
+                  else setField(f.key, undefined);
+                }}
+              />
+              <span className="font-body text-[12px] text-text">{f.key}</span>
+              {f.default && (
+                <span className="font-body text-[10px] text-text-muted">def: {f.default}</span>
+              )}
+            </label>
+          );
+        }
+        if (f.control === 'select') {
+          return (
+            <label key={f.key} className="flex flex-col gap-0.5" title={title}>
+              <span className="font-body text-[11px] text-text-secondary">
+                {f.key}
+                {f.default && <span className="text-text-muted"> (def: {f.default})</span>}
+              </span>
+              <select
+                className={selectClass}
+                value={v ?? ''}
+                onChange={(e) => setField(f.key, e.target.value || undefined)}
+              >
+                <option value="">— unset —</option>
+                {f.options!.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </label>
+          );
+        }
+        // json
+        return (
+          <label key={f.key} className="flex flex-col gap-0.5" style={{ gridColumn: '1 / -1' }}>
+            <span className="font-body text-[11px] text-text-secondary" title={title}>
+              {f.key} <span className="text-text-muted">(JSON object, advanced)</span>
+            </span>
+            <textarea
+              className={`${selectClass} font-mono`}
+              rows={2}
+              placeholder="{ }"
+              value={typeof v === 'string' ? v : v ? JSON.stringify(v, null, 2) : ''}
+              onChange={(e) => setField(f.key, e.target.value)}
+            />
+          </label>
+        );
+      })}
+    </div>
   );
+}
+
+/**
+ * Normalize a compat object for saving: parse any `json`-control fields from
+ * their textarea string into real objects, and drop empty/invalid entries.
+ * Throws on invalid JSON in a json-field.
+ */
+function compatValueForSave(
+  api: PiAiApi | undefined,
+  raw: Record<string, any>
+): Record<string, any> | undefined {
+  if (Object.keys(raw).length === 0) return undefined;
+  const fields = api ? COMPAT_FIELDS[api] : undefined;
+  const fieldMap = new Map((fields ?? []).map((f) => [f.key, f]));
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (v === undefined || v === '') continue;
+    const f = fieldMap.get(k);
+    if (f?.control === 'json' && typeof v === 'string') {
+      const t = v.trim();
+      if (!t) continue;
+      const parsed = JSON.parse(t);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error(`${k} must be a JSON object`);
+      }
+      out[k] = parsed;
+    } else {
+      out[k] = v;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /**
@@ -258,26 +459,8 @@ function parseJsonField(raw: string): Record<string, any> | undefined {
   throw new Error('Must be a JSON object');
 }
 
-/** Union of every compat key across all APIs — used to validate inherit-mode overrides. */
-const ALL_COMPAT_KEYS = new Set(
-  Object.values(COMPAT_FIELDS)
-    .flat()
-    .map((f) => f.key)
-);
 /** Allowed thinking-level keys. */
 const THINKING_LEVEL_KEYS = new Set(THINKING_LEVELS.map((l) => l.key));
-
-/**
- * Validate the keys of a parsed compat object against the allowed set for the
- * given upstream API. Returns the list of unknown keys (empty = ok). When the
- * API is unknown (inherit mode) or has no compat shape, falls back to the
- * cross-API union so typos are still caught.
- */
-function unknownCompatKeys(obj: Record<string, any>, api: PiAiApi | undefined): string[] {
-  const allowed = api ? COMPAT_FIELDS[api] : undefined;
-  const set = allowed && allowed.length > 0 ? new Set(allowed.map((f) => f.key)) : ALL_COMPAT_KEYS;
-  return Object.keys(obj).filter((k) => !set.has(k));
-}
 
 /** Validate thinkingLevelMap keys against the allowed set. */
 function unknownThinkingLevelKeys(obj: Record<string, any>): string[] {
@@ -412,9 +595,7 @@ function ProviderRow({
   const toast = useToast();
   const [apiVal, setApiVal] = useState<PiAiApi>(def.api);
   const [displayName, setDisplayName] = useState(def.display_name ?? '');
-  const [compatText, setCompatText] = useState(
-    def.compat ? JSON.stringify(def.compat, null, 2) : ''
-  );
+  const [compat, setCompat] = useState<Record<string, any>>(def.compat ?? {});
   const [open, setOpen] = useState(true);
   const [modelsOpen, setModelsOpen] = useState(true);
   const [draftModel, setDraftModel] = useState('');
@@ -477,39 +658,25 @@ function ProviderRow({
               <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
             </div>
           </div>
-          <label className={labelClass}>compat overrides (JSON object, optional)</label>
-          <textarea
-            className={`${selectClass} font-mono`}
-            rows={4}
-            placeholder='{ "maxTokensField": "max_tokens" }'
-            value={compatText}
-            onChange={(e) => setCompatText(e.target.value)}
-          />
-          <CompatHelp api={apiVal} />
+          <label className={labelClass}>compat overrides (optional)</label>
+          <CompatEditor api={apiVal} value={compat} onChange={setCompat} />
           <div className="flex justify-end mt-2">
             <Button
               size="sm"
               leftIcon={<Save size={14} />}
               onClick={async () => {
-                let compat: Record<string, any> | undefined;
+                let compatOut: Record<string, any> | undefined;
                 try {
-                  compat = parseJsonField(compatText);
+                  compatOut = compatValueForSave(apiVal, compat);
                 } catch (e: any) {
-                  toast.error(`Invalid compat JSON: ${e.message}`);
+                  toast.error(`Invalid compat: ${e.message}`);
                   return;
-                }
-                if (compat) {
-                  const unknown = unknownCompatKeys(compat, apiVal);
-                  if (unknown.length) {
-                    toast.error(`Unknown compat key(s) for ${apiVal}: ${unknown.join(', ')}`);
-                    return;
-                  }
                 }
                 try {
                   await api.savePiCustomProvider(name, {
                     api: apiVal,
                     ...(displayName.trim() ? { display_name: displayName.trim() } : {}),
-                    ...(compat ? { compat } : {}),
+                    ...(compatOut ? { compat: compatOut } : {}),
                   });
                   toast.success(`Saved '${name}'`);
                   onChanged();
@@ -616,9 +783,7 @@ function ModelRow({
   const [contextWindow, setContextWindow] = useState(def.contextWindow?.toString() ?? '');
   const [maxTokens, setMaxTokens] = useState(def.maxTokens?.toString() ?? '');
   const [reasoning, setReasoning] = useState(def.reasoning ?? false);
-  const [compatText, setCompatText] = useState(
-    def.compat ? JSON.stringify(def.compat, null, 2) : ''
-  );
+  const [compat, setCompat] = useState<Record<string, any>>(def.compat ?? {});
   const [tlmText, setTlmText] = useState(
     def.thinkingLevelMap ? JSON.stringify(def.thinkingLevelMap, null, 2) : ''
   );
@@ -683,7 +848,7 @@ function ModelRow({
       if (typeof spec.maxTokens === 'number') setMaxTokens(String(spec.maxTokens));
       setReasoning(spec.reasoning ?? false);
       setTlmText(spec.thinkingLevelMap ? JSON.stringify(spec.thinkingLevelMap, null, 2) : '');
-      setCompatText(spec.compat ? JSON.stringify(spec.compat, null, 2) : '');
+      setCompat(spec.compat ?? {});
       setInputText(spec.input?.includes('text') ?? false);
       setInputImage(spec.input?.includes('image') ?? false);
       setCostInput(spec.cost?.input?.toString() ?? '');
@@ -934,41 +1099,27 @@ function ModelRow({
         onChange={(e) => setTlmText(e.target.value)}
       />
       <ThinkingLevelMapHelp />
-      <label className={`${labelClass} mt-2`}>compat overrides (JSON, optional)</label>
-      <textarea
-        className={`${selectClass} font-mono`}
-        rows={3}
-        placeholder='{ "supportsReasoningEffort": true }'
-        value={compatText}
-        onChange={(e) => setCompatText(e.target.value)}
+      <label className={`${labelClass} mt-2`}>compat overrides (optional)</label>
+      <CompatEditor
+        api={mode === 'standalone' ? apiVal : undefined}
+        value={compat}
+        onChange={setCompat}
       />
-      <CompatHelp api={mode === 'standalone' ? apiVal : undefined} />
 
       <div className="flex justify-end mt-2">
         <Button
           size="sm"
           leftIcon={<Save size={14} />}
           onClick={async () => {
-            let compat: Record<string, any> | undefined;
+            const compatApi = mode === 'standalone' ? apiVal : undefined;
+            let compatOut: Record<string, any> | undefined;
             let tlm: Record<string, any> | undefined;
             try {
-              compat = parseJsonField(compatText);
+              compatOut = compatValueForSave(compatApi, compat);
               tlm = parseJsonField(tlmText);
             } catch (e: any) {
-              toast.error(`Invalid JSON: ${e.message}`);
+              toast.error(`Invalid input: ${e.message}`);
               return;
-            }
-            if (compat) {
-              const compatApi = mode === 'standalone' ? apiVal : undefined;
-              const unknown = unknownCompatKeys(compat, compatApi);
-              if (unknown.length) {
-                toast.error(
-                  `Unknown compat key(s) for ${
-                    compatApi ?? 'the inherited model'
-                  }: ${unknown.join(', ')}`
-                );
-                return;
-              }
             }
             if (tlm) {
               const unknown = unknownThinkingLevelKeys(tlm);
@@ -992,7 +1143,7 @@ function ModelRow({
               ...(num(maxTokens) ? { maxTokens: num(maxTokens) } : {}),
               ...(reasoning ? { reasoning: true } : {}),
               ...(tlm ? { thinkingLevelMap: tlm } : {}),
-              ...(compat ? { compat } : {}),
+              ...(compatOut ? { compat: compatOut } : {}),
             };
             const inputs: Array<'text' | 'image'> = [];
             if (inputText) inputs.push('text');
