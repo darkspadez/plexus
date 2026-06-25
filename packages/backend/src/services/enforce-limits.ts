@@ -1,6 +1,7 @@
+import type { Context } from '@earendil-works/pi-ai';
 import type { ModelConfig } from '../config';
 import type { UnifiedChatRequest } from '../types/unified';
-import { estimateInputTokens } from '../utils/estimate-tokens';
+import { estimateContextTokens, estimateInputTokens } from '../utils/estimate-tokens';
 import { logger } from '../utils/logger';
 import { ModelMetadataManager, mergeOverrides } from './model-metadata-manager';
 
@@ -103,6 +104,103 @@ export function enforceContextLimit(
   const bodyForEstimate = request.originalBody ?? { messages: request.messages };
   const rawEstimate = estimateInputTokens(bodyForEstimate, apiType);
   const estimated = Math.ceil(rawEstimate * ESTIMATE_SAFETY_MULTIPLIER);
+
+  if (estimated + reservedOutput > contextLength) {
+    const message =
+      `This model's context window is ${contextLength} tokens. ` +
+      `Your request is estimated at ~${estimated} input tokens with ${reservedOutput} reserved for the response, ` +
+      `which exceeds the limit. Please shorten the prompt or lower max_tokens.`;
+    throw new ContextLengthExceededError(message, {
+      statusCode: 400,
+      code: 'context_length_exceeded',
+      estimatedInputTokens: estimated,
+      reservedOutputTokens: reservedOutput,
+      contextLength,
+      aliasSlug,
+    });
+  }
+}
+
+/**
+ * Convenience export: resolve the effective context window for an alias.
+ * Returns undefined when no context_length is known — callers should fail open.
+ * The executor (Task 3) uses this to resolve the per-candidate context window.
+ */
+export function resolveContextLength(aliasConfig: ModelConfig): number | undefined {
+  const merged = resolveMetadata(aliasConfig);
+  const ctx = merged?.top_provider?.context_length ?? merged?.context_length;
+  return ctx && ctx > 0 ? ctx : undefined;
+}
+
+export interface ContextLimitOptions {
+  /** Resolved context window from the caller (e.g. route.modelArchitecture). Falls back to alias metadata when omitted. */
+  contextLength?: number;
+  /** Requested max output tokens (e.g. streamOptions.maxTokens). */
+  maxTokens?: number;
+  /** apiType for image-token formula parity with v1 (e.g. 'chat' | 'messages' | 'gemini' | 'responses'). */
+  apiType?: string;
+}
+
+/** Minimal structural view of a RouteResult — avoids importing inference types here. */
+export interface EnforceRouteInfo {
+  canonicalModel?: string;
+  modelArchitecture?: { context_length?: number };
+}
+
+/**
+ * Gate + bridge for the v2/beta path: enforce the context limit for one routing
+ * candidate. No-op unless the alias has `enforce_limits` AND the candidate has a
+ * canonicalModel (mirrors dispatcher.ts:392). Throws ContextLengthExceededError
+ * on violation; the caller catches it (no failover on context-length).
+ */
+export function enforceContextLimitForRoute(
+  context: Context,
+  route: EnforceRouteInfo,
+  aliasConfig: ModelConfig | undefined,
+  maxTokens: number | undefined,
+  apiType: string
+): void {
+  if (!aliasConfig?.enforce_limits || !route.canonicalModel) return;
+  enforceContextLimitForContext(context, aliasConfig, route.canonicalModel, {
+    contextLength: route.modelArchitecture?.context_length ?? resolveContextLength(aliasConfig),
+    maxTokens,
+    apiType,
+  });
+}
+
+/**
+ * Inference-v2 (pi path) analogue of enforceContextLimit. Counts tokens from a
+ * pi-ai Context (the v2 path has no originalBody) and throws
+ * ContextLengthExceededError when estimate + reserved output exceeds the
+ * resolved context window. Fail-open when no context length is known.
+ */
+export function enforceContextLimitForContext(
+  context: Context,
+  aliasConfig: ModelConfig,
+  aliasSlug: string,
+  opts: ContextLimitOptions = {}
+): void {
+  const merged = resolveMetadata(aliasConfig);
+  const contextLength =
+    opts.contextLength ?? merged?.top_provider?.context_length ?? merged?.context_length;
+  if (!contextLength || contextLength <= 0) {
+    logger.debug(`[enforce-limits:v2] Skipping '${aliasSlug}': no context_length known.`);
+    return; // fail open — we can't enforce what we don't know
+  }
+
+  const metadataMaxOutput = merged?.top_provider?.max_completion_tokens;
+  const requestedMaxTokens =
+    typeof opts.maxTokens === 'number' && opts.maxTokens > 0 ? opts.maxTokens : undefined;
+  let reservedOutput: number;
+  if (requestedMaxTokens !== undefined && metadataMaxOutput !== undefined) {
+    reservedOutput = Math.min(requestedMaxTokens, metadataMaxOutput);
+  } else {
+    reservedOutput = requestedMaxTokens ?? metadataMaxOutput ?? DEFAULT_OUTPUT_RESERVATION;
+  }
+
+  const estimated = Math.ceil(
+    estimateContextTokens(context, opts.apiType) * ESTIMATE_SAFETY_MULTIPLIER
+  );
 
   if (estimated + reservedOutput > contextLength) {
     const message =
