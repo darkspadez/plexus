@@ -307,6 +307,8 @@ const OAuthProviderSchema = z.enum([
   'github-copilot',
   'google-gemini-cli',
   'google-antigravity',
+  'xai',
+  'cursor',
 ]);
 
 const NagaQuotaCheckerOptionsSchema = z.object({
@@ -459,6 +461,16 @@ const HyperQuotaCheckerOptionsSchema = z.object({
 const SakanaQuotaCheckerOptionsSchema = z.object({
   sessionCookie: z.string().trim().min(1, 'Sakana session cookie is required'),
   endpoint: z.string().url().optional(),
+});
+
+const XaiQuotaCheckerOptionsSchema = z.object({
+  apiKey: z.string().optional(),
+  oauthAccountId: z.string().optional(),
+});
+
+const CursorQuotaCheckerOptionsSchema = z.object({
+  apiKey: z.string().optional(),
+  oauthAccountId: z.string().optional(),
 });
 
 const ProviderQuotaCheckerSchema = z.discriminatedUnion('type', [
@@ -671,6 +683,20 @@ const ProviderQuotaCheckerSchema = z.discriminatedUnion('type', [
     intervalMinutes: z.number().min(1).default(30),
     id: z.string().trim().min(1).optional(),
     options: SakanaQuotaCheckerOptionsSchema,
+  }),
+  z.object({
+    type: z.literal('xai'),
+    enabled: z.boolean().default(true),
+    intervalMinutes: z.number().min(1).default(30),
+    id: z.string().trim().min(1).optional(),
+    options: XaiQuotaCheckerOptionsSchema.optional().default({}),
+  }),
+  z.object({
+    type: z.literal('cursor'),
+    enabled: z.boolean().default(true),
+    intervalMinutes: z.number().min(1).default(30),
+    id: z.string().trim().min(1).optional(),
+    options: CursorQuotaCheckerOptionsSchema.optional().default({}),
   }),
 ]);
 

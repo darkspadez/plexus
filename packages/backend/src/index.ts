@@ -48,6 +48,7 @@ import { logger } from './utils/logger';
 import { getConfig } from './config';
 import { ConfigService } from './services/config-service';
 import { Dispatcher } from './services/dispatcher';
+import { registerOAuthProviders } from './services/oauth-providers';
 import { UsageStorageService } from './services/usage-storage';
 import { ProbeService } from './services/probe-service';
 import { BackgroundExplorer } from './services/background-explorer';
@@ -122,6 +123,10 @@ fastify.register(multipart, {
 });
 
 // --- Service Initialization ---
+
+// Register plexus's local OAuth providers (xAI/Grok, Cursor) into pi-ai's OAuth
+// registry before any OAuth login or dispatch can occur.
+registerOAuthProviders();
 
 const dispatcher = new Dispatcher();
 const usageStorage = new UsageStorageService();
