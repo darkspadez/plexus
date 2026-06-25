@@ -33,6 +33,9 @@ vi.mock('@earendil-works/pi-ai/providers/all', () => {
       getModel: (provider: string, modelId: string) => REGISTRY[provider]?.[modelId],
       getModels: (provider: string) => Object.values(REGISTRY[provider] ?? {}),
       getProviders: () => Object.keys(REGISTRY),
+      // Only returns a value for providers registered in REGISTRY — simulates
+      // builtinModels().getProvider() used by toDispatchModel().
+      getProvider: (id: string) => (REGISTRY[id] ? { id } : undefined),
     }),
     getBuiltinModel: (provider: string, modelId: string) => REGISTRY[provider]?.[modelId],
     getBuiltinProviders: () => Object.keys(REGISTRY),
@@ -41,7 +44,7 @@ vi.mock('@earendil-works/pi-ai/providers/all', () => {
 });
 
 import { setConfigForTesting } from '../../../config';
-import { resolvePiAiModel } from '../pi-ai-utils';
+import { resolvePiAiModel, toDispatchModel } from '../pi-ai-utils';
 
 function configWith(custom: { providers?: Record<string, any>; models?: Record<string, any> }) {
   setConfigForTesting({
@@ -274,5 +277,81 @@ describe('resolvePiAiModel', () => {
       expect(m.provider).toBe('provider-b');
       expect(m.id).toBe('shared-id');
     });
+  });
+});
+
+// ─── toDispatchModel ──────────────────────────────────────────────────────────
+//
+// Regression coverage for the pi-ai 0.80 upgrade regression where
+// piAiModels.stream() throws "Unknown provider: <custom>" because
+// builtinModels() only has builtin provider ids in its internal map.
+// toDispatchModel() must remap custom providers to their builtin equivalent
+// before the model is handed to piAiModels.stream() / .complete().
+
+describe('toDispatchModel', () => {
+  it('returns the model unchanged when provider is already a builtin', () => {
+    const model = {
+      id: 'gpt-5.5',
+      provider: 'openai',
+      api: 'openai-responses',
+      baseUrl: 'https://api.openai.com',
+    } as any;
+    const result = toDispatchModel(model);
+    expect(result).toBe(model); // same reference — no copy made
+    expect(result.provider).toBe('openai');
+  });
+
+  it('remaps a custom provider to the builtin openai provider for openai-completions api', () => {
+    // Regression: neuralwatt has pi_ai_provider:"neuralwatt" and
+    // api:"openai-completions". Before the fix, piAiModels.stream() threw
+    // "Unknown provider: neuralwatt" because builtinModels() only registers
+    // canonical builtin provider ids.
+    const model = {
+      id: 'glm-5.2',
+      provider: 'neuralwatt',
+      api: 'openai-completions',
+      baseUrl: 'https://api.neuralwatt.com/v1',
+    } as any;
+    const result = toDispatchModel(model);
+    expect(result.provider).toBe('openai');
+    expect(result.id).toBe('glm-5.2');
+    expect(result.api).toBe('openai-completions');
+    expect(result.baseUrl).toBe('https://api.neuralwatt.com/v1');
+  });
+
+  it('remaps a custom provider to anthropic for anthropic-messages api', () => {
+    const model = {
+      id: 'custom-claude',
+      provider: 'my-anthropic-proxy',
+      api: 'anthropic-messages',
+      baseUrl: 'https://proxy.example.com',
+    } as any;
+    const result = toDispatchModel(model);
+    expect(result.provider).toBe('anthropic');
+    expect(result.api).toBe('anthropic-messages');
+    expect(result.baseUrl).toBe('https://proxy.example.com');
+  });
+
+  it('remaps a custom provider to google for google-generative-ai api', () => {
+    const model = {
+      id: 'gemini-custom',
+      provider: 'my-google-proxy',
+      api: 'google-generative-ai',
+      baseUrl: 'https://proxy.example.com',
+    } as any;
+    const result = toDispatchModel(model);
+    expect(result.provider).toBe('google');
+  });
+
+  it('returns model unchanged when api has no known builtin mapping', () => {
+    const model = {
+      id: 'weird-model',
+      provider: 'unknown-provider',
+      api: 'unknown-api',
+      baseUrl: 'https://something.example.com',
+    } as any;
+    const result = toDispatchModel(model);
+    // Falls through — let piAiModels surface its own error
+    expect(result.provider).toBe('unknown-provider');
   });
 });

@@ -602,6 +602,35 @@ export function resolvePiAiModel(piAiProvider: string, piAiModelId: string): PiA
   return safeGetModel(piAiProvider, piAiModelId);
 }
 
+/**
+ * Prepare a resolved pi-ai Model for dispatch via `piAiModels.stream()` /
+ * `piAiModels.complete()`.
+ *
+ * `builtinModels()` routes by `model.provider` via a provider map that only
+ * contains the builtin provider ids (`openai`, `anthropic`, `google`, …).
+ * Custom providers (e.g. `neuralwatt`, `wafer`) are not registered in that
+ * map, so dispatching with `provider: "neuralwatt"` throws
+ * `"Unknown provider: neuralwatt"`.
+ *
+ * The pre-0.80 compat `stream()` free function dispatched by `model.api`
+ * instead, transparently handling custom providers. This helper restores that
+ * behaviour: when `model.provider` is not a registered builtin, remap it to
+ * the canonical builtin that implements the same wire API so that
+ * `piAiModels.stream()` can route to the correct provider.
+ */
+export function toDispatchModel(model: PiAiModel<any>): PiAiModel<any> {
+  if (piAiModels.getProvider(model.provider)) {
+    // Already a known builtin — no remapping needed.
+    return model;
+  }
+  const builtinProvider = API_TO_BUILTIN_PROVIDER[model.api];
+  if (!builtinProvider) {
+    // Unknown api — return as-is and let piAiModels surface the error.
+    return model;
+  }
+  return { ...model, provider: builtinProvider };
+}
+
 function applyCustomProvider(
   model: PiAiModel<any>,
   providerSpec: PiAiCustomProvider | undefined
