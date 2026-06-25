@@ -14,6 +14,11 @@ import {
 } from '../../filters/pi-ai-request-filters';
 import { OAuthAuthManager } from '../../services/oauth-auth-manager';
 import {
+  getOAuthProviderModel,
+  streamCursor,
+  completeCursor,
+} from '../../services/oauth-providers';
+import {
   unifiedToContext,
   piAiMessageToUnified,
   piAiEventToChunk,
@@ -106,7 +111,9 @@ export class OAuthTransformer implements Transformer {
   readonly defaultModel = 'gpt-5-mini';
 
   protected getPiAiModel(provider: OAuthProvider, modelId: string): PiAiModel<any> {
-    const model = piAiModels.getModel(provider as any, modelId);
+    const model =
+      piAiModels.getModel(provider as any, modelId) ??
+      getOAuthProviderModel(provider as string, modelId);
     if (!model) {
       throw new Error(`Model '${modelId}' not found for provider '${provider}'`);
     }
@@ -474,6 +481,19 @@ export class OAuthTransformer implements Transformer {
 
     if (signal) {
       requestOptions.signal = signal;
+    }
+
+    // Cursor speaks a proprietary AgentService protocol (Connect-RPC/protobuf),
+    // not an OpenAI/Anthropic HTTP API, so it can't go through pi-ai's
+    // stream()/complete(). Route it to the bespoke transport, which yields
+    // pi-ai-shaped events so transformStream()/transformResponse() below work
+    // unchanged.
+    if ((provider as string) === 'cursor') {
+      const cursorOptions = { ...requestOptions, apiKey, signal };
+      if (streaming) {
+        return streamCursor(model, context, cursorOptions);
+      }
+      return await completeCursor(model, context, cursorOptions);
     }
 
     if (streaming) {

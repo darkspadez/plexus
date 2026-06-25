@@ -26,6 +26,8 @@ import { CrofQuotaConfig } from '../quota/CrofQuotaConfig';
 import { ExeDevQuotaConfig } from '../quota/ExeDevQuotaConfig';
 import { HyperQuotaConfig } from '../quota/HyperQuotaConfig';
 import { SakanaQuotaConfig } from '../quota/SakanaQuotaConfig';
+import { XaiQuotaConfig } from '../quota/XaiQuotaConfig';
+import { CursorQuotaConfig } from '../quota/CursorQuotaConfig';
 
 interface Props {
   editingProvider: Provider;
@@ -71,6 +73,8 @@ const QUOTA_CONFIG_MAP: Record<
   exedev: ExeDevQuotaConfig,
   hyper: HyperQuotaConfig,
   sakana: SakanaQuotaConfig,
+  xai: XaiQuotaConfig,
+  cursor: CursorQuotaConfig,
 };
 
 export function ProviderQuotaEditor({
