@@ -497,6 +497,14 @@ function isTrustedXaiEndpoint(value: unknown): value is string {
   }
 }
 
+const NETWORK_TIMEOUT_MS = 30_000;
+
+/** Compose an optional caller signal with a timeout so a request can't hang. */
+function withTimeout(signal: AbortSignal | undefined, ms: number): AbortSignal {
+  const timeout = AbortSignal.timeout(ms);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
 /**
  * Fetch and validate the OIDC discovery document. Falls back to hardcoded
  * endpoints on any failure or when a discovered endpoint is not a trusted host.
@@ -513,7 +521,7 @@ async function resolveEndpoints(signal?: AbortSignal): Promise<OAuthEndpoints> {
     const response = await fetch(DISCOVERY_URL, {
       method: 'GET',
       headers: { Accept: 'application/json' },
-      signal,
+      signal: withTimeout(signal, NETWORK_TIMEOUT_MS),
     });
     if (!response.ok) {
       logger.warn(`xAI OAuth: discovery returned ${response.status}; using fallback endpoints`);
@@ -566,7 +574,7 @@ async function postForm(
       method: 'POST',
       headers: { ...FORM_HEADERS, Accept: 'application/json' },
       body,
-      signal,
+      signal: withTimeout(signal, NETWORK_TIMEOUT_MS),
     });
   } catch (error) {
     if (signal?.aborted) {
@@ -773,6 +781,7 @@ export async function discoverXaiModels(accessToken: string): Promise<Model<type
         Authorization: `Bearer ${accessToken}`,
         Accept: 'application/json',
       },
+      signal: withTimeout(undefined, NETWORK_TIMEOUT_MS),
     });
     if (!response.ok) {
       logger.warn(`xAI OAuth: model discovery returned ${response.status}; using static catalog`);

@@ -16,6 +16,7 @@ import type { Meter } from '../../../types/meter';
 
 const ME_ENDPOINT = 'https://api.x.ai/v1/me';
 const MODELS_ENDPOINT = 'https://api.x.ai/v1/language-models';
+const REQUEST_TIMEOUT_MS = 15_000;
 
 interface XaiMeResponse {
   team_id?: string;
@@ -82,7 +83,11 @@ export default defineChecker({
     };
 
     logger.silly(`Requesting account status for '${ctx.checkerId}' from ${ME_ENDPOINT}`);
-    const meResponse = await fetch(ME_ENDPOINT, { method: 'GET', headers });
+    const meResponse = await fetch(ME_ENDPOINT, {
+      method: 'GET',
+      headers,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
 
     if (meResponse.status === 401 || meResponse.status === 403) {
       throw new Error(`xAI OAuth token expired or invalid (HTTP ${meResponse.status})`);
@@ -119,7 +124,11 @@ export default defineChecker({
     // Best-effort: how many language models the token can access. Tolerate
     // failure — it is purely informational and must not fail the whole check.
     try {
-      const modelsResponse = await fetch(MODELS_ENDPOINT, { method: 'GET', headers });
+      const modelsResponse = await fetch(MODELS_ENDPOINT, {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
       if (modelsResponse.ok) {
         const models = (await modelsResponse.json()) as XaiLanguageModelsResponse;
         const count = Array.isArray(models.models) ? models.models.length : 0;

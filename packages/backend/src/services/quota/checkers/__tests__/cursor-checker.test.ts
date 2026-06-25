@@ -145,9 +145,9 @@ describe('cursor checker — pure helpers', () => {
 
 describe('cursor checker — check()', () => {
   const setFetchMock = (impl: (url: string, init?: RequestInit) => Promise<Response>): void => {
-    global.fetch = vi.fn((input: unknown, init?: RequestInit) =>
+    registerSpy(globalThis, 'fetch').mockImplementation((input: unknown, init?: RequestInit) =>
       impl(String(input), init)
-    ) as unknown as typeof fetch;
+    );
   };
 
   beforeEach(() => {

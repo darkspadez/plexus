@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import {
   buildAuthorizeUrl,
   buildDeviceAuthorizationBody,
@@ -69,7 +70,6 @@ describe('generatePkcePair', () => {
   it('derives challenge deterministically from verifier (S256)', () => {
     const { verifier, challenge } = generatePkcePair();
     // Re-derive using node:crypto the same way the implementation does.
-    const { createHash } = require('node:crypto');
     const expected = createHash('sha256').update(verifier).digest('base64url');
     expect(challenge).toBe(expected);
   });

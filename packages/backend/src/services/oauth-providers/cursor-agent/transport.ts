@@ -46,6 +46,7 @@ const DEFAULT_BASE_URL = 'https://api2.cursor.sh';
 const DEFAULT_CLIENT_VERSION = 'cli-2026.01.09-231024f';
 const HEARTBEAT_INTERVAL_MS = 5_000;
 const STREAM_IDLE_TIMEOUT_MS = 120_000;
+const UNARY_TIMEOUT_MS = 15_000;
 
 /** Resolve the configured Cursor base URL. */
 export function getCursorBaseUrl(): string {
@@ -159,7 +160,11 @@ export class CursorAgentTransport {
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     signal?.addEventListener('abort', onAbort, { once: true });
-    const idleTimer = setTimeout(() => controller.abort(), STREAM_IDLE_TIMEOUT_MS);
+    let idleTimer = setTimeout(() => controller.abort(), STREAM_IDLE_TIMEOUT_MS);
+    const resetIdle = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => controller.abort(), STREAM_IDLE_TIMEOUT_MS);
+    };
     let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 
     const sendClientFrame = async (payload: Uint8Array): Promise<void> => {
@@ -215,7 +220,7 @@ export class CursorAgentTransport {
         return;
       }
 
-      yield* this.consumeFrameStream(response.body, params, signal);
+      yield* this.consumeFrameStream(response.body, params, signal, resetIdle);
     } catch (error) {
       if (signal?.aborted) {
         yield { type: 'error', error: 'Cursor request aborted.' };
@@ -237,7 +242,8 @@ export class CursorAgentTransport {
   private async *consumeFrameStream(
     body: ReadableStream<Uint8Array<ArrayBufferLike>>,
     params: CursorRunParams,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    resetIdle?: () => void
   ): AsyncGenerator<CursorStreamChunk> {
     const reader = body.getReader();
     let pending: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
@@ -257,6 +263,8 @@ export class CursorAgentTransport {
           break;
         }
         if (value && value.length > 0) {
+          // Activity on the stream — keep the idle watchdog from firing.
+          resetIdle?.();
           pending = pending.length === 0 ? value : concatBytes(pending, value);
         }
 
@@ -373,13 +381,22 @@ export class CursorAgentTransport {
       }
     };
     signal?.addEventListener('abort', onAbort, { once: true });
-    const idleTimer = setTimeout(onAbort, STREAM_IDLE_TIMEOUT_MS);
+    let idleTimer = setTimeout(onAbort, STREAM_IDLE_TIMEOUT_MS);
+    const resetIdle = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(onAbort, STREAM_IDLE_TIMEOUT_MS);
+    };
     let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 
     try {
       const responseStatus = await new Promise<number>((resolve, reject) => {
         stream.once('response', (resp) => resolve(Number(resp[':status'] ?? 0)));
         stream.once('error', reject);
+        // Settle the wait if the stream/session ends before a response arrives
+        // (abort, idle timeout, or server close) so we never hang here.
+        stream.once('close', () =>
+          reject(new Error('Cursor HTTP/2 stream closed before response'))
+        );
         writeFrame(messageBody);
         heartbeatTimer = setInterval(
           () => writeFrame(encodeAgentClientHeartbeat()),
@@ -392,7 +409,7 @@ export class CursorAgentTransport {
         return;
       }
 
-      yield* this.consumeFrameStream(nodeStreamToWebStream(stream), params, signal);
+      yield* this.consumeFrameStream(nodeStreamToWebStream(stream), params, signal, resetIdle);
     } catch (error) {
       if (signal?.aborted) {
         yield { type: 'error', error: 'Cursor request aborted.' };
@@ -443,11 +460,13 @@ export class CursorAgentTransport {
     signal?: AbortSignal
   ): Promise<Uint8Array> {
     const requestId = randomUUID();
+    const timeout = AbortSignal.timeout(UNARY_TIMEOUT_MS);
+    const composedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: 'POST',
       headers: this.headers(requestId, 'unary'),
       body: Buffer.from(body),
-      ...(signal ? { signal } : {}),
+      signal: composedSignal,
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
@@ -463,7 +482,10 @@ export class CursorAgentTransport {
       const chunks: Buffer[] = [];
       let status = 0;
       let settled = false;
-      const timeout = setTimeout(() => fail(new Error(`Cursor unary ${path} timed out`)), 15_000);
+      const timeout = setTimeout(
+        () => fail(new Error(`Cursor unary ${path} timed out`)),
+        UNARY_TIMEOUT_MS
+      );
       const cleanup = () => {
         clearTimeout(timeout);
         try {

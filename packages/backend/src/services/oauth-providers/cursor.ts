@@ -15,7 +15,7 @@
  */
 
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { homedir } from 'node:os';
+import { homedir, release } from 'node:os';
 import type { Context, Model, Message } from '@earendil-works/pi-ai';
 import type {
   OAuthCredentials,
@@ -41,6 +41,7 @@ const CURSOR_API = 'cursor-direct';
 const LOGIN_URL = 'https://cursor.com/loginDeepControl';
 const POLL_PATH = '/auth/poll';
 const REFRESH_PATH = '/auth/exchange_user_api_key';
+const REFRESH_TIMEOUT_MS = 15_000;
 
 const POLL_MAX_ATTEMPTS = 150;
 const POLL_BASE_DELAY_MS = 1_000;
@@ -69,7 +70,13 @@ const STATIC_MODEL_SEEDS: ModelSeed[] = [
     contextWindow: 200_000,
     maxTokens: 64_000,
   },
-  { id: 'gpt-5.5', name: 'GPT-5.5', reasoning: true, contextWindow: 272_000, maxTokens: 128_000 },
+  {
+    id: 'gpt-5.5-none',
+    name: 'GPT-5.5',
+    reasoning: true,
+    contextWindow: 272_000,
+    maxTokens: 128_000,
+  },
   {
     id: 'claude-opus-4-8',
     name: 'Claude Opus 4.8',
@@ -276,14 +283,22 @@ async function refreshToken(credentials: OAuthCredentials): Promise<OAuthCredent
     return credentials;
   }
 
-  const response = await fetch(`${getCursorBaseUrl()}${REFRESH_PATH}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${credentials.refresh}`,
-      'Content-Type': 'application/json',
-    },
-    body: '{}',
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${getCursorBaseUrl()}${REFRESH_PATH}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${credentials.refresh}`,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
+    });
+  } catch (error) {
+    throw new Error(
+      `Cursor token refresh request failed: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     throw new Error(
@@ -426,7 +441,8 @@ function serializeMessageLine(message: Message): string {
 
 function detectOsString(): string {
   // RequestContext.env os string; Cursor accepts a "<platform> <release>" form.
-  return `${process.platform} ${process.release?.name ?? ''}`.trim() || process.platform;
+  // Use the OS kernel release (e.g. "24.0.0"), not the JS runtime name.
+  return `${process.platform} ${release()}`.trim() || process.platform;
 }
 
 function buildEnv(): CursorEnv {

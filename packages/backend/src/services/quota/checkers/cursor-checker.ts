@@ -249,6 +249,9 @@ export default defineChecker({
     if (!userId) throw new Error('failed to extract Cursor userId from access token');
     const cookie = buildCursorCookie(userId, accessToken);
 
+    // Shared timeout so a stalled Cursor endpoint can't hang the quota check.
+    const signal = AbortSignal.timeout(15_000);
+
     // (B) Primary: usage-based usd-credit plan.
     const usagePromise = (async (): Promise<Meter | null> => {
       const response = await fetch(USAGE_ENDPOINT, {
@@ -259,6 +262,7 @@ export default defineChecker({
           'Connect-Protocol-Version': '1',
         },
         body: '{}',
+        signal,
       });
       if (isAuthError(response.status)) {
         throw new Error(`Cursor OAuth token expired or invalid (HTTP ${response.status})`);
@@ -274,7 +278,7 @@ export default defineChecker({
     // (A) Legacy fallback: request-count plans.
     const legacyPromise = (async (): Promise<Meter | null> => {
       const url = `${LEGACY_USAGE_ENDPOINT}?user=${encodeURIComponent(userId)}`;
-      const response = await fetch(url, { method: 'GET', headers: { Cookie: cookie } });
+      const response = await fetch(url, { method: 'GET', headers: { Cookie: cookie }, signal });
       if (isAuthError(response.status)) {
         throw new Error(`Cursor OAuth token expired or invalid (HTTP ${response.status})`);
       }
@@ -288,7 +292,11 @@ export default defineChecker({
 
     // (C) Prepaid credit balance.
     const stripePromise = (async (): Promise<Meter | null> => {
-      const response = await fetch(STRIPE_ENDPOINT, { method: 'GET', headers: { Cookie: cookie } });
+      const response = await fetch(STRIPE_ENDPOINT, {
+        method: 'GET',
+        headers: { Cookie: cookie },
+        signal,
+      });
       if (isAuthError(response.status)) {
         throw new Error(`Cursor OAuth token expired or invalid (HTTP ${response.status})`);
       }
