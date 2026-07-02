@@ -8,7 +8,7 @@ import { handleResponse } from '../../services/response-handler';
 import { getClientIp } from '../../utils/ip';
 import { DebugManager } from '../../services/debug-manager';
 import { QuotaEnforcer } from '../../services/quota/quota-enforcer';
-import { checkQuotaMiddleware } from '../../services/quota/quota-middleware';
+import { checkQuotaMiddleware, attachQuotaContext } from '../../services/quota/quota-middleware';
 import { attachKeyAccessPolicy } from '../../utils/auth';
 import { wireUpstreamTimeout, wireEarlyDisconnectDetection } from '../../utils/timeout';
 import { wireStallDetection, getGlobalStallConfig } from '../../utils/stall';
@@ -91,8 +91,9 @@ export async function registerChatRoute(
 
       // Check quota before processing
       if (quotaEnforcer) {
-        const allowed = await checkQuotaMiddleware(request, reply, quotaEnforcer);
-        if (!allowed) return;
+        const quotaCheck = await checkQuotaMiddleware(request, reply, quotaEnforcer);
+        if (!quotaCheck.ok) return;
+        unifiedRequest = attachQuotaContext(unifiedRequest, quotaCheck.context);
       }
 
       const abortController = new AbortController();
@@ -154,6 +155,17 @@ export async function registerChatRoute(
           `Request ${requestId}: ${e.message}, usage recorded as ${e?.routingContext?.code === 'upstream_timeout' ? 'timeout' : 'cancelled'}`
         );
         return;
+      }
+      if (e?.routingContext?.code === 'quota_exceeded') {
+        usageRecord.responseStatus = 'error';
+        usageRecord.durationMs = Date.now() - startTime;
+        usageRecord.attemptCount = e.routingContext?.attemptCount || usageRecord.attemptCount || 1;
+        usageRecord.retryHistory =
+          e.routingContext?.retryHistory || usageRecord.retryHistory || null;
+        usageStorage.saveRequest(usageRecord as UsageRecord);
+        usageStorage.saveError(requestId, e, { apiType: 'chat', ...(e.routingContext || {}) });
+        DebugManager.getInstance().flush(requestId);
+        return reply.code(429).send(e.routingContext.body);
       }
       usageRecord.responseStatus =
         e?.routingContext?.code === 'upstream_timeout' ? 'timeout' : 'error';

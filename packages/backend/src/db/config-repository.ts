@@ -210,6 +210,22 @@ function stringifyStringArray(value: string[] | undefined): string | null {
   return normalized.length > 0 ? JSON.stringify(normalized) : null;
 }
 
+/**
+ * Serialize `config.quotas` for `api_keys.quota_names`. Unlike
+ * `stringifyStringArray`, an empty (but DEFINED) array is written as the
+ * literal `'[]'` rather than collapsed to NULL — otherwise `saveKey` with
+ * `quotas: []` (admin clearing a key's quotas) would write NULL, and the
+ * read path would then fall back to the deprecated `quota_name` column,
+ * resurrecting a quota the admin just removed. Only an actually-absent
+ * (`undefined`) `quotas` field writes NULL, preserving the legacy
+ * `quota_name` fallback for rows not yet migrated to `quota_names`.
+ */
+function stringifyQuotaNames(value: string[] | undefined): string | null {
+  if (value === undefined) return null;
+  const normalized = value.map((entry) => entry.trim()).filter(Boolean);
+  return JSON.stringify(normalized);
+}
+
 export interface OAuthCredentialsData {
   accessToken: string;
   refreshToken: string;
@@ -1004,11 +1020,21 @@ export class ConfigRepository {
       const excludedModels = parseStringArray(row.excludedModels);
       const excludedProviders = parseStringArray(row.excludedProviders);
       const allowedIps = parseStringArray(row.allowedIps);
+      // quota_names (new, array) is authoritative whenever it's non-NULL —
+      // including an explicitly-saved empty array (admin cleared the key's
+      // quotas). quota_name (deprecated, single) is a read-fallback ONLY
+      // for rows where quota_names has never been written.
+      const quotas: string[] | undefined =
+        row.quotaNames != null
+          ? (parseStringArray(row.quotaNames) ?? [])
+          : row.quotaName
+            ? [row.quotaName]
+            : undefined;
 
       result[row.name] = {
         secret: decrypt(row.secret),
         ...(row.comment ? { comment: row.comment } : {}),
-        ...(row.quotaName ? { quota: row.quotaName } : {}),
+        ...(quotas !== undefined ? { quotas } : {}),
         ...(allowedModels ? { allowedModels } : {}),
         ...(allowedProviders ? { allowedProviders } : {}),
         ...(excludedModels ? { excludedModels } : {}),
@@ -1056,13 +1082,20 @@ export class ConfigRepository {
     const excludedModels = parseStringArray(row.excludedModels);
     const excludedProviders = parseStringArray(row.excludedProviders);
     const allowedIps = parseStringArray(row.allowedIps);
+    // See getAllKeys above: quota_names is authoritative whenever non-NULL.
+    const quotas: string[] | undefined =
+      row.quotaNames != null
+        ? (parseStringArray(row.quotaNames) ?? [])
+        : row.quotaName
+          ? [row.quotaName]
+          : undefined;
 
     return {
       name: row.name,
       config: {
         secret: decrypt(row.secret),
         ...(row.comment ? { comment: row.comment } : {}),
-        ...(row.quotaName ? { quota: row.quotaName } : {}),
+        ...(quotas !== undefined ? { quotas } : {}),
         ...(allowedModels ? { allowedModels } : {}),
         ...(allowedProviders ? { allowedProviders } : {}),
         ...(excludedModels ? { excludedModels } : {}),
@@ -1092,7 +1125,11 @@ export class ConfigRepository {
           secret: encryptedSecret,
           secretHash,
           comment: config.comment ?? null,
-          quotaName: config.quota ?? null,
+          // quota_names only — quota_name (legacy) is never written here so
+          // pre-migration rows keep their fallback value untouched. Writes
+          // '[]' (not NULL) when config.quotas is a defined empty array —
+          // see stringifyQuotaNames.
+          quotaNames: stringifyQuotaNames(config.quotas),
           allowedModels: stringifyStringArray(config.allowedModels),
           allowedProviders: stringifyStringArray(config.allowedProviders),
           excludedModels: stringifyStringArray(config.excludedModels),
@@ -1111,7 +1148,7 @@ export class ConfigRepository {
           secret: encryptedSecret,
           secretHash,
           comment: config.comment ?? null,
-          quotaName: config.quota ?? null,
+          quotaNames: stringifyQuotaNames(config.quotas),
           allowedModels: stringifyStringArray(config.allowedModels),
           allowedProviders: stringifyStringArray(config.allowedProviders),
           excludedModels: stringifyStringArray(config.excludedModels),
@@ -1138,11 +1175,22 @@ export class ConfigRepository {
     const result: Record<string, QuotaDefinition> = {};
 
     for (const row of rows) {
+      const allowedModels = parseStringArray(row.allowedModels);
+      const allowedProviders = parseStringArray(row.allowedProviders);
+      const excludedModels = parseStringArray(row.excludedModels);
+      const excludedProviders = parseStringArray(row.excludedProviders);
+
       result[row.name] = {
         type: row.quotaType as 'rolling' | 'daily' | 'weekly' | 'monthly',
         limitType: row.limitType as 'requests' | 'tokens' | 'cost',
         limit: row.limitValue,
         ...(row.duration ? { duration: row.duration } : {}),
+        ...(allowedModels ? { allowedModels } : {}),
+        ...(allowedProviders ? { allowedProviders } : {}),
+        ...(excludedModels ? { excludedModels } : {}),
+        ...(excludedProviders ? { excludedProviders } : {}),
+        ...(toBool(row.shared) ? { shared: true } : {}),
+        ...(row.warnAt != null ? { warnAt: row.warnAt } : {}),
       } as QuotaDefinition;
     }
 
@@ -1167,6 +1215,12 @@ export class ConfigRepository {
           limitType: quota.limitType,
           limitValue: quota.limit,
           duration: 'duration' in quota ? quota.duration : null,
+          allowedModels: stringifyStringArray(quota.allowedModels),
+          allowedProviders: stringifyStringArray(quota.allowedProviders),
+          excludedModels: stringifyStringArray(quota.excludedModels),
+          excludedProviders: stringifyStringArray(quota.excludedProviders),
+          shared: quota.shared ?? false,
+          warnAt: quota.warnAt ?? null,
           updatedAt: timestamp,
         })
         .where(eq(schema.userQuotaDefinitions.name, name));
@@ -1179,6 +1233,12 @@ export class ConfigRepository {
           limitType: quota.limitType,
           limitValue: quota.limit,
           duration: 'duration' in quota ? quota.duration : null,
+          allowedModels: stringifyStringArray(quota.allowedModels),
+          allowedProviders: stringifyStringArray(quota.allowedProviders),
+          excludedModels: stringifyStringArray(quota.excludedModels),
+          excludedProviders: stringifyStringArray(quota.excludedProviders),
+          shared: quota.shared ?? false,
+          warnAt: quota.warnAt ?? null,
           createdAt: timestamp,
           updatedAt: timestamp,
         });
