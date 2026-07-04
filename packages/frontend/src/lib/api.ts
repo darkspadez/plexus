@@ -1148,6 +1148,7 @@ function aliasToConfigPayload(alias: Alias): Record<string, unknown> {
     ...(alias.advanced?.length ? { advanced: alias.advanced } : {}),
     ...(alias.metadata && { metadata: alias.metadata }),
     ...(alias.pi_model && { pi_model: alias.pi_model }),
+    ...(alias.compaction && { compaction: alias.compaction }),
     ...(alias.model_architecture && { model_architecture: alias.model_architecture }),
     ...(alias.extraBody && Object.keys(alias.extraBody).length > 0
       ? { extraBody: alias.extraBody }
@@ -1969,6 +1970,7 @@ export const api = {
         enabled: provider.modelAutosync?.enabled === true,
         intervalMinutes: Math.max(1, provider.modelAutosync?.intervalMinutes || 60),
       },
+      ...(provider.compaction && { compaction: provider.compaction }),
       // GPU Profile settings — always send resolved numeric fields so backend
       // never needs to resolve profile names. gpu_profile is a display hint only.
       ...(provider.gpu_profile ? { gpu_profile: provider.gpu_profile } : {}),

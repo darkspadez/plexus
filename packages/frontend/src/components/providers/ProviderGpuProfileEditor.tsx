@@ -9,10 +9,10 @@ interface Props {
 export function ProviderGpuProfileEditor({ editingProvider, setEditingProvider }: Props) {
   return (
     <div className="flex flex-col gap-2">
-      <label className="font-body text-[13px] font-medium text-text-secondary">GPU Profile</label>
+      <label className="font-sans text-[13px] font-medium text-foreground-muted">GPU Profile</label>
       <div className="flex gap-3 items-end">
         <select
-          className="flex-1 h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+          className="flex-1 h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
           value={editingProvider.gpu_profile || ''}
           onChange={(e) => {
             const value = e.target.value;
@@ -63,14 +63,14 @@ export function ProviderGpuProfileEditor({ editingProvider, setEditingProvider }
         </select>
       </div>
       {editingProvider.gpu_profile === 'custom' && (
-        <div className="mt-2 p-3 border border-border-glass rounded-md bg-bg-subtle">
+        <div className="mt-2 p-3 border border-border rounded-md bg-surface-sunken">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 RAM (GB)
               </label>
               <input
-                className="w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 type="number"
                 step="1"
                 min="1"
@@ -85,11 +85,11 @@ export function ProviderGpuProfileEditor({ editingProvider, setEditingProvider }
               />
             </div>
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 Bandwidth (TB/s)
               </label>
               <input
-                className="w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 type="number"
                 step="0.1"
                 min="0.1"
@@ -104,11 +104,11 @@ export function ProviderGpuProfileEditor({ editingProvider, setEditingProvider }
               />
             </div>
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 FLOPS (TFLOPs)
               </label>
               <input
-                className="w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 type="number"
                 step="100"
                 min="1"
@@ -123,11 +123,11 @@ export function ProviderGpuProfileEditor({ editingProvider, setEditingProvider }
               />
             </div>
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 Power Draw (Watts)
               </label>
               <input
-                className="w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 type="number"
                 step="10"
                 min="1"
@@ -144,7 +144,7 @@ export function ProviderGpuProfileEditor({ editingProvider, setEditingProvider }
           </div>
         </div>
       )}
-      <div className="text-[11px] text-text-muted">
+      <div className="text-[11px] text-foreground-subtle">
         Used for inference energy calculation. Select a preset or enter custom GPU specs.
       </div>
     </div>

@@ -204,49 +204,51 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
 
   return (
     <>
-      <div className="border border-border-glass rounded-sm overflow-hidden">
+      <div className="border border-border rounded-sm overflow-hidden">
         <button
           type="button"
           onClick={() => setIsOpen((o) => !o)}
-          className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-bg-hover transition-colors duration-150 text-left"
+          className="w-full flex items-center justify-between px-3 py-2 bg-surface-sunken hover:bg-surface-elevated transition-colors duration-150 text-left"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <BookOpen size={13} className="text-text-muted" />
-            <span className="font-body text-[13px] font-medium text-text-secondary">Metadata</span>
-            <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border-glass text-primary bg-bg-hover">
+            <BookOpen size={13} className="text-foreground-subtle" />
+            <span className="font-sans text-[13px] font-medium text-foreground-muted">
+              Metadata
+            </span>
+            <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border text-accent bg-surface-elevated">
               {metadataSource === 'auto' ? 'automatic' : metadataSource}
             </span>
           </div>
           {isOpen ? (
-            <ChevronDown size={14} className="text-text-muted" />
+            <ChevronDown size={14} className="text-foreground-subtle" />
           ) : (
-            <ChevronRight size={14} className="text-text-muted" />
+            <ChevronRight size={14} className="text-foreground-subtle" />
           )}
         </button>
 
         {isOpen && (
           <div
-            className="px-3 py-3 border-t border-border-glass"
+            className="px-3 py-3 border-t border-border"
             style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
           >
             <div
-              className="rounded-sm border border-border-glass bg-bg-subtle px-3 py-3"
+              className="rounded-sm border border-border bg-surface-sunken px-3 py-3"
               style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}
             >
               <div>
                 <div
-                  className="font-body text-[12px] font-medium text-text-secondary"
+                  className="font-sans text-[12px] font-medium text-foreground-muted"
                   style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
                   <CheckCircle size={13} className="text-success" />
                   {metadataStatus.label}
                 </div>
-                <p className="font-body text-[11px] text-text-muted mt-1">
+                <p className="font-sans text-[11px] text-foreground-subtle mt-1">
                   {metadataStatus.description}
                 </p>
                 {metadataSource === 'auto' && (
                   <div
-                    className="font-body text-[11px] text-text-muted mt-2"
+                    className="font-sans text-[11px] text-foreground-subtle mt-2"
                     style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
@@ -262,7 +264,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                       <>
                         <span>
                           Model:{' '}
-                          <code className="text-primary">
+                          <code className="text-accent">
                             {automaticResolution.canonical_model.provider
                               ? `${automaticResolution.canonical_model.provider} / `
                               : ''}
@@ -272,7 +274,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                         <span>
                           Pi model:{' '}
                           {automaticResolution.pi_model ? (
-                            <code className="text-primary">
+                            <code className="text-accent">
                               {automaticResolution.pi_model.provider} /{' '}
                               {automaticResolution.pi_model.model_id}
                             </code>
@@ -291,7 +293,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                         <span>
                           Preferred API:{' '}
                           {automaticResolution.preferred_api ? (
-                            <code className="text-primary">
+                            <code className="text-accent">
                               {automaticResolution.preferred_api[0]}
                             </code>
                           ) : (
@@ -332,19 +334,19 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
 
             {showAdvancedMetadata && (
               <div
-                className="border-t border-border-glass pt-3"
+                className="border-t border-border pt-3"
                 style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
               >
                 {/* Source selector */}
                 <div>
                   <label
-                    className="font-body text-[12px] font-medium text-text-secondary"
+                    className="font-sans text-[12px] font-medium text-foreground-muted"
                     style={{ display: 'block', marginBottom: '4px' }}
                   >
                     Source
                   </label>
                   <select
-                    className="w-full font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
+                    className="w-full font-sans text-xs text-foreground bg-surface border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-accent"
                     style={{ padding: '5px 8px', height: '30px' }}
                     value={metadataSource}
                     onChange={(e) => {
@@ -431,12 +433,12 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                 {isCatalogSource && (
                   <div style={{ position: 'relative' }}>
                     <label
-                      className="font-body text-[12px] font-medium text-text-secondary"
+                      className="font-sans text-[12px] font-medium text-foreground-muted"
                       style={{ display: 'block', marginBottom: '4px' }}
                     >
                       Model
                       {catalogMetadata?.source_path && (
-                        <span className="ml-2 font-normal text-text-muted">
+                        <span className="ml-2 font-normal text-foreground-subtle">
                           ({catalogMetadata.source_path})
                         </span>
                       )}
@@ -476,7 +478,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                         {isMetadataSearching && (
                           <Loader2
                             size={14}
-                            className="animate-spin text-text-muted"
+                            className="animate-spin text-foreground-subtle"
                             style={{
                               position: 'absolute',
                               right: '8px',
@@ -492,7 +494,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                           size="sm"
                           onClick={clearMetadata}
                           style={{
-                            color: 'var(--color-danger)',
+                            color: 'var(--danger)',
                             padding: '4px',
                             minHeight: 'auto',
                           }}
@@ -513,8 +515,8 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                     ('source_path' in editingAlias.metadata && editingAlias.metadata.source_path) ||
                     editingAlias.metadata.overrides) && (
                     <div
-                      className="rounded-sm border border-border-glass bg-bg-subtle px-3 py-2"
-                      style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}
+                      className="rounded-sm border border-border bg-surface-sunken px-3 py-2"
+                      style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <CheckCircle size={12} className="text-success" />
@@ -525,7 +527,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                               {editingAlias.metadata.source_path && (
                                 <>
                                   :{' '}
-                                  <code className="text-primary">
+                                  <code className="text-accent">
                                     {editingAlias.metadata.source_path}
                                   </code>
                                 </>
@@ -537,7 +539,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                               {editingAlias.metadata.source_path && (
                                 <>
                                   :{' '}
-                                  <code className="text-primary">
+                                  <code className="text-accent">
                                     {editingAlias.metadata.source_path}
                                   </code>
                                 </>
@@ -545,7 +547,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                             </>
                           )}
                           {countOverrides(editingAlias.metadata) > 0 && (
-                            <span className="ml-2 text-text-muted">
+                            <span className="ml-2 text-foreground-subtle">
                               + {countOverrides(editingAlias.metadata)} field
                               {countOverrides(editingAlias.metadata) === 1 ? '' : 's'} overridden
                             </span>
@@ -558,23 +560,23 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                 {/* Pi model */}
                 <div>
                   <label
-                    className="font-body text-[12px] font-medium text-text-secondary"
+                    className="font-sans text-[12px] font-medium text-foreground-muted"
                     style={{ display: 'block', marginBottom: '4px' }}
                   >
                     Pi model
                   </label>
                   <p
-                    className="font-body text-[11px] text-text-muted"
+                    className="font-sans text-[11px] text-foreground-subtle"
                     style={{ marginBottom: '6px' }}
                   >
                     Automatic derives the model from enabled targets. Choose a pi-ai model only to
                     override that match and advertise its{' '}
-                    <code className="text-primary">pi_options</code>.
+                    <code className="text-accent">pi_options</code>.
                   </p>
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     {/* Provider dropdown */}
                     <select
-                      className="font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
+                      className="font-sans text-xs text-foreground bg-surface border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-accent"
                       style={{
                         padding: '5px 8px',
                         height: '30px',
@@ -607,7 +609,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                     {editingAlias.pi_model?.provider && (
                       <div style={{ position: 'relative', flex: 1 }}>
                         <select
-                          className="w-full font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
+                          className="w-full font-sans text-xs text-foreground bg-surface border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-accent"
                           style={{
                             padding: '5px 8px',
                             height: '30px',
@@ -632,7 +634,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                         {piModelsLoading && (
                           <Loader2
                             size={14}
-                            className="animate-spin text-text-muted"
+                            className="animate-spin text-foreground-subtle"
                             style={{
                               position: 'absolute',
                               right: '8px',
@@ -655,7 +657,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                           setEditingAlias(rest as Alias);
                         }}
                         style={{
-                          color: 'var(--color-danger)',
+                          color: 'var(--danger)',
                           padding: '4px',
                           minHeight: 'auto',
                           flex: '0 0 auto',
@@ -670,10 +672,10 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                   {/* Confirmation badge */}
                   {editingAlias.pi_model?.model_id && (
                     <div
-                      className="rounded-sm border border-border-glass bg-bg-subtle px-3 py-2"
+                      className="rounded-sm border border-border bg-surface-sunken px-3 py-2"
                       style={{
                         fontSize: '11px',
-                        color: 'var(--color-text-secondary)',
+                        color: 'var(--foreground-muted)',
                         marginTop: '6px',
                       }}
                     >
@@ -681,8 +683,8 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                         <CheckCircle size={12} className="text-success" />
                         <span>
                           Pi model: <strong>{editingAlias.pi_model.provider}</strong>
-                          {' / '}
-                          <code className="text-primary">{editingAlias.pi_model.model_id}</code>
+                          {' / '}
+                          <code className="text-accent">{editingAlias.pi_model.model_id}</code>
                         </span>
                       </div>
                     </div>
@@ -694,21 +696,21 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                   !!editingAlias.preferred_api?.length) && (
                   <div>
                     <label
-                      className="font-body text-[12px] font-medium text-text-secondary"
+                      className="font-sans text-[12px] font-medium text-foreground-muted"
                       style={{ display: 'block', marginBottom: '4px' }}
                     >
                       Preferred API
                     </label>
                     <p
-                      className="font-body text-[11px] text-text-muted"
+                      className="font-sans text-[11px] text-foreground-subtle"
                       style={{ marginBottom: '6px' }}
                     >
-                      Advertised in <code className="text-primary">/v1/models</code>. Automatic uses
+                      Advertised in <code className="text-accent">/v1/models</code>. Automatic uses
                       Messages for Claude, Responses for GPT, Gemini for Gemini models, and Chat
                       Completions for everything else.
                     </p>
                     <select
-                      className="w-full font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-primary"
+                      className="w-full font-sans text-xs text-foreground bg-surface border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-accent"
                       style={{ padding: '5px 8px', height: '30px' }}
                       value={(editingAlias.preferred_api ?? [])[0] ?? ''}
                       onChange={(e) => {
@@ -742,7 +744,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                         }}
                       >
                         <label
-                          className="font-body text-[12px] font-medium text-text-secondary"
+                          className="font-sans text-[12px] font-medium text-foreground-muted"
                           style={{ marginBottom: 0 }}
                         >
                           Override metadata fields
@@ -812,8 +814,8 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
               left: dropdownRect.left,
               width: dropdownRect.width,
               zIndex: 9999,
-              backgroundColor: '#1E293B',
-              border: '1px solid var(--color-border-glass)',
+              backgroundColor: 'var(--surface-elevated)',
+              border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)',
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               maxHeight: '180px',
@@ -836,12 +838,14 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  borderBottom: '1px solid var(--color-border-glass)',
+                  borderBottom: '1px solid var(--border)',
                 }}
-                className="hover:bg-bg-hover transition-colors"
+                className="hover:bg-surface-elevated transition-colors"
               >
-                <div className="font-body text-[12px] font-medium text-text">{result.name}</div>
-                <div className="font-body text-[10px] text-text-muted">{result.id}</div>
+                <div className="font-sans text-[12px] font-medium text-foreground">
+                  {result.name}
+                </div>
+                <div className="font-sans text-[10px] text-foreground-subtle">{result.id}</div>
               </button>
             ))}
           </div>,

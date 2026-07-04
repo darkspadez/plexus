@@ -1,10 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, Provider, OAuthSession, fetchQuotaCheckers } from '../lib/api';
+import { useForm } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
+import { api, type Provider, type OAuthSession, fetchQuotaCheckers } from '../lib/api';
 import type { QuotaCheckerInfo } from '../types/quota';
 import { formatMeterValue } from '../components/quota/MeterValue';
 import { Badge } from '../components/ui/Badge';
 import { useToast } from '../contexts/ToastContext';
+import {
+  useProviders,
+  useSaveProvider,
+  useDeleteProvider,
+  useToggleProvider,
+} from './queries/useProviders';
+import {
+  // providerFormSchema is not imported here — it's used by the schema file's own tests
+  // and by toProviderPayload internally. See comment in useForm block below.
+  toProviderPayload,
+  PROVIDER_FORM_DEFAULTS,
+  type ProviderFormValues,
+} from '../pages/providers/provider-schema';
 
 const KNOWN_APIS = [
   'chat',
@@ -94,15 +109,80 @@ export function useProviderForm() {
   const toast = useToast();
   const navigate = useNavigate();
 
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProvider, setEditingProvider] = useState<Provider>(EMPTY_PROVIDER);
-  const [originalId, setOriginalId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [quotaCheckerTypes, setQuotaCheckerTypes] = useState<string[]>([]);
-  const [quotas, setQuotas] = useState<QuotaCheckerInfo[]>([]);
-  const [quotasLoading, setQuotasLoading] = useState(true);
+  // ---------------------------------------------------------------------------
+  // react-query: providers list (replaces local state + setInterval)
+  // ---------------------------------------------------------------------------
+  const providersQuery = useProviders();
+  const providers = providersQuery.data ?? [];
 
+  // ---------------------------------------------------------------------------
+  // react-query: quota checkers + quotas
+  // ---------------------------------------------------------------------------
+  const quotaCheckersQuery = useQuery({
+    queryKey: ['quota-checkers'],
+    queryFn: () => fetchQuotaCheckers(),
+    staleTime: 60_000,
+  });
+  const quotaCheckerTypes = quotaCheckersQuery.data?.knownTypes.map((t) => t.type) ?? [];
+
+  const quotasQuery = useQuery<QuotaCheckerInfo[]>({
+    queryKey: ['quotas'],
+    queryFn: () => api.getQuotas(),
+    staleTime: 60_000,
+  });
+  const quotas = quotasQuery.data ?? [];
+  const quotasLoading = quotasQuery.isLoading;
+
+  // ---------------------------------------------------------------------------
+  // Mutations
+  // ---------------------------------------------------------------------------
+  const saveProviderMutation = useSaveProvider();
+  const deleteProviderMutation = useDeleteProvider();
+  const toggleProviderMutation = useToggleProvider();
+
+  // ---------------------------------------------------------------------------
+  // rhf form — holds the full ProviderFormValues (= Provider shape)
+  // ---------------------------------------------------------------------------
+  // Note: zodResolver is intentionally NOT wired here. handleSave uses the existing
+  // manual validation (via toProviderPayload) to preserve exact legacy behavior —
+  // live zod validation could newly reject previously-valid provider configs.
+  // providerFormSchema (in provider-schema.ts) and toProviderPayload are retained
+  // for the payload contract and characterization tests.
+  const { watch, reset } = useForm<ProviderFormValues>({
+    defaultValues: PROVIDER_FORM_DEFAULTS,
+  });
+
+  // The form value IS the editing provider — sub-editors read this
+  const editingProvider = watch() as unknown as Provider;
+
+  // setEditingProvider-compatible: sub-editors call setEditingProvider({ ...editingProvider, field: value })
+  // We intercept by wrapping reset(). Since all sub-editors use the object form (not function form),
+  // this is safe. We cast through ProviderFormValues since Provider and ProviderFormValues are structurally identical.
+  const setEditingProvider: React.Dispatch<React.SetStateAction<Provider>> = useCallback(
+    (valueOrUpdater: Provider | ((prev: Provider) => Provider)) => {
+      if (typeof valueOrUpdater === 'function') {
+        // Function form — apply the updater to the current value
+        reset((current) => {
+          const currentProvider = current as unknown as Provider;
+          const next = (valueOrUpdater as (prev: Provider) => Provider)(currentProvider);
+          return next as unknown as ProviderFormValues;
+        });
+      } else {
+        reset(valueOrUpdater as unknown as ProviderFormValues);
+      }
+    },
+    [reset]
+  );
+
+  // ---------------------------------------------------------------------------
+  // Modal open/close state
+  // ---------------------------------------------------------------------------
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [originalId, setOriginalId] = useState<string | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // OAuth local state (unchanged — OAuth session lifecycle stays local)
+  // ---------------------------------------------------------------------------
   const [oauthSessionId, setOauthSessionId] = useState<string | null>(null);
   const [oauthSession, setOauthSession] = useState<OAuthSession | null>(null);
   const [oauthPromptValue, setOauthPromptValue] = useState('');
@@ -130,7 +210,6 @@ export function useProviderForm() {
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [deleteModalProvider, setDeleteModalProvider] = useState<Provider | null>(null);
-  const [deleteModalLoading, setDeleteModalLoading] = useState(false);
   const [affectedAliases, setAffectedAliases] = useState<
     { aliasId: string; targetsCount: number }[]
   >([]);
@@ -148,7 +227,9 @@ export function useProviderForm() {
     >
   >({});
 
-  // Derived
+  // ---------------------------------------------------------------------------
+  // Derived from form state
+  // ---------------------------------------------------------------------------
   const isOAuthMode =
     typeof editingProvider.apiBaseUrl === 'string' &&
     editingProvider.apiBaseUrl.toLowerCase().startsWith('oauth://');
@@ -185,35 +266,12 @@ export function useProviderForm() {
         ? 'Ready'
         : 'Not started';
 
-  // Effects
-  useEffect(() => {
-    fetchQuotaCheckers().then((res) => {
-      setQuotaCheckerTypes(res.knownTypes.map((t) => t.type));
-    });
-  }, []);
+  // isSaving — derived from mutation state
+  const isSaving = saveProviderMutation.isPending;
 
-  useEffect(() => {
-    api
-      .getQuotas()
-      .then(setQuotas)
-      .catch(() => {})
-      .finally(() => setQuotasLoading(false));
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const p = await api.getProviders();
-      setProviders(p);
-    } catch (e) {
-      console.error('Failed to load data', e);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  // ---------------------------------------------------------------------------
+  // Effects — OAuth credential check and session polling (unchanged)
+  // ---------------------------------------------------------------------------
 
   // Modal close resets OAuth
   useEffect(() => {
@@ -266,6 +324,7 @@ export function useProviderForm() {
   useEffect(() => {
     if (!isOAuthMode) return;
     resetOAuthState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingProvider.oauthProvider, isOAuthMode]);
 
   // OAuth session polling
@@ -298,16 +357,20 @@ export function useProviderForm() {
     };
   }, [oauthSessionId]);
 
+  // ---------------------------------------------------------------------------
   // Handlers
+  // ---------------------------------------------------------------------------
+
   const handleEdit = (provider: Provider) => {
     setOriginalId(provider.id);
-    setEditingProvider(JSON.parse(JSON.stringify(provider)));
+    // Reset the rhf form to the provider's values (deep-clone like old JSON.parse)
+    reset(JSON.parse(JSON.stringify(provider)) as ProviderFormValues);
     setIsModalOpen(true);
   };
 
   const handleAddNew = () => {
     setOriginalId(null);
-    setEditingProvider(JSON.parse(JSON.stringify(EMPTY_PROVIDER)));
+    reset(JSON.parse(JSON.stringify(PROVIDER_FORM_DEFAULTS)));
     setIsModalOpen(true);
   };
 
@@ -319,69 +382,60 @@ export function useProviderForm() {
 
   const handleDelete = async (cascade: boolean) => {
     if (!deleteModalProvider) return;
-    setDeleteModalLoading(true);
-    try {
-      await api.deleteProvider(deleteModalProvider.id, cascade);
-      await loadData();
-      setDeleteModalProvider(null);
-    } catch (e) {
-      toast.error('Failed to delete provider: ' + e);
-    } finally {
-      setDeleteModalLoading(false);
-    }
+    deleteProviderMutation.mutate(
+      { providerId: deleteModalProvider.id, cascade },
+      {
+        onSuccess: () => setDeleteModalProvider(null),
+        onError: (err: Error) => toast.error('Failed to delete provider: ' + err.message),
+      }
+    );
   };
 
   const handleSave = async () => {
-    if (!editingProvider.id) {
+    // Use editingProvider (already derived from watch() above) instead of calling watch() again.
+    const formValues = editingProvider as unknown as ProviderFormValues;
+
+    if (!formValues.id) {
       toast.error('Provider ID is required');
       return;
     }
-    setIsSaving(true);
-    try {
-      let providerToSave = editingProvider;
-      if (isOAuthMode && !providerToSave.oauthProvider) {
-        providerToSave = { ...providerToSave, oauthProvider: OAUTH_PROVIDERS[0].value };
-      }
-      if (isOAuthMode && !providerToSave.oauthAccount?.trim()) {
-        toast.error('OAuth account is required');
+
+    const result = toProviderPayload(formValues, { isOAuthMode });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+
+    if (result.provider.rawPassthrough?.enabled) {
+      if (isOAuthMode) {
+        toast.error('Raw passthrough currently supports static API-key providers only');
         return;
       }
-      if (providerToSave.rawPassthrough?.enabled) {
-        if (isOAuthMode) {
-          toast.error('Raw passthrough currently supports static API-key providers only');
-          return;
-        }
-        try {
-          const rawBaseUrl = new URL(providerToSave.rawPassthrough.baseUrl);
-          if (!['http:', 'https:'].includes(rawBaseUrl.protocol)) throw new Error();
-        } catch {
-          toast.error('Raw passthrough requires a valid HTTP(S) base URL');
-          return;
-        }
+      try {
+        const rawBaseUrl = new URL(result.provider.rawPassthrough.baseUrl);
+        if (!['http:', 'https:'].includes(rawBaseUrl.protocol)) throw new Error();
+      } catch {
+        toast.error('Raw passthrough requires a valid HTTP(S) base URL');
+        return;
       }
-      if (providerToSave.quotaChecker && !providerToSave.quotaChecker.type?.trim()) {
-        providerToSave = { ...providerToSave, quotaChecker: undefined };
-      }
-      await api.saveProvider(providerToSave, originalId || undefined);
-      await loadData();
-      setIsModalOpen(false);
-    } catch (e) {
-      console.error('Save error', e);
-      toast.error('Failed to save provider: ' + e);
-    } finally {
-      setIsSaving(false);
     }
+
+    saveProviderMutation.mutate(
+      { provider: result.provider, oldId: originalId || undefined },
+      {
+        onSuccess: () => setIsModalOpen(false),
+        onError: (err: Error) => toast.error('Failed to save provider: ' + err.message),
+      }
+    );
   };
 
-  const handleToggleEnabled = async (provider: Provider, newState: boolean) => {
-    setProviders(providers.map((p) => (p.id === provider.id ? { ...p, enabled: newState } : p)));
-    try {
-      await api.saveProvider({ ...provider, enabled: newState }, provider.id);
-    } catch (e) {
-      console.error('Toggle error', e);
-      toast.error('Failed to update provider status: ' + e);
-      loadData();
-    }
+  const handleToggleEnabled = (provider: Provider, newState: boolean) => {
+    toggleProviderMutation.mutate(
+      { provider, newState },
+      {
+        onError: (err: Error) => toast.error('Failed to update provider status: ' + err.message),
+      }
+    );
   };
 
   const handleTestModel = async (providerId: string, modelId: string, modelType?: string) => {
@@ -460,7 +514,9 @@ export function useProviderForm() {
     }));
   };
 
-  // OAuth handlers
+  // ---------------------------------------------------------------------------
+  // OAuth handlers (unchanged from old useProviderForm)
+  // ---------------------------------------------------------------------------
   const resetOAuthState = () => {
     setOauthSessionId(null);
     setOauthSession(null);
@@ -537,7 +593,9 @@ export function useProviderForm() {
     }
   };
 
-  // API URL helpers
+  // ---------------------------------------------------------------------------
+  // API URL helpers (read from form state via editingProvider)
+  // ---------------------------------------------------------------------------
   const getApiBaseUrlMap = (): Record<string, string> => {
     if (
       typeof editingProvider.apiBaseUrl === 'object' &&
@@ -810,7 +868,7 @@ export function useProviderForm() {
 
   const getQuotaDisplay = (provider: Provider): React.ReactNode => {
     if (!provider.quotaChecker?.enabled) return null;
-    if (quotasLoading) return <span className="text-text-secondary text-xs">—</span>;
+    if (quotasLoading) return <span className="text-foreground-muted text-xs">—</span>;
     const quota = quotas.find((q) => q.checkerId === provider.id);
     if (!quota?.meters?.length) return null;
     const handleQuotaClick = (e: React.MouseEvent) => {
@@ -829,7 +887,7 @@ export function useProviderForm() {
         <Badge
           key="balance"
           status="neutral"
-          className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2 bg-bg-subtle border border-border text-text-secondary"
+          className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2 bg-surface-sunken border border-border text-foreground-muted"
           onClick={handleQuotaClick}
         >
           {formatMeterValue(balanceMeter.remaining, balanceMeter.unit)}
@@ -927,7 +985,7 @@ export function useProviderForm() {
     // Delete
     deleteModalProvider,
     setDeleteModalProvider,
-    deleteModalLoading,
+    deleteModalLoading: deleteProviderMutation.isPending,
     affectedAliases,
     // Test
     testStates,

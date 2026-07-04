@@ -10,7 +10,7 @@
  * This page supports two rendering modes:
  *
  * 1. **Standalone mode** (default): Rendered as a full page at `/ui/detailed-usage`.
- *    Includes full page chrome (gradient background, padding, navigation back to
+ *    Includes full page chrome (bg-background, padding, navigation back to
  *    Live Metrics via browser navigation). Query parameters are read from the
  *    browser URL (`window.location.search`).
  *
@@ -63,15 +63,20 @@
  * | `filterStatus`  | status string (e.g., "error")             | (none)      |
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { DataTable } from '../components/ui/DataTable';
+import { EmptyState } from '../components/ui/EmptyState';
 import { PageHeader } from '../components/layout/PageHeader';
 import { TimeRangeSelector } from '../components/dashboard/TimeRangeSelector';
-import { api, type UsageRecord } from '../lib/api';
+import { type UsageRecord } from '../lib/api';
+import { useDetailedUsageLogs, useDetailedSummaryData } from '../hooks/queries/useDetailedUsage';
 import { formatCost, formatMs, formatNumber, formatTokens, formatTimeAgo } from '../lib/format';
 import type { CustomDateRange } from '../lib/date';
 import { parseISODate } from '../lib/date';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   Activity,
   BarChart3,
@@ -134,12 +139,12 @@ type ViewMode = 'chart' | 'list';
 interface DetailedUsageProps {
   /**
    * When `true`, the component renders in embedded/modal mode:
-   * - Removes the full-page gradient background and large padding
-   * - Uses a compact `h-full p-2 bg-bg-card` layout suitable for modal containers
+   * - Removes the full-page background and large padding
+   * - Uses a compact `h-full p-2 bg-surface-elevated` layout suitable for modal containers
    * - Shows a "Back to Live Card" button (if `onBack` is also provided)
    *
-   * When `false` or omitted, renders as a full standalone page with
-   * `min-h-screen` and gradient background.
+   * When `false` or omitted, renders as a full standalone page with a
+   * `min-h-full bg-background` layout.
    */
   embedded?: boolean;
 
@@ -230,43 +235,49 @@ const METRICS: MetricConfig[] = [
   {
     key: 'requests',
     label: 'Requests',
-    color: '#3b82f6',
+    color: 'var(--chart-1)',
     yAxisId: 'left',
     format: (v) => formatNumber(v, 0),
   },
   {
     key: 'tokens',
     label: 'Tokens',
-    color: '#10b981',
+    color: 'var(--chart-3)',
     yAxisId: 'right',
     format: (v) => formatTokens(v),
   },
   {
     key: 'cost',
     label: 'Cost',
-    color: '#f59e0b',
+    color: 'var(--chart-2)',
     yAxisId: 'right',
     format: (v) => formatCost(v, 4),
   },
   {
     key: 'duration',
     label: 'Duration',
-    color: '#8b5cf6',
+    color: 'var(--chart-4)',
     yAxisId: 'right',
     format: (v) => formatMs(v),
   },
-  { key: 'ttft', label: 'TTFT', color: '#ec4899', yAxisId: 'right', format: (v) => formatMs(v) },
+  {
+    key: 'ttft',
+    label: 'TTFT',
+    color: 'var(--chart-5)',
+    yAxisId: 'right',
+    format: (v) => formatMs(v),
+  },
   {
     key: 'tps',
     label: 'TPS',
-    color: '#06b6d4',
+    color: 'var(--chart-1)',
     yAxisId: 'right',
     format: (v) => formatNumber(v, 1),
   },
   {
     key: 'errors',
     label: 'Errors',
-    color: '#ef4444',
+    color: 'var(--danger)',
     yAxisId: 'left',
     format: (v) => formatNumber(v, 0),
   },
@@ -274,14 +285,14 @@ const METRICS: MetricConfig[] = [
 
 /** Color palette for pie chart slices and categorical group assignments. */
 const COLORS = [
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#8b5cf6',
-  '#ec4899',
-  '#06b6d4',
-  '#f97316',
-  '#84cc16',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
 ];
 
 /** Duration of the 'live' time range window in minutes. */
@@ -700,30 +711,39 @@ const renderTimeSeriesChart = (
   return (
     <ResponsiveContainer width="100%" height={400}>
       <ChartComponent data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke="var(--border)"
+          vertical={false}
+          strokeOpacity={0.5}
+        />
         <XAxis
           dataKey="name"
-          stroke="var(--color-text-secondary)"
-          tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+          tick={{ fill: 'var(--foreground-subtle)', fontSize: 12 }}
+          tickLine={false}
+          axisLine={false}
         />
         <YAxis
           yAxisId="left"
-          stroke="var(--color-text-secondary)"
-          tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+          tick={{ fill: 'var(--foreground-subtle)', fontSize: 12 }}
+          tickLine={false}
+          axisLine={false}
         />
         <YAxis
           yAxisId="right"
           orientation="right"
-          stroke="var(--color-text-secondary)"
-          tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+          tick={{ fill: 'var(--foreground-subtle)', fontSize: 12 }}
+          tickLine={false}
+          axisLine={false}
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: 'var(--color-bg-card)',
-            border: '1px solid var(--color-border)',
+            backgroundColor: 'var(--surface-elevated)',
+            border: '1px solid var(--border)',
             borderRadius: '8px',
+            color: 'var(--foreground)',
           }}
-          labelStyle={{ color: 'var(--color-text)' }}
+          labelStyle={{ color: 'var(--foreground)' }}
         />
         <Legend />
         {selectedMetrics.map((metricKey) => {
@@ -740,7 +760,7 @@ const renderTimeSeriesChart = (
                 dataKey={metricKey}
                 name={metric.label}
                 fill={metric.color}
-                radius={[4, 4, 0, 0]}
+                radius={[999, 999, 0, 0]}
               />
             );
           }
@@ -793,7 +813,7 @@ const renderTimeSeriesChart = (
               dataKey={metricKey}
               name={metric.label}
               fill={metric.color}
-              radius={[4, 4, 0, 0]}
+              radius={[999, 999, 0, 0]}
             />
           );
         })}
@@ -844,9 +864,10 @@ const renderPieChart = (data: AggregatedPoint[], metricKey: string) => {
         </Pie>
         <Tooltip
           contentStyle={{
-            backgroundColor: 'var(--color-bg-card)',
-            border: '1px solid var(--color-border)',
+            backgroundColor: 'var(--surface-elevated)',
+            border: '1px solid var(--border)',
             borderRadius: '8px',
+            color: 'var(--foreground)',
           }}
         />
         <Legend />
@@ -892,12 +913,6 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
   // and data fetching react to state changes automatically.
   // ---------------------------------------------------------------------------
 
-  /** Raw usage records fetched from the API (used for categorical grouping). */
-  const [records, setRecords] = useState<UsageRecord[]>([]);
-  /** Pre-aggregated summary buckets for time-series chart rendering. */
-  const [summaryData, setSummaryData] = useState<SummaryPoint[]>([]);
-  /** Whether a data fetch is currently in progress (shows loading spinner on Refresh button). */
-  const [loading, setLoading] = useState(false);
   /** Selected time window -- controls how far back data is fetched and bucket granularity. */
   const [timeRange, setTimeRange] = useState<TimeRange>(preset.timeRange);
   /** Custom date range when timeRange is 'custom' */
@@ -941,83 +956,78 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
     }
   }, [preset]);
 
-  /**
-   * Fetch usage data from the API for the currently selected time range.
-   *
-   * For time-series views (groupBy='time'), uses the backend summary endpoint
-   * which returns pre-aggregated data, significantly reducing memory usage.
-   *
-   * For categorical views (groupBy!='time'), fetches raw records for client-side aggregation.
-   *
-   * The callback is memoized on `timeRange` and `customDateRange` so it re-creates
-   * when the user changes the time window, which also resets the auto-refresh interval.
-   */
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      let startDate: string | undefined;
-      let endDate: string | undefined;
+  // ---------------------------------------------------------------------------
+  // Data fetching via TanStack Query hooks
+  // ---------------------------------------------------------------------------
 
-      if (timeRange === 'custom' && customDateRange) {
-        startDate = customDateRange.start.toISOString();
-        endDate = customDateRange.end.toISOString();
-      } else if (timeRange !== 'custom') {
-        const now = new Date();
-        const { minutes } = getRangeConfig(timeRange);
-        startDate = new Date(now.getTime() - minutes * 60000).toISOString();
-        endDate = now.toISOString();
-      }
-
-      // Use backend summary endpoint for time-series views (much more efficient)
-      if (groupBy === 'time') {
-        const [summaryResponse, logsResponse] = await Promise.all([
-          api.getSummaryData(timeRange === 'live' ? 'hour' : timeRange, true, startDate, endDate),
-          api.getLogs(100, 0, { startDate, endDate }),
-        ]);
-        // Limit to max 100 points to prevent memory issues
-        const limitedData = summaryResponse.slice(0, 100) as SummaryPoint[];
-        setSummaryData(limitedData);
-        setRecords(logsResponse.data || []);
-      } else {
-        // For categorical views, fetch raw records with strict limits
-        const logsResponse = await api.getLogs(100, 0, { startDate, endDate });
-        setSummaryData([]);
-        setRecords(logsResponse.data || []);
-      }
-
-      setLastUpdated(new Date());
-    } catch (e) {
-      console.error('Failed to load usage data', e);
-    } finally {
-      setLoading(false);
+  const queryStartDate = useMemo<string | undefined>(() => {
+    if (timeRange === 'custom' && customDateRange) {
+      return customDateRange.start.toISOString();
     }
-  }, [timeRange, customDateRange, groupBy, api]);
-
-  /**
-   * Auto-refresh mechanism: fetch data immediately on mount and whenever
-   * loadData changes (i.e., when timeRange changes), then set up a 30-second
-   * polling interval for live data updates.
-   *
-   * Auto-refresh is DISABLED for custom date ranges since they represent
-   * historical data that doesn't need live updates.
-   *
-   * The interval is cleaned up on unmount or when loadData changes to prevent stale timers.
-   */
-  useEffect(() => {
-    loadData();
-
-    // Only auto-refresh for preset ranges (historical custom ranges don't need updates)
-    if (timeRange === 'custom') {
-      return;
+    if (timeRange !== 'custom') {
+      const now = new Date();
+      const { minutes } = getRangeConfig(timeRange);
+      return new Date(now.getTime() - minutes * 60000).toISOString();
     }
+    return undefined;
+  }, [timeRange, customDateRange]);
 
-    // Adaptive refresh interval based on time range
+  const queryEndDate = useMemo<string | undefined>(() => {
+    if (timeRange === 'custom' && customDateRange) {
+      return customDateRange.end.toISOString();
+    }
+    // For non-custom ranges the API defaults to now, so omit the end date.
+    // This avoids a stale snapshot captured at timeRange-change time being
+    // sent to every subsequent poll (which is what the old loadData did:
+    // it recomputed new Date() on each call).
+    return undefined;
+  }, [timeRange, customDateRange]);
+
+  // Adaptive refresh interval (30s for <=1h, 60s for longer, disabled for custom)
+  const refreshInterval = useMemo<number | false>(() => {
+    if (timeRange === 'custom') return false;
     const { minutes } = getRangeConfig(timeRange);
-    const refreshInterval = minutes <= 60 ? 30000 : 60000; // 30s for <=1h, 60s for longer
+    return minutes <= 60 ? 30000 : 60000;
+  }, [timeRange]);
 
-    const interval = setInterval(loadData, refreshInterval);
-    return () => clearInterval(interval);
-  }, [loadData, timeRange]);
+  const isCustomReady = timeRange !== 'custom' || !!customDateRange;
+
+  const logsQuery = useDetailedUsageLogs({
+    startDate: queryStartDate,
+    endDate: queryEndDate,
+    enabled: isCustomReady,
+    refetchInterval: refreshInterval,
+  });
+
+  const summaryQuery = useDetailedSummaryData({
+    timeRange,
+    startDate: queryStartDate,
+    endDate: queryEndDate,
+    enabled: isCustomReady && groupBy === 'time',
+    refetchInterval: refreshInterval,
+  });
+
+  const records: UsageRecord[] = logsQuery.data ?? [];
+  const summaryData: SummaryPoint[] =
+    (summaryQuery.data as SummaryPoint[] | undefined)?.slice(0, 100) ?? [];
+  const loading =
+    logsQuery.isLoading ||
+    logsQuery.isFetching ||
+    summaryQuery.isLoading ||
+    summaryQuery.isFetching;
+
+  // Track lastUpdated
+  useEffect(() => {
+    if (logsQuery.dataUpdatedAt) {
+      setLastUpdated(new Date(logsQuery.dataUpdatedAt));
+    }
+  }, [logsQuery.dataUpdatedAt]);
+
+  // Keep loadData as a no-op callback for the Refresh button
+  const loadData = useCallback(() => {
+    logsQuery.refetch();
+    summaryQuery.refetch();
+  }, [logsQuery, summaryQuery]);
 
   /**
    * Derived aggregated data: re-computed whenever raw records, groupBy dimension,
@@ -1080,7 +1090,7 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
         label: 'Errors',
         value: formatNumber(errors, 0),
         icon: AlertTriangle,
-        color: errors > 0 ? 'text-red-500' : '',
+        color: errors > 0 ? 'text-danger' : '',
       },
       { label: 'Tokens', value: formatTokens(tokens), icon: Database },
       { label: 'Cost', value: formatCost(cost, 4), icon: DollarSign },
@@ -1097,6 +1107,217 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
       prev.includes(key) ? prev.filter((m) => m !== key) : [...prev, key]
     );
 
+  // ---------------------------------------------------------------------------
+  // DataTable column definitions — Raw Request Log (list view)
+  // ---------------------------------------------------------------------------
+  const rawLogColumns = useMemo<ColumnDef<UsageRecord>[]>(
+    () => [
+      {
+        id: 'time',
+        header: 'Time',
+        meta: { priority: 'high', mobileTitle: true },
+        cell: ({ row }) => (
+          <div className="flex flex-col">
+            <span className="font-medium text-foreground text-xs">
+              {new Date(row.original.date).toLocaleTimeString()}
+            </span>
+            <span className="text-[10px] text-foreground-muted">
+              {new Date(row.original.date).toISOString().split('T')[0]}
+            </span>
+          </div>
+        ),
+      },
+      {
+        id: 'provider',
+        header: 'Provider',
+        meta: { priority: 'high', mobileLabel: 'Provider' },
+        cell: ({ row }) => (
+          <span className="text-xs text-foreground">{row.original.provider || 'unknown'}</span>
+        ),
+      },
+      {
+        id: 'model',
+        header: 'Model',
+        meta: { priority: 'high', mobileLabel: 'Model' },
+        cell: ({ row }) => (
+          <span className="text-xs text-foreground">
+            {row.original.incomingModelAlias || row.original.selectedModelName || 'unknown'}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        meta: { priority: 'high', mobileLabel: 'Status' },
+        cell: ({ row }) => {
+          const s = row.original.responseStatus;
+          return (
+            <span
+              className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                s === 'success'
+                  ? 'text-success'
+                  : s === 'pending'
+                    ? 'text-warning'
+                    : s === 'cancelled'
+                      ? 'text-info'
+                      : s === 'timeout'
+                        ? 'text-warning'
+                        : 'text-danger'
+              }`}
+            >
+              {s === 'success' ? (
+                <CheckCircle size={11} />
+              ) : s === 'pending' ? (
+                <Plane size={11} className="animate-pulse" />
+              ) : s === 'cancelled' ? (
+                <Ban size={11} />
+              ) : s === 'timeout' ? (
+                <Timer size={11} />
+              ) : (
+                <XCircle size={11} />
+              )}
+              {s}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'tokens',
+        header: 'Tokens',
+        meta: { priority: 'medium', mobileLabel: 'Tokens', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-xs text-foreground">
+            {formatTokens((row.original.tokensInput || 0) + (row.original.tokensOutput || 0))}
+          </span>
+        ),
+      },
+      {
+        id: 'cost',
+        header: 'Cost',
+        meta: { priority: 'medium', mobileLabel: 'Cost', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-xs text-foreground">
+            {formatCost(row.original.costTotal || 0, 4)}
+          </span>
+        ),
+      },
+      {
+        id: 'duration',
+        header: 'Duration',
+        meta: { priority: 'medium', mobileLabel: 'Duration', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-xs text-foreground">
+            {formatMs(row.original.durationMs || 0)}
+          </span>
+        ),
+      },
+      {
+        id: 'ttft',
+        header: 'TTFT',
+        meta: { priority: 'low', mobileLabel: 'TTFT', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-xs text-foreground">
+            {formatMs(row.original.ttftMs || 0)}
+          </span>
+        ),
+      },
+      {
+        id: 'tps',
+        header: 'TPS',
+        meta: { priority: 'low', mobileLabel: 'TPS', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-xs text-foreground">
+            {formatNumber(row.original.tokensPerSec || 0, 1)}
+          </span>
+        ),
+      },
+    ],
+    []
+  );
+
+  // ---------------------------------------------------------------------------
+  // DataTable column definitions — Detailed Breakdown (categorical grouping)
+  // ---------------------------------------------------------------------------
+  const breakdownColumns = useMemo<ColumnDef<AggregatedPoint>[]>(
+    () => [
+      {
+        id: 'name',
+        header: groupBy.charAt(0).toUpperCase() + groupBy.slice(1),
+        meta: { priority: 'high', mobileTitle: true },
+        cell: ({ row }) => (
+          <span className="font-medium text-foreground text-sm truncate">{row.original.name}</span>
+        ),
+      },
+      {
+        id: 'requests',
+        header: 'Requests',
+        meta: { priority: 'high', mobileLabel: 'Requests', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">
+            {formatNumber(row.original.requests, 0)}
+          </span>
+        ),
+      },
+      {
+        id: 'errors',
+        header: 'Errors',
+        meta: { priority: 'medium', mobileLabel: 'Errors', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-danger">{formatNumber(row.original.errors, 0)}</span>
+        ),
+      },
+      {
+        id: 'successRate',
+        header: 'Success %',
+        meta: { priority: 'high', mobileLabel: 'Success', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-success">{row.original.successRate.toFixed(1)}%</span>
+        ),
+      },
+      {
+        id: 'tokens',
+        header: 'Tokens',
+        meta: { priority: 'medium', mobileLabel: 'Tokens', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">{formatTokens(row.original.tokens)}</span>
+        ),
+      },
+      {
+        id: 'cost',
+        header: 'Cost',
+        meta: { priority: 'medium', mobileLabel: 'Cost', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">{formatCost(row.original.cost, 6)}</span>
+        ),
+      },
+      {
+        id: 'avgDuration',
+        header: 'Avg Duration',
+        meta: { priority: 'low', mobileLabel: 'Avg Duration', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">{formatMs(row.original.duration)}</span>
+        ),
+      },
+      {
+        id: 'avgTtft',
+        header: 'Avg TTFT',
+        meta: { priority: 'low', mobileLabel: 'Avg TTFT', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">{formatMs(row.original.ttft)}</span>
+        ),
+      },
+      {
+        id: 'avgTps',
+        header: 'Avg TPS',
+        meta: { priority: 'low', mobileLabel: 'Avg TPS', align: 'right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">{formatNumber(row.original.tps, 1)}</span>
+        ),
+      },
+    ],
+    [groupBy]
+  );
+
   // ===========================================================================
   // RENDER
   // ===========================================================================
@@ -1104,8 +1325,8 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
     <div
       className={
         embedded
-          ? 'h-full p-2 bg-bg-card'
-          : 'min-h-screen p-6 transition-all duration-300 bg-linear-to-br from-bg-deep to-bg-surface'
+          ? 'h-full p-2 bg-surface-elevated'
+          : 'min-h-full bg-background p-3 sm:p-6 sm:pt-2 lg:p-8 lg:pt-2 transition-all duration-300'
       }
     >
       {/* -------------------------------------------------------------------
@@ -1123,9 +1344,9 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
           <>
             {(onBack || !embedded) && (
               <Button
-                size="sm"
+                size="md"
                 variant="secondary"
-                leftIcon={<ArrowLeft size={16} />}
+                leftIcon={<ArrowLeft size={14} />}
                 onClick={() => (onBack ? onBack() : (window.location.href = '/ui/live-metrics'))}
               >
                 {onBack ? 'Back to Live Card' : 'Return to Live Metrics'}
@@ -1151,12 +1372,12 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
         {stats.map((stat, i) => (
           <div key={i} className="glass-bg rounded-lg p-3 flex flex-col gap-1">
             <div className="flex justify-between items-start">
-              <span className="font-body text-xs font-semibold text-text-muted uppercase tracking-wider">
+              <span className="font-sans text-xs font-semibold text-foreground-subtle uppercase tracking-wider">
                 {stat.label}
               </span>
-              <stat.icon size={16} className={`text-text-secondary ${stat.color || ''}`} />
+              <stat.icon size={16} className={`text-foreground-muted ${stat.color || ''}`} />
             </div>
-            <div className={`font-heading text-xl font-bold ${stat.color || 'text-text'}`}>
+            <div className={`font-sans text-xl font-bold ${stat.color || 'text-foreground'}`}>
               {stat.value}
             </div>
           </div>
@@ -1178,7 +1399,9 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
         <div className="grid grid-cols-1 gap-4 lg:flex lg:flex-wrap">
           {/* --- Time Range Selector --- */}
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold text-text-muted uppercase">Time Range</span>
+            <span className="text-xs font-semibold text-foreground-subtle uppercase">
+              Time Range
+            </span>
             <TimeRangeSelector
               value={timeRange}
               onChange={(range) => {
@@ -1195,7 +1418,7 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
 
           {/* --- Group By Selector --- */}
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold text-text-muted uppercase">Group By</span>
+            <span className="text-xs font-semibold text-foreground-subtle uppercase">Group By</span>
             <div className="flex flex-wrap gap-2">
               {[
                 { k: 'time', l: 'Time' },
@@ -1217,7 +1440,9 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
 
           {/* --- Chart Type Picker --- */}
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold text-text-muted uppercase">Chart Type</span>
+            <span className="text-xs font-semibold text-foreground-subtle uppercase">
+              Chart Type
+            </span>
             <div className="flex flex-wrap gap-2">
               {[
                 { k: 'area', i: LineChartIcon, l: 'Area' },
@@ -1242,7 +1467,7 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
 
           {/* --- View Mode Toggle (Chart vs List) --- */}
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold text-text-muted uppercase">View</span>
+            <span className="text-xs font-semibold text-foreground-subtle uppercase">View</span>
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
@@ -1268,13 +1493,15 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
               are rendered as separate series in the chart. */}
           {groupBy === 'time' && (
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold text-text-muted uppercase">Metrics</span>
+              <span className="text-xs font-semibold text-foreground-subtle uppercase">
+                Metrics
+              </span>
               <div className="flex gap-2 flex-wrap">
                 {METRICS.map((m) => (
                   <button
                     key={m.key}
                     onClick={() => toggleMetric(m.key)}
-                    className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${selectedMetrics.includes(m.key) ? 'bg-primary text-white' : 'bg-bg-hover text-text-secondary'}`}
+                    className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${selectedMetrics.includes(m.key) ? 'bg-accent text-white' : 'bg-surface-elevated text-foreground-muted'}`}
                   >
                     {m.label}
                   </button>
@@ -1303,9 +1530,7 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
           }
         >
           {aggregatedData.length === 0 ? (
-            <div className="h-96 flex items-center justify-center text-text-secondary">
-              No data available
-            </div>
+            <EmptyState variant="fill" title="No data available" className="h-96" />
           ) : chartType === 'pie' ? (
             renderPieChart(aggregatedData, selectedMetrics[0] || 'requests')
           ) : (
@@ -1313,150 +1538,17 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
           )}
         </Card>
       ) : (
-        <Card
+        <DataTable<UsageRecord>
           title="Raw Request Log"
-          extra={<span className="text-xs text-text-secondary">{records.length} requests</span>}
-        >
-          <div className="max-h-125 space-y-3 overflow-y-auto md:hidden">
-            {records.slice(0, 100).map((r, i) => (
-              <article key={i} className="rounded-md border border-border-glass bg-bg-subtle p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-xs font-medium text-text">
-                      {new Date(r.date).toLocaleString()}
-                    </div>
-                    <div className="mt-1 truncate text-xs text-text-muted">
-                      {r.provider || 'unknown'} /{' '}
-                      {r.incomingModelAlias || r.selectedModelName || 'unknown'}
-                    </div>
-                  </div>
-                  <span
-                    className={`inline-flex shrink-0 items-center gap-1 text-xs font-semibold ${
-                      r.responseStatus === 'success'
-                        ? 'text-green-500'
-                        : r.responseStatus === 'pending'
-                          ? 'text-warning'
-                          : r.responseStatus === 'cancelled'
-                            ? 'text-blue-400'
-                            : r.responseStatus === 'timeout'
-                              ? 'text-orange-400'
-                              : 'text-red-500'
-                    }`}
-                  >
-                    {r.responseStatus === 'success' ? (
-                      <CheckCircle size={11} />
-                    ) : r.responseStatus === 'pending' ? (
-                      <Plane size={11} className="animate-pulse" />
-                    ) : r.responseStatus === 'cancelled' ? (
-                      <Ban size={11} />
-                    ) : r.responseStatus === 'timeout' ? (
-                      <Timer size={11} />
-                    ) : (
-                      <XCircle size={11} />
-                    )}
-                    {r.responseStatus}
-                  </span>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded border border-border-glass bg-bg-glass px-2 py-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-text-muted">
-                      Tokens
-                    </div>
-                    <div className="font-medium text-text">
-                      {formatTokens((r.tokensInput || 0) + (r.tokensOutput || 0))}
-                    </div>
-                  </div>
-                  <div className="rounded border border-border-glass bg-bg-glass px-2 py-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-text-muted">Cost</div>
-                    <div className="font-medium text-text">{formatCost(r.costTotal || 0, 4)}</div>
-                  </div>
-                  <div className="rounded border border-border-glass bg-bg-glass px-2 py-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-text-muted">
-                      Duration
-                    </div>
-                    <div className="font-medium text-text">{formatMs(r.durationMs || 0)}</div>
-                  </div>
-                  <div className="rounded border border-border-glass bg-bg-glass px-2 py-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-text-muted">TPS</div>
-                    <div className="font-medium text-text">
-                      {formatNumber(r.tokensPerSec || 0, 1)}
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="hidden max-h-125 overflow-x-auto overflow-y-auto md:block">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-bg-card">
-                <tr className="text-left border-b border-border-glass text-text-secondary">
-                  {[
-                    'Time',
-                    'Provider',
-                    'Model',
-                    'Status',
-                    'Tokens',
-                    'Cost',
-                    'Duration',
-                    'TTFT',
-                    'TPS',
-                  ].map((h) => (
-                    <th key={h} className="py-2 pr-3">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {records.slice(0, 100).map((r, i) => (
-                  <tr key={i} className="border-b border-border-glass/50">
-                    <td className="py-2 pr-3 text-xs">{new Date(r.date).toLocaleTimeString()}</td>
-                    <td className="py-2 pr-3">{r.provider || 'unknown'}</td>
-                    <td className="py-2 pr-3 text-xs">
-                      {r.incomingModelAlias || r.selectedModelName || 'unknown'}
-                    </td>
-                    <td className="py-2 pr-3">
-                      <span
-                        className={`inline-flex items-center gap-1 text-xs ${
-                          r.responseStatus === 'success'
-                            ? 'text-green-500'
-                            : r.responseStatus === 'pending'
-                              ? 'text-warning'
-                              : r.responseStatus === 'cancelled'
-                                ? 'text-blue-400'
-                                : r.responseStatus === 'timeout'
-                                  ? 'text-orange-400'
-                                  : 'text-red-500'
-                        }`}
-                      >
-                        {r.responseStatus === 'success' ? (
-                          <CheckCircle size={11} />
-                        ) : r.responseStatus === 'pending' ? (
-                          <Plane size={11} className="animate-pulse" />
-                        ) : r.responseStatus === 'cancelled' ? (
-                          <Ban size={11} />
-                        ) : r.responseStatus === 'timeout' ? (
-                          <Timer size={11} />
-                        ) : (
-                          <XCircle size={11} />
-                        )}
-                        {r.responseStatus}
-                      </span>
-                    </td>
-                    <td className="py-2 pr-3">
-                      {formatTokens((r.tokensInput || 0) + (r.tokensOutput || 0))}
-                    </td>
-                    <td className="py-2 pr-3">{formatCost(r.costTotal || 0, 4)}</td>
-                    <td className="py-2 pr-3">{formatMs(r.durationMs || 0)}</td>
-                    <td className="py-2 pr-3">{formatMs(r.ttftMs || 0)}</td>
-                    <td className="py-2 pr-3">{formatNumber(r.tokensPerSec || 0, 1)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+          titleExtra={
+            <span className="text-xs text-foreground-muted">{records.length} requests</span>
+          }
+          columns={rawLogColumns}
+          data={records.slice(0, 100)}
+          loading={loading && records.length === 0}
+          getRowKey={(row, i) => row.requestId ?? String(i)}
+          emptyTitle="No requests in this time range"
+        />
       )}
 
       {/* -------------------------------------------------------------------
@@ -1466,82 +1558,14 @@ export const DetailedUsage: React.FC<DetailedUsageProps> = ({
           for precise numeric comparison across groups.
       ------------------------------------------------------------------- */}
       {groupBy !== 'time' && aggregatedData.length > 0 && (
-        <Card className="mt-6" title="Detailed Breakdown">
-          <div className="space-y-3 md:hidden">
-            {aggregatedData.map((row, i) => (
-              <article key={i} className="rounded-md border border-border-glass bg-bg-subtle p-3">
-                <div className="truncate font-heading text-sm font-semibold text-text">
-                  {row.name}
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded border border-border-glass bg-bg-glass px-2 py-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-text-muted">
-                      Requests
-                    </div>
-                    <div className="font-medium text-text">{formatNumber(row.requests, 0)}</div>
-                  </div>
-                  <div className="rounded border border-border-glass bg-bg-glass px-2 py-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-text-muted">
-                      Success
-                    </div>
-                    <div className="font-medium text-green-500">{row.successRate.toFixed(1)}%</div>
-                  </div>
-                  <div className="rounded border border-border-glass bg-bg-glass px-2 py-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-text-muted">
-                      Tokens
-                    </div>
-                    <div className="font-medium text-text">{formatTokens(row.tokens)}</div>
-                  </div>
-                  <div className="rounded border border-border-glass bg-bg-glass px-2 py-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-text-muted">Cost</div>
-                    <div className="font-medium text-text">{formatCost(row.cost, 6)}</div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b border-border-glass text-text-secondary">
-                  <th className="py-3 pr-4">
-                    {groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}
-                  </th>
-                  {[
-                    'Requests',
-                    'Errors',
-                    'Success %',
-                    'Tokens',
-                    'Cost',
-                    'Avg Duration',
-                    'Avg TTFT',
-                    'Avg TPS',
-                  ].map((h) => (
-                    <th key={h} className="py-3 pr-4">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {aggregatedData.map((row, i) => (
-                  <tr key={i} className="border-b border-border-glass/50">
-                    <td className="py-3 pr-4 font-medium">{row.name}</td>
-                    <td className="py-3 pr-4">{formatNumber(row.requests, 0)}</td>
-                    <td className="py-3 pr-4 text-red-500">{formatNumber(row.errors, 0)}</td>
-                    <td className="py-3 pr-4 text-green-500">{row.successRate.toFixed(1)}%</td>
-                    <td className="py-3 pr-4">{formatTokens(row.tokens)}</td>
-                    <td className="py-3 pr-4">{formatCost(row.cost, 6)}</td>
-                    <td className="py-3 pr-4">{formatMs(row.duration)}</td>
-                    <td className="py-3 pr-4">{formatMs(row.ttft)}</td>
-                    <td className="py-3 pr-4">{formatNumber(row.tps, 1)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <DataTable<AggregatedPoint>
+          className="mt-6"
+          title="Detailed Breakdown"
+          columns={breakdownColumns}
+          data={aggregatedData}
+          getRowKey={(row) => row.name}
+          emptyTitle="No data available"
+        />
       )}
     </div>
   );

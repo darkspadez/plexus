@@ -19,7 +19,7 @@ export const CrofQuotaConfig: React.FC<CrofQuotaConfigProps> = ({ options, onCha
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input
@@ -27,7 +27,7 @@ export const CrofQuotaConfig: React.FC<CrofQuotaConfigProps> = ({ options, onCha
           onChange={(e) => handleChange('endpoint', e.target.value)}
           placeholder="https://crof.ai/usage_api/"
         />
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-subtle">
           Custom endpoint URL. Defaults to Crof's usage API.
         </span>
       </div>

@@ -19,7 +19,7 @@ export const CompactBalancesCard: React.FC<CompactBalancesCardProps> = ({
 
   return (
     <div
-      className="px-2 py-1 space-y-0.5 cursor-pointer hover:bg-bg-hover transition-colors"
+      className="px-2 py-1 space-y-0.5 cursor-pointer hover:bg-surface-elevated transition-colors"
       onClick={() => navigate('/quotas')}
       role="button"
       tabIndex={0}
@@ -43,15 +43,15 @@ export const CompactBalancesCard: React.FC<CompactBalancesCardProps> = ({
 
         return (
           <div key={quota.checkerId} className="flex items-center justify-between min-w-0">
-            <span className="text-xs text-text-secondary truncate">{displayName}:</span>
+            <span className="text-xs text-foreground-muted truncate">{displayName}:</span>
             {!quota.success ? (
               <span className="text-xs text-danger flex-shrink-0 ml-2">Error</span>
             ) : formattedBalance !== undefined ? (
-              <span className="text-xs font-semibold text-text-secondary tabular-nums flex-shrink-0 ml-2">
+              <span className="text-xs font-semibold text-foreground-muted tabular-nums flex-shrink-0 ml-2">
                 {formattedBalance}
               </span>
             ) : (
-              <span className="text-xs text-text-muted flex-shrink-0">—</span>
+              <span className="text-xs text-foreground-subtle flex-shrink-0">—</span>
             )}
           </div>
         );

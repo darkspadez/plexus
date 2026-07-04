@@ -1,6 +1,8 @@
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit2, Trash2, Server } from 'lucide-react';
+import type { ColumnDef } from '@tanstack/react-table';
 import { Button } from '../ui/Button';
 import { Switch } from '../ui/Switch';
+import { DataTable } from '../ui/DataTable';
 import type { Provider } from '../../lib/api';
 
 interface Props {
@@ -9,6 +11,7 @@ interface Props {
   onEdit: (provider: Provider) => void;
   onToggleEnabled: (provider: Provider, newState: boolean) => void;
   onDelete: (provider: Provider) => void;
+  emptyAction?: React.ReactNode;
 }
 
 const countModels = (p: Provider): number => {
@@ -24,154 +27,126 @@ export function ProviderList({
   onEdit,
   onToggleEnabled,
   onDelete,
+  emptyAction,
 }: Props) {
-  return (
-    <>
-      {/* Mobile cards */}
-      <div className="space-y-3 p-3 md:hidden">
-        {providers.length === 0 ? (
-          <div className="rounded-lg border border-border-glass bg-bg-subtle p-4 text-center text-sm text-text-secondary">
-            No providers configured
+  const columns: ColumnDef<Provider>[] = [
+    {
+      id: 'id',
+      header: 'ID / Name',
+      meta: { priority: 'high', mobileTitle: true },
+      cell: ({ row }) => {
+        const p = row.original;
+        return (
+          <div className="flex items-center gap-2">
+            <Edit2 size={12} className="shrink-0 text-foreground-subtle" />
+            <span className="font-semibold text-foreground">{p.id}</span>
+            <span className="text-xs text-foreground-muted">( {p.name} )</span>
           </div>
-        ) : (
-          providers.map((p) => (
-            <article
-              key={p.id}
-              onClick={() => onEdit(p)}
-              className="rounded-lg border border-border-glass bg-bg-card p-3 transition-colors hover:border-primary/30 hover:bg-bg-hover"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Edit2 size={12} className="shrink-0 text-text-muted" />
-                    <h3 className="truncate text-sm font-semibold text-text">{p.id}</h3>
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-text-secondary">{p.name}</p>
-                </div>
-                <div onClick={(e) => e.stopPropagation()}>
-                  <Switch
-                    checked={p.enabled !== false}
-                    onChange={(val) => onToggleEnabled(p, val)}
-                    size="sm"
-                  />
-                </div>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-md bg-bg-subtle p-2">
-                  <div className="text-[10px] uppercase tracking-wider text-text-muted">Models</div>
-                  <div className="text-text">{countModels(p)}</div>
-                </div>
-                <div className="rounded-md bg-bg-subtle p-2">
-                  <div className="text-[10px] uppercase tracking-wider text-text-muted">
-                    Quota/Balance
-                  </div>
-                  <div className="mt-1 min-h-5">{getQuotaDisplay(p) || '-'}</div>
-                </div>
-              </div>
-              <div className="mt-3 flex justify-end border-t border-border-glass pt-3">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(p);
-                  }}
-                  className="text-danger"
-                >
-                  <Trash2 size={14} /> Delete
-                </Button>
-              </div>
-            </article>
-          ))
-        )}
-      </div>
+        );
+      },
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      meta: { priority: 'medium' },
+      cell: ({ row }) => {
+        const p = row.original;
+        return (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Switch
+              checked={p.enabled !== false}
+              onChange={(val) => onToggleEnabled(p, val)}
+              size="sm"
+            />
+          </div>
+        );
+      },
+    },
+    {
+      id: 'models',
+      header: 'Models',
+      meta: { priority: 'medium' },
+      cell: ({ row }) => countModels(row.original),
+    },
+    {
+      id: 'quota',
+      header: 'Quota/Balance',
+      meta: { priority: 'medium' },
+      cell: ({ row }) => getQuotaDisplay(row.original) ?? '-',
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      meta: { priority: 'low', align: 'right' },
+      cell: ({ row }) => (
+        <div className="inline-flex items-center justify-end gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-foreground-muted hover:text-foreground"
+            aria-label={`Edit ${row.original.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(row.original);
+            }}
+          >
+            <Edit2 size={14} />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+            aria-label={`Delete ${row.original.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(row.original);
+            }}
+          >
+            <Trash2 size={14} />
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
-      {/* Desktop table */}
-      <div className="hidden overflow-x-auto md:block">
-        <table className="w-full border-collapse font-body text-[13px]">
-          <thead>
-            <tr>
-              <th
-                className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider"
-                style={{ paddingLeft: '24px' }}
-              >
-                ID / Name
-              </th>
-              <th className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
-                Models
-              </th>
-              <th className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
-                Quota/Balance
-              </th>
-              <th
-                className="px-4 py-3 text-left border-b border-border-glass bg-bg-hover font-semibold text-text-secondary text-[11px] uppercase tracking-wider"
-                style={{ paddingRight: '24px', textAlign: 'right' }}
-              >
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {providers.map((p) => (
-              <tr
-                key={p.id}
-                onClick={() => onEdit(p)}
-                style={{ cursor: 'pointer' }}
-                className="hover:bg-bg-hover"
-              >
-                <td
-                  className="px-4 py-3 text-left border-b border-border-glass text-text"
-                  style={{ paddingLeft: '24px' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Edit2 size={12} style={{ opacity: 0.5 }} />
-                    <div style={{ fontWeight: 600 }}>{p.id}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                      ( {p.name} )
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-left border-b border-border-glass text-text">
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <Switch
-                      checked={p.enabled !== false}
-                      onChange={(val) => onToggleEnabled(p, val)}
-                      size="sm"
-                    />
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-left border-b border-border-glass text-text">
-                  {countModels(p)}
-                </td>
-                <td className="px-4 py-3 text-left border-b border-border-glass text-text">
-                  {getQuotaDisplay(p)}
-                </td>
-                <td
-                  className="px-4 py-3 text-left border-b border-border-glass text-text"
-                  style={{ paddingRight: '24px', textAlign: 'right' }}
-                >
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(p);
-                      }}
-                      style={{ color: 'var(--color-danger)' }}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
+  return (
+    <DataTable
+      columns={columns}
+      data={providers}
+      getRowKey={(p) => p.id}
+      onRowClick={onEdit}
+      emptyTitle="No providers yet"
+      emptyDescription="Add an upstream provider to start routing traffic."
+      emptyIcon={<Server />}
+      emptyAction={emptyAction}
+      mobileActions={(p) => (
+        <>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-foreground-muted hover:text-foreground"
+            aria-label={`Edit ${p.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(p);
+            }}
+          >
+            <Edit2 size={14} />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+            aria-label={`Delete ${p.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(p);
+            }}
+          >
+            <Trash2 size={14} />
+          </Button>
+        </>
+      )}
+    />
   );
 }

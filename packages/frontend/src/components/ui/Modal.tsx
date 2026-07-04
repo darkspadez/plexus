@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { clsx } from 'clsx';
 import { X } from 'lucide-react';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { Drawer } from './Drawer';
 
 interface ModalProps {
   isOpen: boolean;
@@ -13,14 +13,11 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-export const Modal: React.FC<ModalProps> = ({
-  isOpen,
-  onClose,
-  title,
-  children,
-  footer,
-  size = 'md',
-}) => {
+/* -------------------------------------------------------------------------- */
+/* Centered dialog — used for size="sm" (confirmations, alerts, small forms)  */
+/* -------------------------------------------------------------------------- */
+
+const CenteredDialog: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer }) => {
   useBodyScrollLock(isOpen);
 
   useEffect(() => {
@@ -36,28 +33,22 @@ export const Modal: React.FC<ModalProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[410] flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease]"
+      className="fixed inset-0 z-[420] flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease]"
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       <div
-        className={clsx(
-          'glass-bg w-full max-h-[92vh] overflow-hidden rounded-xl flex flex-col shadow-2xl animate-[slideUp_0.3s_ease] sm:max-h-[90vh] sm:rounded-2xl',
-          {
-            'max-w-md': size === 'sm',
-            'max-w-xl': size === 'md',
-            'max-w-3xl': size === 'lg',
-          }
-        )}
+        className="bg-surface border border-border w-full max-w-md max-h-[92vh] overflow-hidden rounded-lg flex flex-col shadow-md animate-[slideUp_0.3s_ease] sm:max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between gap-3 p-4 border-b border-white/5 sm:p-5">
-          <h2 className="min-w-0 font-heading text-base font-semibold text-text m-0 truncate">
+        <div className="flex items-center justify-between gap-3 p-4 border-b border-border sm:p-5">
+          <h2 className="min-w-0 font-sans text-base font-medium text-foreground m-0 truncate">
             {title}
           </h2>
           <button
             type="button"
-            className="flex-shrink-0 bg-transparent border-0 text-text-secondary cursor-pointer rounded-md p-1.5 transition-colors duration-fast hover:text-text hover:bg-bg-hover focus-visible:outline-2 focus-visible:outline focus-visible:outline-primary focus-visible:outline-offset-2"
+            className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-md p-1.5 transition-colors duration-150 hover:text-foreground hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             onClick={onClose}
             aria-label="Close"
           >
@@ -66,12 +57,90 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
         <div className="p-4 overflow-y-auto flex-1 sm:p-5">{children}</div>
         {footer && (
-          <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 border-t border-white/5 sm:px-5 sm:py-4">
+          <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 border-t border-border sm:px-5 sm:py-4">
             {footer}
           </div>
         )}
       </div>
     </div>,
     document.body
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/* Sheet panel — used for size="md" / size="lg" (forms, lists, detail panels) */
+/* Reuses the main Drawer with side="right" so all existing Drawer behaviours  */
+/* (slide animation, backdrop, Escape-to-close, body scroll lock) are inherited */
+/* -------------------------------------------------------------------------- */
+
+const SheetPanel: React.FC<ModalProps & { size: 'md' | 'lg' }> = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  size,
+}) => {
+  return (
+    <Drawer
+      open={isOpen}
+      onClose={onClose}
+      side="right"
+      width={size}
+      zTier="modal"
+      aria-label={title}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border flex-shrink-0">
+        <h2 className="min-w-0 font-sans text-base font-medium text-foreground m-0 truncate">
+          {title}
+        </h2>
+        <button
+          type="button"
+          className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-md p-1.5 transition-colors duration-150 hover:text-foreground hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto p-5">{children}</div>
+
+      {/* Pinned footer */}
+      {footer && (
+        <div className="flex flex-wrap items-center justify-end gap-2 px-5 py-4 border-t border-border flex-shrink-0">
+          {footer}
+        </div>
+      )}
+    </Drawer>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/* Modal router — public API unchanged; size drives which variant renders      */
+/* -------------------------------------------------------------------------- */
+
+export const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  size = 'md',
+}) => {
+  if (size === 'sm') {
+    return (
+      <CenteredDialog isOpen={isOpen} onClose={onClose} title={title} footer={footer}>
+        {children}
+      </CenteredDialog>
+    );
+  }
+
+  return (
+    <SheetPanel isOpen={isOpen} onClose={onClose} title={title} footer={footer} size={size}>
+      {children}
+    </SheetPanel>
   );
 };

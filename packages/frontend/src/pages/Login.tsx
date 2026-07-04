@@ -54,7 +54,7 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-deep p-4 sm:p-6">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 sm:p-6">
       {/* Background mesh */}
       <div className="fixed inset-0 pointer-events-none opacity-50" aria-hidden="true">
         <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" className="w-full h-full">
@@ -78,10 +78,10 @@ export const Login: React.FC = () => {
             <PlexusMark size={44} />
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold amber-grad-text font-heading tracking-tight">
+            <span className="text-3xl font-bold accent-grad-text font-sans tracking-tight">
               Plexus
             </span>
-            <span className="text-[10px] uppercase tracking-[0.18em] text-text-muted font-mono">
+            <span className="text-[10px] uppercase tracking-[0.18em] text-foreground-subtle font-mono">
               {appVersion}
             </span>
           </div>
@@ -90,8 +90,8 @@ export const Login: React.FC = () => {
         {/* Card */}
         <div className="glass-bg rounded-xl p-5 shadow-2xl sm:rounded-2xl sm:p-8">
           <div className="mb-6">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight mb-1.5">Sign in</h1>
-            <p className="text-sm text-text-secondary leading-relaxed">
+            <h1 className="font-sans text-2xl font-semibold tracking-tight mb-1.5">Sign in</h1>
+            <p className="text-sm text-foreground-muted leading-relaxed">
               Enter your admin key for full access, or an API key secret for a scoped view of your
               key's activity.
             </p>
@@ -110,14 +110,14 @@ export const Login: React.FC = () => {
             <div>
               <label
                 htmlFor="adminKey"
-                className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider"
+                className="block text-xs font-medium text-foreground-muted mb-1.5 uppercase tracking-wider"
               >
                 Admin key or API key secret
               </label>
               <div className="relative">
                 <KeyRound
                   size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-subtle pointer-events-none"
                 />
                 <input
                   id="adminKey"
@@ -130,32 +130,32 @@ export const Login: React.FC = () => {
                   }}
                   placeholder="sk-admin-•••• or sk-•••••••••••••"
                   autoFocus
-                  className="w-full bg-slate-900/60 border border-border rounded-md py-3 pl-10 pr-10 text-text font-mono text-sm placeholder:text-text-muted hover:border-border-2 focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.18)] focus:outline-none transition-all duration-fast"
+                  className="w-full bg-surface-sunken border border-border rounded-md py-3 pl-10 pr-10 text-foreground font-mono text-sm placeholder:text-foreground-subtle hover:border-border-strong focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-subtle)] focus:outline-none transition-all duration-fast"
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-slate-700/50 text-text-secondary"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-surface-elevated text-foreground-muted"
                   aria-label={showKey ? 'Hide key' : 'Show key'}
                 >
                   {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
               {error && (
-                <div className="mt-2 flex items-start gap-2 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg p-2.5">
+                <div className="mt-2 flex items-start gap-2 text-xs text-danger bg-danger-subtle border border-danger/30 rounded-lg p-2.5">
                   <AlertCircle size={14} className="mt-0.5 flex-none" />
                   <span>{error}</span>
                 </div>
               )}
             </div>
 
-            <Button type="submit" variant="primary" className="w-full py-3 text-sm font-semibold">
+            <Button type="submit" variant="primary" size="lg" className="w-full">
               <span>Access Dashboard</span>
               <ArrowRight size={14} />
             </Button>
           </form>
 
-          <div className="mt-6 flex flex-col gap-2 border-t border-white/5 pt-5 text-[11px] text-text-muted sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-6 flex flex-col gap-2 border-t border-white/5 pt-5 text-[11px] text-foreground-subtle sm:flex-row sm:items-center sm:justify-between">
             <span className="inline-flex items-center gap-1.5">
               <ShieldCheck size={14} />
               End-to-end encrypted
@@ -163,7 +163,7 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-xs text-text-muted">
+        <p className="mt-6 text-center text-xs text-foreground-subtle">
           © 2026 Plexus · Unified LLM Gateway
         </p>
       </main>

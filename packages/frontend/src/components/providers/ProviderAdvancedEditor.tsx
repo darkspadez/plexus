@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { DebouncedInput } from '../ui/DebouncedInput';
 import { Switch } from '../ui/Switch';
-import { Badge } from '../ui/Badge';
+import { Pill } from '../chips/Pill';
 import { GPU_PROFILE_OPTIONS, resolveGpuParams } from '@plexus/shared';
 import type { Provider, CompactionSettings } from '../../lib/api';
 import { api } from '../../lib/api';
@@ -91,27 +91,27 @@ export function ProviderAdvancedEditor({
   }, [editingProvider.pi_ai_provider, piProviders]);
 
   return (
-    <div className="border border-border-glass rounded-sm overflow-hidden">
+    <div className="border border-border rounded-sm overflow-hidden">
       <button
         type="button"
         onClick={() => setIsOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-bg-hover transition-colors duration-150 text-left"
+        className="w-full flex items-center justify-between px-3 py-2 bg-surface-sunken hover:bg-surface-elevated transition-colors duration-150 text-left"
       >
-        <span className="font-body text-[13px] font-medium text-text-secondary">Advanced</span>
+        <span className="font-sans text-[13px] font-medium text-foreground-muted">Advanced</span>
         {isOpen ? (
-          <ChevronDown size={14} className="text-text-muted" />
+          <ChevronDown size={14} className="text-foreground-subtle" />
         ) : (
-          <ChevronRight size={14} className="text-text-muted" />
+          <ChevronRight size={14} className="text-foreground-subtle" />
         )}
       </button>
       {isOpen && (
         <div
-          className="px-3 py-2 border-t border-border-glass"
+          className="px-3 py-2 border-t border-border"
           style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
         >
           {/* Model Autosync */}
-          <div className="border border-border-glass rounded-md overflow-hidden">
-            <div className="p-2 px-3 flex flex-wrap items-center gap-3 bg-bg-hover">
+          <div className="border border-border rounded-md overflow-hidden">
+            <div className="p-2 px-3 flex flex-wrap items-center gap-3 bg-surface-elevated">
               <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-[190px]">
                 <input
                   type="checkbox"
@@ -130,7 +130,7 @@ export function ProviderAdvancedEditor({
                     });
                   }}
                 />
-                <span className="font-body text-[12px] font-medium text-text-secondary">
+                <span className="font-sans text-[12px] font-medium text-foreground-muted">
                   Enable Model Autosync
                 </span>
               </label>
@@ -153,7 +153,7 @@ export function ProviderAdvancedEditor({
                   }}
                   style={{ width: '76px' }}
                 />
-                <span className="font-body text-[11px] text-text-secondary whitespace-nowrap">
+                <span className="font-sans text-[11px] text-foreground-muted whitespace-nowrap">
                   Sync Interval Minutes
                 </span>
               </div>
@@ -161,34 +161,34 @@ export function ProviderAdvancedEditor({
           </div>
 
           {/* Provider Adapters */}
-          <div className="border border-border-glass rounded-md overflow-hidden">
+          <div className="border border-border rounded-md overflow-hidden">
             <div
-              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover hover:bg-bg-glass"
+              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface"
               onClick={() => setIsAdaptersOpen(!isAdaptersOpen)}
             >
               {isAdaptersOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <label
-                className="font-body text-[12px] font-medium text-text-secondary"
+                className="font-sans text-[12px] font-medium text-foreground-muted"
                 style={{ marginBottom: 0, flex: 1 }}
               >
                 Provider Adapters
               </label>
               {(editingProvider.adapter ?? []).length > 0 && (
-                <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                <Pill tone="neutral" size="sm">
                   {(editingProvider.adapter ?? []).length}
-                </Badge>
+                </Pill>
               )}
             </div>
             {isAdaptersOpen && (
               <div
                 style={{
                   padding: '8px',
-                  borderTop: '1px solid var(--color-border-glass)',
-                  background: 'var(--color-bg-subtle)',
+                  borderTop: '1px solid var(--border)',
+                  background: 'var(--surface-sunken)',
                 }}
               >
                 <div
-                  className="font-body text-[11px] text-text-secondary mb-2"
+                  className="font-sans text-[11px] text-foreground-muted mb-2"
                   style={{ lineHeight: 1.4 }}
                 >
                   Adapters rewrite requests and responses to fix provider-specific field-name
@@ -216,8 +216,8 @@ export function ProviderAdvancedEditor({
                           cursor: 'pointer',
                           padding: '4px 8px',
                           borderRadius: 'var(--radius-sm)',
-                          border: '1px solid var(--color-border-glass)',
-                          background: active ? 'var(--color-bg-hover)' : 'var(--color-bg-glass)',
+                          border: '1px solid var(--border)',
+                          background: active ? 'var(--surface-elevated)' : 'var(--surface)',
                         }}
                       >
                         <input
@@ -235,11 +235,11 @@ export function ProviderAdvancedEditor({
                           }}
                         />
                         <div>
-                          <div className="font-body text-[12px] font-medium text-text">
+                          <div className="font-sans text-[12px] font-medium text-foreground">
                             {a.label}
                           </div>
                           <div
-                            className="font-body text-[11px] text-text-secondary"
+                            className="font-sans text-[11px] text-foreground-muted"
                             style={{ lineHeight: 1.35 }}
                           >
                             {a.description}
@@ -293,8 +293,8 @@ export function ProviderAdvancedEditor({
                         gridColumn: '1 / -1',
                         padding: '4px 8px',
                         borderRadius: 'var(--radius-sm)',
-                        border: '1px solid var(--color-border-glass)',
-                        background: active ? 'var(--color-bg-hover)' : 'var(--color-bg-glass)',
+                        border: '1px solid var(--border)',
+                        background: active ? 'var(--surface-elevated)' : 'var(--surface)',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '6px',
@@ -316,11 +316,11 @@ export function ProviderAdvancedEditor({
                           onChange={toggleActive}
                         />
                         <div>
-                          <div className="font-body text-[12px] font-medium text-text">
+                          <div className="font-sans text-[12px] font-medium text-foreground">
                             Web Search Coercion
                           </div>
                           <div
-                            className="font-body text-[11px] text-text-secondary"
+                            className="font-sans text-[11px] text-foreground-muted"
                             style={{ lineHeight: 1.35 }}
                           >
                             Coerces server-side web search tool entries to the format expected by
@@ -341,11 +341,11 @@ export function ProviderAdvancedEditor({
                         >
                           {/* Target dropdown */}
                           <div className="flex flex-col gap-0.5" style={{ flex: '1 1 160px' }}>
-                            <label className="font-body text-[11px] font-medium text-text-secondary">
+                            <label className="font-sans text-[11px] font-medium text-foreground-muted">
                               Target Format
                             </label>
                             <select
-                              className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                              className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                               value={currentTarget}
                               onChange={(e) => updateOptions({ target: e.target.value })}
                             >
@@ -361,14 +361,14 @@ export function ProviderAdvancedEditor({
                           {/* max_uses — only relevant for Anthropic */}
                           {currentTarget === 'anthropic' && (
                             <div className="flex flex-col gap-0.5" style={{ flex: '0 1 110px' }}>
-                              <label className="font-body text-[11px] font-medium text-text-secondary">
+                              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                                 Max Uses
-                                <span className="font-normal text-[10px] text-text-muted ml-1">
+                                <span className="font-normal text-[10px] text-foreground-subtle ml-1">
                                   optional
                                 </span>
                               </label>
                               <input
-                                className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                                className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                                 type="number"
                                 min="1"
                                 step="1"
@@ -406,14 +406,14 @@ export function ProviderAdvancedEditor({
           </div>
 
           {/* Stall Detection Overrides — with Cooldown on Stall toggle in header */}
-          <div className="border border-border-glass rounded-md overflow-hidden">
+          <div className="border border-border rounded-md overflow-hidden">
             <div
-              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover hover:bg-bg-glass"
+              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface"
               onClick={() => setIsStallOpen(!isStallOpen)}
             >
               {isStallOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <label
-                className="font-body text-[12px] font-medium text-text-secondary"
+                className="font-sans text-[12px] font-medium text-foreground-muted"
                 style={{ marginBottom: 0, flex: 1 }}
               >
                 Stall Detection Overrides
@@ -430,7 +430,7 @@ export function ProviderAdvancedEditor({
                     setEditingProvider({ ...editingProvider, stallCooldown: checked })
                   }
                 />
-                <span className="font-body text-[11px] text-text-secondary whitespace-nowrap">
+                <span className="font-sans text-[11px] text-foreground-muted whitespace-nowrap">
                   Cooldown on Stall
                 </span>
               </div>
@@ -439,9 +439,9 @@ export function ProviderAdvancedEditor({
                 editingProvider.stallMinBps != null ||
                 editingProvider.stallWindowMs != null ||
                 editingProvider.stallGracePeriodMs != null) && (
-                <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                <Pill tone="neutral" size="sm">
                   Custom
-                </Badge>
+                </Pill>
               )}
             </div>
             {isStallOpen && (
@@ -451,12 +451,12 @@ export function ProviderAdvancedEditor({
                   flexDirection: 'column',
                   gap: '6px',
                   padding: '8px',
-                  borderTop: '1px solid var(--color-border-glass)',
-                  background: 'var(--color-bg-subtle)',
+                  borderTop: '1px solid var(--border)',
+                  background: 'var(--surface-sunken)',
                 }}
               >
                 <div
-                  className="font-body text-[11px] text-text-secondary"
+                  className="font-sans text-[11px] text-foreground-muted"
                   style={{ lineHeight: 1.35 }}
                 >
                   Override the global stall detection settings for this provider. Leave empty to use
@@ -466,9 +466,11 @@ export function ProviderAdvancedEditor({
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                   {/* TTFB Timeout */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       TTFB Timeout (s)
-                      <span className="font-normal text-[10px] text-text-muted ml-1">5–120</span>
+                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
+                        5–120
+                      </span>
                     </label>
                     <DebouncedInput
                       type="number"
@@ -490,9 +492,11 @@ export function ProviderAdvancedEditor({
                   </div>
                   {/* TTFB Byte Threshold */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       TTFB Byte Threshold
-                      <span className="font-normal text-[10px] text-text-muted ml-1">50–10k</span>
+                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
+                        50–10k
+                      </span>
                     </label>
                     <DebouncedInput
                       type="number"
@@ -514,9 +518,11 @@ export function ProviderAdvancedEditor({
                   </div>
                   {/* Min Bytes/Sec */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       Min Bytes/Sec
-                      <span className="font-normal text-[10px] text-text-muted ml-1">50–5k</span>
+                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
+                        50–5k
+                      </span>
                     </label>
                     <DebouncedInput
                       type="number"
@@ -538,9 +544,11 @@ export function ProviderAdvancedEditor({
                   </div>
                   {/* Stall Window */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       Stall Window (s)
-                      <span className="font-normal text-[10px] text-text-muted ml-1">3–30</span>
+                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
+                        3–30
+                      </span>
                     </label>
                     <DebouncedInput
                       type="number"
@@ -562,9 +570,11 @@ export function ProviderAdvancedEditor({
                   </div>
                   {/* Grace Period */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       Grace Period (s)
-                      <span className="font-normal text-[10px] text-text-muted ml-1">0–120</span>
+                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
+                        0–120
+                      </span>
                     </label>
                     <DebouncedInput
                       type="number"
@@ -596,25 +606,25 @@ export function ProviderAdvancedEditor({
           </div>
 
           {/* Compaction Override */}
-          <div className="border border-border-glass rounded-md overflow-hidden">
+          <div className="border border-border rounded-md overflow-hidden">
             <button
               type="button"
-              className="w-full p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover hover:bg-bg-glass border-0 text-left"
+              className="w-full p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface border-0 text-left"
               onClick={() => setIsCompactionOpen(!isCompactionOpen)}
               aria-expanded={isCompactionOpen}
             >
               {isCompactionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <span
-                className="font-body text-[12px] font-medium text-text-secondary"
+                className="font-sans text-[12px] font-medium text-foreground-muted"
                 style={{ marginBottom: 0, flex: 1 }}
               >
                 Compaction Override
               </span>
               {editingProvider.compaction &&
                 Object.values(editingProvider.compaction).some((v) => v != null) && (
-                  <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                  <Pill tone="neutral" size="sm">
                     Custom
-                  </Badge>
+                  </Pill>
                 )}
             </button>
             {isCompactionOpen && (
@@ -624,12 +634,12 @@ export function ProviderAdvancedEditor({
                   flexDirection: 'column',
                   gap: '6px',
                   padding: '8px',
-                  borderTop: '1px solid var(--color-border-glass)',
-                  background: 'var(--color-bg-subtle)',
+                  borderTop: '1px solid var(--border)',
+                  background: 'var(--surface-sunken)',
                 }}
               >
                 <div
-                  className="font-body text-[11px] text-text-secondary"
+                  className="font-sans text-[11px] text-foreground-muted"
                   style={{ lineHeight: 1.35 }}
                 >
                   Override global context-compaction for this provider. Empty = inherit. Nested
@@ -637,14 +647,14 @@ export function ProviderAdvancedEditor({
                 </div>
                 {/* enabled tri-state: Inherit | On | Off */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
                     Enabled
-                    <span className="font-normal text-[10px] text-text-muted ml-1">
+                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
                       Inherit / On / Off
                     </span>
                   </label>
                   <select
-                    className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                     value={
                       editingProvider.compaction?.enabled == null
                         ? ''
@@ -671,14 +681,14 @@ export function ProviderAdvancedEditor({
                 </div>
                 {/* strategy */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
                     Strategy
-                    <span className="font-normal text-[10px] text-text-muted ml-1">
+                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
                       native | headroom
                     </span>
                   </label>
                   <select
-                    className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                     value={editingProvider.compaction?.strategy ?? ''}
                     onChange={(e) => {
                       const raw = e.target.value;
@@ -701,9 +711,11 @@ export function ProviderAdvancedEditor({
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                   {/* triggerRatio */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       Trigger Ratio
-                      <span className="font-normal text-[10px] text-text-muted ml-1">0–1</span>
+                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
+                        0–1
+                      </span>
                     </label>
                     <DebouncedInput
                       type="number"
@@ -731,9 +743,11 @@ export function ProviderAdvancedEditor({
                   </div>
                   {/* absoluteTriggerTokens */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       Abs. Trigger Tokens
-                      <span className="font-normal text-[10px] text-text-muted ml-1">optional</span>
+                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
+                        optional
+                      </span>
                     </label>
                     <DebouncedInput
                       type="number"
@@ -761,7 +775,7 @@ export function ProviderAdvancedEditor({
                   </div>
                   {/* minTokens */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       Min Tokens
                     </label>
                     <DebouncedInput
@@ -789,7 +803,7 @@ export function ProviderAdvancedEditor({
                   </div>
                   {/* protectRecent */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       Protect Recent
                     </label>
                     <DebouncedInput
@@ -821,21 +835,21 @@ export function ProviderAdvancedEditor({
           </div>
 
           {/* Custom Headers */}
-          <div className="border border-border-glass rounded-md overflow-hidden">
+          <div className="border border-border rounded-md overflow-hidden">
             <div
-              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover hover:bg-bg-glass"
+              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface"
               onClick={() => setIsHeadersOpen(!isHeadersOpen)}
             >
               {isHeadersOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <label
-                className="font-body text-[12px] font-medium text-text-secondary"
+                className="font-sans text-[12px] font-medium text-foreground-muted"
                 style={{ marginBottom: 0, flex: 1 }}
               >
                 Custom Headers
               </label>
-              <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+              <Pill tone="neutral" size="sm">
                 {Object.keys(editingProvider.headers || {}).length}
-              </Badge>
+              </Pill>
               <Button
                 size="sm"
                 variant="secondary"
@@ -849,46 +863,42 @@ export function ProviderAdvancedEditor({
               </Button>
             </div>
             {isHeadersOpen && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '4px',
-                  padding: '8px',
-                  borderTop: '1px solid var(--color-border-glass)',
-                  background: 'var(--color-bg-deep)',
-                }}
-              >
+              <div className="flex flex-col gap-1 p-2 border-t border-border bg-background">
                 {Object.entries(editingProvider.headers || {}).length === 0 && (
-                  <div className="font-body text-[11px] text-text-secondary italic">
+                  <div className="font-sans text-[11px] text-foreground-muted italic">
                     No custom headers configured.
                   </div>
                 )}
                 {Object.entries(editingProvider.headers || {}).map(([key, val], idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: '6px' }}>
-                    <DebouncedInput
-                      placeholder="Header Name"
-                      value={key}
-                      onChange={(newKey: string) => updateKV('headers', key, newKey, val)}
-                      style={{ flex: 1 }}
-                    />
-                    <DebouncedInput
-                      placeholder="Value"
-                      value={typeof val === 'object' ? JSON.stringify(val) : val}
-                      onChange={(val: string) => {
-                        try {
-                          updateKV('headers', key, key, JSON.parse(val));
-                        } catch {
-                          updateKV('headers', key, key, val);
-                        }
-                      }}
-                      style={{ flex: 1 }}
-                    />
+                  <div key={idx} className="flex flex-col gap-1.5 sm:flex-row">
+                    <div className="min-w-0 flex-1">
+                      <DebouncedInput
+                        placeholder="Header Name"
+                        value={key}
+                        onChange={(newKey: string) => updateKV('headers', key, newKey, val)}
+                        style={{ flex: 1 }}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <DebouncedInput
+                        placeholder="Value"
+                        value={typeof val === 'object' ? JSON.stringify(val) : val}
+                        onChange={(val: string) => {
+                          try {
+                            updateKV('headers', key, key, JSON.parse(val));
+                          } catch {
+                            updateKV('headers', key, key, val);
+                          }
+                        }}
+                        style={{ flex: 1 }}
+                      />
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => removeKV('headers', key)}
                       style={{ padding: '4px' }}
+                      className="self-end sm:self-auto shrink-0"
                     >
                       <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
                     </Button>
@@ -899,21 +909,21 @@ export function ProviderAdvancedEditor({
           </div>
 
           {/* Extra Body Fields */}
-          <div className="border border-border-glass rounded-md overflow-hidden">
+          <div className="border border-border rounded-md overflow-hidden">
             <div
-              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover hover:bg-bg-glass"
+              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface"
               onClick={() => setIsExtraBodyOpen(!isExtraBodyOpen)}
             >
               {isExtraBodyOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <label
-                className="font-body text-[12px] font-medium text-text-secondary"
+                className="font-sans text-[12px] font-medium text-foreground-muted"
                 style={{ marginBottom: 0, flex: 1 }}
               >
                 Extra Body Fields
               </label>
-              <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+              <Pill tone="neutral" size="sm">
                 {Object.keys(editingProvider.extraBody || {}).length}
-              </Badge>
+              </Pill>
               <Button
                 size="sm"
                 variant="secondary"
@@ -927,46 +937,42 @@ export function ProviderAdvancedEditor({
               </Button>
             </div>
             {isExtraBodyOpen && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '4px',
-                  padding: '8px',
-                  borderTop: '1px solid var(--color-border-glass)',
-                  background: 'var(--color-bg-deep)',
-                }}
-              >
+              <div className="flex flex-col gap-1 p-2 border-t border-border bg-background">
                 {Object.entries(editingProvider.extraBody || {}).length === 0 && (
-                  <div className="font-body text-[11px] text-text-secondary italic">
+                  <div className="font-sans text-[11px] text-foreground-muted italic">
                     No extra body fields configured.
                   </div>
                 )}
                 {Object.entries(editingProvider.extraBody || {}).map(([key, val], idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: '6px' }}>
-                    <DebouncedInput
-                      placeholder="Field Name"
-                      value={key}
-                      onChange={(newKey: string) => updateKV('extraBody', key, newKey, val)}
-                      style={{ flex: 1 }}
-                    />
-                    <DebouncedInput
-                      placeholder="Value"
-                      value={typeof val === 'object' ? JSON.stringify(val) : val}
-                      onChange={(val: string) => {
-                        try {
-                          updateKV('extraBody', key, key, JSON.parse(val));
-                        } catch {
-                          updateKV('extraBody', key, key, val);
-                        }
-                      }}
-                      style={{ flex: 1 }}
-                    />
+                  <div key={idx} className="flex flex-col gap-1.5 sm:flex-row">
+                    <div className="min-w-0 flex-1">
+                      <DebouncedInput
+                        placeholder="Field Name"
+                        value={key}
+                        onChange={(newKey: string) => updateKV('extraBody', key, newKey, val)}
+                        style={{ flex: 1 }}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <DebouncedInput
+                        placeholder="Value"
+                        value={typeof val === 'object' ? JSON.stringify(val) : val}
+                        onChange={(val: string) => {
+                          try {
+                            updateKV('extraBody', key, key, JSON.parse(val));
+                          } catch {
+                            updateKV('extraBody', key, key, val);
+                          }
+                        }}
+                        style={{ flex: 1 }}
+                      />
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => removeKV('extraBody', key)}
                       style={{ padding: '4px' }}
+                      className="self-end sm:self-auto shrink-0"
                     >
                       <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
                     </Button>
@@ -1039,7 +1045,7 @@ export function ProviderAdvancedEditor({
           </div>
 
           {/* Compact settings card — toggles left, value inputs right */}
-          <div className="border border-border-glass rounded-md p-2 bg-bg-subtle">
+          <div className="border border-border rounded-md p-2 bg-surface-sunken">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
               {/* Left: toggles */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -1051,9 +1057,9 @@ export function ProviderAdvancedEditor({
                     }
                   />
                   <div>
-                    <div className="font-body text-[12px] text-text">Estimate Tokens</div>
+                    <div className="font-sans text-[12px] text-foreground">Estimate Tokens</div>
                     <div
-                      className="font-body text-[11px] text-text-muted"
+                      className="font-sans text-[11px] text-foreground-subtle"
                       style={{ lineHeight: 1.35 }}
                     >
                       Only when provider doesn't return usage data. Use sparingly.
@@ -1068,9 +1074,9 @@ export function ProviderAdvancedEditor({
                     }
                   />
                   <div>
-                    <div className="font-body text-[12px] text-text">Disable Cooldowns</div>
+                    <div className="font-sans text-[12px] text-foreground">Disable Cooldowns</div>
                     <div
-                      className="font-body text-[11px] text-text-muted"
+                      className="font-sans text-[11px] text-foreground-subtle"
                       style={{ lineHeight: 1.35 }}
                     >
                       Provider will never be placed on cooldown.
@@ -1085,9 +1091,9 @@ export function ProviderAdvancedEditor({
                     }
                   />
                   <div>
-                    <div className="font-body text-[12px] text-text">Use Claude Masking</div>
+                    <div className="font-sans text-[12px] text-foreground">Use Claude Masking</div>
                     <div
-                      className="font-body text-[11px] text-text-muted"
+                      className="font-sans text-[11px] text-foreground-subtle"
                       style={{ lineHeight: 1.35 }}
                     >
                       Mask requests as Claude Code CLI sessions. Anthropic only.
@@ -1124,11 +1130,11 @@ export function ProviderAdvancedEditor({
               >
                 {/* GPU Profile */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
                     GPU Profile
                   </label>
                   <select
-                    className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                     value={editingProvider.gpu_profile || ''}
                     onChange={(e) => {
                       const value = e.target.value;
@@ -1180,15 +1186,15 @@ export function ProviderAdvancedEditor({
                 </div>
                 {/* Discount */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
                     Discount
-                    <span className="font-normal text-[10px] text-text-muted ml-1">
+                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
                       e.g. 10 → pays 90%
                     </span>
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
-                      className="w-full py-1 pl-2 pr-5 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-1 pl-2 pr-5 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                       type="number"
                       step="1"
                       min="0"
@@ -1200,7 +1206,7 @@ export function ProviderAdvancedEditor({
                       }}
                     />
                     <span
-                      className="font-body text-[11px] text-text-muted"
+                      className="font-sans text-[11px] text-foreground-subtle"
                       style={{
                         position: 'absolute',
                         right: '6px',
@@ -1215,12 +1221,14 @@ export function ProviderAdvancedEditor({
                 </div>
                 {/* Upstream Timeout */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
                     Timeout
-                    <span className="font-normal text-[10px] text-text-muted ml-1">1–3600s</span>
+                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
+                      1–3600s
+                    </span>
                   </label>
                   <input
-                    className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                     type="number"
                     step="1"
                     min="1"
@@ -1246,14 +1254,14 @@ export function ProviderAdvancedEditor({
                 </div>
                 {/* Max Concurrency */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
                     Max Concurrency
-                    <span className="font-normal text-[10px] text-text-muted ml-1">
+                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
                       across all models
                     </span>
                   </label>
                   <input
-                    className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                     type="number"
                     step="1"
                     min="1"
@@ -1276,12 +1284,12 @@ export function ProviderAdvancedEditor({
                 </div>
                 {/* pi-ai Provider */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
                     pi-ai Provider
                   </label>
                   {!piProviderCustom ? (
                     <select
-                      className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                      className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                       value={editingProvider.pi_ai_provider ?? ''}
                       onChange={(e) => {
                         const raw = e.target.value;
@@ -1306,7 +1314,7 @@ export function ProviderAdvancedEditor({
                   ) : (
                     <div className="flex gap-1">
                       <input
-                        className="flex-1 py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                        className="flex-1 py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                         type="text"
                         placeholder="e.g. anthropic, openai"
                         value={editingProvider.pi_ai_provider ?? ''}
@@ -1321,7 +1329,7 @@ export function ProviderAdvancedEditor({
                       />
                       <button
                         type="button"
-                        className="font-body text-[11px] text-text-muted hover:text-text px-1"
+                        className="font-sans text-[11px] text-foreground-subtle hover:text-foreground px-1"
                         title="Back to list"
                         onClick={() => setPiProviderCustom(false)}
                       >
@@ -1337,15 +1345,15 @@ export function ProviderAdvancedEditor({
           {/* Custom GPU fields — only when gpu_profile === 'custom' */}
           {editingProvider.gpu_profile === 'custom' && (
             <div
-              className="border border-border-glass rounded-md p-2 bg-bg-subtle"
+              className="border border-border rounded-md p-2 bg-surface-sunken"
               style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}
             >
               <div className="flex flex-col gap-0.5">
-                <label className="font-body text-[11px] font-medium text-text-secondary">
+                <label className="font-sans text-[11px] font-medium text-foreground-muted">
                   RAM (GB)
                 </label>
                 <input
-                  className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                  className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                   type="number"
                   step="1"
                   min="1"
@@ -1360,11 +1368,11 @@ export function ProviderAdvancedEditor({
                 />
               </div>
               <div className="flex flex-col gap-0.5">
-                <label className="font-body text-[11px] font-medium text-text-secondary">
+                <label className="font-sans text-[11px] font-medium text-foreground-muted">
                   Bandwidth (TB/s)
                 </label>
                 <input
-                  className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                  className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                   type="number"
                   step="0.1"
                   min="0.1"
@@ -1379,11 +1387,11 @@ export function ProviderAdvancedEditor({
                 />
               </div>
               <div className="flex flex-col gap-0.5">
-                <label className="font-body text-[11px] font-medium text-text-secondary">
+                <label className="font-sans text-[11px] font-medium text-foreground-muted">
                   FLOPS (TFLOPs)
                 </label>
                 <input
-                  className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                  className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                   type="number"
                   step="100"
                   min="1"
@@ -1398,11 +1406,11 @@ export function ProviderAdvancedEditor({
                 />
               </div>
               <div className="flex flex-col gap-0.5">
-                <label className="font-body text-[11px] font-medium text-text-secondary">
+                <label className="font-sans text-[11px] font-medium text-foreground-muted">
                   Power (Watts)
                 </label>
                 <input
-                  className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                  className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                   type="number"
                   step="10"
                   min="1"

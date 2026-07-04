@@ -111,11 +111,9 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
           el.style.left = `${rect.left + window.scrollX}px`;
         }
       }}
-      className="fixed p-3 rounded-lg border border-border-glass shadow-modal"
+      className="fixed p-3 rounded-lg border border-border bg-surface shadow-md"
       style={{
         zIndex: 500,
-        backgroundColor: 'var(--color-bg-card)',
-        backdropFilter: 'blur(16px)',
         minWidth: '280px',
       }}
     >
@@ -124,17 +122,17 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
         <button
           type="button"
           onClick={() => setViewDate(new Date(year, month - 1, 1))}
-          className="p-1 rounded hover:bg-bg-hover text-text-secondary hover:text-text transition-colors"
+          className="p-1 rounded hover:bg-surface-elevated text-foreground-muted hover:text-foreground transition-colors"
         >
           <ChevronLeft size={16} />
         </button>
-        <span className="text-sm font-semibold text-text">
+        <span className="text-sm font-medium text-foreground">
           {viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         </span>
         <button
           type="button"
           onClick={() => setViewDate(new Date(year, month + 1, 1))}
-          className="p-1 rounded hover:bg-bg-hover text-text-secondary hover:text-text transition-colors"
+          className="p-1 rounded hover:bg-surface-elevated text-foreground-muted hover:text-foreground transition-colors"
         >
           <ChevronRight size={16} />
         </button>
@@ -143,7 +141,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
       {/* Day labels */}
       <div className="grid grid-cols-7 mb-1">
         {DAYS.map((d) => (
-          <div key={d} className="text-center text-[11px] font-medium text-text-muted py-1">
+          <div key={d} className="text-center text-[11px] font-medium text-foreground-muted py-1">
             {d}
           </div>
         ))}
@@ -167,7 +165,9 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
               onClick={() => selectDay(day)}
               className={clsx(
                 'aspect-square flex items-center justify-center rounded text-[13px] transition-colors',
-                isSelected ? 'bg-primary text-black font-semibold' : 'text-text hover:bg-bg-hover'
+                isSelected
+                  ? 'bg-accent text-accent-foreground font-medium'
+                  : 'text-foreground hover:bg-surface-elevated'
               )}
             >
               {day}
@@ -177,8 +177,8 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
       </div>
 
       {/* Time selector */}
-      <div className="mt-3 pt-3 border-t border-border-glass flex items-center gap-2">
-        <Clock size={14} className="text-text-secondary shrink-0" />
+      <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
+        <Clock size={14} className="text-foreground-muted shrink-0" />
         <div className="flex items-center gap-1">
           <input
             type="number"
@@ -196,9 +196,9 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
               setHours(v);
               applyTime(v, minutes);
             }}
-            className="w-12 text-center py-1 rounded bg-bg-glass border border-border-glass text-text text-sm outline-none focus:border-primary"
+            className="w-12 text-center py-1 rounded-md bg-background border border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 focus:ring-offset-background"
           />
-          <span className="text-text-secondary">:</span>
+          <span className="text-foreground-muted">:</span>
           <input
             type="number"
             min={0}
@@ -215,7 +215,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
               setMinutes(v);
               applyTime(hours, v);
             }}
-            className="w-12 text-center py-1 rounded bg-bg-glass border border-border-glass text-text text-sm outline-none focus:border-primary"
+            className="w-12 text-center py-1 rounded-md bg-background border border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 focus:ring-offset-background"
           />
         </div>
       </div>
@@ -228,14 +228,14 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
         type="button"
         onClick={() => setOpen(!open)}
         className={clsx(
-          'w-full sm:w-56 flex items-center gap-2 py-2.5 pl-3 pr-3',
-          'font-body text-sm text-left rounded-md border outline-none transition-all duration-fast',
-          'backdrop-blur-md bg-bg-glass border-border-glass text-text',
-          'hover:border-text-secondary/40 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25'
+          'w-full sm:w-56 h-8 flex items-center gap-2 pl-3 pr-3',
+          'font-sans text-sm text-left rounded-md border outline-none transition-colors duration-150',
+          'bg-background border-border text-foreground',
+          'hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background'
         )}
       >
-        <Calendar size={14} className="shrink-0 text-text-secondary" />
-        <span className={clsx('flex-1 truncate', !displayValue && 'text-text-muted')}>
+        <Calendar size={14} className="shrink-0 text-foreground-muted" />
+        <span className={clsx('flex-1 truncate', !displayValue && 'text-foreground-muted')}>
           {displayValue || placeholder}
         </span>
         {value && (
@@ -244,7 +244,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
               e.stopPropagation();
               onChange('');
             }}
-            className="cursor-pointer text-text-muted hover:text-text transition-colors"
+            className="cursor-pointer text-foreground-muted hover:text-foreground transition-colors"
             role="button"
             aria-label="Clear"
           >

@@ -1,17 +1,10 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
-import { clsx } from 'clsx';
+import { toast } from 'sonner';
+import { X } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
 type ToastVariant = 'success' | 'error' | 'warning' | 'info';
-
-interface Toast {
-  id: number;
-  variant: ToastVariant;
-  message: React.ReactNode;
-  title?: React.ReactNode;
-}
 
 interface ConfirmOptions {
   title: string;
@@ -32,43 +25,57 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
-const variantStyles: Record<ToastVariant, { icon: React.ReactNode; classes: string }> = {
-  success: {
-    icon: <CheckCircle2 size={18} className="text-success" />,
-    classes: 'border-success/40',
-  },
-  error: {
-    icon: <AlertCircle size={18} className="text-danger" />,
-    classes: 'border-danger/40',
-  },
-  warning: {
-    icon: <AlertTriangle size={18} className="text-secondary" />,
-    classes: 'border-secondary/40',
-  },
-  info: {
-    icon: <Info size={18} className="text-info" />,
-    classes: 'border-info/40',
-  },
+/** Convert a React.ReactNode title/message to what sonner accepts (string | undefined). */
+const toStr = (node: React.ReactNode): string | undefined => {
+  if (node == null) return undefined;
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  // For complex ReactNode, fall back to rendering without a string title.
+  return undefined;
 };
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  // idRef is kept so the showToast signature stays identical — the id returned
+  // by sonner is a string/number we don't expose externally, but callers that
+  // call showToast multiple times need stable internal behavior.
+  const idRef = useRef(0);
+
   const [confirmState, setConfirmState] = useState<
     (ConfirmOptions & { resolve: (v: boolean) => void }) | null
   >(null);
-  const idRef = useRef(0);
-
-  const dismiss = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
 
   const showToast = useCallback(
     (variant: ToastVariant, message: React.ReactNode, title?: React.ReactNode) => {
-      const id = ++idRef.current;
-      setToasts((prev) => [...prev, { id, variant, message, title }]);
-      setTimeout(() => dismiss(id), 5000);
+      idRef.current++;
+      const msgStr =
+        typeof message === 'string' || typeof message === 'number' ? String(message) : undefined;
+      const titleStr = toStr(title);
+
+      // Delegate to sonner's typed methods.
+      switch (variant) {
+        case 'success':
+          toast.success(titleStr ?? msgStr ?? 'Done', {
+            description: titleStr != null ? msgStr : undefined,
+          });
+          break;
+        case 'error':
+          toast.error(titleStr ?? msgStr ?? 'Error', {
+            description: titleStr != null ? msgStr : undefined,
+          });
+          break;
+        case 'warning':
+          toast.warning(titleStr ?? msgStr ?? 'Warning', {
+            description: titleStr != null ? msgStr : undefined,
+          });
+          break;
+        case 'info':
+        default:
+          toast.info(titleStr ?? msgStr ?? 'Info', {
+            description: titleStr != null ? msgStr : undefined,
+          });
+          break;
+      }
     },
-    [dismiss]
+    []
   );
 
   const value = useMemo<ToastContextValue>(
@@ -96,38 +103,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {createPortal(
-        <div className="fixed top-4 right-4 z-[600] flex flex-col gap-2 max-w-[90vw] sm:max-w-sm pointer-events-none">
-          {toasts.map((toast) => (
-            <div
-              key={toast.id}
-              className={clsx(
-                'pointer-events-auto flex items-start gap-3 bg-bg-surface border rounded-md p-3 shadow-modal backdrop-blur-md animate-[slideUp_0.2s_ease]',
-                variantStyles[toast.variant].classes
-              )}
-            >
-              <div className="mt-0.5 flex-shrink-0">{variantStyles[toast.variant].icon}</div>
-              <div className="flex-1 min-w-0">
-                {toast.title && (
-                  <div className="font-heading text-sm font-semibold text-text">{toast.title}</div>
-                )}
-                <div className="font-body text-xs text-text-secondary break-words">
-                  {toast.message}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => dismiss(toast.id)}
-                aria-label="Dismiss"
-                className="flex-shrink-0 text-text-muted hover:text-text transition-colors duration-fast"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ))}
-        </div>,
-        document.body
-      )}
+      {/* Confirm modal — kept as-is; sonner has no confirm dialog */}
       {confirmState &&
         createPortal(
           <div
@@ -137,18 +113,18 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             aria-modal="true"
           >
             <div
-              className="bg-bg-surface border border-border-glass rounded-xl w-full max-w-[420px] shadow-modal animate-[slideUp_0.2s_ease]"
+              className="bg-surface border border-border rounded-xl w-full max-w-[420px] shadow-modal animate-[slideUp_0.2s_ease]"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-5 sm:p-6 border-b border-border-glass">
-                <h2 className="font-heading text-h2 font-semibold text-text m-0">
+              <div className="p-5 sm:p-6 border-b border-border">
+                <h2 className="font-sans text-h2 font-semibold text-foreground m-0">
                   {confirmState.title}
                 </h2>
               </div>
-              <div className="p-5 sm:p-6 font-body text-sm text-text-secondary">
+              <div className="p-5 sm:p-6 font-sans text-sm text-foreground-muted">
                 {confirmState.message}
               </div>
-              <div className="flex items-center justify-end gap-3 px-5 py-4 sm:px-6 border-t border-border-glass">
+              <div className="flex items-center justify-end gap-3 px-5 py-4 sm:px-6 border-t border-border">
                 <Button variant="secondary" onClick={() => resolveConfirm(false)}>
                   {confirmState.cancelLabel ?? 'Cancel'}
                 </Button>
@@ -159,6 +135,14 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   {confirmState.confirmLabel ?? 'Confirm'}
                 </Button>
               </div>
+              <button
+                type="button"
+                className="absolute top-4 right-4 text-foreground-subtle hover:text-foreground"
+                onClick={() => resolveConfirm(false)}
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
             </div>
           </div>,
           document.body

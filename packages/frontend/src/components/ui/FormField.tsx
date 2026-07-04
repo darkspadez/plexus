@@ -33,7 +33,7 @@ export const FormField: React.FC<FormFieldProps> = ({
         <label
           htmlFor={htmlFor}
           className={clsx(
-            'font-body text-xs font-medium text-text-secondary',
+            'font-sans text-xs font-medium text-foreground-muted',
             inline && 'flex-shrink-0'
           )}
         >
@@ -43,7 +43,7 @@ export const FormField: React.FC<FormFieldProps> = ({
       <div className={clsx('flex flex-col gap-1', inline && 'min-w-0 flex-1')}>
         {children}
         {error && <span className="text-xs text-danger">{error}</span>}
-        {!error && hint && <span className="text-xs text-text-muted">{hint}</span>}
+        {!error && hint && <span className="text-xs text-foreground-subtle">{hint}</span>}
       </div>
     </div>
   );

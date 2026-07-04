@@ -14,7 +14,7 @@ export const DevPassQuotaConfig: React.FC<DevPassQuotaConfigProps> = ({ options,
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Session Cookie <span className="text-danger">*</span>
         </label>
         <Input
@@ -23,13 +23,13 @@ export const DevPassQuotaConfig: React.FC<DevPassQuotaConfigProps> = ({ options,
           onChange={(e) => handleChange('session', e.target.value)}
           placeholder="Paste your DevPass session cookie"
         />
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-subtle">
           Required. The cookie name is <code>__Secure-better-auth.session_token</code>.
         </span>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input
@@ -37,7 +37,7 @@ export const DevPassQuotaConfig: React.FC<DevPassQuotaConfigProps> = ({ options,
           onChange={(e) => handleChange('endpoint', e.target.value)}
           placeholder="https://internal.llmgateway.io/dev-plans/status"
         />
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-subtle">
           Leave blank to use the default endpoint.
         </span>
       </div>

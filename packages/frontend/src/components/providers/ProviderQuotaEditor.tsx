@@ -124,13 +124,15 @@ export function ProviderQuotaEditor({
     : null;
 
   return (
-    <div className="flex flex-col gap-1 border border-border-glass rounded-md p-3 bg-bg-subtle">
-      <label className="font-body text-[13px] font-medium text-text-secondary">Quota Checker</label>
+    <div className="flex flex-col gap-1 border border-border rounded-md p-3 bg-surface-sunken">
+      <label className="font-sans text-[13px] font-medium text-foreground-muted">
+        Quota Checker
+      </label>
       <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_120px] sm:items-end">
         <div className="flex flex-col gap-1">
-          <label className="font-body text-[11px] font-medium text-text-secondary">Type</label>
+          <label className="font-sans text-[11px] font-medium text-foreground-muted">Type</label>
           <select
-            className="w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+            className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
             value={selectedQuotaCheckerType}
             onChange={(e) => setQuotaType(e.target.value)}
           >
@@ -143,11 +145,11 @@ export function ProviderQuotaEditor({
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="font-body text-[11px] font-medium text-text-secondary">
+          <label className="font-sans text-[11px] font-medium text-foreground-muted">
             Interval (min)
           </label>
           <input
-            className="w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+            className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
             type="number"
             min={1}
             step={1}
@@ -160,7 +162,7 @@ export function ProviderQuotaEditor({
       <div
         style={{
           fontSize: '11px',
-          color: 'var(--color-text-secondary)',
+          color: 'var(--foreground-muted)',
           marginTop: '4px',
           fontStyle: 'italic',
         }}
@@ -175,7 +177,7 @@ export function ProviderQuotaEditor({
       </div>
 
       {QuotaConfigComponent && (
-        <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+        <div className="mt-3 p-3 border border-border rounded-md bg-surface-sunken">
           <QuotaConfigComponent
             options={editingProvider.quotaChecker?.options || {}}
             onChange={setQuotaOptions}

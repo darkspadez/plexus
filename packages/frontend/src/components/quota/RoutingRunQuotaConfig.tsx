@@ -20,7 +20,7 @@ export const RoutingRunQuotaConfig: React.FC<RoutingRunQuotaConfigProps> = ({
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input
@@ -28,7 +28,7 @@ export const RoutingRunQuotaConfig: React.FC<RoutingRunQuotaConfigProps> = ({
           onChange={(e) => handleEndpointChange(e.target.value)}
           placeholder="https://api.routing.run/v1/user/requests"
         />
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-subtle">
           Custom usage endpoint URL. Defaults to Routing.run /v1/user/requests.
         </span>
       </div>

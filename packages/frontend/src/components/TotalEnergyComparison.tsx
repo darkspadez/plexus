@@ -147,16 +147,16 @@ export function TotalEnergyComparison({ totalKwh = 0 }: TotalEnergyComparisonPro
   const renderSlicesView = () => (
     <div className="space-y-4 flex flex-col items-center justify-center py-2">
       <div className="text-center space-y-1">
-        <div className="text-xs text-text-secondary">
+        <div className="text-xs text-foreground-muted">
           With {formatEnergy(totalKwh)}, you could toast
         </div>
-        <div className="text-2xl font-bold text-text-primary">
+        <div className="text-2xl font-bold text-foreground">
           {slicesEquivalent} slice{totalSlices !== 1 ? 's' : ''} of bread
         </div>
       </div>
 
       {displayedUnits.length === 0 && (
-        <div className="text-sm text-text-secondary text-center">No usage yet.</div>
+        <div className="text-sm text-foreground-muted text-center">No usage yet.</div>
       )}
 
       {!useLoaves && displayedUnits.length > 0 && (
@@ -185,12 +185,12 @@ export function TotalEnergyComparison({ totalKwh = 0 }: TotalEnergyComparisonPro
             ))}
           </div>
           {hasOverflowLoaves && (
-            <div className="text-sm text-text-secondary text-center">You are a bad person.</div>
+            <div className="text-sm text-foreground-muted text-center">You are a bad person.</div>
           )}
         </div>
       )}
 
-      <div className="flex items-center gap-3 text-xs text-text-tertiary">
+      <div className="flex items-center gap-3 text-xs text-foreground-subtle">
         <span>Toaster uses ~800 W</span>
       </div>
     </div>
@@ -204,15 +204,15 @@ export function TotalEnergyComparison({ totalKwh = 0 }: TotalEnergyComparisonPro
     return (
       <div className="space-y-4 flex flex-col items-center justify-center py-2">
         <div className="text-center space-y-1">
-          <div className="text-xs text-text-secondary">
+          <div className="text-xs text-foreground-muted">
             With {formatEnergy(totalKwh)}, you could {comparison.verb} {comparison.noun} for
           </div>
-          <div className="text-2xl font-bold text-text-primary">{comparisonDisplay}</div>
+          <div className="text-2xl font-bold text-foreground">{comparisonDisplay}</div>
         </div>
 
         <div className="flex items-center justify-center">{comparison.icon}</div>
 
-        <div className="flex items-center gap-3 text-xs text-text-tertiary">
+        <div className="flex items-center gap-3 text-xs text-foreground-subtle">
           <span>
             {comparison.label} uses {watts.toFixed(0)} W
           </span>
@@ -224,15 +224,15 @@ export function TotalEnergyComparison({ totalKwh = 0 }: TotalEnergyComparisonPro
   return (
     <div className="space-y-3">
       {/* Tab Bar */}
-      <div className="border-b border-border-glass">
+      <div className="border-b border-border overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex gap-0">
           <button
             onClick={() => setActiveTab('slices')}
             className={[
-              'flex items-center gap-2 px-3 py-2 text-[12px] font-medium transition-all border-b-2 -mb-px',
+              'flex items-center gap-2 px-3 py-2 text-[12px] font-medium transition-all border-b-2 -mb-px shrink-0 whitespace-nowrap',
               activeTab === 'slices'
-                ? 'border-accent text-text'
-                : 'border-transparent text-text-muted hover:text-text hover:border-border-glass',
+                ? 'border-accent text-foreground'
+                : 'border-transparent text-foreground-subtle hover:text-foreground hover:border-border',
             ].join(' ')}
           >
             Slices
@@ -244,10 +244,10 @@ export function TotalEnergyComparison({ totalKwh = 0 }: TotalEnergyComparisonPro
                 key={comparison.id}
                 onClick={() => setActiveTab(comparison.id)}
                 className={[
-                  'flex items-center gap-2 px-3 py-2 text-[12px] font-medium transition-all border-b-2 -mb-px',
+                  'flex items-center gap-2 px-3 py-2 text-[12px] font-medium transition-all border-b-2 -mb-px shrink-0 whitespace-nowrap',
                   isActive
-                    ? 'border-accent text-text'
-                    : 'border-transparent text-text-muted hover:text-text hover:border-border-glass',
+                    ? 'border-accent text-foreground'
+                    : 'border-transparent text-foreground-subtle hover:text-foreground hover:border-border',
                 ].join(' ')}
               >
                 {comparison.shortLabel}
@@ -268,7 +268,7 @@ export function TotalEnergyComparison({ totalKwh = 0 }: TotalEnergyComparisonPro
             href={selectedComparison.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
+            className="inline-flex items-center gap-1 text-[10px] text-foreground-subtle hover:text-foreground-muted transition-colors"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

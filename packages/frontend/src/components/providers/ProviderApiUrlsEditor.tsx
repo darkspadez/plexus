@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Badge } from '../ui/Badge';
+import { Pill } from '../chips/Pill';
 import type { Provider } from '../../lib/api';
 
 const KNOWN_APIS = [
@@ -42,13 +42,13 @@ export function ProviderApiUrlsEditor({
   setIsApiBaseUrlsOpen,
 }: Props) {
   return (
-    <div className="flex flex-col gap-1 border border-border-glass rounded-md p-3 bg-bg-subtle">
+    <div className="flex flex-col gap-1 border border-border rounded-md p-3 bg-surface-sunken">
       <div className="flex flex-col gap-1" style={{ marginBottom: '6px' }}>
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Connection Type
         </label>
         <select
-          className="w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+          className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
           value={isOAuthMode ? 'oauth' : 'url'}
           onChange={(e) => {
             if (e.target.value === 'oauth') {
@@ -76,13 +76,13 @@ export function ProviderApiUrlsEditor({
           <option value="oauth">OAuth (pi-ai)</option>
         </select>
       </div>
-      <label className="font-body text-[13px] font-medium text-text-secondary">
+      <label className="font-sans text-[13px] font-medium text-foreground-muted">
         Supported APIs & Base URLs
       </label>
       <div
         style={{
           fontSize: '11px',
-          color: 'var(--color-text-secondary)',
+          color: 'var(--foreground-muted)',
           marginBottom: '4px',
           lineHeight: '1.5',
         }}
@@ -91,11 +91,11 @@ export function ProviderApiUrlsEditor({
         <ul style={{ margin: '4px 0 0 0', paddingLeft: '16px' }}>
           <li>
             <span style={{ fontWeight: 600 }}>chat</span> — OpenAI-compatible endpoints, including
-            Ollama&apos;s <code className="text-primary">/v1</code> API
+            Ollama&apos;s <code className="text-accent">/v1</code> API
           </li>
           <li>
             <span style={{ fontWeight: 600 }}>ollama</span> — Native Ollama API, use the root URL
-            (e.g. <code className="text-primary">http://localhost:11434</code>)
+            (e.g. <code className="text-accent">http://localhost:11434</code>)
           </li>
         </ul>
       </div>
@@ -105,17 +105,17 @@ export function ProviderApiUrlsEditor({
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
-            background: 'var(--color-bg-subtle)',
+            background: 'var(--surface-sunken)',
             padding: '8px',
             borderRadius: 'var(--radius-md)',
           }}
         >
           <div className="flex flex-col gap-1">
-            <label className="font-body text-[13px] font-medium text-text-secondary">
+            <label className="font-sans text-[13px] font-medium text-foreground-muted">
               OAuth Provider
             </label>
             <select
-              className="w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+              className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
               value={editingProvider.oauthProvider || OAUTH_PROVIDERS[0].value}
               onChange={(e) =>
                 setEditingProvider({ ...editingProvider, oauthProvider: e.target.value })
@@ -138,21 +138,21 @@ export function ProviderApiUrlsEditor({
           />
         </div>
       ) : (
-        <div className="border border-border-glass rounded-md overflow-hidden">
+        <div className="border border-border rounded-md overflow-hidden">
           <div
-            className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover transition-colors duration-200 select-none hover:bg-bg-glass"
+            className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated transition-colors duration-200 select-none hover:bg-surface"
             onClick={() => setIsApiBaseUrlsOpen(!isApiBaseUrlsOpen)}
           >
             {isApiBaseUrlsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             <label
-              className="font-body text-[13px] font-medium text-text-secondary"
+              className="font-sans text-[13px] font-medium text-foreground-muted"
               style={{ marginBottom: 0, flex: 1 }}
             >
               Base URL Entries
             </label>
-            <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+            <Pill tone="neutral" size="sm">
               {Object.keys(getApiBaseUrlMap()).length}
-            </Badge>
+            </Pill>
             <Button
               size="sm"
               variant="secondary"
@@ -172,12 +172,12 @@ export function ProviderApiUrlsEditor({
                 flexDirection: 'column',
                 gap: '6px',
                 padding: '8px',
-                borderTop: '1px solid var(--color-border-glass)',
-                background: 'var(--color-bg-subtle)',
+                borderTop: '1px solid var(--border)',
+                background: 'var(--surface-sunken)',
               }}
             >
               {Object.entries(getApiBaseUrlMap()).length === 0 && (
-                <div className="font-body text-[11px] text-text-secondary italic">
+                <div className="font-sans text-[11px] text-foreground-muted italic">
                   No base URLs configured yet.
                 </div>
               )}
@@ -199,7 +199,7 @@ export function ProviderApiUrlsEditor({
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <select
-                        className="w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                        className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                         value={apiType}
                         onChange={(e) =>
                           updateApiBaseUrlEntry(
@@ -210,13 +210,13 @@ export function ProviderApiUrlsEditor({
                         }
                       >
                         {KNOWN_APIS.map((t) => (
-                          <option key={t} value={t} className="bg-bg-surface text-text">
+                          <option key={t} value={t} className="bg-surface text-foreground">
                             {t}
                           </option>
                         ))}
                       </select>
                       <input
-                        className="w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                        className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                         placeholder={
                           apiType === 'ollama'
                             ? 'http://localhost:11434'

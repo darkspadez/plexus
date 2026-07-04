@@ -34,7 +34,7 @@ export const ServiceAlertsCard: React.FC<ServiceAlertsCardProps> = ({ cooldowns,
       style={{ borderColor: 'var(--color-warning)' }}
       extra={
         <button
-          className="bg-transparent text-text border-0 hover:bg-amber-500/10 py-1.5! px-3.5! text-xs!"
+          className="bg-transparent text-foreground border-0 hover:bg-warning/10 py-1.5! px-3.5! text-xs!"
           onClick={onClearAll}
           style={{ color: 'var(--color-warning)' }}
         >
@@ -74,7 +74,7 @@ export const ServiceAlertsCard: React.FC<ServiceAlertsCardProps> = ({ cooldowns,
             >
               <AlertTriangle size={16} color="var(--color-warning)" />
               <span style={{ fontWeight: 500 }}>{provider}</span>
-              <span style={{ color: 'var(--color-text-secondary)' }}>{statusText}</span>
+              <span style={{ color: 'var(--foreground-muted)' }}>{statusText}</span>
             </div>
           );
         })}

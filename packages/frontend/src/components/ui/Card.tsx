@@ -22,7 +22,7 @@ export const Card: React.FC<CardProps> = ({
   return (
     <div
       className={clsx(
-        'bg-bg-card border border-border rounded-lg overflow-hidden transition-all duration-fast max-w-full',
+        'bg-surface border border-border rounded-lg overflow-hidden transition-colors duration-150 max-w-full',
         className
       )}
       {...props}
@@ -38,7 +38,7 @@ export const Card: React.FC<CardProps> = ({
           )}
         >
           {title && (
-            <h3 className="font-heading text-[13px] sm:text-sm font-semibold text-text m-0 truncate min-w-0 leading-tight">
+            <h3 className="font-sans text-[13px] sm:text-sm font-medium text-foreground m-0 truncate min-w-0 leading-tight">
               {title}
             </h3>
           )}

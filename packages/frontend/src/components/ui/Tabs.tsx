@@ -43,8 +43,8 @@ export function Tabs<V extends string = string>({
       role="tablist"
       aria-label={ariaLabel}
       className={clsx(
-        'flex items-center gap-0.5 sm:gap-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
-        variant === 'underline' && 'border-b border-border-glass',
+        'flex items-center gap-0 sm:gap-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
+        variant === 'underline' && 'border-b border-border',
         className
       )}
     >
@@ -62,19 +62,21 @@ export function Tabs<V extends string = string>({
             onKeyDown={(e) => handleKeyDown(e, idx)}
             disabled={item.disabled}
             className={clsx(
-              'flex-shrink-0 inline-flex items-center gap-1.5 sm:gap-2 font-body text-xs sm:text-sm font-medium transition-all duration-fast whitespace-nowrap focus-visible:outline-2 focus-visible:outline focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-40 disabled:cursor-not-allowed',
+              'flex-shrink-0 inline-flex items-center gap-1.5 sm:gap-2 font-sans text-xs sm:text-sm font-medium transition-colors duration-150 whitespace-nowrap',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+              'disabled:opacity-40 disabled:cursor-not-allowed',
               variant === 'underline' && 'px-3 py-2 sm:px-4 sm:py-2.5 border-b-2 -mb-px',
-              variant === 'underline' && active && 'text-primary border-primary',
+              variant === 'underline' && active && 'text-accent border-accent',
               variant === 'underline' &&
                 !active &&
-                'text-text-secondary border-transparent hover:text-text',
+                'text-foreground-muted border-transparent hover:text-foreground',
               variant === 'pills' && 'px-3 py-1.5 sm:px-3.5 rounded-md',
               variant === 'pills' &&
                 active &&
-                'bg-bg-glass text-primary border border-border-glass',
+                'bg-surface text-accent border border-border shadow-sm',
               variant === 'pills' &&
                 !active &&
-                'text-text-secondary hover:bg-bg-hover hover:text-text'
+                'text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
             )}
           >
             {item.label}

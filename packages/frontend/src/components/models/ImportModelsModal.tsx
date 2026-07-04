@@ -73,7 +73,7 @@ export function ImportModelsModal({
           </Button>
         </div>
         {orphanGroups.length === 0 ? (
-          <div className="text-text-muted italic text-center text-sm py-8">
+          <div className="text-foreground-subtle italic text-center text-sm py-8">
             No orphaned models found. All provider models are covered by aliases or suppressed
             locally.
           </div>
@@ -83,34 +83,34 @@ export function ImportModelsModal({
               maxHeight: '500px',
               overflowY: 'auto',
               overflowX: 'auto',
-              border: '1px solid var(--color-border-glass)',
+              border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)',
             }}
           >
-            <table className="w-full border-collapse font-body text-[13px]">
+            <table className="w-full border-collapse font-sans text-[13px]">
               <thead
                 style={{
                   position: 'sticky',
                   top: 0,
-                  backgroundColor: 'var(--color-bg-hover)',
+                  backgroundColor: 'var(--surface-elevated)',
                   zIndex: 10,
                 }}
               >
                 <tr>
                   <th
-                    className="px-4 py-3 text-left font-semibold text-text-secondary text-[11px] uppercase tracking-wider"
+                    className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
                     style={{ width: '40px' }}
                   >
                     {' '}
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                     Model / Alias
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                     Providers
                   </th>
                   <th
-                    className="px-4 py-3 text-right font-semibold text-text-secondary text-[11px] uppercase tracking-wider"
+                    className="px-4 py-3 text-right font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
                     style={{ width: '110px' }}
                   >
                     Actions
@@ -124,8 +124,8 @@ export function ImportModelsModal({
                   const selectedAliasId = selectedAliases.get(group.modelId) ?? '';
 
                   return (
-                    <tr key={group.modelId} className="hover:bg-bg-hover">
-                      <td className="px-4 py-3 text-left text-text">
+                    <tr key={group.modelId} className="hover:bg-surface-elevated">
+                      <td className="px-4 py-3 text-left text-foreground">
                         <input
                           type="checkbox"
                           checked={isModelSelected}
@@ -140,20 +140,20 @@ export function ImportModelsModal({
                           }}
                         />
                       </td>
-                      <td className="px-4 py-3 text-left text-text">
+                      <td className="px-4 py-3 text-left text-foreground">
                         <div className="font-medium">{group.modelId}</div>
                         {group.aliasMatches.length > 0 ? (
                           <>
-                            <span className="inline-flex rounded border border-border-glass px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
+                            <span className="inline-flex rounded border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-accent">
                               Existing Alias Match
                             </span>
                             {group.aliasMatches.length === 1 ? (
-                              <div className="text-[11px] text-text-muted mt-0.5">
+                              <div className="text-[11px] text-foreground-subtle mt-0.5">
                                 {group.aliasMatches[0].alias.id} · {group.aliasMatches[0].reason}
                               </div>
                             ) : (
                               <select
-                                className="mt-1 w-full max-w-xs py-1 px-2 font-body text-xs text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                                className="mt-1 w-full max-w-xs py-1 px-2 font-sans text-xs text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                                 value={selectedAliasId}
                                 onChange={(e) => {
                                   const next = new Map(selectedAliases);
@@ -175,7 +175,7 @@ export function ImportModelsModal({
                             )}
                           </>
                         ) : (
-                          <span className="inline-flex rounded border border-border-glass px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+                          <span className="inline-flex rounded border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-foreground-subtle">
                             New Alias
                           </span>
                         )}
@@ -204,10 +204,10 @@ export function ImportModelsModal({
                                     setSelectedImports(next);
                                   }}
                                 />
-                                <span className="text-text text-[13px]">
+                                <span className="text-foreground text-[13px]">
                                   {c.provider.name}
                                   {c.model.id !== group.modelId && (
-                                    <span className="text-text-muted ml-1 text-[11px]">
+                                    <span className="text-foreground-subtle ml-1 text-[11px]">
                                       ({c.model.id})
                                     </span>
                                   )}

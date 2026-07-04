@@ -1,5 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MainLayout } from './components/layout/MainLayout';
 import { Dashboard } from './pages/Dashboard';
 import { Logs } from './pages/Logs';
@@ -15,9 +17,23 @@ import { McpPage } from './pages/Mcp';
 import { Playground } from './pages/Playground';
 import { Login } from './pages/Login';
 import { MyKey } from './pages/MyKey';
+import { UserQuotas } from './pages/UserQuotas';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { AccentProvider } from './contexts/AccentContext';
+
+/** App-wide QueryClient — sensible defaults for a server-management UI. */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -126,6 +142,14 @@ const AppRoutes = () => {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/user-quotas"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <UserQuotas />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </MainLayout>
@@ -136,15 +160,32 @@ const AppRoutes = () => {
   );
 };
 
+/** Inner shell — needs to be inside ThemeProvider to call useTheme() for the Toaster. */
+const AppShell: React.FC = () => {
+  const { resolved } = useTheme();
+  return (
+    <>
+      <Toaster theme={resolved} richColors position="top-right" />
+      <ToastProvider>
+        <AuthProvider>
+          <SidebarProvider>
+            <AppRoutes />
+          </SidebarProvider>
+        </AuthProvider>
+      </ToastProvider>
+    </>
+  );
+};
+
 const App = () => {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <SidebarProvider>
-          <AppRoutes />
-        </SidebarProvider>
-      </AuthProvider>
-    </ToastProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AccentProvider>
+          <AppShell />
+        </AccentProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 };
 

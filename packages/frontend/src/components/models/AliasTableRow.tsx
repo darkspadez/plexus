@@ -7,6 +7,7 @@ import { Alias, Provider, Cooldown } from '../../lib/api';
 import { formatMsToMinSec } from '@plexus/shared';
 import { SELECTOR_LABELS } from '../../lib/selectors';
 import { getAliasProviderLabels, getAliasTargetCount } from '../../lib/modelList';
+import { ModelTypeBadge } from './ModelTypeBadge';
 
 interface AliasTableRowProps {
   alias: Alias;
@@ -46,9 +47,9 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
   const targetCount = getAliasTargetCount(alias);
 
   return (
-    <tr className="hover:bg-bg-hover">
+    <tr className="hover:bg-surface-elevated">
       <td
-        className="px-4 py-1.5 text-left border-b border-border-glass text-text"
+        className="px-4 py-1.5 text-left border-b border-border text-foreground"
         style={{ fontWeight: 600, paddingLeft: '24px' }}
       >
         <div className="flex items-center gap-2">
@@ -69,28 +70,11 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
           </button>
         </div>
         <div className="pl-5 mt-0.5 text-[10px] flex items-center gap-2">
-          <span>
-            <span className="text-text-muted">Type: </span>
-            <span
-              className={
-                (
-                  {
-                    embeddings: 'text-success',
-                    transcriptions: 'text-purple-400',
-                    speech: 'text-orange-400',
-                    image: 'text-pink-400',
-                    text: 'text-gray-400',
-                  } as Record<string, string>
-                )[alias.type ?? 'text'] ?? 'text-gray-400'
-              }
-            >
-              {alias.type ?? 'text'}
-            </span>
-          </span>
+          <ModelTypeBadge type={alias.type} />
           {alias.metadata && (
             <span>
-              <span className="text-text-muted">Metadata: </span>
-              <span className="text-primary capitalize">{alias.metadata.source}</span>
+              <span className="text-foreground-subtle">Metadata: </span>
+              <span className="text-accent capitalize">{alias.metadata.source}</span>
             </span>
           )}
         </div>
@@ -99,7 +83,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
             {alias.aliases.map((a) => (
               <span
                 key={a}
-                className="inline-flex items-center gap-1 text-[10px] text-text-muted w-fit"
+                className="inline-flex items-center gap-1 text-[10px] text-foreground-subtle w-fit"
               >
                 {a}
                 <CopyButton value={a} size="sm" />
@@ -109,7 +93,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
         )}
       </td>
 
-      <td className="px-4 py-1.5 text-left border-b border-border-glass text-text">
+      <td className="px-4 py-1.5 text-left border-b border-border text-foreground">
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap gap-1.5">
             {providerLabels.length > 0 ? (
@@ -119,23 +103,23 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
                 </Badge>
               ))
             ) : (
-              <span className="text-[11px] text-text-muted">No providers</span>
+              <span className="text-[11px] text-foreground-muted">No providers</span>
             )}
           </div>
-          <div className="text-[11px] text-text-muted">
+          <div className="text-[11px] text-foreground-muted">
             {targetCount} target{targetCount === 1 ? '' : 's'}
           </div>
         </div>
       </td>
 
-      <td className="px-4 py-1.5 text-left border-b border-border-glass text-text pr-6">
+      <td className="px-4 py-1.5 text-left border-b border-border text-foreground pr-6">
         <div className="flex flex-row gap-2 items-stretch">
           {alias.target_groups.map((group, groupIdx) => (
             <div
               key={group.name}
-              className="flex flex-col gap-0.5 rounded border border-border-glass/50 p-1.5 bg-bg-glass/30 flex-1 min-w-0"
+              className="flex flex-col gap-0.5 rounded border border-border/50 p-1.5 bg-surface/30 flex-1 min-w-0"
             >
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted flex items-center gap-1">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-foreground-subtle flex items-center gap-1">
                 <span className="opacity-40">{groupIdx + 1}.</span>
                 <span>{group.name}</span>
                 <span className="opacity-50">·</span>
@@ -167,7 +151,9 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
                     <React.Fragment key={`${t.provider}-${t.model}-${targetIdx}`}>
                       <div
                         className={`flex items-center gap-1.5 text-[11px] transition-opacity ${
-                          isDisabled ? 'opacity-70 line-through text-danger' : 'text-text-secondary'
+                          isDisabled
+                            ? 'opacity-70 line-through text-danger'
+                            : 'text-foreground-muted'
                         }`}
                       >
                         {isCoolingDown && (
@@ -195,7 +181,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
                           }`}
                         >
                           {testState?.loading ? (
-                            <Loader2 size={14} className="animate-spin text-text-secondary" />
+                            <Loader2 size={14} className="animate-spin text-foreground-muted" />
                           ) : testState?.showResult && testState.result === 'success' ? (
                             <CheckCircle size={14} className="text-success" />
                           ) : testState?.showResult && testState.result === 'error' ? (
@@ -203,7 +189,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
                           ) : (
                             <Play
                               size={14}
-                              className={`text-primary ${isDisabled ? 'invisible' : 'opacity-60'}`}
+                              className={`text-accent ${isDisabled ? 'invisible' : 'opacity-60'}`}
                             />
                           )}
                         </div>

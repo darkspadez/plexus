@@ -1,7 +1,6 @@
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
-import { Card } from '../components/ui/Card';
 import { Switch } from '../components/ui/Switch';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
@@ -25,22 +24,25 @@ export const Providers = () => {
         title="Providers"
         subtitle="Upstream LLM providers routed by the gateway"
         actions={
-          <Button leftIcon={<Plus size={14} />} onClick={f.handleAddNew} size="sm">
+          <Button leftIcon={<Plus size={14} />} onClick={f.handleAddNew} size="md">
             Add provider
           </Button>
         }
       />
 
       <PageContainer>
-        <Card flush>
-          <ProviderList
-            providers={f.sortedProviders}
-            getQuotaDisplay={f.getQuotaDisplay}
-            onEdit={f.handleEdit}
-            onToggleEnabled={f.handleToggleEnabled}
-            onDelete={f.openDeleteModal}
-          />
-        </Card>
+        <ProviderList
+          providers={f.sortedProviders}
+          getQuotaDisplay={f.getQuotaDisplay}
+          onEdit={f.handleEdit}
+          onToggleEnabled={f.handleToggleEnabled}
+          onDelete={f.openDeleteModal}
+          emptyAction={
+            <Button leftIcon={<Plus size={14} />} onClick={f.handleAddNew}>
+              Add provider
+            </Button>
+          }
+        />
 
         {/* Edit / Add Modal */}
         <Modal
@@ -49,7 +51,7 @@ export const Providers = () => {
           title={f.originalId ? `Edit Provider: ${f.originalId}` : 'Add Provider'}
           size="lg"
           footer={
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <>
               <Button variant="ghost" onClick={() => f.setIsModalOpen(false)}>
                 Cancel
               </Button>
@@ -60,10 +62,10 @@ export const Providers = () => {
               >
                 Save Provider
               </Button>
-            </div>
+            </>
           }
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '-8px' }}>
+          <div className="flex flex-col gap-2.5 -mt-2">
             {/* Basic fields */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_auto] xl:items-end">
               <Input
@@ -92,10 +94,10 @@ export const Providers = () => {
                 disabled={f.isOAuthMode}
               />
               <div className="flex flex-col gap-2">
-                <label className="font-body text-[13px] font-medium text-text-secondary">
+                <label className="font-sans text-[13px] font-medium text-foreground-muted">
                   Enabled
                 </label>
-                <div style={{ height: '38px', display: 'flex', alignItems: 'center' }}>
+                <div className="h-[38px] flex items-center">
                   <Switch
                     checked={f.editingProvider.enabled !== false}
                     onChange={(checked) =>
@@ -106,9 +108,7 @@ export const Providers = () => {
               </div>
             </div>
 
-            <div
-              style={{ height: '1px', background: 'var(--color-border-glass)', margin: '4px 0' }}
-            />
+            <div className="h-px bg-border my-1" />
 
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               {/* Left: APIs & Base URLs */}

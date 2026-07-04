@@ -1,5 +1,5 @@
 import React from 'react';
-import { clsx } from 'clsx';
+import { cn } from '../../lib/cn';
 import { Loader2 } from 'lucide-react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -21,22 +21,40 @@ export const Button: React.FC<ButtonProps> = ({
 }) => {
   return (
     <button
-      className={clsx(
-        'inline-flex items-center justify-center gap-2 font-body font-medium leading-normal border-0 rounded-md cursor-pointer transition-all duration-fast whitespace-nowrap select-none outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0',
-        {
-          'text-[#1A1006] bg-gradient-to-br from-secondary to-primary shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_6px_20px_-10px_rgba(245,158,11,0.5)] hover:brightness-105 hover:-translate-y-px hover:shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_12px_28px_-10px_rgba(245,158,11,0.65)]':
-            variant === 'primary',
-          'bg-slate-700/50 text-text border border-border-2 hover:bg-slate-600/60':
-            variant === 'secondary',
-          'bg-transparent text-text-secondary hover:bg-bg-hover hover:text-text':
-            variant === 'ghost',
-          'bg-danger/12 text-red-300 border border-danger/30 hover:bg-danger/20':
-            variant === 'danger',
-          'py-1.5 px-2.5 text-xs gap-1.5': size === 'sm',
-          'py-2 px-3.5 text-sm gap-1.5': size === 'md',
-          'py-2.5 px-4 text-sm': size === 'lg',
-          'h-8 w-8 p-0': size === 'icon',
-        },
+      className={cn(
+        // Base — shared across all variants
+        'inline-flex items-center justify-center gap-2 font-sans text-sm font-medium',
+        'rounded-md whitespace-nowrap select-none cursor-pointer',
+        'transition-colors duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'disabled:pointer-events-none disabled:opacity-50',
+        '[&_svg]:pointer-events-none [&_svg]:shrink-0',
+        // Variants — semantic tokens only
+        variant === 'primary' && [
+          'bg-accent text-accent-foreground',
+          'hover:bg-accent/90',
+          'border border-transparent',
+        ],
+        variant === 'secondary' && [
+          'bg-surface-elevated text-foreground',
+          'border border-border',
+          'hover:bg-surface-elevated/80',
+        ],
+        variant === 'ghost' && [
+          'bg-transparent text-foreground-muted',
+          'border border-transparent',
+          'hover:bg-surface-elevated hover:text-foreground',
+        ],
+        variant === 'danger' && [
+          'bg-danger-subtle text-danger',
+          'border border-danger/30',
+          'hover:bg-danger/20',
+        ],
+        // Sizes — sm ~28px, md ~32px, lg ~40px, icon square
+        size === 'sm' && 'h-7 px-2.5 py-1 text-xs gap-1.5',
+        size === 'md' && 'h-8 px-3.5 py-1.5 text-sm gap-1.5',
+        size === 'lg' && 'h-10 px-4 py-2 text-sm',
+        size === 'icon' && 'h-8 w-8 p-0',
         className
       )}
       disabled={isLoading || disabled}

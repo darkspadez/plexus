@@ -1,5 +1,5 @@
 import React from 'react';
-import { clsx } from 'clsx';
+import { cn } from '../../lib/cn';
 
 interface PageContainerProps {
   children: React.ReactNode;
@@ -22,7 +22,11 @@ export const PageContainer: React.FC<PageContainerProps> = ({
 }) => {
   return (
     <div
-      className={clsx('mx-auto w-full min-w-0 p-3 sm:p-6 lg:p-8', widthClasses[width], className)}
+      className={cn(
+        'mx-auto w-full min-w-0 p-3 sm:p-6 sm:pt-2 lg:p-8 lg:pt-2',
+        widthClasses[width],
+        className
+      )}
     >
       {children}
     </div>

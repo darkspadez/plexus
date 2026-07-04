@@ -93,12 +93,12 @@ import {
 //
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
+import { EmptyState } from '../../ui/EmptyState';
 
 //
 // IMPORTS -- API layer and types
 //
 import {
-  api,
   STAT_LABELS,
   type Cooldown,
   type Stat,
@@ -106,6 +106,13 @@ import {
   type UsageRecord,
   type ConcurrencyData,
 } from '../../../lib/api';
+import {
+  useDashboardData,
+  useLiveLogs,
+  useConcurrencyData,
+  useClearCooldowns,
+  useClearSingleCooldown,
+} from '../../../hooks/queries/useDashboard';
 
 //
 // IMPORTS -- Formatting utilities
@@ -215,7 +222,13 @@ const POLL_INTERVAL_OPTIONS = [5000, 10000, 30000] as const;
 /** Maximum number of distinct models shown in the model-stack chart */
 const MODEL_TIMELINE_MAX_SERIES = 5;
 /** Colour palette for the stacked model bars (cycles if more than 5 models) */
-const MODEL_TIMELINE_COLORS = ['#3b82f6', '#14b8a6', '#8b5cf6', '#f59e0b', '#ef4444'] as const;
+const MODEL_TIMELINE_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+];
 
 /**
  * Telemetry labels that are treated as "unset". Providers and models sometimes
@@ -416,23 +429,26 @@ const aggregateByEntity = (
  * attribute for the full string on hover.
  */
 const EntityRow: React.FC<{ entity: EntityStats; isModel?: boolean }> = ({ entity, isModel }) => (
-  <div className="rounded-md border border-border-glass bg-bg-glass/50 px-3 py-2 hover:bg-bg-glass transition-colors">
+  <div className="rounded-md border border-border bg-surface/50 px-3 py-2 hover:bg-surface transition-colors">
     <div className="flex items-center justify-between gap-2 mb-1">
       <div className="flex items-center gap-2 min-w-0">
         {isModel ? (
-          <Cpu size={14} className="text-text-muted shrink-0" />
+          <Cpu size={14} className="text-foreground-subtle shrink-0" />
         ) : (
-          <Server size={14} className="text-text-muted shrink-0" />
+          <Server size={14} className="text-foreground-subtle shrink-0" />
         )}
-        <span className="text-sm text-text font-medium truncate" title={entity.name}>
+        <span className="text-sm text-foreground font-medium truncate" title={entity.name}>
           {entity.name.length > 25 ? entity.name.slice(0, 22) + '...' : entity.name}
         </span>
       </div>
-      <span className="text-xs text-text-secondary">{formatNumber(entity.requests, 0)} req</span>
+      <span className="text-xs text-foreground-muted">{formatNumber(entity.requests, 0)} req</span>
     </div>
-    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-secondary">
+    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground-muted">
       <span>
         Success:{' '}
+        {/* Intentional fixed threshold-based visual encoding — raw palette colors are correct here,
+            NOT semantic tokens. Green ≥95%, amber ≥80%, red <80% is a stable traffic-light scale.
+            Do not migrate to success/warning/danger tokens (those track semantic state, not a gradient). */}
         {entity.successRate >= 95 ? (
           <span className="text-emerald-500 font-medium">{entity.successRate.toFixed(1)}%</span>
         ) : entity.successRate >= 80 ? (
@@ -526,8 +542,8 @@ const CooldownRow: React.FC<CooldownRowProps> = ({
       onClick={(e) => e.stopPropagation()}
     >
       <AlertTriangle size={12} className="text-warning shrink-0" />
-      <span className="text-xs font-medium text-text">{provider}</span>
-      <span className="text-xs text-text-muted truncate">
+      <span className="text-xs font-medium text-foreground">{provider}</span>
+      <span className="text-xs text-foreground-subtle truncate">
         {modelDisplay} — {timeDisplay}
       </span>
       <div className="relative ml-auto shrink-0 flex items-center gap-2" ref={ref}>
@@ -536,7 +552,7 @@ const CooldownRow: React.FC<CooldownRowProps> = ({
             e.stopPropagation();
             onClear();
           }}
-          className="text-text-muted hover:text-danger transition-colors"
+          className="text-foreground-subtle hover:text-danger transition-colors"
           title="Clear this cooldown"
         >
           <X size={13} />
@@ -547,7 +563,7 @@ const CooldownRow: React.FC<CooldownRowProps> = ({
             e.stopPropagation();
             setOpen((v) => !v);
           }}
-          className="text-text-muted hover:text-text transition-colors"
+          className="text-foreground-subtle hover:text-foreground transition-colors"
           aria-label="Show cooldown details"
         >
           <Info size={13} />
@@ -570,21 +586,21 @@ const CooldownRow: React.FC<CooldownRowProps> = ({
                 </div>
                 {lastError && (
                   <div>
-                    <span className="text-text-muted font-medium">Error:</span>
-                    <p className="mt-0.5 text-text wrap-break-word whitespace-pre-wrap font-mono text-[11px] bg-bg-hover rounded p-1.5 max-h-32 overflow-y-auto">
+                    <span className="text-foreground-subtle font-medium">Error:</span>
+                    <p className="mt-0.5 text-foreground wrap-break-word whitespace-pre-wrap font-mono text-[11px] bg-surface-elevated rounded p-1.5 max-h-32 overflow-y-auto">
                       {lastError}
                     </p>
                   </div>
                 )}
                 {consecutiveFailures !== undefined && (
                   <div className="flex justify-between gap-3">
-                    <span className="text-text-muted">Consecutive failures</span>
+                    <span className="text-foreground-subtle">Consecutive failures</span>
                     <span className="font-semibold text-danger">{consecutiveFailures}</span>
                   </div>
                 )}
                 <div className="flex justify-between gap-3">
-                  <span className="text-text-muted">Expires at</span>
-                  <span className="font-semibold text-text text-right">{expiryStr}</span>
+                  <span className="text-foreground-subtle">Expires at</span>
+                  <span className="font-semibold text-foreground text-right">{expiryStr}</span>
                 </div>
               </div>,
               document.body
@@ -618,37 +634,14 @@ export const LiveTab: React.FC<LiveTabProps> = ({
   const limitedAllowedProviders =
     principal?.role === 'limited' ? (principal.allowedProviders ?? []) : null;
   // ---------------------------------------------------------------------------
-  // STATE -- API data from polling
+  // STATE -- UI / polling bookkeeping (TanStack Query replaces API state)
   // ---------------------------------------------------------------------------
-  /** Aggregate stat values (total requests, total tokens, etc.) from the dashboard endpoint */
-  const [stats, setStats] = useState<Stat[]>([]);
-  /** Active provider cooldowns -- models temporarily disabled due to consecutive failures */
-  const [cooldowns, setCooldowns] = useState<Cooldown[]>([]);
-  /** Cumulative metrics for the current calendar day */
-  const [todayMetrics, setTodayMetrics] = useState<TodayMetrics>({
-    requests: 0,
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cachedTokens: 0,
-    cacheWriteTokens: 0,
-    kwhUsed: 0,
-    totalCost: 0,
-  });
-  /** Raw usage records from the latest poll -- the source of truth for all derived data */
-  const [logs, setLogs] = useState<UsageRecord[]>([]);
 
-  // ---------------------------------------------------------------------------
-  // STATE -- UI / polling bookkeeping
-  // ---------------------------------------------------------------------------
   /** Timestamp of the last successful data fetch -- used for the "stale" indicator */
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   /** Elapsed seconds since lastUpdated -- updated every 10s for the staleness badge */
-
   const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(0);
-  /** Whether the most recent fetch succeeded (controls connected/warning badge) */
-  const [isConnected, setIsConnected] = useState(false);
   /** True while a manual "Refresh Now" fetch is in-flight (shows spinner) */
   const [isRefreshing, setIsRefreshing] = useState(false);
   /** Active filter for the request stream card: 'all' | 'success' | 'error' */
@@ -681,8 +674,62 @@ export const LiveTab: React.FC<LiveTabProps> = ({
     typeof document === 'undefined' ? true : document.visibilityState === 'visible'
   );
 
-  /** True until the first successful data fetch completes */
-  const [loading, setLoading] = useState(true);
+  // ---------------------------------------------------------------------------
+  // TANSTACK QUERY -- replaces setInterval-based polling
+  // ---------------------------------------------------------------------------
+
+  /** Calculate fetch limit for logs based on window size */
+  const fetchLimit = useMemo(() => {
+    if (liveWindowMinutes <= 30) return 500;
+    if (liveWindowMinutes <= 24 * 60) return 200;
+    if (liveWindowMinutes <= 7 * 24 * 60) return 100;
+    return 50;
+  }, [liveWindowMinutes]);
+
+  const dashboardQuery = useDashboardData({
+    range: 'day',
+    refetchInterval: isVisible ? pollIntervalMs : false,
+    enabled: true,
+  });
+
+  const logsQuery = useLiveLogs({
+    limit: fetchLimit,
+    refetchInterval: isVisible ? pollIntervalMs : false,
+    enabled: true,
+  });
+
+  const concurrencyQuery = useConcurrencyData({
+    refetchInterval: isVisible ? 10000 : false,
+    enabled: true,
+  });
+
+  // Derived data from queries
+  const stats: Stat[] = dashboardQuery.data?.stats ?? [];
+  const cooldowns: Cooldown[] = dashboardQuery.data?.cooldowns ?? [];
+  const todayMetrics: TodayMetrics = dashboardQuery.data?.todayMetrics ?? {
+    requests: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    cachedTokens: 0,
+    cacheWriteTokens: 0,
+    kwhUsed: 0,
+    totalCost: 0,
+  };
+  const logs: UsageRecord[] = logsQuery.data ?? [];
+  const isConnected = !dashboardQuery.isError && dashboardQuery.data !== undefined;
+  const loading = dashboardQuery.isLoading && logsQuery.isLoading;
+
+  // Track lastUpdated from query
+  useEffect(() => {
+    if (dashboardQuery.dataUpdatedAt) {
+      setLastUpdated(new Date(dashboardQuery.dataUpdatedAt));
+    }
+  }, [dashboardQuery.dataUpdatedAt]);
+
+  // Mutations for clearing cooldowns
+  const clearCooldownsMutation = useClearCooldowns();
+  const clearSingleCooldownMutation = useClearSingleCooldown();
 
   // ---------------------------------------------------------------------------
   // STATE -- Modal system
@@ -717,14 +764,14 @@ export const LiveTab: React.FC<LiveTabProps> = ({
   const [detailedUsageQuery, setDetailedUsageQuery] = useState<string | null>(null);
 
   // ---------------------------------------------------------------------------
-  // STATE -- Concurrency data (separate from main poll)
+  // STATE -- Concurrency history (accumulates across fetches)
   // ---------------------------------------------------------------------------
   /** Array of in-flight request counts per provider, fetched every 10 seconds */
-  const [concurrencyData, setConcurrencyData] = useState<ConcurrencyData[]>([]);
+  const concurrencyData: ConcurrencyData[] = concurrencyQuery.data ?? [];
   /** Rolling history of concurrency snapshots for the stacked area chart (max 30 points = 5 min at 10s interval) */
   const [concurrencyHistory, setConcurrencyHistory] = useState<Record<string, unknown>[]>([]);
   /** Loading flag for the concurrency endpoint */
-  const [concurrencyLoading, setConcurrencyLoading] = useState(false);
+  const concurrencyLoading = concurrencyQuery.isFetching;
 
   // ---------------------------------------------------------------------------
   // STATE -- Drag-and-drop
@@ -894,134 +941,34 @@ export const LiveTab: React.FC<LiveTabProps> = ({
   }, [modalOpen]);
 
   // ---------------------------------------------------------------------------
-  // DATA FETCHING
+  // CONCURRENCY HISTORY -- accumulate snapshots for stacked area chart
   // ---------------------------------------------------------------------------
 
   /**
-   * Fetches dashboard stats and recent logs from the API.
-   * @param silent - When true (used by auto-poll), suppresses the refreshing
-   *                 spinner so the UI does not flash on every poll cycle.
-   */
-  const loadData = async (silent = false) => {
-    if (!silent) {
-      setIsRefreshing(true);
-    }
-
-    try {
-      const [dashboardData, logData] = await Promise.all([
-        api.getDashboardData('day', false),
-        api.getLogs(fetchLimit, 0),
-      ]);
-      setStats(dashboardData.stats);
-      setCooldowns(dashboardData.cooldowns);
-      setTodayMetrics(dashboardData.todayMetrics);
-      setLogs(logData.data || []);
-      setLastUpdated(new Date());
-      setIsConnected(true);
-    } catch (e) {
-      setIsConnected(false);
-      console.error('Failed to load live metrics data', e);
-    } finally {
-      if (!silent) {
-        setIsRefreshing(false);
-      }
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Fetches in-flight concurrency counts from a separate endpoint.
-   * This runs on its own 10-second interval because the concurrency endpoint
-   * is independent from the main dashboard data fetch.
-   */
-  const fetchConcurrencyData = async (silent = false) => {
-    if (!silent) {
-      setConcurrencyLoading(true);
-    }
-    try {
-      const data = await api.getConcurrencyData('hour', 'live');
-      setConcurrencyData(data);
-      // Build history point for stacked area chart
-      const point: Record<string, unknown> = { time: new Date().toLocaleTimeString() };
-      for (const item of data) {
-        const label = item.provider || 'unknown';
-        point[label] = Number(item.count || 0);
-      }
-      setConcurrencyHistory((prev) => {
-        const next = [...prev, point];
-        // Keep last 30 data points (5 minutes at 10s intervals)
-        return next.length > 30 ? next.slice(-30) : next;
-      });
-    } catch (e) {
-      console.error('Failed to fetch concurrency data', e);
-    } finally {
-      if (!silent) {
-        setConcurrencyLoading(false);
-      }
-    }
-  };
-
-  // ---------------------------------------------------------------------------
-  // POLLING EFFECTS
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Main data polling loop. Fetches immediately on mount, then sets up an
-   * interval at `pollIntervalMs`. Polling stops when the tab is hidden
-   * (isVisible === false) to save bandwidth. Re-triggers whenever the
-   * visibility or interval changes.
+   * Accumulate concurrency snapshots into a rolling history (max 30 points).
+   * TanStack Query fires this effect whenever new concurrency data arrives.
    */
   useEffect(() => {
-    void loadData();
-    if (!isVisible) {
-      return;
+    const data = concurrencyQuery.data;
+    if (!data) return;
+    const point: Record<string, unknown> = { time: new Date().toLocaleTimeString() };
+    for (const item of data) {
+      const label = item.provider || 'unknown';
+      point[label] = Number(item.count || 0);
     }
+    setConcurrencyHistory((prev) => {
+      const next = [...prev, point];
+      return next.length > 30 ? next.slice(-30) : next;
+    });
+  }, [concurrencyQuery.dataUpdatedAt]);
 
-    const interval = setInterval(() => {
-      void loadData(true);
-    }, pollIntervalMs);
-
-    return () => clearInterval(interval);
-  }, [isVisible, pollIntervalMs]);
-
-  /**
-   * Calculate optimal fetch limit based on window size to prevent performance issues.
-   * For short windows, fetch more detailed data. For long windows, limit the data.
-   */
-  const fetchLimit = useMemo(() => {
-    if (liveWindowMinutes <= 30) {
-      return 500; // 30 minutes or less: fetch up to 500 records
-    } else if (liveWindowMinutes <= 24 * 60) {
-      return 200; // Up to 24 hours: fetch 200 records
-    } else if (liveWindowMinutes <= 7 * 24 * 60) {
-      return 100; // Up to 7 days: fetch 100 records
-    } else {
-      return 50; // More than 7 days: fetch only 50 records
-    }
-  }, [liveWindowMinutes]);
-
-  /**
-   * Concurrency data polling loop. Runs independently from the main data
-   * fetch because the backend concurrency endpoint is separate. Fixed at
-   * a 10-second interval. Also pauses when the tab is hidden.
-   */
-  useEffect(() => {
-    void fetchConcurrencyData();
-
-    if (!isVisible) {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      void fetchConcurrencyData(true);
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [isVisible]);
+  // ---------------------------------------------------------------------------
+  // PAGE VISIBILITY LISTENER
+  // ---------------------------------------------------------------------------
 
   /**
    * Page visibility listener. When the user returns to this browser tab,
-   * immediately triggers a silent data refresh so charts are up-to-date.
+   * sets isVisible which re-enables TanStack Query's refetchInterval.
    * SSR-safe: skips registration if `document` is not available.
    */
   useEffect(() => {
@@ -1033,7 +980,8 @@ export const LiveTab: React.FC<LiveTabProps> = ({
       const visible = document.visibilityState === 'visible';
       setIsVisible(visible);
       if (visible) {
-        void loadData(true);
+        dashboardQuery.refetch();
+        logsQuery.refetch();
       }
     };
 
@@ -1404,14 +1352,14 @@ export const LiveTab: React.FC<LiveTabProps> = ({
 
   /** Colour palette for concurrency provider lines */
   const CONCURRENCY_COLORS = [
-    '#3b82f6',
-    '#14b8a6',
-    '#8b5cf6',
-    '#f59e0b',
-    '#ef4444',
-    '#ec4899',
-    '#06b6d4',
-    '#84cc16',
+    'var(--chart-1)',
+    'var(--chart-2)',
+    'var(--chart-3)',
+    'var(--chart-4)',
+    'var(--chart-5)',
+    'var(--chart-1)',
+    'var(--chart-2)',
+    'var(--chart-3)',
   ];
 
   /** Top 6 providers with request count, success rate, avg latency, and cost -- for the alerts panel */
@@ -1555,13 +1503,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
     });
     if (!ok) return;
 
-    try {
-      await api.clearCooldown();
-      await loadData();
-    } catch (e) {
-      toast.error('Failed to clear cooldowns');
-      console.error('Failed to clear cooldowns', e);
-    }
+    clearCooldownsMutation.mutate();
   };
 
   /** Clears a specific provider/model cooldown */
@@ -1582,13 +1524,8 @@ export const LiveTab: React.FC<LiveTabProps> = ({
       variant: 'danger',
     });
     if (!ok) return;
-    try {
-      await api.clearCooldown(provider, model);
-      await loadData();
-    } catch (e) {
-      toast.error('Failed to clear cooldown');
-      console.error('Failed to clear cooldown', e);
-    }
+
+    clearSingleCooldownMutation.mutate({ provider, model });
   };
 
   //
@@ -1620,17 +1557,17 @@ export const LiveTab: React.FC<LiveTabProps> = ({
         onClick={onClose}
       >
         <div
-          className="relative w-full max-w-6xl max-h-[90vh] overflow-auto rounded-lg border border-border-glass bg-bg-card p-6"
+          className="relative w-full max-w-6xl max-h-[90vh] overflow-auto rounded-lg border border-border bg-surface p-6"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-text">{title}</h2>
+            <h2 className="text-xl font-semibold text-foreground">{title}</h2>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-bg-hover transition-colors"
+              className="p-2 rounded-lg hover:bg-surface-elevated transition-colors"
               aria-label="Close modal"
             >
-              <X size={24} className="text-text-secondary" />
+              <X size={24} className="text-foreground-muted" />
             </button>
           </div>
           {children}
@@ -1716,20 +1653,20 @@ export const LiveTab: React.FC<LiveTabProps> = ({
           <div className="h-[60vh]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={velocitySeries} margin={{ top: 10, right: 24, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
-                <XAxis dataKey="time" stroke="var(--color-text-secondary)" />
-                <YAxis stroke="var(--color-text-secondary)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="time" stroke="var(--foreground-subtle)" />
+                <YAxis stroke="var(--foreground-subtle)" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'var(--color-bg-card)',
-                    border: '1px solid var(--color-border)',
+                    backgroundColor: 'var(--surface-elevated)',
+                    border: '1px solid var(--border)',
                     borderRadius: '8px',
                   }}
                 />
                 <Line
                   type="monotone"
                   dataKey="velocity"
-                  stroke="#f59e0b"
+                  stroke="var(--chart-1)"
                   strokeWidth={2}
                   dot={{ r: 2 }}
                 />
@@ -1746,23 +1683,23 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                 data={providerPulseRows.slice(0, 8)}
                 margin={{ top: 10, right: 24, left: 0, bottom: 48 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis
                   dataKey="label"
-                  stroke="var(--color-text-secondary)"
+                  stroke="var(--foreground-subtle)"
                   angle={-20}
                   textAnchor="end"
                   height={56}
                 />
-                <YAxis stroke="var(--color-text-secondary)" />
+                <YAxis stroke="var(--foreground-subtle)" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'var(--color-bg-card)',
-                    border: '1px solid var(--color-border)',
+                    backgroundColor: 'var(--surface-elevated)',
+                    border: '1px solid var(--border)',
                     borderRadius: '8px',
                   }}
                 />
-                <Bar dataKey="requests" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="requests" fill="var(--chart-1)" radius={[999, 999, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -1772,7 +1709,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
         return (
           <div className="h-[60vh]">
             {modelPulseRows.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-text-secondary">
+              <div className="h-full flex items-center justify-center text-foreground-muted">
                 No model traffic in the selected live window.
               </div>
             ) : (
@@ -1780,15 +1717,15 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                 {modelPulseRows.map((row) => (
                   <div
                     key={row.label}
-                    className="rounded-md border border-border-glass bg-bg-glass px-4 py-3"
+                    className="rounded-md border border-border bg-surface px-4 py-3"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-base text-text font-medium">{row.label}</span>
-                      <span className="text-sm text-text-secondary">
+                      <span className="text-base text-foreground font-medium">{row.label}</span>
+                      <span className="text-sm text-foreground-muted">
                         {formatNumber(row.requests, 0)} requests
                       </span>
                     </div>
-                    <div className="mt-1 text-sm text-text-secondary">
+                    <div className="mt-1 text-sm text-foreground-muted">
                       Success: {row.successRate.toFixed(1)}%
                     </div>
                   </div>
@@ -1804,23 +1741,23 @@ export const LiveTab: React.FC<LiveTabProps> = ({
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={minuteSeries} margin={{ top: 10, right: 24, left: 0, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="liveRequests" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.2} />
+                  <linearGradient id="liveRequestsExpanded" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0.2} />
                   </linearGradient>
-                  <linearGradient id="liveTokens" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.2} />
+                  <linearGradient id="liveTokensExpanded" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--chart-3)" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="var(--chart-3)" stopOpacity={0.2} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
-                <XAxis dataKey="time" stroke="var(--color-text-secondary)" />
-                <YAxis yAxisId="left" stroke="var(--color-text-secondary)" />
-                <YAxis yAxisId="right" orientation="right" stroke="var(--color-text-secondary)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="time" stroke="var(--foreground-subtle)" />
+                <YAxis yAxisId="left" stroke="var(--foreground-subtle)" />
+                <YAxis yAxisId="right" orientation="right" stroke="var(--foreground-subtle)" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'var(--color-bg-card)',
-                    border: '1px solid var(--color-border)',
+                    backgroundColor: 'var(--surface-elevated)',
+                    border: '1px solid var(--border)',
                     borderRadius: '8px',
                   }}
                 />
@@ -1828,27 +1765,27 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                   yAxisId="left"
                   type="monotone"
                   dataKey="requests"
-                  stroke="#3b82f6"
+                  stroke="var(--chart-1)"
                   fillOpacity={1}
-                  fill="url(#liveRequests)"
+                  fill="url(#liveRequestsExpanded)"
                   strokeWidth={2}
                 />
                 <Area
                   yAxisId="left"
                   type="monotone"
                   dataKey="errors"
-                  stroke="#ef4444"
+                  stroke="var(--danger)"
                   fillOpacity={0.15}
-                  fill="#ef4444"
+                  fill="var(--danger)"
                   strokeWidth={1.5}
                 />
                 <Area
                   yAxisId="right"
                   type="monotone"
                   dataKey="tokens"
-                  stroke="#10b981"
+                  stroke="var(--chart-3)"
                   fillOpacity={1}
-                  fill="url(#liveTokens)"
+                  fill="url(#liveTokensExpanded)"
                   strokeWidth={2}
                 />
               </AreaChart>
@@ -1860,7 +1797,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
         return (
           <div className="h-[70vh]">
             {modelTimeline.series.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-text-secondary">
+              <div className="h-full flex items-center justify-center text-foreground-muted">
                 No model stack data in the selected live window.
               </div>
             ) : (
@@ -1869,17 +1806,17 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                   data={modelTimeline.data}
                   margin={{ top: 10, right: 24, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
-                  <XAxis dataKey="time" stroke="var(--color-text-secondary)" />
-                  <YAxis yAxisId="left" stroke="var(--color-text-secondary)" />
-                  <YAxis yAxisId="right" orientation="right" stroke="var(--color-text-secondary)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="time" stroke="var(--foreground-subtle)" />
+                  <YAxis yAxisId="left" stroke="var(--foreground-subtle)" />
+                  <YAxis yAxisId="right" orientation="right" stroke="var(--foreground-subtle)" />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'var(--color-bg-card)',
-                      border: '1px solid var(--color-border)',
+                      backgroundColor: 'var(--surface-elevated)',
+                      border: '1px solid var(--border)',
                       borderRadius: '8px',
                     }}
-                    labelStyle={{ color: 'var(--color-text)' }}
+                    labelStyle={{ color: 'var(--foreground)' }}
                     formatter={(value, name) => {
                       const numeric = Number(value || 0);
                       const label = modelTimeline.seriesLabelMap.get(String(name));
@@ -1912,7 +1849,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                     yAxisId="right"
                     type="monotone"
                     dataKey="avgTtftMs"
-                    stroke="#f59e0b"
+                    stroke="var(--chart-1)"
                     strokeWidth={2}
                     dot={false}
                   />
@@ -1920,7 +1857,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                     yAxisId="right"
                     type="monotone"
                     dataKey="avgTps"
-                    stroke="#22c55e"
+                    stroke="var(--chart-3)"
                     strokeWidth={2}
                     dot={false}
                   />
@@ -1934,11 +1871,14 @@ export const LiveTab: React.FC<LiveTabProps> = ({
         return (
           <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
             {filteredLiveRequests.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-text-secondary">
-                {liveRequests.length === 0
-                  ? 'No requests observed yet.'
-                  : 'No requests match the current filter.'}
-              </div>
+              <EmptyState
+                variant="fill"
+                title={
+                  liveRequests.length === 0
+                    ? 'No requests observed yet.'
+                    : 'No requests match the current filter.'
+                }
+              />
             ) : (
               filteredLiveRequests.map((request) => {
                 const requestTimeSeconds = Math.max(
@@ -1951,12 +1891,14 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                 return (
                   <div
                     key={request.requestId}
-                    className="rounded-md border border-border-glass bg-bg-glass p-4"
+                    className="rounded-md border border-border bg-surface p-4"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-base text-text font-medium">{providerLabel}</span>
-                        <span className="text-sm text-text-secondary">{modelLabel}</span>
+                        <span className="text-base text-foreground font-medium">
+                          {providerLabel}
+                        </span>
+                        <span className="text-sm text-foreground-muted">{modelLabel}</span>
                         <span
                           className={clsx(
                             'inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border',
@@ -1968,7 +1910,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                                   ? 'text-blue-400 bg-blue-500/15 border-blue-400/25'
                                   : status === 'timeout'
                                     ? 'text-orange-400 bg-orange-500/15 border-orange-400/25'
-                                    : 'text-danger bg-red-500/15 border-danger/30'
+                                    : 'text-danger bg-danger-subtle border-danger/30'
                           )}
                         >
                           {status === 'success' ? (
@@ -1985,11 +1927,11 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                           {status}
                         </span>
                       </div>
-                      <span className="text-sm text-text-muted">
+                      <span className="text-sm text-foreground-subtle">
                         {formatTimeAgo(requestTimeSeconds)}
                       </span>
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground-muted">
                       <span>ID: {request.requestId.slice(0, 8)}...</span>
                       <span>
                         Tokens:{' '}
@@ -2016,14 +1958,14 @@ export const LiveTab: React.FC<LiveTabProps> = ({
         return (
           <div className="h-[60vh]">
             {concurrencyHistory.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-text-secondary">
+              <div className="flex items-center justify-center h-full text-foreground-muted">
                 Collecting concurrency data...
               </div>
             ) : (
               <div className="h-full flex flex-col">
-                <div className="flex items-center justify-between p-4 bg-bg-subtle rounded-lg mb-4">
-                  <span className="text-sm text-text-muted">Current In-Flight</span>
-                  <span className="text-2xl font-semibold text-text tabular-nums">
+                <div className="flex items-center justify-between p-4 bg-surface-sunken rounded-lg mb-4">
+                  <span className="text-sm text-foreground-subtle">Current In-Flight</span>
+                  <span className="text-2xl font-semibold text-foreground tabular-nums">
                     {formatNumber(totalConcurrentRequests, 0)}
                   </span>
                 </div>
@@ -2033,13 +1975,13 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                       data={concurrencyHistory}
                       margin={{ top: 10, right: 24, left: 0, bottom: 0 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
-                      <XAxis dataKey="time" stroke="var(--color-text-secondary)" />
-                      <YAxis stroke="var(--color-text-secondary)" allowDecimals={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="time" stroke="var(--foreground-subtle)" />
+                      <YAxis stroke="var(--foreground-subtle)" allowDecimals={false} />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: 'var(--color-bg-card)',
-                          border: '1px solid var(--color-border)',
+                          backgroundColor: 'var(--surface-elevated)',
+                          border: '1px solid var(--border)',
                           borderRadius: '8px',
                         }}
                       />
@@ -2066,12 +2008,12 @@ export const LiveTab: React.FC<LiveTabProps> = ({
         return (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-3">
-              <h3 className="text-base font-semibold text-text flex items-center gap-2">
-                <Server size={18} className="text-primary" />
+              <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Server size={18} className="text-accent" />
                 Top Providers
               </h3>
               {providerStats.length === 0 ? (
-                <div className="h-32 flex items-center justify-center text-text-secondary text-sm">
+                <div className="h-32 flex items-center justify-center text-foreground-muted text-sm">
                   No provider activity in window
                 </div>
               ) : (
@@ -2083,12 +2025,12 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               )}
             </div>
             <div className="space-y-3">
-              <h3 className="text-base font-semibold text-text flex items-center gap-2">
-                <Cpu size={18} className="text-secondary" />
+              <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Cpu size={18} className="text-accent" />
                 Top Models
               </h3>
               {modelStats.length === 0 ? (
-                <div className="h-32 flex items-center justify-center text-text-secondary text-sm">
+                <div className="h-32 flex items-center justify-center text-foreground-muted text-sm">
                   No model activity in window
                 </div>
               ) : (
@@ -2141,43 +2083,43 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               extra: (
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <Signal size={15} className="text-info" />
-                  <span className="hidden text-[11px] text-text-muted sm:inline">
+                  <span className="hidden text-[11px] text-foreground-subtle sm:inline">
                     Overview & Live Stats
                   </span>
                 </div>
               ),
               onClick: () => openModal('stats'),
               style: { cursor: 'pointer' },
-              className: 'hover:shadow-lg hover:border-primary/30 transition-all',
+              className: 'hover:shadow-lg hover:border-accent/30 transition-all',
               content: (
                 <div className="h-48 sm:h-56 grid grid-cols-2 divide-x divide-border overflow-hidden">
                   {/* Overview column */}
                   <div className="divide-y divide-border">
-                    <div className="px-3 py-1.5 bg-bg-subtle/50">
-                      <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">
+                    <div className="px-3 py-1.5 bg-surface-sunken/50">
+                      <span className="text-[11px] font-semibold text-foreground-subtle uppercase tracking-wider">
                         Overview
                       </span>
                     </div>
                     <div className="px-3 py-2 flex items-center justify-between">
-                      <span className="text-xs text-text-muted">Total Requests</span>
-                      <span className="text-sm font-semibold text-text tabular-nums">
+                      <span className="text-xs text-foreground-subtle">Total Requests</span>
+                      <span className="text-sm font-semibold text-foreground tabular-nums">
                         {totalRequestsValue}
                       </span>
                     </div>
                     <div className="px-3 py-2 flex items-center justify-between">
-                      <span className="text-xs text-text-muted">Total Tokens</span>
-                      <span className="text-sm font-semibold text-text tabular-nums">
+                      <span className="text-xs text-foreground-subtle">Total Tokens</span>
+                      <span className="text-sm font-semibold text-foreground tabular-nums">
                         {totalTokensValue}
                       </span>
                     </div>
                     <div className="px-3 py-2 flex items-center justify-between">
-                      <span className="text-xs text-text-muted">Requests Today</span>
-                      <span className="text-sm font-semibold text-text tabular-nums">
+                      <span className="text-xs text-foreground-subtle">Requests Today</span>
+                      <span className="text-sm font-semibold text-foreground tabular-nums">
                         {formatNumber(todayMetrics.requests, 0)}
                       </span>
                     </div>
                     <div className="px-3 py-2 flex items-center justify-between">
-                      <span className="text-xs text-text-muted">Cost Today</span>
+                      <span className="text-xs text-foreground-subtle">Cost Today</span>
                       <span className="text-sm font-semibold text-info tabular-nums">
                         {formatCost(todayMetrics.totalCost, 4)}
                       </span>
@@ -2185,32 +2127,32 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                   </div>
                   {/* Live Window column */}
                   <div className="divide-y divide-border">
-                    <div className="px-3 py-1.5 bg-bg-subtle/50">
-                      <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">
+                    <div className="px-3 py-1.5 bg-surface-sunken/50">
+                      <span className="text-[11px] font-semibold text-foreground-subtle uppercase tracking-wider">
                         Live ({liveWindowMinutes}m)
                       </span>
                     </div>
                     <div className="px-3 py-2 flex items-center justify-between">
-                      <span className="text-xs text-text-muted">Requests</span>
-                      <span className="text-sm font-semibold text-text tabular-nums">
+                      <span className="text-xs text-foreground-subtle">Requests</span>
+                      <span className="text-sm font-semibold text-foreground tabular-nums">
                         {formatNumber(summary.requestCount, 0)}
                       </span>
                     </div>
                     <div className="px-3 py-2 flex items-center justify-between">
-                      <span className="text-xs text-text-muted">Success Rate</span>
-                      <span className="text-sm font-semibold text-text tabular-nums">
+                      <span className="text-xs text-foreground-subtle">Success Rate</span>
+                      <span className="text-sm font-semibold text-foreground tabular-nums">
                         {successRate.toFixed(1)}%
                       </span>
                     </div>
                     <div className="px-3 py-2 flex items-center justify-between">
-                      <span className="text-xs text-text-muted">Tokens / Min</span>
-                      <span className="text-sm font-semibold text-text tabular-nums">
+                      <span className="text-xs text-foreground-subtle">Tokens / Min</span>
+                      <span className="text-sm font-semibold text-foreground tabular-nums">
                         {formatTokens(tokensPerMinute)}
                       </span>
                     </div>
                     <div className="px-3 py-2 flex items-center justify-between">
-                      <span className="text-xs text-text-muted">Avg Latency</span>
-                      <span className="text-sm font-semibold text-text tabular-nums">
+                      <span className="text-xs text-foreground-subtle">Avg Latency</span>
+                      <span className="text-sm font-semibold text-foreground tabular-nums">
                         {formatMs(avgLatency)}
                       </span>
                     </div>
@@ -2234,7 +2176,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <AlertTriangle
                     size={15}
-                    className={cooldowns.length > 0 ? 'text-warning' : 'text-text-muted'}
+                    className={cooldowns.length > 0 ? 'text-warning' : 'text-foreground-subtle'}
                   />
                   {cooldowns.length > 0 && isAdmin && (
                     <button
@@ -2251,7 +2193,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               ),
               onClick: () => openModal('stats'),
               style: { cursor: 'pointer' },
-              className: 'hover:shadow-lg hover:border-primary/30 transition-all',
+              className: 'hover:shadow-lg hover:border-accent/30 transition-all',
               content: (
                 <div className="h-48 sm:h-56 flex flex-col overflow-hidden">
                   {cooldowns.length > 0 && (
@@ -2280,19 +2222,21 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                   )}
                   <div className="flex-1 divide-y divide-border overflow-y-auto">
                     {providerRows.length === 0 ? (
-                      <div className="px-3 py-3 text-xs text-text-muted">
+                      <div className="px-3 py-3 text-xs text-foreground-subtle">
                         No provider activity in the last {liveWindowMinutes} minutes.
                       </div>
                     ) : (
                       providerRows.map((row) => (
                         <div key={row.provider} className="px-3 py-2">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-medium text-text">{row.provider}</span>
-                            <span className="text-xs text-text-muted tabular-nums">
+                            <span className="text-xs font-medium text-foreground">
+                              {row.provider}
+                            </span>
+                            <span className="text-xs text-foreground-subtle tabular-nums">
                               {formatNumber(row.requests, 0)} req
                             </span>
                           </div>
-                          <div className="flex gap-3 mt-0.5 text-[11px] text-text-muted">
+                          <div className="flex gap-3 mt-0.5 text-[11px] text-foreground-subtle">
                             <span>{row.successRate.toFixed(1)}% ok</span>
                             <span>{formatMs(row.avgLatency)}</span>
                             <span className="text-info">{formatCost(row.totalCost, 6)}</span>
@@ -2319,7 +2263,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               title: 'Request Velocity (Last 5 Minutes)',
               extra: (
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <span className="hidden text-xs text-text-secondary sm:inline">
+                  <span className="hidden text-xs text-foreground-muted sm:inline">
                     Minute-over-minute delta
                   </span>
                   <AnalyzeButton
@@ -2331,10 +2275,10 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               ),
               onClick: () => openModal('velocity'),
               style: { cursor: 'pointer' },
-              className: 'hover:shadow-lg hover:border-primary/30 transition-all',
+              className: 'hover:shadow-lg hover:border-accent/30 transition-all',
               content:
                 velocitySeries.length === 0 ? (
-                  <div className="h-48 sm:h-56 flex items-center justify-center text-text-secondary">
+                  <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted">
                     No velocity data available
                   </div>
                 ) : (
@@ -2344,29 +2288,29 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                         data={velocitySeries}
                         margin={{ top: 10, right: 16, left: 0, bottom: 0 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis
                           dataKey="time"
-                          stroke="var(--color-text-secondary)"
-                          tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                          stroke="var(--foreground-subtle)"
+                          tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                         />
                         <YAxis
-                          stroke="var(--color-text-secondary)"
-                          tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                          stroke="var(--foreground-subtle)"
+                          tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                         />
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: 'var(--color-bg-card)',
-                            border: '1px solid var(--color-border)',
+                            backgroundColor: 'var(--surface-elevated)',
+                            border: '1px solid var(--border)',
                             borderRadius: '8px',
                           }}
-                          labelStyle={{ color: 'var(--color-text)' }}
+                          labelStyle={{ color: 'var(--foreground)' }}
                           formatter={(value) => [formatNumber(Number(value || 0), 0), 'Velocity']}
                         />
                         <Line
                           type="monotone"
                           dataKey="velocity"
-                          stroke="#f59e0b"
+                          stroke="var(--chart-1)"
                           strokeWidth={2}
                           dot={{ r: 2 }}
                         />
@@ -2389,7 +2333,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               title: 'Provider Pulse (5m)',
               extra: (
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <span className="text-xs text-text-secondary">Top 8 providers</span>
+                  <span className="text-xs text-foreground-muted">Top 8 providers</span>
                   <AnalyzeButton
                     cardType="provider"
                     size="sm"
@@ -2399,10 +2343,10 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               ),
               onClick: () => openModal('provider'),
               style: { cursor: 'pointer' },
-              className: 'hover:shadow-lg hover:border-primary/30 transition-all',
+              className: 'hover:shadow-lg hover:border-accent/30 transition-all',
               content:
                 providerPulseRows.length === 0 ? (
-                  <div className="h-48 sm:h-56 flex items-center justify-center text-text-secondary">
+                  <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted">
                     No provider traffic in the selected live window.
                   </div>
                 ) : (
@@ -2412,30 +2356,30 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                         data={providerPulseRows.slice(0, 6)}
                         margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis
                           dataKey="label"
-                          stroke="var(--color-text-secondary)"
-                          tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                          stroke="var(--foreground-subtle)"
+                          tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                           interval={0}
                           angle={-20}
                           textAnchor="end"
                           height={56}
                         />
                         <YAxis
-                          stroke="var(--color-text-secondary)"
-                          tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                          stroke="var(--foreground-subtle)"
+                          tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                         />
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: 'var(--color-bg-card)',
-                            border: '1px solid var(--color-border)',
+                            backgroundColor: 'var(--surface-elevated)',
+                            border: '1px solid var(--border)',
                             borderRadius: '8px',
                           }}
-                          labelStyle={{ color: 'var(--color-text)' }}
+                          labelStyle={{ color: 'var(--foreground)' }}
                           formatter={(value) => [formatNumber(Number(value || 0), 0), 'Requests']}
                         />
-                        <Bar dataKey="requests" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="requests" fill="var(--chart-1)" radius={[999, 999, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -2455,7 +2399,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               title: 'Model Pulse (5m)',
               extra: (
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <span className="text-xs text-text-secondary">Top 8 models</span>
+                  <span className="text-xs text-foreground-muted">Top 8 models</span>
                   <AnalyzeButton
                     cardType="model"
                     size="sm"
@@ -2465,10 +2409,10 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               ),
               onClick: () => openModal('model'),
               style: { cursor: 'pointer' },
-              className: 'hover:shadow-lg hover:border-primary/30 transition-all',
+              className: 'hover:shadow-lg hover:border-accent/30 transition-all',
               content:
                 modelPulseRows.length === 0 ? (
-                  <div className="h-48 sm:h-56 flex items-center justify-center text-text-secondary">
+                  <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted">
                     No model traffic in the selected live window.
                   </div>
                 ) : (
@@ -2478,30 +2422,30 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                         data={modelPulseRows.slice(0, 6)}
                         margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis
                           dataKey="label"
-                          stroke="var(--color-text-secondary)"
-                          tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                          stroke="var(--foreground-subtle)"
+                          tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                           interval={0}
                           angle={-20}
                           textAnchor="end"
                           height={56}
                         />
                         <YAxis
-                          stroke="var(--color-text-secondary)"
-                          tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                          stroke="var(--foreground-subtle)"
+                          tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                         />
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: 'var(--color-bg-card)',
-                            border: '1px solid var(--color-border)',
+                            backgroundColor: 'var(--surface-elevated)',
+                            border: '1px solid var(--border)',
                             borderRadius: '8px',
                           }}
-                          labelStyle={{ color: 'var(--color-text)' }}
+                          labelStyle={{ color: 'var(--foreground)' }}
                           formatter={(value) => [formatNumber(Number(value || 0), 0), 'Requests']}
                         />
-                        <Bar dataKey="requests" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="requests" fill="var(--chart-2)" radius={[999, 999, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -2522,7 +2466,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               title: 'Live Timeline',
               extra: (
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Clock size={16} className="text-primary" />
+                  <Clock size={16} className="text-accent" />
                   <AnalyzeButton
                     cardType="timeline"
                     size="sm"
@@ -2532,13 +2476,13 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               ),
               onClick: () => openModal('timeline'),
               style: { cursor: 'pointer' },
-              className: 'min-w-0 hover:shadow-lg hover:border-primary/30 transition-all',
+              className: 'min-w-0 hover:shadow-lg hover:border-accent/30 transition-all',
               content: loading ? (
-                <div className="h-48 sm:h-56 flex items-center justify-center text-text-secondary">
+                <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted">
                   Loading...
                 </div>
               ) : minuteSeries.length === 0 ? (
-                <div className="h-48 sm:h-56 flex items-center justify-center text-text-secondary">
+                <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted">
                   No requests in the last {liveWindowMinutes} minutes
                 </div>
               ) : (
@@ -2550,38 +2494,38 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                     >
                       <defs>
                         <linearGradient id="liveRequests" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.2} />
+                          <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0.2} />
                         </linearGradient>
                         <linearGradient id="liveTokens" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.2} />
+                          <stop offset="5%" stopColor="var(--chart-3)" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="var(--chart-3)" stopOpacity={0.2} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis
                         dataKey="time"
-                        stroke="var(--color-text-secondary)"
-                        tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                        stroke="var(--foreground-subtle)"
+                        tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                       />
                       <YAxis
                         yAxisId="left"
-                        stroke="var(--color-text-secondary)"
-                        tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                        stroke="var(--foreground-subtle)"
+                        tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                       />
                       <YAxis
                         yAxisId="right"
                         orientation="right"
-                        stroke="var(--color-text-secondary)"
-                        tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                        stroke="var(--foreground-subtle)"
+                        tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: 'var(--color-bg-card)',
-                          border: '1px solid var(--color-border)',
+                          backgroundColor: 'var(--surface-elevated)',
+                          border: '1px solid var(--border)',
                           borderRadius: '8px',
                         }}
-                        labelStyle={{ color: 'var(--color-text)' }}
+                        labelStyle={{ color: 'var(--foreground)' }}
                         formatter={(value, name) => {
                           if (name === 'tokens') {
                             return [formatTokens(Number(value || 0)), 'Tokens'];
@@ -2597,7 +2541,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                         yAxisId="left"
                         type="monotone"
                         dataKey="requests"
-                        stroke="#3b82f6"
+                        stroke="var(--chart-1)"
                         fillOpacity={1}
                         fill="url(#liveRequests)"
                         strokeWidth={2}
@@ -2606,16 +2550,16 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                         yAxisId="left"
                         type="monotone"
                         dataKey="errors"
-                        stroke="#ef4444"
+                        stroke="var(--danger)"
                         fillOpacity={0.15}
-                        fill="#ef4444"
+                        fill="var(--danger)"
                         strokeWidth={1.5}
                       />
                       <Area
                         yAxisId="right"
                         type="monotone"
                         dataKey="tokens"
-                        stroke="#10b981"
+                        stroke="var(--chart-3)"
                         fillOpacity={1}
                         fill="url(#liveTokens)"
                         strokeWidth={2}
@@ -2640,7 +2584,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               title: 'Model Stack',
               extra: (
                 <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-primary" />
+                  <Clock size={16} className="text-accent" />
                   <AnalyzeButton
                     cardType="modelstack"
                     size="sm"
@@ -2650,13 +2594,13 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               ),
               onClick: () => openModal('modelstack'),
               style: { cursor: 'pointer' },
-              className: 'min-w-0 hover:shadow-lg hover:border-primary/30 transition-all',
+              className: 'min-w-0 hover:shadow-lg hover:border-accent/30 transition-all',
               content: loading ? (
-                <div className="h-48 sm:h-56 flex items-center justify-center text-text-secondary">
+                <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted">
                   Loading...
                 </div>
               ) : modelTimeline.series.length === 0 ? (
-                <div className="h-48 sm:h-56 flex items-center justify-center text-text-secondary">
+                <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted">
                   No model stack data in the last {liveWindowMinutes} minutes
                 </div>
               ) : (
@@ -2666,32 +2610,32 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                       data={modelTimeline.data}
                       margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis
                         dataKey="time"
-                        stroke="var(--color-text-secondary)"
-                        tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                        stroke="var(--foreground-subtle)"
+                        tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                       />
                       <YAxis
                         yAxisId="left"
-                        stroke="var(--color-text-secondary)"
-                        tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                        stroke="var(--foreground-subtle)"
+                        tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                         allowDecimals={false}
                       />
                       <YAxis
                         yAxisId="right"
                         orientation="right"
-                        stroke="var(--color-text-secondary)"
-                        tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                        stroke="var(--foreground-subtle)"
+                        tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
                         tickFormatter={(value) => formatNumber(Number(value || 0), 1)}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: 'var(--color-bg-card)',
-                          border: '1px solid var(--color-border)',
+                          backgroundColor: 'var(--surface-elevated)',
+                          border: '1px solid var(--border)',
                           borderRadius: '8px',
                         }}
-                        labelStyle={{ color: 'var(--color-text)' }}
+                        labelStyle={{ color: 'var(--foreground)' }}
                         formatter={(value, name) => {
                           const numeric = Number(value || 0);
                           const label = modelTimeline.seriesLabelMap.get(String(name));
@@ -2729,7 +2673,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                         yAxisId="right"
                         type="monotone"
                         dataKey="avgTtftMs"
-                        stroke="#f59e0b"
+                        stroke="var(--chart-1)"
                         strokeWidth={2}
                         dot={false}
                       />
@@ -2737,7 +2681,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                         yAxisId="right"
                         type="monotone"
                         dataKey="avgTps"
-                        stroke="#22c55e"
+                        stroke="var(--chart-3)"
                         strokeWidth={2}
                         dot={false}
                       />
@@ -2761,10 +2705,10 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               title: 'Latest Requests',
               onClick: () => openModal('requests'),
               style: { cursor: 'pointer' },
-              className: 'hover:shadow-lg hover:border-primary/30 transition-all',
+              className: 'hover:shadow-lg hover:border-accent/30 transition-all',
               extra: (
                 <div className="flex flex-wrap items-center justify-end gap-1">
-                  <span className="hidden text-xs text-text-secondary mr-1 sm:inline">
+                  <span className="hidden text-xs text-foreground-muted mr-1 sm:inline">
                     Latest 20
                   </span>
                   <Button
@@ -2806,7 +2750,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               ),
               content:
                 filteredLiveRequests.length === 0 ? (
-                  <div className="h-48 sm:h-56 flex items-center justify-center text-text-secondary">
+                  <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted">
                     {liveRequests.length === 0
                       ? 'No requests observed yet.'
                       : 'No requests match the current filter.'}
@@ -2825,12 +2769,14 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                       return (
                         <div
                           key={request.requestId}
-                          className="rounded-md border border-border-glass bg-bg-glass p-3"
+                          className="rounded-md border border-border bg-surface p-3"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm text-text font-medium">{providerLabel}</span>
-                              <span className="text-xs text-text-secondary">{modelLabel}</span>
+                              <span className="text-sm text-foreground font-medium">
+                                {providerLabel}
+                              </span>
+                              <span className="text-xs text-foreground-muted">{modelLabel}</span>
                               <span
                                 className={clsx(
                                   'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border',
@@ -2842,7 +2788,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                                         ? 'text-blue-400 bg-blue-500/15 border-blue-400/25'
                                         : status === 'timeout'
                                           ? 'text-orange-400 bg-orange-500/15 border-orange-400/25'
-                                          : 'text-danger bg-red-500/15 border-danger/30'
+                                          : 'text-danger bg-danger-subtle border-danger/30'
                                 )}
                               >
                                 {status === 'success' ? (
@@ -2859,11 +2805,11 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                                 {status}
                               </span>
                             </div>
-                            <span className="text-xs text-text-muted">
+                            <span className="text-xs text-foreground-subtle">
                               {formatTimeAgo(requestTimeSeconds)}
                             </span>
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary">
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground-muted">
                             <span>ID: {request.requestId.slice(0, 8)}...</span>
                             <span>
                               Tokens:{' '}
@@ -2900,7 +2846,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               title: 'Concurrency',
               extra: (
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <span className="text-xs text-text-muted">
+                  <span className="text-xs text-foreground-subtle">
                     <span className="sm:hidden">10s</span>
                     <span className="hidden sm:inline">Auto-refresh: 10s</span>
                   </span>
@@ -2913,21 +2859,21 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               ),
               onClick: () => openModal('concurrency'),
               style: { cursor: 'pointer' },
-              className: 'hover:shadow-lg hover:border-primary/30 transition-all',
+              className: 'hover:shadow-lg hover:border-accent/30 transition-all',
               content:
                 concurrencyLoading && concurrencyHistory.length === 0 ? (
-                  <div className="h-48 sm:h-56 flex items-center justify-center text-text-secondary text-sm">
+                  <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted text-sm">
                     Loading concurrency data...
                   </div>
                 ) : concurrencyHistory.length === 0 ? (
-                  <div className="h-48 sm:h-56 flex items-center justify-center text-text-secondary text-sm">
+                  <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted text-sm">
                     Collecting concurrency data...
                   </div>
                 ) : (
                   <div className="h-48 sm:h-56">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-text-muted">In-Flight by Provider</span>
-                      <span className="text-sm font-semibold text-text tabular-nums">
+                      <span className="text-xs text-foreground-subtle">In-Flight by Provider</span>
+                      <span className="text-sm font-semibold text-foreground tabular-nums">
                         {formatNumber(totalConcurrentRequests, 0)}
                       </span>
                     </div>
@@ -2936,13 +2882,13 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                         data={concurrencyHistory}
                         margin={{ top: 10, right: 24, left: 0, bottom: 0 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
-                        <XAxis dataKey="time" stroke="var(--color-text-secondary)" />
-                        <YAxis stroke="var(--color-text-secondary)" allowDecimals={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="time" stroke="var(--foreground-subtle)" />
+                        <YAxis stroke="var(--foreground-subtle)" allowDecimals={false} />
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: 'var(--color-bg-card)',
-                            border: '1px solid var(--color-border)',
+                            backgroundColor: 'var(--surface-elevated)',
+                            border: '1px solid var(--border)',
                             borderRadius: '8px',
                           }}
                         />
@@ -2976,22 +2922,22 @@ export const LiveTab: React.FC<LiveTabProps> = ({
               id: cardId,
               title: 'Provider & Model Stats',
               extra: (
-                <span className="text-xs text-text-secondary">
+                <span className="text-xs text-foreground-muted">
                   {activeProviderCount} providers, {activeModelCount} models
                 </span>
               ),
               onClick: () => openModal('stats'),
               style: { cursor: 'pointer' },
-              className: 'hover:shadow-lg hover:border-primary/30 transition-all',
+              className: 'hover:shadow-lg hover:border-accent/30 transition-all',
               content: (
                 <div className="h-48 sm:h-56 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-y-auto">
                   <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-text flex items-center gap-2">
-                      <Server size={16} className="text-primary" />
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Server size={16} className="text-accent" />
                       Top Providers
                     </h4>
                     {providerStats.length === 0 ? (
-                      <div className="h-32 flex items-center justify-center text-text-secondary text-sm">
+                      <div className="h-32 flex items-center justify-center text-foreground-muted text-sm">
                         No provider activity in window
                       </div>
                     ) : (
@@ -3003,12 +2949,12 @@ export const LiveTab: React.FC<LiveTabProps> = ({
                     )}
                   </div>
                   <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-text flex items-center gap-2">
-                      <Cpu size={16} className="text-secondary" />
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Cpu size={16} className="text-accent" />
                       Top Models
                     </h4>
                     {modelStats.length === 0 ? (
-                      <div className="h-32 flex items-center justify-center text-text-secondary text-sm">
+                      <div className="h-32 flex items-center justify-center text-foreground-muted text-sm">
                         No model activity in window
                       </div>
                     ) : (
@@ -3055,11 +3001,11 @@ export const LiveTab: React.FC<LiveTabProps> = ({
    *    or an embedded DetailedUsage page.
    */
   return (
-    <div className="overflow-x-clip px-3 py-4 transition-all duration-300 sm:p-6">
+    <div className="overflow-x-clip p-3 sm:p-6 sm:pt-2 lg:p-8 lg:pt-2 transition-all duration-300">
       {/* ------- Page Header ------- */}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3 sm:mb-8">
         <div className="header-left">
-          <h1 className="font-heading text-xl sm:text-3xl font-bold text-text m-0 mb-2">
+          <h1 className="font-sans text-xl sm:text-3xl font-bold text-foreground m-0 mb-2">
             Live Metrics
           </h1>
         </div>
@@ -3081,7 +3027,12 @@ export const LiveTab: React.FC<LiveTabProps> = ({
         <Button
           size="sm"
           variant="secondary"
-          onClick={() => void loadData()}
+          onClick={() => {
+            setIsRefreshing(true);
+            Promise.all([dashboardQuery.refetch(), logsQuery.refetch()]).finally(() =>
+              setIsRefreshing(false)
+            );
+          }}
           isLoading={isRefreshing}
         >
           <RefreshCw size={14} />
@@ -3103,7 +3054,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
             </Button>
           );
         })}
-        <span className="hidden text-xs text-text-secondary sm:inline">|</span>
+        <span className="hidden text-xs text-foreground-muted sm:inline">|</span>
         {LIVE_WINDOW_OPTIONS.map((option) => (
           <Button
             key={option.value}
@@ -3117,7 +3068,7 @@ export const LiveTab: React.FC<LiveTabProps> = ({
             {option.label}
           </Button>
         ))}
-        <span className="hidden text-xs text-text-muted sm:inline">
+        <span className="hidden text-xs text-foreground-subtle sm:inline">
           {isVisible ? 'Tab active' : 'Tab hidden'} - data refresh resumes on focus.
         </span>
       </div>

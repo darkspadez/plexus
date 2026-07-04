@@ -20,14 +20,22 @@
  * a manual refresh is triggered by changing the time range.
  */
 
-import { useEffect, useState } from 'react';
-import { Key, Layers, Boxes, Gauge, Activity, AlertTriangle } from 'lucide-react';
-import { api, type PieChartDataPoint, type QuotaStatusEntry } from '../../../lib/api';
-import { formatNumber, formatTokens, formatCost } from '../../../lib/format';
+import { useMemo, useState } from 'react';
+import { Key, Layers, Boxes, Gauge, Activity, AlertTriangle, Users } from 'lucide-react';
+import { type PieChartDataPoint, type QuotaStatusEntry } from '../../../lib/api';
+import { formatNumber, formatTokens, formatCost, formatResetsIn } from '../../../lib/format';
 import { Card } from '../../ui/Card';
-import { QuotaStatusCard } from '../../quota';
+import { EmptyState } from '../../ui/EmptyState';
+import { QuotaProgressBar } from '../../quota/QuotaProgressBar';
 import { TimeRangeSelector } from '../TimeRangeSelector';
-import { sortMostConstrainedFirst } from '../../../lib/quota';
+import { Pill } from '../../chips/Pill';
+import { statusForPercent, formatQuotaValue, sortMostConstrainedFirst } from '../../../lib/quota';
+import {
+  useUsageSummary,
+  useUsageByProviderForOverall,
+  useUsageByModelForOverall,
+} from '../../../hooks/queries/useUsage';
+import { useSelfMe, useSelfQuota } from '../../../hooks/queries/useMyKey';
 
 type TimeRange = 'hour' | 'day' | 'week' | 'month';
 
@@ -62,9 +70,9 @@ const Metric: React.FC<{ label: string; value: string; sub?: string }> = ({
   sub,
 }) => (
   <div className="flex flex-col gap-0.5">
-    <span className="text-xs uppercase tracking-wide text-text-muted">{label}</span>
-    <span className="text-2xl font-semibold text-text leading-none">{value}</span>
-    {sub && <span className="text-xs text-text-muted">{sub}</span>}
+    <span className="text-xs uppercase tracking-wide text-foreground-subtle">{label}</span>
+    <span className="text-2xl font-semibold text-foreground leading-none">{value}</span>
+    {sub && <span className="text-xs text-foreground-subtle">{sub}</span>}
   </div>
 );
 
@@ -79,7 +87,7 @@ const BreakdownList: React.FC<{
   metric: 'requests' | 'tokens';
 }> = ({ data, emptyLabel, metric }) => {
   if (!data.length) {
-    return <p className="text-sm text-text-muted">{emptyLabel}</p>;
+    return <EmptyState variant="fill" title={emptyLabel} />;
   }
   const total = data.reduce((sum, d) => sum + ((d[metric] as number) || 0), 0);
   const sorted = [...data].sort(
@@ -94,15 +102,15 @@ const BreakdownList: React.FC<{
         return (
           <div key={row.name}>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-text font-medium truncate" title={row.name}>
+              <span className="text-foreground font-medium truncate" title={row.name}>
                 {row.name}
               </span>
-              <span className="text-text-muted tabular-nums">
+              <span className="text-foreground-subtle tabular-nums">
                 {display}
-                <span className="ml-2 text-xs text-text-muted">({pct.toFixed(0)}%)</span>
+                <span className="ml-2 text-xs text-foreground-subtle">({pct.toFixed(0)}%)</span>
               </span>
             </div>
-            <div className="mt-1 h-1 w-full bg-bg-hover rounded-full overflow-hidden">
+            <div className="mt-1 h-1 w-full bg-surface-elevated rounded-full overflow-hidden">
               <div className="h-full bg-accent" style={{ width: `${Math.min(100, pct)}%` }} />
             </div>
           </div>
@@ -114,109 +122,69 @@ const BreakdownList: React.FC<{
 
 export const OverallTab: React.FC = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('day');
-  const [info, setInfo] = useState<SelfInfo | null>(null);
-  const [summary, setSummary] = useState<SummaryStats | null>(null);
-  const [providerData, setProviderData] = useState<PieChartDataPoint[]>([]);
-  const [modelData, setModelData] = useState<PieChartDataPoint[]>([]);
-  const [quotas, setQuotas] = useState<QuotaStatusEntry[] | null>(null);
-  const [quotaError, setQuotaError] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    // Clear per-range data so switching time ranges doesn't render stale
-    // totals/breakdowns under the new range's label while requests are
-    // still in flight.
-    setSummary(null);
-    setProviderData([]);
-    setModelData([]);
-    setQuotaError(false);
+  const selfMeQuery = useSelfMe();
+  const selfQuotaQuery = useSelfQuota();
+  const summaryQuery = useUsageSummary(timeRange);
+  const providerQuery = useUsageByProviderForOverall(timeRange);
+  const modelQuery = useUsageByModelForOverall(timeRange);
 
-    // Each call settles independently so a single slow endpoint doesn't block
-    // the whole tab from rendering useful data.
-    const metaPromise = api.getSelfMe().then((data) => {
-      if (!cancelled) setInfo(data as SelfInfo);
-    });
+  const info = (selfMeQuery.data as SelfInfo | undefined) ?? null;
+  const quotas: QuotaStatusEntry[] | null = selfQuotaQuery.isError
+    ? null
+    : (selfQuotaQuery.data?.quotas ?? null);
+  const quotaError = selfQuotaQuery.isError;
+  const providerData: PieChartDataPoint[] = providerQuery.data ?? [];
+  const modelData: PieChartDataPoint[] = modelQuery.data ?? [];
 
-    const quotaPromise = api
-      .getSelfQuota()
-      .then((data) => {
-        if (!cancelled) {
-          setQuotas(data.quotas);
-          setQuotaError(false);
-        }
-      })
-      .catch(() => {
-        // Distinguish fetch failure from "no quota assigned" so the card
-        // doesn't tell a quota-gated user that they are unrestricted.
-        if (!cancelled) {
-          setQuotas(null);
-          setQuotaError(true);
-        }
-      });
+  const loading =
+    selfMeQuery.isLoading ||
+    summaryQuery.isLoading ||
+    providerQuery.isLoading ||
+    modelQuery.isLoading ||
+    selfQuotaQuery.isLoading;
 
-    // Token + request totals for the selected range. The backend endpoint is
-    // auto-scoped to the calling limited user.
-    const summaryPromise = api.getUsageSummary(timeRange, true).then((res) => {
-      if (cancelled || !res) return;
-      // `stats` is a fixed 7-day window; to get totals for the selected range
-      // we sum the per-bucket series instead.
-      const totals = (res.series || []).reduce(
-        (acc, p) => {
-          acc.requests += p.requests || 0;
-          acc.inputTokens += p.inputTokens || 0;
-          acc.outputTokens += p.outputTokens || 0;
-          acc.cachedTokens += p.cachedTokens || 0;
-          acc.cacheWriteTokens += p.cacheWriteTokens || 0;
-          return acc;
-        },
-        { requests: 0, inputTokens: 0, outputTokens: 0, cachedTokens: 0, cacheWriteTokens: 0 }
-      );
-      setSummary({
-        range: timeRange,
-        totalRequests: totals.requests,
-        totalTokens:
-          totals.inputTokens + totals.outputTokens + totals.cachedTokens + totals.cacheWriteTokens,
-        inputTokens: totals.inputTokens,
-        outputTokens: totals.outputTokens,
-        cachedTokens: totals.cachedTokens,
-        cacheWriteTokens: totals.cacheWriteTokens,
-        todayCost: res.today?.totalCost ?? 0,
-      });
-    });
-
-    const providerPromise = api.getUsageByProvider(timeRange, true).then((d) => {
-      if (!cancelled) setProviderData(d);
-    });
-    const modelPromise = api.getUsageByModel(timeRange, true).then((d) => {
-      if (!cancelled) setModelData(d);
-    });
-
-    Promise.allSettled([
-      metaPromise,
-      quotaPromise,
-      summaryPromise,
-      providerPromise,
-      modelPromise,
-    ]).then(() => {
-      if (!cancelled) setLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
+  // Derive summary stats from the series data (same client-side aggregation as before)
+  const summary = useMemo<SummaryStats | null>(() => {
+    const res = summaryQuery.data;
+    if (!res) return null;
+    // res is the raw UsageSummaryResponse from getUsageSummary
+    const raw = res as any;
+    const series: any[] = raw?.series || [];
+    const today = raw?.today;
+    const totals = series.reduce(
+      (acc: any, p: any) => {
+        acc.requests += p.requests || 0;
+        acc.inputTokens += p.inputTokens || 0;
+        acc.outputTokens += p.outputTokens || 0;
+        acc.cachedTokens += p.cachedTokens || 0;
+        acc.cacheWriteTokens += p.cacheWriteTokens || 0;
+        return acc;
+      },
+      { requests: 0, inputTokens: 0, outputTokens: 0, cachedTokens: 0, cacheWriteTokens: 0 }
+    );
+    return {
+      range: timeRange,
+      totalRequests: totals.requests,
+      totalTokens:
+        totals.inputTokens + totals.outputTokens + totals.cachedTokens + totals.cacheWriteTokens,
+      inputTokens: totals.inputTokens,
+      outputTokens: totals.outputTokens,
+      cachedTokens: totals.cachedTokens,
+      cacheWriteTokens: totals.cacheWriteTokens,
+      todayCost: today?.totalCost ?? 0,
     };
-  }, [timeRange]);
+  }, [summaryQuery.data, timeRange]);
 
   const allowedProviders = info?.allowedProviders ?? [];
   const allowedModels = info?.allowedModels ?? [];
 
   return (
-    <div className="p-6 transition-all duration-300 space-y-6">
+    <div className="p-3 sm:p-6 sm:pt-2 lg:p-8 lg:pt-2 transition-all duration-300 space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-text m-0 mb-2">Overall</h1>
-          <p className="text-[15px] text-text-secondary m-0">
+          <h1 className="font-sans text-3xl font-bold text-foreground m-0 mb-2">Overall</h1>
+          <p className="text-[15px] text-foreground-muted m-0">
             Access, usage, and quota summary for your API key.
           </p>
         </div>
@@ -234,15 +202,19 @@ export const OverallTab: React.FC = () => {
         className="grid gap-4"
         style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' }}
       >
-        <Card title="Key" extra={<Key size={16} className="text-text-muted" />} className="min-w-0">
+        <Card
+          title="Key"
+          extra={<Key size={16} className="text-foreground-subtle" />}
+          className="min-w-0"
+        >
           <dl className="grid grid-cols-1 gap-3 text-sm">
             <div className="flex">
-              <dt className="w-32 text-text-muted">Name</dt>
-              <dd className="font-mono text-text break-all">{info?.keyName || '—'}</dd>
+              <dt className="w-32 text-foreground-subtle">Name</dt>
+              <dd className="font-mono text-foreground break-all">{info?.keyName || '—'}</dd>
             </div>
             <div className="flex">
-              <dt className="w-32 text-text-muted">Quota</dt>
-              <dd className="text-text">
+              <dt className="w-32 text-foreground-subtle">Quota</dt>
+              <dd className="text-foreground">
                 {info?.quotaNames && info.quotaNames.length > 0
                   ? info.quotaNames.join(', ')
                   : info?.quotaName || 'None assigned'}
@@ -250,8 +222,8 @@ export const OverallTab: React.FC = () => {
             </div>
             {info?.comment && (
               <div className="flex">
-                <dt className="w-32 text-text-muted">Comment</dt>
-                <dd className="text-text">{info.comment}</dd>
+                <dt className="w-32 text-foreground-subtle">Comment</dt>
+                <dd className="text-foreground">{info.comment}</dd>
               </div>
             )}
           </dl>
@@ -259,11 +231,11 @@ export const OverallTab: React.FC = () => {
 
         <Card
           title="Quota"
-          extra={<Gauge size={16} className="text-text-muted" />}
+          extra={<Gauge size={16} className="text-foreground-subtle" />}
           className="min-w-0"
         >
           {loading && !quotas && !quotaError ? (
-            <p className="text-sm text-text-muted">Loading…</p>
+            <p className="text-sm text-foreground-subtle">Loading…</p>
           ) : quotaError ? (
             <div className="flex items-start gap-2 text-sm text-warning">
               <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
@@ -273,14 +245,56 @@ export const OverallTab: React.FC = () => {
               </span>
             </div>
           ) : !quotas || quotas.length === 0 ? (
-            <p className="text-sm text-text-muted">
+            <p className="text-sm text-foreground-subtle">
               No quota is assigned to this key — requests are unrestricted by quota policy.
             </p>
           ) : (
             <div className="space-y-4">
-              {sortMostConstrainedFirst(quotas).map((q) => (
-                <QuotaStatusCard key={q.name} entry={q} resetsAtFormat="relative" />
-              ))}
+              {sortMostConstrainedFirst(quotas).map((q) => {
+                const pct = q.limit > 0 ? Math.min(100, (q.currentUsage / q.limit) * 100) : 0;
+                return (
+                  <div key={q.name} className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-medium text-foreground">{q.name}</span>
+                      {q.source === 'default' && (
+                        <Pill tone="neutral" size="sm" className="uppercase tracking-wider">
+                          default
+                        </Pill>
+                      )}
+                      {q.shared && (
+                        <Pill tone="accent" size="sm" className="uppercase tracking-wider">
+                          <Users size={10} /> shared
+                        </Pill>
+                      )}
+                    </div>
+                    <QuotaProgressBar
+                      label={q.limitType}
+                      value={q.currentUsage}
+                      max={q.limit}
+                      displayValue={`${formatQuotaValue(q.currentUsage, q.limitType)} / ${formatQuotaValue(q.limit, q.limitType)}`}
+                      status={statusForPercent(pct)}
+                      size="md"
+                    />
+                    <div className="flex items-center justify-between text-xs text-foreground-subtle">
+                      <span>
+                        Remaining:{' '}
+                        <span className="text-foreground font-medium">
+                          {formatQuotaValue(q.remaining, q.limitType)}
+                        </span>
+                      </span>
+                      <span>Resets {formatResetsIn(q.resetsAt)}</span>
+                    </div>
+                    {!q.allowed && (
+                      <div className="flex items-center gap-2 text-xs text-danger">
+                        <AlertTriangle size={14} />
+                        <span>
+                          Quota exhausted — new requests will be rejected until it resets.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </Card>
@@ -293,11 +307,11 @@ export const OverallTab: React.FC = () => {
       >
         <Card
           title="Allowed providers"
-          extra={<Layers size={16} className="text-text-muted" />}
+          extra={<Layers size={16} className="text-foreground-subtle" />}
           className="min-w-0"
         >
           {allowedProviders.length === 0 ? (
-            <p className="text-sm text-text-muted">
+            <p className="text-sm text-foreground-subtle">
               Any provider (unrestricted) — this key can route to every provider the gateway knows.
             </p>
           ) : (
@@ -305,7 +319,7 @@ export const OverallTab: React.FC = () => {
               {allowedProviders.map((p) => (
                 <span
                   key={p}
-                  className="px-2 py-1 text-xs font-mono rounded-md bg-bg-hover border border-border text-text"
+                  className="px-2 py-1 text-xs font-mono rounded-md bg-surface-elevated border border-border text-foreground"
                 >
                   {p}
                 </span>
@@ -316,11 +330,11 @@ export const OverallTab: React.FC = () => {
 
         <Card
           title="Allowed models"
-          extra={<Boxes size={16} className="text-text-muted" />}
+          extra={<Boxes size={16} className="text-foreground-subtle" />}
           className="min-w-0"
         >
           {allowedModels.length === 0 ? (
-            <p className="text-sm text-text-muted">
+            <p className="text-sm text-foreground-subtle">
               Any model (unrestricted) — this key can request every model alias configured on the
               gateway.
             </p>
@@ -329,7 +343,7 @@ export const OverallTab: React.FC = () => {
               {allowedModels.map((m) => (
                 <span
                   key={m}
-                  className="px-2 py-1 text-xs font-mono rounded-md bg-bg-hover border border-border text-text"
+                  className="px-2 py-1 text-xs font-mono rounded-md bg-surface-elevated border border-border text-foreground"
                 >
                   {m}
                 </span>
@@ -342,12 +356,12 @@ export const OverallTab: React.FC = () => {
       {/* -------- Row 3: Token + request totals for selected range ------ */}
       <Card
         title={`Totals (${timeRange})`}
-        extra={<Activity size={16} className="text-text-muted" />}
+        extra={<Activity size={16} className="text-foreground-subtle" />}
       >
         {loading && !summary ? (
-          <p className="text-sm text-text-muted">Loading…</p>
+          <p className="text-sm text-foreground-subtle">Loading…</p>
         ) : !summary ? (
-          <p className="text-sm text-text-muted">No usage recorded in this range.</p>
+          <EmptyState variant="fill" title="No usage recorded in this range." />
         ) : (
           <div
             className="grid gap-6"
@@ -383,7 +397,7 @@ export const OverallTab: React.FC = () => {
       >
         <Card title="Requests by provider" className="min-w-0">
           {loading && !providerData.length ? (
-            <p className="text-sm text-text-muted">Loading…</p>
+            <p className="text-sm text-foreground-subtle">Loading…</p>
           ) : (
             <BreakdownList
               data={providerData}
@@ -395,7 +409,7 @@ export const OverallTab: React.FC = () => {
 
         <Card title="Tokens by provider" className="min-w-0">
           {loading && !providerData.length ? (
-            <p className="text-sm text-text-muted">Loading…</p>
+            <p className="text-sm text-foreground-subtle">Loading…</p>
           ) : (
             <BreakdownList
               data={providerData}
@@ -407,7 +421,7 @@ export const OverallTab: React.FC = () => {
 
         <Card title="Requests by model alias" className="min-w-0">
           {loading && !modelData.length ? (
-            <p className="text-sm text-text-muted">Loading…</p>
+            <p className="text-sm text-foreground-subtle">Loading…</p>
           ) : (
             <BreakdownList
               data={modelData}
@@ -419,7 +433,7 @@ export const OverallTab: React.FC = () => {
 
         <Card title="Tokens by model alias" className="min-w-0">
           {loading && !modelData.length ? (
-            <p className="text-sm text-text-muted">Loading…</p>
+            <p className="text-sm text-foreground-subtle">Loading…</p>
           ) : (
             <BreakdownList
               data={modelData}

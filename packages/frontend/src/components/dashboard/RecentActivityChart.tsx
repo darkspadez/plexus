@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { UsageData } from '../../lib/api';
 import { formatNumber, formatTokens } from '../../lib/format';
+import { TOOLTIP_STYLE } from '../../lib/chartPalette';
 
 interface RecentActivityChartProps {
   data: UsageData[];
@@ -20,7 +21,7 @@ interface RecentActivityChartProps {
 export const RecentActivityChart: React.FC<RecentActivityChartProps> = ({ data }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-text-muted italic p-8">
+      <div className="flex items-center justify-center h-full text-foreground-subtle italic p-8">
         No activity data available
       </div>
     );
@@ -38,18 +39,23 @@ export const RecentActivityChart: React.FC<RecentActivityChartProps> = ({ data }
             left: 20,
           }}
         >
-          <CartesianGrid stroke="#f5f5f5" vertical={false} strokeOpacity={0.1} />
+          <CartesianGrid
+            stroke="var(--border)"
+            vertical={false}
+            strokeDasharray="3 3"
+            strokeOpacity={0.5}
+          />
           <XAxis
             dataKey="timestamp"
             scale="point"
             padding={{ left: 10, right: 10 }}
-            tick={{ fill: '#888', fontSize: 12 }}
+            tick={{ fill: 'var(--foreground-subtle)', fontSize: 12 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             yAxisId="left"
-            tick={{ fill: '#888', fontSize: 12 }}
+            tick={{ fill: 'var(--foreground-subtle)', fontSize: 12 }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(value) => formatNumber(value as number, 0)}
@@ -57,33 +63,26 @@ export const RecentActivityChart: React.FC<RecentActivityChartProps> = ({ data }
           <YAxis
             yAxisId="right"
             orientation="right"
-            tick={{ fill: '#888', fontSize: 12 }}
+            tick={{ fill: 'var(--foreground-subtle)', fontSize: 12 }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(value) => formatTokens(value as number)}
           />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: 'var(--color-bg-card)',
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text)',
-            }}
-            itemStyle={{ color: 'var(--color-text)' }}
-          />
+          <Tooltip contentStyle={TOOLTIP_STYLE} itemStyle={{ color: 'var(--foreground)' }} />
           <Legend />
           <Bar
             yAxisId="left"
             dataKey="requests"
             barSize={20}
-            fill="#413ea0"
+            fill="var(--chart-1)"
             name="Requests"
-            radius={[4, 4, 0, 0]}
+            radius={[999, 999, 0, 0]}
           />
           <Line
             yAxisId="right"
             type="monotone"
             dataKey="tokens"
-            stroke="#ff7300"
+            stroke="var(--chart-2)"
             name="Tokens"
             dot={{ r: 4 }}
           />

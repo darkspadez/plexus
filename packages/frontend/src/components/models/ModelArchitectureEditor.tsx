@@ -46,47 +46,47 @@ export function ModelArchitectureEditor({ editingAlias, setEditingAlias }: Props
   };
 
   return (
-    <div className="border border-border-glass rounded-sm overflow-hidden">
+    <div className="border border-border rounded-sm overflow-hidden">
       <button
         type="button"
         onClick={() => setIsOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-bg-hover transition-colors duration-150 text-left"
+        className="w-full flex items-center justify-between px-3 py-2 bg-surface-sunken hover:bg-surface-elevated transition-colors duration-150 text-left"
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Cpu size={13} className="text-text-muted" />
-          <span className="font-body text-[13px] font-medium text-text-secondary">
+          <Cpu size={13} className="text-foreground-subtle" />
+          <span className="font-sans text-[13px] font-medium text-foreground-muted">
             Model Architecture
           </span>
           {editingAlias.model_architecture?.total_params && (
-            <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border-glass text-primary bg-bg-hover">
+            <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border text-accent bg-surface-elevated">
               {editingAlias.model_architecture.total_params}B params
             </span>
           )}
         </div>
         {isOpen ? (
-          <ChevronDown size={14} className="text-text-muted" />
+          <ChevronDown size={14} className="text-foreground-subtle" />
         ) : (
-          <ChevronRight size={14} className="text-text-muted" />
+          <ChevronRight size={14} className="text-foreground-subtle" />
         )}
       </button>
 
       {isOpen && (
         <div
-          className="px-3 py-3 border-t border-border-glass"
+          className="px-3 py-3 border-t border-border"
           style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
         >
-          <p className="font-body text-[11px] text-text-muted">
+          <p className="font-sans text-[11px] text-foreground-subtle">
             Fetch model architecture from Hugging Face or enter manually. These values are used for
             energy calculation.
           </p>
 
           {/* Display currently saved architecture values */}
           {editingAlias.model_architecture?.total_params && (
-            <div className="px-3 py-2 bg-bg-subtle border border-border-glass rounded-md">
-              <div className="font-body text-[11px] font-medium text-text-secondary mb-1">
+            <div className="px-3 py-2 bg-surface-sunken border border-border rounded-md">
+              <div className="font-sans text-[11px] font-medium text-foreground-muted mb-1">
                 Currently Saved:
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground">
                 {editingAlias.model_architecture.total_params && (
                   <span>{editingAlias.model_architecture.total_params}B params</span>
                 )}
@@ -100,7 +100,7 @@ export function ModelArchitectureEditor({ editingAlias, setEditingAlias }: Props
                   <span>{editingAlias.model_architecture.heads} heads</span>
                 )}
                 {editingAlias.model_architecture.dtype && (
-                  <span className="text-primary">
+                  <span className="text-accent">
                     {editingAlias.model_architecture.dtype.toUpperCase()}
                   </span>
                 )}
@@ -111,11 +111,11 @@ export function ModelArchitectureEditor({ editingAlias, setEditingAlias }: Props
           {/* HuggingFace Model ID input and fetch button */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="min-w-0 flex-1">
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 Hugging Face Model ID
               </label>
               <input
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 value={hfModelId}
                 onChange={(e) => setHfModelId(e.target.value)}
                 placeholder="e.g. meta-llama/Llama-3.1-70B-Instruct"
@@ -139,13 +139,13 @@ export function ModelArchitectureEditor({ editingAlias, setEditingAlias }: Props
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-2 p-3 border border-border-glass rounded-md bg-bg-subtle sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 p-3 border border-border rounded-md bg-surface-sunken sm:grid-cols-2">
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 Total Params (B)
               </label>
               <input
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 type="number"
                 step="0.1"
                 min="0"
@@ -163,11 +163,11 @@ export function ModelArchitectureEditor({ editingAlias, setEditingAlias }: Props
               />
             </div>
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 Active Params (B)
               </label>
               <input
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 type="number"
                 step="0.1"
                 min="0"
@@ -185,11 +185,11 @@ export function ModelArchitectureEditor({ editingAlias, setEditingAlias }: Props
               />
             </div>
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 Layers
               </label>
               <input
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 type="number"
                 step="1"
                 min="1"
@@ -207,9 +207,11 @@ export function ModelArchitectureEditor({ editingAlias, setEditingAlias }: Props
               />
             </div>
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">Heads</label>
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
+                Heads
+              </label>
               <input
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 type="number"
                 step="1"
                 min="1"
@@ -227,11 +229,11 @@ export function ModelArchitectureEditor({ editingAlias, setEditingAlias }: Props
               />
             </div>
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 KV LoRA Rank
               </label>
               <input
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 type="number"
                 step="1"
                 min="1"
@@ -249,11 +251,11 @@ export function ModelArchitectureEditor({ editingAlias, setEditingAlias }: Props
               />
             </div>
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 RoPE Head Dim
               </label>
               <input
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 type="number"
                 step="1"
                 min="1"
@@ -271,11 +273,11 @@ export function ModelArchitectureEditor({ editingAlias, setEditingAlias }: Props
               />
             </div>
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 Context Length
               </label>
               <input
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 type="number"
                 step="1"
                 min="1"
@@ -293,11 +295,11 @@ export function ModelArchitectureEditor({ editingAlias, setEditingAlias }: Props
               />
             </div>
             <div>
-              <label className="font-body text-[11px] font-medium text-text-secondary">
+              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                 Data Type
               </label>
               <select
-                className="w-full py-2 px-3 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 value={editingAlias.model_architecture?.dtype || ''}
                 onChange={(e) =>
                   setEditingAlias({

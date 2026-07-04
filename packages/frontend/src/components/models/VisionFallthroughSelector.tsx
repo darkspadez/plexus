@@ -40,11 +40,11 @@ export function VisionFallthroughSelector({ aliases }: Props) {
   const sortedAliases = [...aliases].sort((a, b) => a.id.localeCompare(b.id));
 
   return (
-    <span className="inline-flex w-full flex-wrap items-center gap-2 rounded-md border border-border bg-slate-900/60 px-3 py-1.5 sm:w-auto">
-      <Eye size={14} className="text-text-secondary" />
-      <span className="text-xs font-medium text-text-secondary">Vision Fall Through:</span>
+    <span className="inline-flex w-full flex-wrap items-center gap-2 rounded-md border border-border bg-surface-sunken px-3 py-1.5 sm:w-auto">
+      <Eye size={14} className="text-foreground-muted" />
+      <span className="text-xs font-medium text-foreground-muted">Vision Fall Through:</span>
       <select
-        className="min-w-0 flex-1 cursor-pointer border-none bg-transparent text-xs text-text outline-none focus:ring-0 sm:max-w-[140px]"
+        className="min-w-0 flex-1 cursor-pointer border-none bg-transparent text-xs text-foreground outline-none focus:ring-0 sm:max-w-[140px]"
         value={globalDescriptorModel}
         onChange={(e) => setGlobalDescriptorModel(e.target.value)}
       >
@@ -58,7 +58,7 @@ export function VisionFallthroughSelector({ aliases }: Props) {
       <button
         onClick={handleSaveDescriptor}
         disabled={isSavingDescriptor}
-        className="ml-1 text-text-secondary hover:text-primary transition-colors disabled:opacity-50"
+        className="ml-1 text-foreground-muted hover:text-accent transition-colors disabled:opacity-50"
         title="Save descriptor model"
         type="button"
       >

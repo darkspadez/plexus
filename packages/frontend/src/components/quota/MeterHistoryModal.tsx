@@ -8,12 +8,13 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts';
-import { X, RefreshCw } from 'lucide-react';
-import { createPortal } from 'react-dom';
+import { RefreshCw } from 'lucide-react';
 import { api } from '../../lib/api';
 import { formatMeterValue } from './MeterValue';
 import type { Meter, QuotaCheckerInfo } from '../../types/quota';
 import { Button } from '../ui/Button';
+import { Modal } from '../ui/Modal';
+import { TOOLTIP_STYLE, GRID_PROPS, AXIS_TICK_STYLE } from '../../lib/chartPalette';
 
 type TimeRange = '1h' | '3h' | '6h' | '12h' | '24h' | '1w' | '4w';
 
@@ -147,7 +148,9 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
   }, [chartData]);
 
   const isBalance = meter.kind === 'balance';
-  const chartColor = isBalance ? '#06b6d4' : '#8b5cf6';
+  // Use chart-4 (cyan) for balance, chart-2 (violet) for allowance — via CSS vars
+  const areaColor = isBalance ? 'var(--chart-4)' : 'var(--chart-2)';
+  const gradientId = isBalance ? 'mhGradBalance' : 'mhGradAllowance';
   const yLabel = isBalance ? meter.unit : '%';
 
   const formatY = (v: number) =>
@@ -156,157 +159,133 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
   const formatTooltip = (v: number) =>
     isBalance ? formatMeterValue(v, meter.unit) : `${v.toFixed(1)}%`;
 
-  if (!isOpen) return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={meter.label}
+      size="md"
+      footer={
+        <Button variant="secondary" size="sm" onClick={onClose}>
+          Close
+        </Button>
+      }
     >
-      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col rounded-xl border border-border-glass bg-bg-card shadow-2xl sm:max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 border-b border-border-glass px-4 py-3 sm:px-5 sm:py-4">
-          <div className="min-w-0">
-            <h2 className="font-heading text-h2 font-semibold text-text truncate">{meter.label}</h2>
-            <p className="text-xs text-text-muted mt-0.5 truncate">
-              {displayName}
-              {quota.oauthAccountId && ` · ${quota.oauthAccountId}`}
-            </p>
-          </div>
+      {/* Subtitle */}
+      <p className="text-xs text-foreground-muted mb-4">
+        {displayName}
+        {quota.oauthAccountId && ` · ${quota.oauthAccountId}`}
+      </p>
+
+      {/* Time-range selector */}
+      <div className="flex items-center gap-1 overflow-x-auto mb-4">
+        {TIME_RANGES.map((r) => (
           <button
-            onClick={onClose}
-            className="ml-3 flex-shrink-0 p-1.5 rounded-md text-text-muted hover:bg-bg-hover hover:text-text transition-colors"
+            key={r.key}
+            onClick={() => setRange(r.key)}
+            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+              range === r.key
+                ? 'bg-accent/20 text-accent border border-accent/40'
+                : 'text-foreground-muted hover:bg-surface-elevated'
+            }`}
           >
-            <X size={18} />
+            {r.label}
           </button>
-        </div>
-
-        {/* Time-range selector */}
-        <div className="flex items-center gap-1 overflow-x-auto border-b border-border-glass px-4 py-3 sm:px-5">
-          {TIME_RANGES.map((r) => (
-            <button
-              key={r.key}
-              onClick={() => setRange(r.key)}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                range === r.key
-                  ? 'bg-primary/20 text-primary border border-primary/40'
-                  : 'text-text-secondary hover:bg-bg-hover'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-          {loading && <RefreshCw size={14} className="animate-spin text-text-muted ml-auto" />}
-        </div>
-
-        {/* Body */}
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-5">
-          {/* Stats row */}
-          {stats && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {[
-                { label: 'Current', value: formatTooltip(stats.current) },
-                { label: 'Min', value: formatTooltip(stats.min) },
-                { label: 'Max', value: formatTooltip(stats.max) },
-              ].map(({ label, value }) => (
-                <div
-                  key={label}
-                  className="rounded-lg border border-border-glass bg-bg-subtle px-3 py-2"
-                >
-                  <div className="text-[10px] text-text-muted uppercase tracking-wider">
-                    {label}
-                  </div>
-                  <div className="text-sm font-semibold text-text tabular-nums mt-0.5">{value}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Chart */}
-          <div className="h-48 w-full sm:h-52">
-            {error ? (
-              <div className="h-full flex items-center justify-center text-sm text-danger">
-                {error}
-              </div>
-            ) : loading && chartData.length === 0 ? (
-              <div className="h-full flex items-center justify-center gap-2 text-sm text-text-secondary">
-                <RefreshCw size={16} className="animate-spin" />
-                Loading…
-              </div>
-            ) : chartData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-sm text-text-muted">
-                No data for this period
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="mhGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={chartColor} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor={chartColor} stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }}
-                    tickLine={false}
-                    axisLine={false}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    tickFormatter={formatY}
-                    tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={60}
-                    label={
-                      yLabel && yLabel !== '%'
-                        ? undefined
-                        : {
-                            value: '%',
-                            position: 'insideTopRight',
-                            fontSize: 10,
-                            fill: 'var(--color-text-muted)',
-                          }
-                    }
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: 'var(--color-bg-card)',
-                      border: '1px solid var(--color-border-glass)',
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                    labelStyle={{ color: 'var(--color-text-secondary)', marginBottom: 2 }}
-                    itemStyle={{ color: chartColor }}
-                    formatter={(value: unknown) =>
-                      [formatTooltip(value as number), meter.label] as [string, string]
-                    }
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke={chartColor}
-                    strokeWidth={2}
-                    fill="url(#mhGrad)"
-                    dot={false}
-                    activeDot={{ r: 4, fill: chartColor }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end border-t border-border-glass px-4 py-3 sm:px-5">
-          <Button variant="secondary" size="sm" onClick={onClose}>
-            Close
-          </Button>
-        </div>
+        ))}
+        {loading && <RefreshCw size={14} className="animate-spin text-foreground-subtle ml-auto" />}
       </div>
-    </div>,
-    document.body
+
+      {/* Stats row */}
+      {stats && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          {[
+            { label: 'Current', value: formatTooltip(stats.current) },
+            { label: 'Min', value: formatTooltip(stats.min) },
+            { label: 'Max', value: formatTooltip(stats.max) },
+          ].map(({ label, value }) => (
+            <div
+              key={label}
+              className="rounded-lg border border-border bg-surface-elevated px-3 py-2"
+            >
+              <div className="text-[10px] text-foreground-subtle uppercase tracking-wider">
+                {label}
+              </div>
+              <div className="text-sm font-semibold text-foreground tabular-nums mt-0.5">
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Chart */}
+      <div className="h-52 w-full">
+        {error ? (
+          <div className="h-full flex items-center justify-center text-sm text-danger">{error}</div>
+        ) : loading && chartData.length === 0 ? (
+          <div className="h-full flex items-center justify-center gap-2 text-sm text-foreground-muted">
+            <RefreshCw size={16} className="animate-spin" />
+            Loading…
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-sm text-foreground-subtle">
+            No data for this period
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={areaColor} stopOpacity={0.25} />
+                  <stop offset="95%" stopColor={areaColor} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid {...GRID_PROPS} />
+              <XAxis
+                dataKey="label"
+                tick={AXIS_TICK_STYLE}
+                tickLine={false}
+                axisLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tickFormatter={formatY}
+                tick={AXIS_TICK_STYLE}
+                tickLine={false}
+                axisLine={false}
+                width={60}
+                label={
+                  yLabel && yLabel !== '%'
+                    ? undefined
+                    : {
+                        value: '%',
+                        position: 'insideTopRight',
+                        fontSize: 10,
+                        fill: 'var(--foreground-subtle)',
+                      }
+                }
+              />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                labelStyle={{ color: 'var(--foreground-muted)', marginBottom: 2 }}
+                itemStyle={{ color: areaColor }}
+                formatter={(value: unknown) =>
+                  [formatTooltip(value as number), meter.label] as [string, string]
+                }
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={areaColor}
+                strokeWidth={2}
+                fill={`url(#${gradientId})`}
+                dot={false}
+                activeDot={{ r: 4, fill: areaColor }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </Modal>
   );
 };

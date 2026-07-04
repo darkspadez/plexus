@@ -1,20 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { RotateCw, AlertTriangle } from 'lucide-react';
+import { RotateCw, AlertTriangle, Users } from 'lucide-react';
 import { api, type QuotaStatusEntry } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useSelfMe, useSelfQuota } from '../hooks/queries/useMyKey';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { Switch } from '../components/ui/Switch';
 import { CopyButton } from '../components/ui/CopyButton';
-import { QuotaStatusCard } from '../components/quota';
+import { Pill } from '../components/chips/Pill';
+import { QuotaProgressBar } from '../components/quota/QuotaProgressBar';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
 import { Skeleton } from '../components/ui/Skeleton';
-import { sortMostConstrainedFirst } from '../lib/quota';
+import { statusForPercent, formatQuotaValue, sortMostConstrainedFirst } from '../lib/quota';
 
 interface SelfInfo {
   role: 'admin' | 'limited';
@@ -32,10 +34,18 @@ interface SelfInfo {
 export const MyKey: React.FC = () => {
   const { isLimited, isAdmin, login } = useAuth();
   const toast = useToast();
-  const [info, setInfo] = useState<SelfInfo | null>(null);
-  const [quotas, setQuotas] = useState<QuotaStatusEntry[] | null>(null);
-  const [quotaError, setQuotaError] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const selfMeQuery = useSelfMe();
+  const selfQuotaQuery = useSelfQuota();
+  // infoOverride lets mutations patch fields without a full refetch
+  const [infoOverride, setInfoOverride] = useState<Partial<SelfInfo>>({});
+  const baseInfo = (selfMeQuery.data as SelfInfo | null) ?? null;
+  const info: SelfInfo | null = baseInfo ? { ...baseInfo, ...infoOverride } : null;
+  const loading = selfMeQuery.isLoading;
+  // Quota status degrades softly: a fetch failure surfaces as an inline
+  // warning in the Quota card rather than a toast, since it's non-fatal to
+  // the rest of the page (mirrors main's behavior).
+  const quotas: QuotaStatusEntry[] | null = selfQuotaQuery.data?.quotas ?? null;
+  const quotaError = selfQuotaQuery.isError;
   const [comment, setComment] = useState('');
   const [savingComment, setSavingComment] = useState(false);
   const [togglingTrace, setTogglingTrace] = useState(false);
@@ -44,31 +54,17 @@ export const MyKey: React.FC = () => {
   const [newSecret, setNewSecret] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    api
-      .getSelfMe()
-      .then((data) => {
-        if (cancelled) return;
-        setInfo(data);
-        setComment(data.comment ?? '');
-      })
-      .catch((e) => toast.error(String(e), 'Load failed'))
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    api
-      .getSelfQuota()
-      .then((data) => {
-        if (!cancelled) setQuotas(data.quotas);
-      })
-      .catch(() => {
-        if (!cancelled) setQuotaError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
+    if (selfMeQuery.isError) {
+      toast.error('Load failed');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selfMeQuery.isError]);
+
+  useEffect(() => {
+    if (baseInfo?.comment !== undefined) {
+      setComment(baseInfo.comment ?? '');
+    }
+  }, [baseInfo?.comment]);
 
   if (isAdmin && !isLimited) {
     return <Navigate to="/keys" replace />;
@@ -106,7 +102,7 @@ export const MyKey: React.FC = () => {
     setSavingComment(true);
     try {
       await api.updateSelfComment(comment.trim() || null);
-      setInfo({ ...info, comment: comment.trim() || null });
+      setInfoOverride((prev) => ({ ...prev, comment: comment.trim() || null }));
       toast.success('Comment saved');
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save comment');
@@ -119,7 +115,11 @@ export const MyKey: React.FC = () => {
     setTogglingTrace(true);
     try {
       const res = await api.toggleSelfDebug(enabled);
-      setInfo({ ...info, traceEnabled: res.enabled, traceEnabledGlobal: res.enabledGlobal });
+      setInfoOverride((prev) => ({
+        ...prev,
+        traceEnabled: res.enabled,
+        traceEnabledGlobal: res.enabledGlobal,
+      }));
     } catch (e: any) {
       toast.error(e?.message || 'Failed to toggle trace');
     } finally {
@@ -152,29 +152,29 @@ export const MyKey: React.FC = () => {
         title="My Key"
         subtitle={
           <>
-            Details for <span className="font-medium text-text">{info.keyName}</span>. All logs,
-            traces, and dashboard data in this session are scoped to this key.
+            Details for <span className="font-medium text-foreground">{info.keyName}</span>. All
+            logs, traces, and dashboard data in this session are scoped to this key.
           </>
         }
       />
       <PageContainer width="standard">
-        <div className="flex flex-col gap-4 sm:gap-6">
+        <div className="flex flex-col gap-6">
           <Card title="Identity">
             <dl className="grid grid-cols-1 sm:grid-cols-[max-content_1fr] gap-x-6 gap-y-3 text-sm">
-              <dt className="text-text-muted">Key name</dt>
-              <dd className="font-mono text-text break-all">{info.keyName}</dd>
-              <dt className="text-text-muted">Quota</dt>
-              <dd className="text-text">
+              <dt className="text-foreground-subtle">Key name</dt>
+              <dd className="font-mono text-foreground break-all">{info.keyName}</dd>
+              <dt className="text-foreground-subtle">Quota</dt>
+              <dd className="text-foreground">
                 {info.quotaNames && info.quotaNames.length > 0
                   ? info.quotaNames.join(', ')
                   : info.quotaName || '—'}
               </dd>
-              <dt className="text-text-muted">Allowed providers</dt>
-              <dd className="text-text break-words">
+              <dt className="text-foreground-subtle">Allowed providers</dt>
+              <dd className="text-foreground break-words">
                 {allowedProviders.length > 0 ? allowedProviders.join(', ') : 'Any (unrestricted)'}
               </dd>
-              <dt className="text-text-muted">Allowed models</dt>
-              <dd className="text-text break-words">
+              <dt className="text-foreground-subtle">Allowed models</dt>
+              <dd className="text-foreground break-words">
                 {allowedModels.length > 0 ? allowedModels.join(', ') : 'Any (unrestricted)'}
               </dd>
               <dt className="text-text-muted">Raw provider access</dt>
@@ -189,16 +189,58 @@ export const MyKey: React.FC = () => {
                 <span>Could not load quota status — try refreshing.</span>
               </div>
             ) : quotas === null ? (
-              <p className="text-sm text-text-muted">Loading…</p>
+              <p className="text-sm text-foreground-subtle">Loading…</p>
             ) : quotas.length === 0 ? (
-              <p className="text-sm text-text-muted">
+              <p className="text-sm text-foreground-subtle">
                 No quota is assigned to this key — requests are unrestricted by quota policy.
               </p>
             ) : (
               <div className="flex flex-col gap-4">
-                {sortMostConstrainedFirst(quotas).map((q) => (
-                  <QuotaStatusCard key={q.name} entry={q} />
-                ))}
+                {sortMostConstrainedFirst(quotas).map((q) => {
+                  const pct = q.limit > 0 ? Math.min(100, (q.currentUsage / q.limit) * 100) : 0;
+                  return (
+                    <div key={q.name} className="flex flex-col gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-medium text-foreground">{q.name}</span>
+                        {q.source === 'default' && (
+                          <Pill tone="neutral" size="sm" className="uppercase tracking-wider">
+                            default
+                          </Pill>
+                        )}
+                        {q.shared && (
+                          <Pill tone="accent" size="sm" className="uppercase tracking-wider">
+                            <Users size={10} /> shared
+                          </Pill>
+                        )}
+                      </div>
+                      <QuotaProgressBar
+                        label={q.limitType}
+                        value={q.currentUsage}
+                        max={q.limit}
+                        displayValue={`${formatQuotaValue(q.currentUsage, q.limitType)} / ${formatQuotaValue(q.limit, q.limitType)}`}
+                        status={statusForPercent(pct)}
+                        size="md"
+                      />
+                      <div className="flex items-center justify-between text-xs text-foreground-subtle">
+                        <span>
+                          Remaining:{' '}
+                          <span className="text-foreground font-medium">
+                            {formatQuotaValue(q.remaining, q.limitType)}
+                          </span>
+                        </span>
+                        <span>Resets {new Date(q.resetsAt).toLocaleString()}</span>
+                      </div>
+                      {!q.allowed && (
+                        <div className="flex items-center gap-2 text-xs text-danger">
+                          <AlertTriangle size={14} />
+                          <span>
+                            Quota exhausted — new requests will be rejected until it resets.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </Card>
@@ -226,10 +268,10 @@ export const MyKey: React.FC = () => {
           <Card title="Trace capture">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-text">
+                <p className="text-sm text-foreground">
                   Capture full request/response payloads for this key only.
                 </p>
-                <p className="text-xs text-text-muted mt-1">
+                <p className="text-xs text-foreground-subtle mt-1">
                   {info.traceEnabledGlobal
                     ? 'Global tracing is ON (admin) — all requests are captured regardless of this toggle.'
                     : info.traceEnabled
@@ -248,7 +290,7 @@ export const MyKey: React.FC = () => {
 
           <Card title="Rotate secret">
             <div className="flex flex-col gap-3">
-              <p className="text-sm text-text-secondary">
+              <p className="text-sm text-foreground-muted">
                 Generates a new secret for this key. The old secret stops working immediately. Your
                 historical logs, traces, and errors are preserved (they're indexed by key name, not
                 secret).
@@ -275,6 +317,7 @@ export const MyKey: React.FC = () => {
             setNewSecret(null);
           }}
           title={newSecret ? 'New secret generated' : 'Rotate secret?'}
+          size="sm"
           footer={
             newSecret ? (
               <Button
@@ -308,18 +351,18 @@ export const MyKey: React.FC = () => {
         >
           {newSecret ? (
             <div className="flex flex-col gap-3">
-              <p className="text-sm text-text">
+              <p className="text-sm text-foreground">
                 Copy this secret now — it will not be shown again.
               </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <code className="flex-1 min-w-0 p-2 bg-bg-card border border-border rounded-md text-xs font-mono break-all">
+                <code className="flex-1 min-w-0 p-2 bg-surface-elevated border border-border rounded-md text-xs font-mono break-all">
                   {newSecret}
                 </code>
                 <CopyButton value={newSecret} variant="icon" />
               </div>
             </div>
           ) : (
-            <p className="text-sm text-text-secondary">
+            <p className="text-sm text-foreground-muted">
               The old secret will stop working immediately. Any clients using it will receive 401
               errors until they are updated with the new secret.
             </p>

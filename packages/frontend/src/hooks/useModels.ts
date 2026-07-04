@@ -1,7 +1,24 @@
 import Fuse from 'fuse.js';
-import { useState, useEffect, useCallback } from 'react';
-import { api, Alias, Provider, Model, Cooldown } from '../lib/api';
+import { useState, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { api, Alias, Provider, Model } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
+import {
+  useAliases,
+  useSaveAlias,
+  useDeleteAlias,
+  useDeleteAllAliases,
+  useToggleAliasTarget,
+  useUpdateAlias,
+  useAvailableModels,
+  useCooldowns,
+} from './queries/useAliases';
+import { useProviders } from './queries/useProviders';
+import {
+  toAliasPayload,
+  ALIAS_FORM_DEFAULTS,
+  type AliasFormValues,
+} from '../pages/models/alias-schema';
 
 export interface AliasMatch {
   alias: Alias;
@@ -21,14 +38,6 @@ interface AliasSearchEntry {
   value: string;
   normalized: string;
 }
-
-const EMPTY_ALIAS: Alias = {
-  id: '',
-  aliases: [],
-  priority: 'selector',
-  target_groups: [{ name: 'default', selector: 'random', targets: [] }],
-  sticky_session: true,
-};
 
 const IMPORT_SUPPRESSIONS_STORAGE_KEY = 'plexus_suppressed_import_models';
 
@@ -159,20 +168,79 @@ const getAliasMatches = (modelId: string, aliasList: Alias[]): AliasMatch[] => {
 
 export const useModels = () => {
   const toast = useToast();
-  const [aliases, setAliases] = useState<Alias[]>([]);
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [availableModels, setAvailableModels] = useState<Model[]>([]);
-  const [cooldowns, setCooldowns] = useState<Cooldown[]>([]);
+
+  // ---------------------------------------------------------------------------
+  // react-query: data
+  // ---------------------------------------------------------------------------
+  const aliasesQuery = useAliases();
+  const providersQuery = useProviders();
+  const availableModelsQuery = useAvailableModels();
+  const cooldownsQuery = useCooldowns();
+
+  const allAliasesRaw = aliasesQuery.data ?? [];
+  const providers = providersQuery.data ?? [];
+  const availableModels = availableModelsQuery.data ?? [];
+  const cooldowns = cooldownsQuery.data ?? [];
+  const isLoading = aliasesQuery.isLoading;
+
+  // ---------------------------------------------------------------------------
+  // react-query: mutations
+  // ---------------------------------------------------------------------------
+  const saveAliasMutation = useSaveAlias();
+  const deleteAliasMutation = useDeleteAlias();
+  const deleteAllAliasesMutation = useDeleteAllAliases();
+  const toggleTargetMutation = useToggleAliasTarget();
+  const updateAliasMutation = useUpdateAlias();
+
+  // ---------------------------------------------------------------------------
+  // Search state (local — not a server concern)
+  // ---------------------------------------------------------------------------
   const [search, setSearch] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Modal State
+  // ---------------------------------------------------------------------------
+  // Modal state
+  // ---------------------------------------------------------------------------
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingAlias, setEditingAlias] = useState<Alias>(EMPTY_ALIAS);
   const [originalId, setOriginalId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
 
-  // Test State
+  // ---------------------------------------------------------------------------
+  // rhf form — holds the full AliasFormValues (= Alias shape)
+  //
+  // Note: zodResolver is intentionally NOT wired here. handleSave uses the
+  // existing manual validation (via toAliasPayload) to preserve exact legacy
+  // behavior — live zod validation could newly reject previously-valid aliases.
+  // aliasFormSchema (in alias-schema.ts) and toAliasPayload are retained for
+  // the payload contract and characterization tests.
+  // ---------------------------------------------------------------------------
+  const { watch, reset } = useForm<AliasFormValues>({
+    defaultValues: ALIAS_FORM_DEFAULTS,
+  });
+
+  // The form value IS the editing alias — sub-editors read this
+  const editingAlias = watch() as unknown as Alias;
+
+  // setEditingAlias-compatible: sub-editors call setEditingAlias({ ...editingAlias, field: value })
+  // We intercept by wrapping reset(). Since all sub-editors use the object form (not function form),
+  // this is safe. We cast through AliasFormValues since Alias and AliasFormValues are structurally identical.
+  const setEditingAlias: React.Dispatch<React.SetStateAction<Alias>> = useCallback(
+    (valueOrUpdater: Alias | ((prev: Alias) => Alias)) => {
+      if (typeof valueOrUpdater === 'function') {
+        // Function form — apply the updater to the current value
+        reset((current) => {
+          const currentAlias = current as unknown as Alias;
+          const next = (valueOrUpdater as (prev: Alias) => Alias)(currentAlias);
+          return next as unknown as AliasFormValues;
+        });
+      } else {
+        reset(valueOrUpdater as unknown as AliasFormValues);
+      }
+    },
+    [reset]
+  );
+
+  // ---------------------------------------------------------------------------
+  // Test State (local — test result lifecycle is ephemeral)
+  // ---------------------------------------------------------------------------
   const [testStates, setTestStates] = useState<
     Record<
       string,
@@ -186,7 +254,9 @@ export const useModels = () => {
     >
   >({});
 
-  // Import Orphaned Models State
+  // ---------------------------------------------------------------------------
+  // Import Orphaned Models State (local — UI-only state)
+  // ---------------------------------------------------------------------------
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [orphanGroups, setOrphanGroups] = useState<OrphanGroup[]>([]);
   const [selectedImports, setSelectedImports] = useState<Map<string, Set<string>>>(new Map());
@@ -197,81 +267,68 @@ export const useModels = () => {
   const [hasSuppressedImportModels, setHasSuppressedImportModels] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
-  const loadData = useCallback(async () => {
-    try {
-      const [a, p, m, c] = await Promise.all([
-        api.getAliases(),
-        api.getProviders(),
-        api.getModels(),
-        api.getCooldowns(),
-      ]);
-      setAliases(a);
-      setProviders(p);
-      setAvailableModels(m);
-      setCooldowns(c);
-      setIsLoading(false);
-    } catch (e) {
-      console.error('Failed to load data', e);
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 10000);
-    return () => clearInterval(interval);
-  }, [loadData]);
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
 
   const handleEdit = (alias: Alias) => {
     setOriginalId(alias.id);
-    setEditingAlias(JSON.parse(JSON.stringify(alias)));
+    reset(JSON.parse(JSON.stringify(alias)) as AliasFormValues);
     setIsModalOpen(true);
   };
 
   const handleAddNew = () => {
     setOriginalId(null);
-    setEditingAlias(JSON.parse(JSON.stringify(EMPTY_ALIAS)) as Alias);
+    reset(JSON.parse(JSON.stringify(ALIAS_FORM_DEFAULTS)));
     setIsModalOpen(true);
   };
 
   const handleSave = async (alias: Alias, oldId: string | null) => {
-    setIsSaving(true);
-    try {
-      await api.saveAlias(alias, oldId || undefined);
-      await loadData();
-      setIsModalOpen(false);
-      return true;
-    } catch (e) {
-      console.error('Failed to save alias', e);
-      toast.error('Failed to save alias');
+    const result = toAliasPayload(alias as unknown as AliasFormValues);
+    if (!result.ok) {
+      toast.error(result.error);
       return false;
-    } finally {
-      setIsSaving(false);
     }
+
+    return new Promise<boolean>((resolve) => {
+      saveAliasMutation.mutate(
+        { alias: result.alias, oldId: oldId || undefined },
+        {
+          onSuccess: () => {
+            setIsModalOpen(false);
+            resolve(true);
+          },
+          onError: (err: Error) => {
+            toast.error('Failed to save alias: ' + err.message);
+            resolve(false);
+          },
+        }
+      );
+    });
   };
 
   const handleDelete = async (aliasId: string) => {
-    try {
-      await api.deleteAlias(aliasId);
-      await loadData();
-      return true;
-    } catch (e) {
-      console.error('Failed to delete alias', e);
-      toast.error('Failed to delete alias');
-      return false;
-    }
+    return new Promise<boolean>((resolve) => {
+      deleteAliasMutation.mutate(
+        { aliasId },
+        {
+          onSuccess: () => resolve(true),
+          onError: (err: Error) => {
+            toast.error('Failed to delete alias: ' + err.message);
+            resolve(false);
+          },
+        }
+      );
+    });
   };
 
   const handleDeleteAll = async () => {
-    try {
-      await api.deleteAllAliases();
-      await loadData();
-      return true;
-    } catch (e) {
-      console.error('Failed to delete all aliases', e);
-      toast.error('Failed to delete all aliases');
-      return false;
-    }
+    return new Promise<boolean>((resolve) => {
+      deleteAllAliasesMutation.mutate(undefined, {
+        onSuccess: () => resolve(true),
+        onError: () => resolve(false),
+      });
+    });
   };
 
   const handleToggleTarget = async (
@@ -280,20 +337,12 @@ export const useModels = () => {
     targetIndex: number,
     newState: boolean
   ) => {
-    const updatedAlias = JSON.parse(JSON.stringify(alias)) as Alias;
-    if (updatedAlias.target_groups[groupIndex]?.targets[targetIndex]) {
-      updatedAlias.target_groups[groupIndex].targets[targetIndex].enabled = newState;
-    }
+    toggleTargetMutation.mutate({ alias, groupIndex, targetIndex, newState });
+  };
 
-    setAliases((prev) => prev.map((a) => (a.id === alias.id ? updatedAlias : a)));
-
-    try {
-      await api.saveAlias(updatedAlias, alias.id);
-    } catch (e) {
-      console.error('Toggle error', e);
-      toast.error('Failed to update target status: ' + e);
-      loadData();
-    }
+  // Inline expand editor — optimistic per-change save (routing aliases + mappings)
+  const handleUpdateAlias = (updated: Alias) => {
+    updateAliasMutation.mutate({ alias: updated });
   };
 
   const handleTestTarget = async (
@@ -376,13 +425,21 @@ export const useModels = () => {
     }));
   };
 
-  const filteredAliases = aliases.filter((a) => a.id.toLowerCase().includes(search.toLowerCase()));
+  const filteredAliases = allAliasesRaw.filter((a) =>
+    a.id.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // loadData shim — keeps backward compatibility for callers that still call loadData()
+  // (e.g. the import handler). With react-query, we just invalidate the queries.
+  const loadData = useCallback(async () => {
+    await aliasesQuery.refetch();
+  }, [aliasesQuery]);
 
   const handleOpenImport = useCallback(() => {
     const covered = new Set<string>();
     const suppressedImports = readSuppressedImportModels();
     setHasSuppressedImportModels(suppressedImports.size > 0);
-    aliases.forEach((alias) => {
+    allAliasesRaw.forEach((alias) => {
       alias.target_groups.forEach((g) => {
         g.targets.forEach((t) => {
           covered.add(`${t.provider}|${t.model}`);
@@ -414,7 +471,7 @@ export const useModels = () => {
     const groups: OrphanGroup[] = [];
     orphanMap.forEach((candidates, groupKey) => {
       const modelId = canonicalIds.get(groupKey) || groupKey;
-      const aliasMatches = getAliasMatches(modelId, aliases);
+      const aliasMatches = getAliasMatches(modelId, allAliasesRaw);
       groups.push({
         modelId,
         existingAlias: aliasMatches[0]?.alias,
@@ -439,7 +496,7 @@ export const useModels = () => {
     setSelectedImportModels(new Set());
     setSelectedImportAliases(aliasSelections);
     setIsImportModalOpen(true);
-  }, [aliases, availableModels, providers]);
+  }, [allAliasesRaw, availableModels, providers]);
 
   const handleSuppressImportModel = useCallback((modelId: string) => {
     const nextSuppressed = readSuppressedImportModels();
@@ -473,6 +530,12 @@ export const useModels = () => {
   const handleSaveImports = useCallback(async () => {
     setIsImporting(true);
     try {
+      const EMPTY_ALIAS_TARGET_GROUP = {
+        name: 'default',
+        selector: 'random',
+        targets: [],
+      };
+
       for (const modelId of selectedImportModels) {
         const providerIds = selectedImports.get(modelId) ?? new Set<string>();
         if (providerIds.size === 0) continue;
@@ -489,7 +552,7 @@ export const useModels = () => {
         if (selectedAlias) {
           const updatedAlias = JSON.parse(JSON.stringify(selectedAlias)) as Alias;
           if (!updatedAlias.target_groups[0]) {
-            updatedAlias.target_groups = [{ name: 'default', selector: 'random', targets: [] }];
+            updatedAlias.target_groups = [{ ...EMPTY_ALIAS_TARGET_GROUP }];
           }
           // Merge into the first group of the existing alias
           selectedCandidates.forEach((c) => {
@@ -507,8 +570,10 @@ export const useModels = () => {
           await api.saveAlias(updatedAlias, selectedAlias.id);
         } else {
           const newAlias: Alias = {
-            ...EMPTY_ALIAS,
             id: modelId,
+            aliases: [],
+            priority: 'selector',
+            sticky_session: true,
             target_groups: [
               {
                 name: 'default',
@@ -542,9 +607,12 @@ export const useModels = () => {
     }
   }, [selectedImportModels, selectedImports, selectedImportAliases, orphanGroups, loadData, toast]);
 
+  // isSaving derived from mutation state
+  const isSaving = saveAliasMutation.isPending;
+
   return {
     aliases: filteredAliases,
-    allAliases: aliases,
+    allAliases: allAliasesRaw,
     providers,
     availableModels,
     cooldowns,
@@ -564,6 +632,7 @@ export const useModels = () => {
     handleDelete,
     handleDeleteAll,
     handleToggleTarget,
+    handleUpdateAlias,
     handleTestTarget,
     dismissTestMessage,
     loadData,

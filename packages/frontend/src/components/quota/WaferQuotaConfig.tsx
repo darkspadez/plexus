@@ -13,7 +13,7 @@ export const WaferQuotaConfig: React.FC<WaferQuotaConfigProps> = ({ options, onC
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input
@@ -22,11 +22,13 @@ export const WaferQuotaConfig: React.FC<WaferQuotaConfigProps> = ({ options, onC
           placeholder="https://pass.wafer.ai/v1/inference/quota"
           disabled={!includeAllowance}
         />
-        <span className="text-[10px] text-text-muted">Override the Wafer Pass quota endpoint.</span>
+        <span className="text-[10px] text-foreground-subtle">
+          Override the Wafer Pass quota endpoint.
+        </span>
       </div>
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <label className="font-body text-[13px] font-medium text-text-secondary">
+          <label className="font-sans text-[13px] font-medium text-foreground-muted">
             Include Wafer Pass quota
           </label>
           <Switch
@@ -36,7 +38,7 @@ export const WaferQuotaConfig: React.FC<WaferQuotaConfigProps> = ({ options, onC
             aria-label="Include Wafer Pass allowance meter"
           />
         </div>
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-subtle">
           Disable if you only have a PAYG (serverless) account and not a Wafer Pass plan — prevents
           a zeroed-out quota meter from triggering unnecessary cooldowns.
         </span>

@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Terminal, Pause, Play, Trash2, RotateCcw } from 'lucide-react';
+import { Pause, Play, Trash2, RotateCcw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
+import { Input } from '../components/ui/Input';
+import { EmptyState } from '../components/ui/EmptyState';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
 import { api } from '../lib/api';
@@ -18,11 +20,11 @@ interface LogEntry {
 
 const LEVEL_CLASS: Record<string, string> = {
   error: 'text-danger',
-  warn: 'text-secondary',
+  warn: 'text-accent',
   info: 'text-info',
-  debug: 'text-text-muted',
-  verbose: 'text-text-muted',
-  silly: 'text-text-muted',
+  debug: 'text-foreground-subtle',
+  verbose: 'text-foreground-subtle',
+  silly: 'text-foreground-subtle',
 };
 
 const INITIAL_RECONNECT_DELAY_MS = 1_000;
@@ -171,8 +173,11 @@ export const SystemLogs: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!isPaused && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    // Scroll only the terminal viewport — scrollIntoView would also scroll
+    // ancestor containers and yank the whole page down on load.
+    const viewport = logsEndRef.current?.parentElement;
+    if (!isPaused && viewport) {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
     }
   }, [logs, isPaused]);
 
@@ -213,19 +218,11 @@ export const SystemLogs: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-full">
-      <PageHeader
-        title={
-          <span className="inline-flex items-center gap-2">
-            <Terminal size={20} className="text-primary" />
-            System Logs
-          </span>
-        }
-        subtitle="Live tail · stderr+stdout"
-      />
+      <PageHeader title="System Logs" subtitle="Live tail · stderr+stdout" />
       <PageContainer>
         <div className="flex flex-col gap-3 glass-bg rounded-lg overflow-hidden">
-          <div className="flex flex-col gap-3 border-b border-border-glass px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-            <h3 className="font-heading text-h3 font-semibold text-text m-0">Live Output</h3>
+          <div className="flex flex-col gap-3 border-b border-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+            <h3 className="font-sans text-h3 font-semibold text-foreground m-0">Live Output</h3>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               <div className="w-full sm:min-w-[120px]">
                 <Select
@@ -237,7 +234,7 @@ export const SystemLogs: React.FC = () => {
               </div>
               <Button
                 variant="primary"
-                size="sm"
+                size="md"
                 onClick={applyLoggingLevel}
                 disabled={isUpdatingLevel || selectedLevel === currentLevel}
                 className="w-full sm:w-auto"
@@ -246,7 +243,7 @@ export const SystemLogs: React.FC = () => {
               </Button>
               <Button
                 variant="secondary"
-                size="sm"
+                size="md"
                 onClick={resetLoggingLevel}
                 disabled={isUpdatingLevel || currentLevel === startupLevel}
                 leftIcon={<RotateCcw size={14} />}
@@ -256,7 +253,7 @@ export const SystemLogs: React.FC = () => {
               </Button>
               <Button
                 variant="secondary"
-                size="sm"
+                size="md"
                 onClick={() => setIsPaused(!isPaused)}
                 leftIcon={isPaused ? <Play size={14} /> : <Pause size={14} />}
                 className="w-full sm:w-auto"
@@ -265,7 +262,7 @@ export const SystemLogs: React.FC = () => {
               </Button>
               <Button
                 variant="secondary"
-                size="sm"
+                size="md"
                 onClick={clearLogs}
                 leftIcon={<Trash2 size={14} />}
                 className="w-full sm:w-auto"
@@ -275,11 +272,11 @@ export const SystemLogs: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 border-b border-border-glass px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-            <div className="text-xs text-text-secondary">
-              Current level: <span className="text-text font-semibold">{currentLevel}</span> ·
-              Startup default: <span className="text-text font-semibold">{startupLevel}</span> ·
-              Runtime changes reset on restart.
+          <div className="flex flex-col gap-3 border-b border-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+            <div className="text-xs text-foreground-muted">
+              Current level: <span className="text-foreground font-semibold">{currentLevel}</span> ·
+              Startup default: <span className="text-foreground font-semibold">{startupLevel}</span>{' '}
+              · Runtime changes reset on restart.
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -288,7 +285,7 @@ export const SystemLogs: React.FC = () => {
                   moduleFilter.map((m) => (
                     <span
                       key={m}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/30"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-accent/15 text-accent border border-accent/30"
                     >
                       {m}
                       <button
@@ -306,42 +303,42 @@ export const SystemLogs: React.FC = () => {
                             setModuleFilterState(moduleFilter);
                           }
                         }}
-                        className="bg-transparent border-0 p-0 cursor-pointer text-primary/60 hover:text-primary leading-none"
+                        className="bg-transparent border-0 p-0 cursor-pointer text-accent/60 hover:text-accent leading-none"
                       >
                         ×
                       </button>
                     </span>
                   ))
                 ) : (
-                  <span className="text-xs text-text-muted italic">All modules</span>
+                  <span className="text-xs text-foreground-subtle">All modules</span>
                 )}
               </div>
-              <input
-                type="text"
-                value={moduleInput}
-                onChange={(e) => setModuleInput(e.target.value)}
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter' && moduleInput.trim()) {
-                    e.preventDefault();
-                    const mod = moduleInput.trim();
-                    if (!moduleFilter.includes(mod)) {
-                      const next = [...moduleFilter, mod];
-                      setModuleFilterState(next);
-                      setModuleInput('');
-                      try {
-                        await api.setModuleFilter(next);
-                      } catch {
-                        setModuleFilterState(moduleFilter);
+              <div className="w-full sm:w-32">
+                <Input
+                  type="text"
+                  value={moduleInput}
+                  onChange={(e) => setModuleInput(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter' && moduleInput.trim()) {
+                      e.preventDefault();
+                      const mod = moduleInput.trim();
+                      if (!moduleFilter.includes(mod)) {
+                        const next = [...moduleFilter, mod];
+                        setModuleFilterState(next);
+                        setModuleInput('');
+                        try {
+                          await api.setModuleFilter(next);
+                        } catch {
+                          setModuleFilterState(moduleFilter);
+                        }
+                      } else {
+                        setModuleInput('');
                       }
-                    } else {
-                      setModuleInput('');
                     }
-                  }
-                }}
-                placeholder="Add module..."
-                className="h-8 w-full rounded-md border border-border-glass bg-bg px-2 text-xs text-text outline-none transition-colors focus:border-primary sm:h-7 sm:w-32"
-                disabled={false}
-              />
+                  }}
+                  placeholder="Add module..."
+                />
+              </div>
               {moduleFilter.length > 0 && (
                 <button
                   type="button"
@@ -353,7 +350,7 @@ export const SystemLogs: React.FC = () => {
                       // ignore
                     }
                   }}
-                  className="text-xs text-text-secondary hover:text-danger transition-colors bg-transparent border-0 cursor-pointer"
+                  className="text-xs text-foreground-muted hover:text-danger transition-colors bg-transparent border-0 cursor-pointer"
                 >
                   Clear
                 </button>
@@ -361,17 +358,21 @@ export const SystemLogs: React.FC = () => {
             </div>
           </div>
 
-          <div className="h-[55vh] min-h-[280px] max-h-[700px] overflow-y-auto bg-terminal-bg p-2 font-mono text-xs text-terminal-fg sm:h-[60vh] sm:min-h-[320px] sm:p-3">
+          <div className="h-[55vh] min-h-[280px] max-h-[700px] overflow-y-auto bg-surface-sunken p-2 font-mono text-xs text-foreground sm:h-[60vh] sm:min-h-[320px] sm:p-3">
             {logs.length === 0 && (
-              <div className="text-text-muted italic text-center mt-8">Waiting for logs...</div>
+              <EmptyState
+                variant="dense"
+                title="No log output yet"
+                description="Waiting for logs…"
+              />
             )}
             {logs.map((log, i) => (
               <div key={i} className="mb-1 break-all py-0.5 px-1 rounded-sm hover:bg-white/5">
-                <span className="text-text-muted mr-2">[{log.timestamp}]</span>
+                <span className="text-foreground-subtle mr-2">[{log.timestamp}]</span>
                 <span
                   className={clsx(
                     'font-bold mr-2',
-                    LEVEL_CLASS[log.level?.toLowerCase()] ?? 'text-text-muted'
+                    LEVEL_CLASS[log.level?.toLowerCase()] ?? 'text-foreground-subtle'
                   )}
                 >
                   {log.level?.toUpperCase()}:
@@ -379,7 +380,7 @@ export const SystemLogs: React.FC = () => {
                 <span>{log.message}</span>
                 {Object.keys(log).filter((k) => !['level', 'message', 'timestamp'].includes(k))
                   .length > 0 && (
-                  <pre className="text-text-muted text-[11px] ml-8 mt-1 whitespace-pre-wrap">
+                  <pre className="text-foreground-subtle text-[11px] ml-8 mt-1 whitespace-pre-wrap">
                     {JSON.stringify(
                       Object.fromEntries(
                         Object.entries(log).filter(

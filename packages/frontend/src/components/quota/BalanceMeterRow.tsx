@@ -18,20 +18,20 @@ export const BalanceMeterRow: React.FC<BalanceMeterRowProps> = ({ meter, onClick
 
   return (
     <div
-      className={`flex items-center justify-between gap-3 py-0.5 rounded${onClick ? ' cursor-pointer hover:bg-bg-hover px-1 -mx-1 transition-colors' : ''}`}
+      className={`flex items-center justify-between gap-3 py-0.5 rounded${onClick ? ' cursor-pointer hover:bg-surface-elevated px-1 -mx-1 transition-colors' : ''}`}
       onClick={onClick}
       title={onClick ? 'Click to view history' : undefined}
     >
       <div className="flex items-center gap-1.5 min-w-0">
         <Wallet size={12} className="text-info flex-shrink-0" />
-        <span className="text-xs text-text-secondary truncate">{meter.label}</span>
+        <span className="text-xs text-foreground-muted truncate">{meter.label}</span>
       </div>
       {displayValue !== undefined ? (
         <span className="text-xs font-semibold text-info tabular-nums flex-shrink-0">
           {formatMeterValue(displayValue, meter.unit)}
         </span>
       ) : (
-        <span className="text-xs text-text-muted flex-shrink-0">—</span>
+        <span className="text-xs text-foreground-subtle flex-shrink-0">—</span>
       )}
     </div>
   );

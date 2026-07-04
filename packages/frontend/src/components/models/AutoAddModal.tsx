@@ -138,22 +138,22 @@ export function AutoAddModal({
               maxHeight: '400px',
               overflowY: 'auto',
               overflowX: 'auto',
-              border: '1px solid var(--color-border-glass)',
+              border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)',
             }}
           >
-            <table className="w-full border-collapse font-body text-[13px]">
+            <table className="w-full border-collapse font-sans text-[13px]">
               <thead
                 style={{
                   position: 'sticky',
                   top: 0,
-                  backgroundColor: 'var(--color-bg-hover)',
+                  backgroundColor: 'var(--surface-elevated)',
                   zIndex: 10,
                 }}
               >
                 <tr>
                   <th
-                    className="px-4 py-3 text-left font-semibold text-text-secondary text-[11px] uppercase tracking-wider"
+                    className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
                     style={{ width: '40px' }}
                   >
                     <input
@@ -196,10 +196,10 @@ export function AutoAddModal({
                       }}
                     />
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                     Provider
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-text-secondary text-[11px] uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
                     Model
                   </th>
                 </tr>
@@ -216,10 +216,10 @@ export function AutoAddModal({
                   return (
                     <tr
                       key={key}
-                      className="hover:bg-bg-hover"
+                      className="hover:bg-surface-elevated"
                       style={{ opacity: isDisabled ? 0.5 : 1 }}
                     >
-                      <td className="px-4 py-3 text-left text-text">
+                      <td className="px-4 py-3 text-left text-foreground">
                         <input
                           type="checkbox"
                           checked={isSelected || alreadyExists}
@@ -227,15 +227,15 @@ export function AutoAddModal({
                           onChange={() => handleToggleModelSelection(model.id, provider.id)}
                         />
                       </td>
-                      <td className="px-4 py-3 text-left text-text">{provider.name}</td>
-                      <td className="px-4 py-3 text-left text-text">
+                      <td className="px-4 py-3 text-left text-foreground">{provider.name}</td>
+                      <td className="px-4 py-3 text-left text-foreground">
                         {model.name}
                         {alreadyExists && (
                           <span
                             style={{
                               marginLeft: '8px',
                               fontSize: '11px',
-                              color: 'var(--color-text-secondary)',
+                              color: 'var(--foreground-muted)',
                               fontStyle: 'italic',
                             }}
                           >
@@ -250,11 +250,11 @@ export function AutoAddModal({
             </table>
           </div>
         ) : substring ? (
-          <div className="text-text-muted italic text-center text-sm py-8">
+          <div className="text-foreground-subtle italic text-center text-sm py-8">
             No models found matching &quot;{substring}&quot;
           </div>
         ) : (
-          <div className="text-text-muted italic text-center text-sm py-8">
+          <div className="text-foreground-subtle italic text-center text-sm py-8">
             Enter a search term to find models
           </div>
         )}
