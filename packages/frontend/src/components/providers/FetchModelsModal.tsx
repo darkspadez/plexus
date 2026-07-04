@@ -1,7 +1,7 @@
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Badge } from '../ui/Badge';
+import { Pill } from '../chips/Pill';
 import { Download } from 'lucide-react';
 import type { FetchedModel } from '../../hooks/useProviderForm';
 
@@ -96,7 +96,7 @@ export function FetchModelsModal({
         {fetchedModels.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label className="font-body text-[13px] font-medium text-text-secondary">
+              <label className="font-sans text-[13px] font-medium text-foreground-muted">
                 Available Models ({fetchedModels.length})
               </label>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -112,9 +112,9 @@ export function FetchModelsModal({
               style={{
                 maxHeight: '400px',
                 overflowY: 'auto',
-                border: '1px solid var(--color-border-glass)',
+                border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-sm)',
-                background: 'var(--color-bg-deep)',
+                background: 'var(--background)',
               }}
             >
               {fetchedModels.map((model) => {
@@ -126,15 +126,15 @@ export function FetchModelsModal({
                     key={model.id}
                     style={{
                       padding: '12px',
-                      borderBottom: '1px solid var(--color-border-glass)',
+                      borderBottom: '1px solid var(--border)',
                       cursor: 'pointer',
                       background: selectedModelIds.has(model.id)
-                        ? 'var(--color-bg-hover)'
+                        ? 'var(--surface-elevated)'
                         : 'transparent',
                       transition: 'background 0.2s',
                     }}
                     onClick={() => onToggleSelection(model.id)}
-                    className="hover:bg-bg-hover"
+                    className="hover:bg-surface-elevated"
                   >
                     <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
                       <input
@@ -157,25 +157,22 @@ export function FetchModelsModal({
                             style={{
                               fontWeight: 600,
                               fontSize: '13px',
-                              color: 'var(--color-text)',
+                              color: 'var(--foreground)',
                             }}
                           >
                             {model.id}
                           </span>
                           {contextLengthK && (
-                            <Badge
-                              status="connected"
-                              style={{ fontSize: '10px', padding: '2px 6px' }}
-                            >
+                            <Pill tone="success" size="sm">
                               {contextLengthK}
-                            </Badge>
+                            </Pill>
                           )}
                         </div>
                         {model.name && model.name !== model.id && (
                           <div
                             style={{
                               fontSize: '12px',
-                              color: 'var(--color-text-secondary)',
+                              color: 'var(--foreground-muted)',
                               marginBottom: '2px',
                             }}
                           >
@@ -186,7 +183,7 @@ export function FetchModelsModal({
                           <div
                             style={{
                               fontSize: '11px',
-                              color: 'var(--color-text-muted)',
+                              color: 'var(--foreground-subtle)',
                               marginTop: '4px',
                               lineHeight: '1.4',
                             }}
@@ -209,7 +206,7 @@ export function FetchModelsModal({
             style={{
               padding: '32px',
               textAlign: 'center',
-              color: 'var(--color-text-secondary)',
+              color: 'var(--foreground-muted)',
               fontSize: '13px',
               fontStyle: 'italic',
             }}

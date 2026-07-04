@@ -6,6 +6,7 @@ import { UsageTab } from '../components/dashboard/tabs/UsageTab';
 import { PerformanceTab } from '../components/dashboard/tabs/PerformanceTab';
 import { OverallTab } from '../components/dashboard/tabs/OverallTab';
 import { Tabs } from '../components/ui/Tabs';
+import { PageHeader } from '../components/layout/PageHeader';
 import { useAuth } from '../contexts/AuthContext';
 import type { CustomDateRange } from '../lib/date';
 
@@ -78,28 +79,16 @@ export const Dashboard = () => {
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="sticky top-12 md:top-0 z-20 bg-bg-card border-b border-border">
-        <div className="px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4">
-          <div className="flex items-center justify-between gap-3 mb-2.5 sm:mb-3 flex-wrap">
-            <div>
-              <h1 className="font-heading text-lg sm:text-2xl font-semibold tracking-tight m-0 leading-tight">
-                Dashboard
-              </h1>
-              <p className="text-[11px] sm:text-xs text-text-secondary mt-0.5">
-                Real-time gateway traffic across all providers
-              </p>
-            </div>
-          </div>
-          <Tabs<TabId>
-            value={activeTab}
-            onChange={setTab}
-            items={tabs}
-            variant="underline"
-            className="-mx-3 px-3 sm:mx-0 sm:px-0"
-            aria-label="Dashboard sections"
-          />
-        </div>
-      </div>
+      <PageHeader title="Dashboard" subtitle="Real-time gateway traffic across all providers">
+        <Tabs<TabId>
+          value={activeTab}
+          onChange={setTab}
+          items={tabs}
+          variant="underline"
+          className="-mx-3 px-3 sm:mx-0 sm:px-0"
+          aria-label="Dashboard sections"
+        />
+      </PageHeader>
 
       {/* No padding here — each tab component (LiveTab/UsageTab/PerformanceTab/
           OverallTab) provides its own page padding so we don't double-pad on mobile. */}

@@ -58,7 +58,7 @@ export const KeyValueEditor: React.FC<KeyValueEditorProps> = ({
   return (
     <div className="flex flex-col gap-2">
       {keys.length === 0 && emptyText && (
-        <p className="text-xs text-text-muted italic">{emptyText}</p>
+        <p className="text-xs text-foreground-muted italic">{emptyText}</p>
       )}
       {keys.map((key) => (
         <div key={key} className="flex flex-col sm:flex-row items-stretch sm:items-start gap-2">
@@ -76,7 +76,7 @@ export const KeyValueEditor: React.FC<KeyValueEditorProps> = ({
                 onChange={(e) => updateValue(key, e.target.value)}
                 placeholder={valuePlaceholder}
                 rows={2}
-                className="w-full py-2.5 px-3.5 font-body text-sm text-text bg-bg-glass border border-border-glass rounded-md outline-none transition-all duration-fast backdrop-blur-md placeholder:text-text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25 resize-y"
+                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-background border border-border rounded-md outline-none transition-colors duration-150 placeholder:text-foreground-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background resize-y"
               />
             ) : (
               <Input
@@ -90,7 +90,7 @@ export const KeyValueEditor: React.FC<KeyValueEditorProps> = ({
             type="button"
             onClick={() => removeEntry(key)}
             aria-label={`Remove ${key}`}
-            className="inline-flex items-center justify-center h-10 w-10 flex-shrink-0 rounded-md text-text-muted hover:text-danger hover:bg-red-500/10 transition-colors duration-fast focus-visible:outline-2 focus-visible:outline focus-visible:outline-danger focus-visible:outline-offset-2"
+            className="inline-flex items-center justify-center h-8 w-8 flex-shrink-0 rounded-md text-foreground-muted hover:text-danger hover:bg-danger-subtle transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <Trash2 size={16} />
           </button>

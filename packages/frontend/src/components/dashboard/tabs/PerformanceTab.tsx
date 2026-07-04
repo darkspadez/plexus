@@ -1,21 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart3, Gauge, TimerReset, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
-import { api, type ProviderPerformanceData } from '../../../lib/api';
+import { type ProviderPerformanceData } from '../../../lib/api';
 import { formatMs, formatNumber } from '../../../lib/format';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
+import { EmptyState } from '../../ui/EmptyState';
 import { useToast } from '../../../contexts/ToastContext';
+import {
+  useProviderPerformance,
+  useClearProviderPerformance,
+} from '../../../hooks/queries/usePerformance';
 
 const BAR_COLORS = [
-  '#c26134',
-  '#8f7aea',
-  '#c08752',
-  '#332f5d',
-  '#cc6531',
-  '#7e68e0',
-  '#a8774e',
-  '#5c549d',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
 ];
 
 type ChartMetric = 'avg_tokens_per_sec' | 'avg_ttft_ms';
@@ -60,9 +65,7 @@ const PerformanceBarChart = ({
   return (
     <div ref={containerRef} className="h-full w-full min-w-0">
       {chartData.length === 0 ? (
-        <div className="h-full w-full min-w-0 flex items-center justify-center text-sm text-text-secondary">
-          No performance data for this model yet.
-        </div>
+        <EmptyState variant="fill" title="No performance data for this model yet." />
       ) : size.width > 10 && size.height > 10 ? (
         <BarChart
           width={size.width}
@@ -73,29 +76,38 @@ const PerformanceBarChart = ({
         >
           <CartesianGrid
             strokeDasharray="3 3"
-            stroke="var(--color-border-glass)"
-            horizontal={false}
+            stroke="var(--border)"
+            vertical={false}
+            strokeOpacity={0.5}
           />
           <XAxis
             type="number"
-            stroke="var(--color-text-secondary)"
+            tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+            tickLine={false}
+            axisLine={false}
             tickFormatter={(value) =>
               metric === 'avg_tokens_per_sec'
                 ? formatNumber(value as number)
                 : formatMs(value as number)
             }
           />
-          <YAxis type="category" dataKey="label" stroke="var(--color-text-secondary)" width={80} />
+          <YAxis
+            type="category"
+            dataKey="label"
+            tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+            tickLine={false}
+            axisLine={false}
+            width={80}
+          />
           <Tooltip
             contentStyle={{
-              backgroundColor: 'rgba(8, 13, 28, 0.96)',
-              borderColor: 'rgba(148, 163, 184, 0.35)',
+              backgroundColor: 'var(--surface-elevated)',
+              border: '1px solid var(--border)',
               borderRadius: '8px',
-              color: '#f8fafc',
+              color: 'var(--foreground)',
             }}
-            labelStyle={{ color: '#f8fafc', fontWeight: 600 }}
-            itemStyle={{ color: '#f8fafc' }}
-            cursor={{ fill: 'rgba(148, 163, 184, 0.12)' }}
+            labelStyle={{ color: 'var(--foreground)', fontWeight: 600 }}
+            itemStyle={{ color: 'var(--foreground)' }}
             formatter={(value) => {
               const numericValue = Number(value ?? 0);
               return [
@@ -113,7 +125,7 @@ const PerformanceBarChart = ({
               return label;
             }}
           />
-          <Bar dataKey={metric} radius={[0, 6, 6, 0]}>
+          <Bar dataKey={metric} radius={[0, 999, 999, 0]}>
             {chartData.map((_, index) => (
               <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
             ))}
@@ -126,17 +138,15 @@ const PerformanceBarChart = ({
 
 export const PerformanceTab = () => {
   const toast = useToast();
-  const [rows, setRows] = useState<ProviderPerformanceData[]>([]);
   const [selectedModel, setSelectedModel] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [clearing, setClearing] = useState(false);
 
-  const loadPerformance = async () => {
-    setLoading(true);
-    const data = await api.getProviderPerformance();
-    setRows(data);
-    setLoading(false);
-  };
+  const performanceQuery = useProviderPerformance();
+  const clearMutation = useClearProviderPerformance();
+  const [manualRefreshing, setManualRefreshing] = useState(false);
+
+  const rows: ProviderPerformanceData[] = performanceQuery.data ?? [];
+  const loading = performanceQuery.isLoading || manualRefreshing;
+  const clearing = clearMutation.isPending;
 
   const clearPerformance = async () => {
     if (!selectedModel) return;
@@ -148,17 +158,8 @@ export const PerformanceTab = () => {
     });
     if (!ok) return;
 
-    setClearing(true);
-    const success = await api.clearProviderPerformance(selectedModel);
-    if (success) {
-      await loadPerformance();
-    }
-    setClearing(false);
+    clearMutation.mutate(selectedModel);
   };
-
-  useEffect(() => {
-    loadPerformance();
-  }, []);
 
   const models = useMemo(() => {
     const unique = Array.from(new Set(rows.map((r) => r.model).filter(Boolean)));
@@ -193,10 +194,10 @@ export const PerformanceTab = () => {
   );
 
   return (
-    <div className="p-6 transition-all duration-300">
+    <div className="p-3 sm:p-6 sm:pt-2 lg:p-8 lg:pt-2 transition-all duration-300">
       <div className="mb-8">
-        <h1 className="font-heading text-3xl font-bold text-text m-0 mb-2">Performance</h1>
-        <p className="text-[15px] text-text-secondary m-0">
+        <h1 className="font-sans text-3xl font-bold text-foreground m-0 mb-2">Performance</h1>
+        <p className="text-[15px] text-foreground-muted m-0">
           Compare provider speed for a given model by throughput and time-to-first-token.
         </p>
       </div>
@@ -206,7 +207,7 @@ export const PerformanceTab = () => {
           <select
             value={selectedModel}
             onChange={(e) => setSelectedModel(e.target.value)}
-            className="bg-bg-glass text-text border border-border-glass rounded-md px-3 py-2 text-sm min-w-60"
+            className="bg-surface text-foreground border border-border rounded-md px-3 py-2 text-sm min-w-60"
           >
             {models.length === 0 ? (
               <option value="">No models available</option>
@@ -219,7 +220,15 @@ export const PerformanceTab = () => {
             )}
           </select>
 
-          <Button size="sm" variant="secondary" onClick={loadPerformance} isLoading={loading}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setManualRefreshing(true);
+              performanceQuery.refetch().finally(() => setManualRefreshing(false));
+            }}
+            isLoading={loading}
+          >
             Refresh
           </Button>
 
@@ -234,11 +243,12 @@ export const PerformanceTab = () => {
             Clear
           </Button>
 
-          <div className="text-sm text-text-secondary">
-            Providers: <span className="text-text font-medium">{selectedRows.length}</span>
+          <div className="text-sm text-foreground-muted">
+            Providers: <span className="text-foreground font-medium">{selectedRows.length}</span>
           </div>
-          <div className="text-sm text-text-secondary">
-            Samples: <span className="text-text font-medium">{formatNumber(totalSamples, 0)}</span>
+          <div className="text-sm text-foreground-muted">
+            Samples:{' '}
+            <span className="text-foreground font-medium">{formatNumber(totalSamples, 0)}</span>
           </div>
         </div>
       </Card>
@@ -247,7 +257,7 @@ export const PerformanceTab = () => {
         <Card
           className="min-w-0"
           title="Fastest Providers (tok/s)"
-          extra={<Gauge size={16} className="text-primary" />}
+          extra={<Gauge size={16} className="text-accent" />}
         >
           <div style={{ height: 280 }}>
             <PerformanceBarChart data={fastestByTokens} metric="avg_tokens_per_sec" reverse />
@@ -257,10 +267,10 @@ export const PerformanceTab = () => {
               const label = row.target_model ? `${row.provider}/${row.target_model}` : row.provider;
               return (
                 <div key={label} className="flex items-center justify-between text-sm">
-                  <span className="text-text-secondary">
+                  <span className="text-foreground-muted">
                     {String(index + 1).padStart(2, '0')}. {label}
                   </span>
-                  <span className="text-text font-medium">
+                  <span className="text-foreground font-medium">
                     {formatNumber(row.avg_tokens_per_sec, 1)} tok/s
                   </span>
                 </div>
@@ -272,7 +282,7 @@ export const PerformanceTab = () => {
         <Card
           className="min-w-0"
           title="Fastest First Token (TTFT)"
-          extra={<TimerReset size={16} className="text-primary" />}
+          extra={<TimerReset size={16} className="text-accent" />}
         >
           <div style={{ height: 280 }}>
             <PerformanceBarChart data={fastestByTtft} metric="avg_ttft_ms" reverse />
@@ -282,10 +292,10 @@ export const PerformanceTab = () => {
               const label = row.target_model ? `${row.provider}/${row.target_model}` : row.provider;
               return (
                 <div key={label} className="flex items-center justify-between text-sm">
-                  <span className="text-text-secondary">
+                  <span className="text-foreground-muted">
                     {String(index + 1).padStart(2, '0')}. {label}
                   </span>
-                  <span className="text-text font-medium">{formatMs(row.avg_ttft_ms)}</span>
+                  <span className="text-foreground font-medium">{formatMs(row.avg_ttft_ms)}</span>
                 </div>
               );
             })}
@@ -295,25 +305,25 @@ export const PerformanceTab = () => {
         <Card
           className="min-w-0"
           title="Selected Model"
-          extra={<BarChart3 size={16} className="text-primary" />}
+          extra={<BarChart3 size={16} className="text-accent" />}
         >
           <div className="space-y-3 text-sm">
-            <div className="text-text-secondary">Model</div>
-            <div className="text-text font-medium break-all">{selectedModel || '—'}</div>
+            <div className="text-foreground-muted">Model</div>
+            <div className="text-foreground font-medium break-all">{selectedModel || '—'}</div>
 
-            <div className="pt-2 border-t border-border-glass text-text-secondary">
+            <div className="pt-2 border-t border-border text-foreground-muted">
               Top throughput provider
             </div>
-            <div className="text-text font-medium">
+            <div className="text-foreground font-medium">
               {fastestByTokens[0]
                 ? `${fastestByTokens[0].target_model ? `${fastestByTokens[0].provider}/${fastestByTokens[0].target_model}` : fastestByTokens[0].provider} · ${formatNumber(fastestByTokens[0].avg_tokens_per_sec, 1)} tok/s`
                 : '—'}
             </div>
 
-            <div className="pt-2 border-t border-border-glass text-text-secondary">
+            <div className="pt-2 border-t border-border text-foreground-muted">
               Lowest TTFT provider
             </div>
-            <div className="text-text font-medium">
+            <div className="text-foreground font-medium">
               {fastestByTtft[0]
                 ? `${fastestByTtft[0].target_model ? `${fastestByTtft[0].provider}/${fastestByTtft[0].target_model}` : fastestByTtft[0].provider} · ${formatMs(fastestByTtft[0].avg_ttft_ms)}`
                 : '—'}

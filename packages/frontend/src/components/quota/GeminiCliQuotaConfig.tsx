@@ -17,7 +17,7 @@ export const GeminiCliQuotaConfig: React.FC<GeminiCliQuotaConfigProps> = ({
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input
@@ -28,7 +28,7 @@ export const GeminiCliQuotaConfig: React.FC<GeminiCliQuotaConfigProps> = ({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           User Agent (optional)
         </label>
         <Input
@@ -39,7 +39,7 @@ export const GeminiCliQuotaConfig: React.FC<GeminiCliQuotaConfigProps> = ({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Goog API Client (optional)
         </label>
         <Input
@@ -50,7 +50,7 @@ export const GeminiCliQuotaConfig: React.FC<GeminiCliQuotaConfigProps> = ({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Client Metadata (optional)
         </label>
         <Input

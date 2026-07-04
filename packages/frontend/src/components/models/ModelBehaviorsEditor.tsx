@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Switch } from '../ui/Switch';
-import { Badge } from '../ui/Badge';
+import { Pill } from '../chips/Pill';
 import { DebouncedInput } from '../ui/DebouncedInput';
 import { ModelArchitectureEditor } from './ModelArchitectureEditor';
 import { AliasExtraBodyEditor } from './AliasExtraBodyEditor';
@@ -30,40 +30,42 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
   };
 
   return (
-    <div className="border border-border-glass rounded-sm overflow-hidden">
+    <div className="border border-border rounded-sm overflow-hidden">
       <button
         type="button"
         onClick={() => setIsOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-bg-subtle hover:bg-bg-hover transition-colors duration-150 text-left"
+        className="w-full flex items-center justify-between px-3 py-2 bg-surface-sunken hover:bg-surface-elevated transition-colors duration-150 text-left"
       >
-        <span className="font-body text-[13px] font-medium text-text-secondary">Advanced</span>
+        <span className="font-sans text-[13px] font-medium text-foreground-muted">Advanced</span>
         {isOpen ? (
-          <ChevronDown size={14} className="text-text-muted" />
+          <ChevronDown size={14} className="text-foreground-subtle" />
         ) : (
-          <ChevronRight size={14} className="text-text-muted" />
+          <ChevronRight size={14} className="text-foreground-subtle" />
         )}
       </button>
 
       {isOpen && (
         <div
-          className="px-3 py-3 border-t border-border-glass"
+          className="px-3 py-3 border-t border-border"
           style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
         >
           {/* ── Behaviors ── */}
           <div>
             <label
-              className="font-body text-[13px] font-medium text-text-secondary"
+              className="font-sans text-[13px] font-medium text-foreground-muted"
               style={{ display: 'block', marginBottom: '6px' }}
             >
               Behaviors
             </label>
             <div className="flex items-center justify-between py-1">
               <div>
-                <span className="font-body text-[13px] text-text">Strip Adaptive Thinking</span>
-                <p className="font-body text-[11px] text-text-muted mt-0.5">
-                  On the <code className="text-primary">/v1/messages</code> path, remove{' '}
-                  <code className="text-primary">thinking</code> when set to{' '}
-                  <code className="text-primary">adaptive</code> so the provider uses its default
+                <span className="font-sans text-[13px] text-foreground">
+                  Strip Adaptive Thinking
+                </span>
+                <p className="font-sans text-[11px] text-foreground-subtle mt-0.5">
+                  On the <code className="text-accent">/v1/messages</code> path, remove{' '}
+                  <code className="text-accent">thinking</code> when set to{' '}
+                  <code className="text-accent">adaptive</code> so the provider uses its default
                   behaviour.
                 </p>
               </div>
@@ -76,8 +78,8 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
 
             <div className="flex items-center justify-between py-1">
               <div>
-                <span className="font-body text-[13px] text-text">Vision Fallthrough</span>
-                <p className="font-body text-[11px] text-text-muted mt-0.5">
+                <span className="font-sans text-[13px] text-foreground">Vision Fallthrough</span>
+                <p className="font-sans text-[11px] text-foreground-subtle mt-0.5">
                   If the request contains images and the target model is text-only, use the
                   descriptor model to convert images to text.
                 </p>
@@ -91,8 +93,8 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
 
             <div className="flex items-center justify-between py-1">
               <div>
-                <span className="font-body text-[13px] text-text">Enforce Limits</span>
-                <p className="font-body text-[11px] text-text-muted mt-0.5">
+                <span className="font-sans text-[13px] text-foreground">Enforce Limits</span>
+                <p className="font-sans text-[11px] text-foreground-subtle mt-0.5">
                   Reject oversized prompts locally (400 context_length_exceeded) before dispatch.
                   Uses a fast heuristic estimator with a 10% safety margin, and reserves the smaller
                   of max_tokens and the model&apos;s max completion for the response. Requires a
@@ -108,8 +110,8 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
 
             <div className="flex items-center justify-between py-1">
               <div>
-                <span className="font-body text-[13px] text-text">Sticky Session</span>
-                <p className="font-body text-[11px] text-text-muted mt-0.5">
+                <span className="font-sans text-[13px] text-foreground">Sticky Session</span>
+                <p className="font-sans text-[11px] text-foreground-subtle mt-0.5">
                   For multi-turn conversations, prefer the same provider/model used on the previous
                   turn (when still healthy) for better prompt-cache hit rates and consistent model
                   behaviour. Session continuity is tracked in memory only.
@@ -123,17 +125,17 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
             </div>
           </div>
 
-          <div className="h-px bg-border-glass"></div>
+          <div className="h-px bg-border"></div>
 
           {/* ── Model Architecture ── */}
           <ModelArchitectureEditor editingAlias={editingAlias} setEditingAlias={setEditingAlias} />
 
-          <div className="h-px bg-border-glass"></div>
+          <div className="h-px bg-border"></div>
 
           {/* ── Extra Body Fields ── */}
           <AliasExtraBodyEditor editingAlias={editingAlias} setEditingAlias={setEditingAlias} />
 
-          <div className="h-px bg-border-glass"></div>
+          <div className="h-px bg-border"></div>
 
           {/* ── Compaction Override ── */}
           <div>
@@ -145,31 +147,31 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
             >
               {isCompactionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <span
-                className="font-body text-[13px] font-medium text-text-secondary"
+                className="font-sans text-[13px] font-medium text-foreground-muted"
                 style={{ marginBottom: 0 }}
               >
                 Compaction Override
               </span>
               {editingAlias.compaction &&
                 Object.values(editingAlias.compaction).some((v) => v != null) && (
-                  <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                  <Pill tone="neutral" size="sm">
                     Custom
-                  </Badge>
+                  </Pill>
                 )}
             </button>
             {isCompactionOpen && (
               <div
-                className="border border-border-glass rounded-md"
+                className="border border-border rounded-md"
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '6px',
                   padding: '8px',
-                  background: 'var(--color-bg-subtle)',
+                  background: 'var(--surface-sunken)',
                 }}
               >
                 <div
-                  className="font-body text-[11px] text-text-secondary"
+                  className="font-sans text-[11px] text-foreground-muted"
                   style={{ lineHeight: 1.35 }}
                 >
                   Override global context-compaction for this alias. Empty = inherit (alias
@@ -178,14 +180,14 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
                 </div>
                 {/* enabled tri-state */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
                     Enabled
-                    <span className="font-normal text-[10px] text-text-muted ml-1">
+                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
                       Inherit / On / Off
                     </span>
                   </label>
                   <select
-                    className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                     value={
                       editingAlias.compaction?.enabled == null
                         ? ''
@@ -212,14 +214,14 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
                 </div>
                 {/* strategy */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
                     Strategy
-                    <span className="font-normal text-[10px] text-text-muted ml-1">
+                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
                       native | headroom
                     </span>
                   </label>
                   <select
-                    className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                     value={editingAlias.compaction?.strategy ?? ''}
                     onChange={(e) => {
                       const raw = e.target.value;
@@ -242,9 +244,11 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                   {/* triggerRatio */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       Trigger Ratio
-                      <span className="font-normal text-[10px] text-text-muted ml-1">0–1</span>
+                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
+                        0–1
+                      </span>
                     </label>
                     <DebouncedInput
                       type="number"
@@ -272,9 +276,11 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
                   </div>
                   {/* absoluteTriggerTokens */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       Abs. Trigger Tokens
-                      <span className="font-normal text-[10px] text-text-muted ml-1">optional</span>
+                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
+                        optional
+                      </span>
                     </label>
                     <DebouncedInput
                       type="number"
@@ -302,7 +308,7 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
                   </div>
                   {/* minTokens */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       Min Tokens
                     </label>
                     <DebouncedInput
@@ -330,7 +336,7 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
                   </div>
                   {/* protectRecent */}
                   <div>
-                    <label className="font-body text-[11px] font-medium text-text-secondary block mb-1">
+                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
                       Protect Recent
                     </label>
                     <DebouncedInput

@@ -46,7 +46,7 @@ export function ProviderOAuthEditor({
 }: Props) {
   return (
     <div
-      className="border border-border-glass rounded-md p-3 bg-bg-subtle"
+      className="border border-border rounded-md p-3 bg-surface-sunken"
       style={{ marginTop: '4px' }}
     >
       <div
@@ -59,8 +59,10 @@ export function ProviderOAuthEditor({
         }}
       >
         <div>
-          <div className="font-body text-[13px] font-medium text-text">OAuth Authentication</div>
-          <div className="text-[11px] text-text-secondary">
+          <div className="font-sans text-[13px] font-medium text-foreground">
+            OAuth Authentication
+          </div>
+          <div className="text-[11px] text-foreground-muted">
             Tokens are saved to auth.json after login.
           </div>
         </div>
@@ -75,12 +77,12 @@ export function ProviderOAuthEditor({
                   ? 'var(--color-success)'
                   : oauthStatus === 'error' || oauthStatus === 'cancelled'
                     ? 'var(--color-danger)'
-                    : 'var(--color-text-secondary)',
+                    : 'var(--foreground-muted)',
               opacity: oauthCredentialChecking ? 0.6 : 1,
             }}
           />
           <span
-            className="text-[11px] font-medium text-text-secondary"
+            className="text-[11px] font-medium text-foreground-muted"
             style={{ textTransform: 'lowercase' }}
           >
             {oauthStatusLabel}
@@ -98,7 +100,7 @@ export function ProviderOAuthEditor({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
           <Input label="Authorization URL" value={oauthSession.authInfo.url} readOnly />
           {oauthSession.authInfo.instructions && (
-            <div className="text-[11px] text-text-secondary flex items-center gap-1">
+            <div className="text-[11px] text-foreground-muted flex items-center gap-1">
               <Info size={12} />
               <span>{oauthSession.authInfo.instructions}</span>
             </div>
@@ -107,8 +109,8 @@ export function ProviderOAuthEditor({
       )}
 
       {oauthSession?.prompt && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', marginBottom: '8px' }}>
-          <div style={{ flex: 1 }}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end mb-2">
+          <div className="min-w-0 flex-1">
             <Input
               label={oauthSession.prompt.message}
               placeholder={oauthSession.prompt.placeholder}
@@ -120,6 +122,7 @@ export function ProviderOAuthEditor({
             size="sm"
             onClick={onSubmitPrompt}
             disabled={oauthBusy || (!oauthSession.prompt.allowEmpty && !oauthPromptValue)}
+            className="w-full sm:w-auto"
           >
             Submit
           </Button>
@@ -127,8 +130,8 @@ export function ProviderOAuthEditor({
       )}
 
       {oauthStatus === 'awaiting_manual_code' && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', marginBottom: '8px' }}>
-          <div style={{ flex: 1 }}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end mb-2">
+          <div className="min-w-0 flex-1">
             <Input
               label="Paste redirect URL or code"
               value={oauthManualCode}
@@ -136,7 +139,12 @@ export function ProviderOAuthEditor({
               placeholder="https://..."
             />
           </div>
-          <Button size="sm" onClick={onSubmitManualCode} disabled={oauthBusy || !oauthManualCode}>
+          <Button
+            size="sm"
+            onClick={onSubmitManualCode}
+            disabled={oauthBusy || !oauthManualCode}
+            className="w-full sm:w-auto"
+          >
             Submit
           </Button>
         </div>
@@ -144,8 +152,8 @@ export function ProviderOAuthEditor({
 
       {oauthSession?.progress && oauthSession.progress.length > 0 && (
         <div style={{ marginBottom: '8px' }}>
-          <div className="text-[11px] text-text-secondary">Progress</div>
-          <div className="text-[11px] text-text" style={{ marginTop: '4px' }}>
+          <div className="text-[11px] text-foreground-muted">Progress</div>
+          <div className="text-[11px] text-foreground" style={{ marginTop: '4px' }}>
             {(oauthSession.progress ?? []).slice(-3).map((message, idx) => (
               <div key={`${message}-${idx}`}>{message}</div>
             ))}
@@ -159,13 +167,14 @@ export function ProviderOAuthEditor({
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '8px' }}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <Button
           size="sm"
           variant="secondary"
           onClick={onStart}
           isLoading={oauthBusy && !oauthSessionId}
           disabled={oauthBusy || (!!oauthSessionId && !oauthIsTerminal)}
+          className="w-full sm:w-auto"
         >
           {oauthSessionId && !oauthIsTerminal
             ? 'OAuth in progress'
@@ -174,7 +183,13 @@ export function ProviderOAuthEditor({
               : 'Start OAuth'}
         </Button>
         {oauthSessionId && !oauthIsTerminal && (
-          <Button size="sm" variant="ghost" onClick={onCancel} disabled={oauthBusy}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={oauthBusy}
+            className="w-full sm:w-auto"
+          >
             Cancel
           </Button>
         )}

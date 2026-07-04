@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { RefreshCw, Cpu, Gauge, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
-import { api, fetchQuotaCheckers } from '../lib/api';
+import { useQuotaCheckers, useTriggerQuotaCheck } from '../hooks/queries/useQuotas';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -14,9 +14,6 @@ import { MeterHistoryModal } from '../components/quota/MeterHistoryModal';
 import { getCheckerDisplayName } from '../components/quota/checker-presentation';
 
 export const Quotas = () => {
-  const [quotas, setQuotas] = useState<(QuotaCheckerInfo & { pending?: boolean })[]>([]);
-  const [displayNameMap, setDisplayNameMap] = useState<Map<string, string>>(new Map());
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState<Set<string>>(new Set());
   const [historyTarget, setHistoryTarget] = useState<{
     quota: QuotaCheckerInfo;
@@ -24,31 +21,26 @@ export const Quotas = () => {
     displayName: string;
   } | null>(null);
 
-  const fetchQuotas = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchQuotaCheckers();
-      setDisplayNameMap(new Map(data.knownTypes.map((t) => [t.type, t.displayName])));
-      setQuotas(data.configured);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const checkersQuery = useQuotaCheckers({ refetchInterval: 30_000 });
+  const triggerCheckMutation = useTriggerQuotaCheck();
 
-  useEffect(() => {
-    fetchQuotas();
-    const interval = setInterval(fetchQuotas, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const quotas: (QuotaCheckerInfo & { pending?: boolean })[] = checkersQuery.data?.configured ?? [];
+  const displayNameMap = useMemo<Map<string, string>>(
+    () => new Map((checkersQuery.data?.knownTypes ?? []).map((t) => [t.type, t.displayName])),
+    [checkersQuery.data?.knownTypes]
+  );
+  const loading = checkersQuery.isLoading;
 
-  const handleRefresh = async (checkerId: string) => {
+  const handleRefresh = (checkerId: string) => {
     setRefreshing((prev) => new Set(prev).add(checkerId));
-    await api.triggerQuotaCheck(checkerId);
-    await fetchQuotas();
-    setRefreshing((prev) => {
-      const next = new Set(prev);
-      next.delete(checkerId);
-      return next;
+    triggerCheckMutation.mutate(checkerId, {
+      onSettled: () => {
+        setRefreshing((prev) => {
+          const next = new Set(prev);
+          next.delete(checkerId);
+          return next;
+        });
+      },
     });
   };
 
@@ -82,14 +74,14 @@ export const Quotas = () => {
     return (
       <div
         key={quota.checkerId}
-        className="relative rounded-lg border border-border-glass bg-bg-card/60 p-4"
+        className="relative rounded-lg border border-border bg-surface-elevated/60 p-4"
       >
         <button
           type="button"
           onClick={() => handleRefresh(quota.checkerId)}
           disabled={refreshing.has(quota.checkerId) || quota.pending}
           aria-label="Refresh"
-          className="absolute top-2 right-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text transition-colors duration-fast disabled:opacity-50"
+          className="absolute top-2 right-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-subtle hover:bg-surface-elevated hover:text-foreground transition-colors duration-fast disabled:opacity-50"
         >
           <RefreshCw
             size={14}
@@ -99,17 +91,17 @@ export const Quotas = () => {
 
         <div className="pr-8">
           {quota.pending ? (
-            <span className="text-xs text-text-muted">Pending first check...</span>
+            <span className="text-xs text-foreground-subtle">Pending first check...</span>
           ) : !quota.success ? (
             <div className="flex items-center gap-2 text-danger">
               <AlertTriangle size={14} />
               <span className="text-xs">Check failed</span>
               {quota.error && (
-                <span className="text-xs text-text-muted truncate">{quota.error}</span>
+                <span className="text-xs text-foreground-subtle truncate">{quota.error}</span>
               )}
             </div>
           ) : allowances.length === 0 ? (
-            <span className="text-xs text-text-muted">No data yet</span>
+            <span className="text-xs text-foreground-subtle">No data yet</span>
           ) : (
             <div className="space-y-2">
               {allowances.map((meter) => (
@@ -140,8 +132,8 @@ export const Quotas = () => {
         actions={
           <Button
             variant="secondary"
-            size="sm"
-            onClick={fetchQuotas}
+            size="md"
+            onClick={() => checkersQuery.refetch()}
             disabled={loading}
             leftIcon={<RefreshCw size={14} className={clsx(loading && 'animate-spin')} />}
           >
@@ -153,19 +145,20 @@ export const Quotas = () => {
       <PageContainer>
         {loading && quotas.length === 0 ? (
           <div className="flex items-center justify-center h-64 gap-3">
-            <RefreshCw size={20} className="animate-spin text-primary" />
-            <span className="text-text-secondary">Loading quotas...</span>
+            <RefreshCw size={20} className="animate-spin text-accent" />
+            <span className="text-foreground-muted">Loading quotas...</span>
           </div>
         ) : quotas.length === 0 ? (
           <Card>
             <EmptyState
+              variant="dense"
               icon={<Gauge />}
-              title="No quota checkers configured"
+              title="No quota checkers yet"
               description="Configure quota checkers in your provider settings to monitor usage."
             />
           </Card>
         ) : (
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-6">
             {balanceQuotas.length > 0 && (
               <section>
                 <CombinedBalancesCard
@@ -179,9 +172,9 @@ export const Quotas = () => {
 
             {allowanceGroups.length > 0 && (
               <section>
-                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border-glass">
-                  <Cpu size={18} className="text-primary" />
-                  <h2 className="font-heading text-h2 font-semibold text-text">Rate Limits</h2>
+                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
+                  <Cpu size={18} className="text-accent" />
+                  <h2 className="font-sans text-h2 font-semibold text-foreground">Rate Limits</h2>
                 </div>
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {allowanceGroups.map(([checkerType, quotasList]) => {
@@ -192,7 +185,7 @@ export const Quotas = () => {
                     );
                     return (
                       <div key={checkerType} className="flex flex-col gap-3">
-                        <h3 className="font-heading text-xs font-semibold text-text-secondary uppercase tracking-wider px-1 border-b border-border-glass pb-2">
+                        <h3 className="font-sans text-xs font-semibold text-foreground-muted uppercase tracking-wider px-1 border-b border-border pb-2">
                           {displayName}
                         </h3>
                         <div className="flex flex-col gap-3">

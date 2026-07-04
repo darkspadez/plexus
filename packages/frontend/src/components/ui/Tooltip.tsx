@@ -23,7 +23,7 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, position = 
         <div
           role="tooltip"
           className={clsx(
-            'absolute z-[500] px-2 py-1 bg-bg-surface border border-border-2 rounded-md shadow-lg whitespace-nowrap text-[11px] text-text pointer-events-none font-mono',
+            'absolute z-[500] px-2.5 py-1.5 bg-surface border border-border rounded-md shadow-md whitespace-nowrap text-xs text-foreground pointer-events-none font-sans',
             position === 'right' && 'left-full top-1/2 -translate-y-1/2 ml-2',
             position === 'left' && 'right-full top-1/2 -translate-y-1/2 mr-2',
             position === 'top' && 'bottom-full left-1/2 -translate-x-1/2 mb-2',

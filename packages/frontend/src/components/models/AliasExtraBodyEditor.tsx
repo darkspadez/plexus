@@ -1,7 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { Badge } from '../ui/Badge';
+import { Pill } from '../chips/Pill';
 import type { Alias } from '../../lib/api';
 
 interface Props {
@@ -48,13 +48,13 @@ export function AliasExtraBodyEditor({ editingAlias, setEditingAlias }: Props) {
           marginBottom: '6px',
         }}
       >
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Extra Body Fields
         </label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+          <Pill tone="neutral" size="sm">
             {entries.length}
-          </Badge>
+          </Pill>
           <Button
             size="sm"
             variant="secondary"
@@ -65,13 +65,13 @@ export function AliasExtraBodyEditor({ editingAlias, setEditingAlias }: Props) {
           </Button>
         </div>
       </div>
-      <p className="font-body text-[11px] text-text-muted" style={{ marginBottom: '6px' }}>
+      <p className="font-sans text-[11px] text-foreground-subtle" style={{ marginBottom: '6px' }}>
         These key-value pairs are merged into every request dispatched through this alias,
         overriding any provider-level or model-level extra body fields with the same keys.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {entries.length === 0 && (
-          <div className="font-body text-[11px] text-text-secondary italic">
+          <div className="font-sans text-[11px] text-foreground-muted italic">
             No extra body fields configured.
           </div>
         )}

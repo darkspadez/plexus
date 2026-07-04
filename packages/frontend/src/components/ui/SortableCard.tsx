@@ -203,7 +203,7 @@ export const SortableCard: React.FC<SortableCardProps> = ({ card, isOverlay = fa
         {...listeners}
         {...attributes}
       >
-        <GripVertical size={20} className="text-text-secondary" />
+        <GripVertical size={20} className="text-foreground-muted" />
       </div>
 
       {/*

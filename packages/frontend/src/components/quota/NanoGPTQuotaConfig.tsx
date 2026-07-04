@@ -14,7 +14,7 @@ export const NanoGPTQuotaConfig: React.FC<NanoGPTQuotaConfigProps> = ({ options,
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input
@@ -22,7 +22,7 @@ export const NanoGPTQuotaConfig: React.FC<NanoGPTQuotaConfigProps> = ({ options,
           onChange={(e) => handleChange('endpoint', e.target.value)}
           placeholder="https://nano-gpt.com/api/subscription/v1/usage"
         />
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-subtle">
           Custom endpoint URL. Defaults to NanoGPT's API.
         </span>
       </div>

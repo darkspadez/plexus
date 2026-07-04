@@ -13,7 +13,7 @@
  * `useEffect` whose sole dependency is `timeRange`.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 /**
  * `ConcurrencyData` is imported as a **type-only** import from the API layer.
  * Its shape is:
@@ -29,7 +29,16 @@ import { useEffect, useMemo, useState } from 'react';
  * from the `GET /v0/management/concurrency?timeRange=...` endpoint.
  */
 import { PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
-import { api, UsageData, PieChartDataPoint, type ConcurrencyData } from '../../../lib/api';
+import { UsageData, PieChartDataPoint, type ConcurrencyData } from '../../../lib/api';
+import {
+  useSummaryData,
+  useUsageByModel,
+  useUsageByProvider,
+  useUsageByKey,
+  useConcurrencyByProvider,
+  useConcurrencyByModel,
+  useEnergySummary,
+} from '../../../hooks/queries/useUsage';
 import {
   formatNumber,
   formatTokens,
@@ -37,6 +46,7 @@ import {
   formatDateTimeLabel,
 } from '../../../lib/format';
 import { Card } from '../../ui/Card';
+import { EmptyState } from '../../ui/EmptyState';
 import { TotalEnergyComparison } from '../../TotalEnergyComparison';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 import type { CustomDateRange } from '../../../lib/date';
@@ -98,94 +108,56 @@ export const UsageTab: React.FC<UsageTabProps> = ({
   onCustomDateRangeChange: _onCustomDateRangeChange,
 }) => {
   // ---------------------------------------------------------------------------
-  // State -- pre-existing usage data
+  // Compute date range options for custom ranges
   // ---------------------------------------------------------------------------
-  const [data, setData] = useState<UsageData[]>([]);
-  const [modelData, setModelData] = useState<PieChartDataPoint[]>([]);
-  const [providerData, setProviderData] = useState<PieChartDataPoint[]>([]);
-  const [keyData, setKeyData] = useState<PieChartDataPoint[]>([]);
-
-  // ---------------------------------------------------------------------------
-  // State -- concurrency data (new in this PR)
-  // ---------------------------------------------------------------------------
-  /**
-   * Raw concurrency records fetched from the management API.
-   * Separate arrays for provider and model groupings to avoid Cartesian explosion.
-   * Each record is a (provider, count, timestamp) or (model, count, timestamp) tuple.
-   */
-  const [concurrencyByProvider, setConcurrencyByProvider] = useState<ConcurrencyData[]>([]);
-  const [concurrencyByModel, setConcurrencyByModel] = useState<ConcurrencyData[]>([]);
-  const [energySummary, setEnergySummary] = useState<{
-    totalKwhUsed: number;
-  } | null>(null);
-
-  // ---------------------------------------------------------------------------
-  // Data fetching
-  // ---------------------------------------------------------------------------
-  /**
-   * Fetches all dashboard data whenever the selected time range changes.
-   *
-   * All five calls fire in parallel (no `await` chaining) so the network
-   * requests overlap. Each `.then()` independently updates its own state slice,
-   * meaning cards render progressively as responses arrive rather than waiting
-   * for the slowest endpoint.
-   *
-   * **Concurrency fetch (`getConcurrencyData`):** hits the
-   * `GET /v0/management/concurrency?timeRange=<range>` endpoint and returns an
-   * array of `ConcurrencyData` records. On failure the API helper returns `[]`,
-   * so the concurrency cards gracefully show "No concurrency data available".
-   *
-   * There is **no polling interval** -- data is fetched once per `timeRange`
-   * change. If real-time updates are needed in the future, a polling or
-   * WebSocket strategy should be added here.
-   */
-  useEffect(() => {
-    let startDate: string | undefined;
-    let endDate: string | undefined;
-
+  const startDate = useMemo<string | undefined>(() => {
     if (timeRange === 'custom' && customDateRange) {
-      startDate = customDateRange.start.toISOString();
-      endDate = customDateRange.end.toISOString();
-    } else {
-      // Calculate date range for non-custom time ranges
-      const now = new Date();
-      const rangeStart = new Date(now);
-
-      switch (timeRange) {
-        case 'hour':
-          rangeStart.setHours(rangeStart.getHours() - 1);
-          break;
-        case 'day':
-          rangeStart.setHours(rangeStart.getHours() - 24);
-          break;
-        case 'week':
-          rangeStart.setDate(rangeStart.getDate() - 7);
-          break;
-        case 'month':
-          rangeStart.setDate(rangeStart.getDate() - 30);
-          break;
-      }
-
-      startDate = rangeStart.toISOString();
-      endDate = now.toISOString();
+      return customDateRange.start.toISOString();
     }
-
-    // Use summary endpoint for time-series data (much more efficient)
-    api.getSummaryData(timeRange, true, startDate, endDate).then(setData);
-    api.getUsageByModel(timeRange, true, startDate, endDate).then(setModelData);
-    api.getUsageByProvider(timeRange, true, startDate, endDate).then(setProviderData);
-    api.getUsageByKey(timeRange, true, startDate, endDate).then(setKeyData);
-    // Make two separate calls for provider and model concurrency data
-    api
-      .getConcurrencyData(timeRange, 'timeline', 'provider', startDate, endDate)
-      .then(setConcurrencyByProvider);
-    api
-      .getConcurrencyData(timeRange, 'timeline', 'model', startDate, endDate)
-      .then(setConcurrencyByModel);
-    api
-      .getEnergySummary(timeRange, true, startDate, endDate)
-      .then((summary) => setEnergySummary(summary));
+    const now = new Date();
+    const rangeStart = new Date(now);
+    switch (timeRange) {
+      case 'hour':
+        rangeStart.setHours(rangeStart.getHours() - 1);
+        break;
+      case 'day':
+        rangeStart.setHours(rangeStart.getHours() - 24);
+        break;
+      case 'week':
+        rangeStart.setDate(rangeStart.getDate() - 7);
+        break;
+      case 'month':
+        rangeStart.setDate(rangeStart.getDate() - 30);
+        break;
+    }
+    return rangeStart.toISOString();
   }, [timeRange, customDateRange]);
+
+  const endDate = useMemo<string | undefined>(() => {
+    if (timeRange === 'custom' && customDateRange) {
+      return customDateRange.end.toISOString();
+    }
+    return new Date().toISOString();
+  }, [timeRange, customDateRange]);
+
+  // ---------------------------------------------------------------------------
+  // Data fetching via TanStack Query hooks
+  // ---------------------------------------------------------------------------
+  const summaryQuery = useSummaryData(timeRange, { startDate, endDate });
+  const modelQuery = useUsageByModel(timeRange, { startDate, endDate });
+  const providerQuery = useUsageByProvider(timeRange, { startDate, endDate });
+  const keyQuery = useUsageByKey(timeRange, { startDate, endDate });
+  const concurrencyProviderQuery = useConcurrencyByProvider(timeRange, { startDate, endDate });
+  const concurrencyModelQuery = useConcurrencyByModel(timeRange, { startDate, endDate });
+  const energySummaryQuery = useEnergySummary(timeRange, { startDate, endDate });
+
+  const data: UsageData[] = summaryQuery.data ?? [];
+  const modelData: PieChartDataPoint[] = modelQuery.data ?? [];
+  const providerData: PieChartDataPoint[] = providerQuery.data ?? [];
+  const keyData: PieChartDataPoint[] = keyQuery.data ?? [];
+  const concurrencyByProvider: ConcurrencyData[] = concurrencyProviderQuery.data ?? [];
+  const concurrencyByModel: ConcurrencyData[] = concurrencyModelQuery.data ?? [];
+  const energySummary = energySummaryQuery.data ?? null;
 
   // ---------------------------------------------------------------------------
   // Shared chart palette
@@ -196,14 +168,14 @@ export const UsageTab: React.FC<UsageTabProps> = ({
    * palette gracefully wraps when there are more series than colors.
    */
   const COLORS = [
-    '#8b5cf6',
-    '#06b6d4',
-    '#10b981',
-    '#f59e0b',
-    '#ef4444',
-    '#6366f1',
-    '#ec4899',
-    '#f97316',
+    'var(--chart-1)',
+    'var(--chart-2)',
+    'var(--chart-3)',
+    'var(--chart-4)',
+    'var(--chart-5)',
+    'var(--chart-1)',
+    'var(--chart-2)',
+    'var(--chart-3)',
   ];
 
   // ---------------------------------------------------------------------------
@@ -364,19 +336,21 @@ export const UsageTab: React.FC<UsageTabProps> = ({
         return (
           <div
             style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.85)',
+              backgroundColor: 'var(--surface-elevated)',
               padding: '8px 12px',
               borderRadius: '4px',
-              border: '1px solid var(--color-border)',
+              border: '1px solid var(--border)',
             }}
           >
-            <p style={{ margin: 0, color: '#ffffff', fontSize: '14px' }}>
+            <p style={{ margin: 0, color: 'var(--foreground)', fontSize: '14px' }}>
               <strong>{name}</strong>
             </p>
-            <p style={{ margin: '4px 0 0 0', color: '#ffffff', fontSize: '13px' }}>
+            <p style={{ margin: '4px 0 0 0', color: 'var(--foreground)', fontSize: '13px' }}>
               {dataKey === 'requests' ? 'Requests' : 'Tokens'}: {formattedValue}
             </p>
-            <p style={{ margin: '2px 0 0 0', color: '#ffffff', fontSize: '13px' }}>({percent}%)</p>
+            <p style={{ margin: '2px 0 0 0', color: 'var(--foreground)', fontSize: '13px' }}>
+              ({percent}%)
+            </p>
           </div>
         );
       }
@@ -388,9 +362,9 @@ export const UsageTab: React.FC<UsageTabProps> = ({
     const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
       padding: '4px 6px',
       borderRadius: '4px',
-      border: '1px solid var(--color-border)',
-      backgroundColor: active ? 'var(--color-bg-hover)' : 'transparent',
-      color: active ? 'var(--color-text)' : 'var(--color-text-muted)',
+      border: '1px solid var(--border)',
+      backgroundColor: active ? 'var(--surface-elevated)' : 'transparent',
+      color: active ? 'var(--foreground)' : 'var(--foreground-subtle)',
       cursor: 'pointer',
       display: 'inline-flex',
       alignItems: 'center',
@@ -399,10 +373,18 @@ export const UsageTab: React.FC<UsageTabProps> = ({
 
     const extra = (
       <div style={{ display: 'inline-flex', gap: '4px' }}>
-        <button style={toggleBtnStyle(chartType === 'pie')} onClick={() => setChartType('pie')}>
+        <button
+          style={toggleBtnStyle(chartType === 'pie')}
+          onClick={() => setChartType('pie')}
+          aria-label="Pie chart view"
+        >
           <PieChartIcon size={14} />
         </button>
-        <button style={toggleBtnStyle(chartType === 'bar')} onClick={() => setChartType('bar')}>
+        <button
+          style={toggleBtnStyle(chartType === 'bar')}
+          onClick={() => setChartType('bar')}
+          aria-label="Bar chart view"
+        >
           <BarChart3 size={14} />
         </button>
       </div>
@@ -445,23 +427,31 @@ export const UsageTab: React.FC<UsageTabProps> = ({
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={sortedData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--border)"
+                  vertical={false}
+                  strokeOpacity={0.5}
+                />
                 <XAxis
                   dataKey="name"
-                  stroke="var(--color-text-secondary)"
+                  tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
                   angle={-35}
                   textAnchor="end"
                   height={60}
-                  tick={{ fontSize: 11 }}
                 />
                 <YAxis
-                  stroke="var(--color-text-secondary)"
+                  tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
                   tickFormatter={(v) =>
                     dataKey === 'requests' ? formatNumber(v) : formatTokens(v)
                   }
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey={dataKey} radius={[4, 4, 0, 0]} activeBar={false}>
+                <Bar dataKey={dataKey} radius={[999, 999, 0, 0]} activeBar={false}>
                   {sortedData.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
@@ -475,10 +465,10 @@ export const UsageTab: React.FC<UsageTabProps> = ({
   };
 
   return (
-    <div className="p-6 transition-all duration-300">
+    <div className="p-3 sm:p-6 sm:pt-2 lg:p-8 lg:pt-2 transition-all duration-300">
       <div className="mb-8">
-        <h1 className="font-heading text-3xl font-bold text-text m-0 mb-2">Usage Analytics</h1>
-        <p className="text-[15px] text-text-secondary m-0">
+        <h1 className="font-sans text-3xl font-bold text-foreground m-0 mb-2">Usage Analytics</h1>
+        <p className="text-[15px] text-foreground-muted m-0">
           Token usage and request statistics over time.
         </p>
       </div>
@@ -494,18 +484,31 @@ export const UsageTab: React.FC<UsageTabProps> = ({
           <div style={{ height: 300, marginTop: '12px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--border)"
+                  vertical={false}
+                  strokeOpacity={0.5}
+                />
                 <XAxis
                   dataKey="timestamp"
-                  stroke="var(--color-text-secondary)"
+                  tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
                   tickFormatter={(v) => formatTimeLabel(String(v))}
                 />
-                <YAxis stroke="var(--color-text-secondary)" tickFormatter={formatNumber} />
+                <YAxis
+                  tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={formatNumber}
+                />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'var(--color-bg-card)',
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text)',
+                    backgroundColor: 'var(--surface-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    color: 'var(--foreground)',
                   }}
                   labelFormatter={(label) => formatDateTimeLabel(String(label))}
                   formatter={(value) => formatNumber(value as number)}
@@ -513,8 +516,9 @@ export const UsageTab: React.FC<UsageTabProps> = ({
                 <Area
                   type="monotone"
                   dataKey="requests"
-                  stroke="var(--color-primary)"
-                  fill="var(--color-glow)"
+                  stroke="var(--chart-1)"
+                  fill="var(--chart-1)"
+                  fillOpacity={0.1}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -549,24 +553,34 @@ export const UsageTab: React.FC<UsageTabProps> = ({
         <Card className="min-w-0" title="Concurrency by Provider">
           <div style={{ height: 300, marginTop: '12px' }}>
             {concurrencyByProviderTimeline.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-text-secondary text-sm">
-                No concurrency data available
-              </div>
+              <EmptyState variant="fill" title="No concurrency data available" />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={concurrencyByProviderTimeline}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
-                  <XAxis dataKey="label" stroke="var(--color-text-secondary)" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--border)"
+                    vertical={false}
+                    strokeOpacity={0.5}
+                  />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <YAxis
-                    stroke="var(--color-text-secondary)"
-                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                    tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
                   />
                   <Tooltip
                     formatter={(value) => formatNumber(Number(value || 0), 0)}
                     contentStyle={{
-                      background: 'var(--color-bg-card)',
-                      border: '1px solid var(--color-border)',
+                      backgroundColor: 'var(--surface-elevated)',
+                      border: '1px solid var(--border)',
                       borderRadius: '8px',
+                      color: 'var(--foreground)',
                     }}
                   />
                   <Legend align="left" />
@@ -603,24 +617,34 @@ export const UsageTab: React.FC<UsageTabProps> = ({
         <Card className="min-w-0" title="Concurrency by Model">
           <div style={{ height: 300, marginTop: '12px' }}>
             {concurrencyByModelTimeline.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-text-secondary text-sm">
-                No concurrency data available
-              </div>
+              <EmptyState variant="fill" title="No concurrency data available" />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={concurrencyByModelTimeline}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
-                  <XAxis dataKey="label" stroke="var(--color-text-secondary)" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--border)"
+                    vertical={false}
+                    strokeOpacity={0.5}
+                  />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <YAxis
-                    stroke="var(--color-text-secondary)"
-                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                    tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
                   />
                   <Tooltip
                     formatter={(value) => formatNumber(Number(value || 0), 0)}
                     contentStyle={{
-                      background: 'var(--color-bg-card)',
-                      border: '1px solid var(--color-border)',
+                      backgroundColor: 'var(--surface-elevated)',
+                      border: '1px solid var(--border)',
                       borderRadius: '8px',
+                      color: 'var(--foreground)',
                     }}
                   />
                   <Legend align="left" />
@@ -643,18 +667,31 @@ export const UsageTab: React.FC<UsageTabProps> = ({
           <div style={{ height: 300, marginTop: '12px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--border)"
+                  vertical={false}
+                  strokeOpacity={0.5}
+                />
                 <XAxis
                   dataKey="timestamp"
-                  stroke="var(--color-text-secondary)"
+                  tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
                   tickFormatter={(v) => formatTimeLabel(String(v))}
                 />
-                <YAxis stroke="var(--color-text-secondary)" tickFormatter={formatTokens} />
+                <YAxis
+                  tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={formatTokens}
+                />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'var(--color-bg-card)',
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text)',
+                    backgroundColor: 'var(--surface-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    color: 'var(--foreground)',
                   }}
                   labelFormatter={(label) => formatDateTimeLabel(String(label))}
                   formatter={(value) => formatTokens(value as number)}
@@ -664,40 +701,40 @@ export const UsageTab: React.FC<UsageTabProps> = ({
                   type="monotone"
                   dataKey="tokens"
                   name="Total Tokens"
-                  stroke="var(--color-primary)"
-                  fill="var(--color-glow)"
+                  stroke="var(--chart-1)"
+                  fill="var(--chart-1)"
                   fillOpacity={0.1}
                 />
                 <Area
                   type="monotone"
                   dataKey="inputTokens"
                   name="Input"
-                  stroke="#82ca9d"
-                  fill="#82ca9d"
+                  stroke="var(--chart-3)"
+                  fill="var(--chart-3)"
                   fillOpacity={0.3}
                 />
                 <Area
                   type="monotone"
                   dataKey="outputTokens"
                   name="Output"
-                  stroke="#ffc658"
-                  fill="#ffc658"
+                  stroke="var(--chart-2)"
+                  fill="var(--chart-2)"
                   fillOpacity={0.3}
                 />
                 <Area
                   type="monotone"
                   dataKey="cachedTokens"
                   name="Cached"
-                  stroke="#ff7300"
-                  fill="#ff7300"
+                  stroke="var(--chart-4)"
+                  fill="var(--chart-4)"
                   fillOpacity={0.3}
                 />
                 <Area
                   type="monotone"
                   dataKey="cacheWriteTokens"
                   name="Cache Write"
-                  stroke="#a855f7"
-                  fill="#a855f7"
+                  stroke="var(--chart-5)"
+                  fill="var(--chart-5)"
                   fillOpacity={0.3}
                 />
               </AreaChart>

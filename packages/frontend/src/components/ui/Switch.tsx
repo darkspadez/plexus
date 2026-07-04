@@ -29,10 +29,10 @@ export const Switch: React.FC<SwitchProps> = ({
         if (!disabled) onChange(!checked);
       }}
       className={clsx(
-        'group relative inline-block flex-shrink-0 rounded-full border transition-colors duration-fast outline-none',
-        'border-border-2 bg-slate-800',
-        'data-[checked=true]:bg-gradient-to-br data-[checked=true]:from-secondary data-[checked=true]:to-primary data-[checked=true]:border-amber-500/60',
-        'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-deep',
+        'group relative inline-block flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-150 outline-none',
+        'bg-border-strong',
+        'data-[checked=true]:bg-accent data-[checked=true]:border-transparent',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         !disabled && 'cursor-pointer',
         {
@@ -44,7 +44,7 @@ export const Switch: React.FC<SwitchProps> = ({
       <span
         aria-hidden="true"
         className={clsx(
-          'absolute top-px left-px inline-block rounded-full bg-slate-400 group-data-[checked=true]:bg-white transition-transform duration-fast',
+          'absolute top-0 left-0 inline-block rounded-full bg-foreground-muted group-data-[checked=true]:bg-accent-foreground transition-transform duration-150',
           {
             'h-3.5 w-3.5 group-data-[checked=true]:translate-x-3': size === 'sm',
             'h-4 w-4 group-data-[checked=true]:translate-x-3.5': size === 'md',

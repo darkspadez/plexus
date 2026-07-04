@@ -27,7 +27,7 @@ export function DeleteProviderModal({
       size="lg"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
+        <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>
           Choose how to delete this provider. The action cannot be undone.
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -44,7 +44,7 @@ export function DeleteProviderModal({
             <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--color-danger)' }}>
               Delete Provider (Cascade)
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+            <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
               Removes this provider AND deletes all model alias targets that reference it.
             </div>
             {affectedAliases.length > 0 ? (
@@ -57,7 +57,7 @@ export function DeleteProviderModal({
                     margin: 0,
                     paddingLeft: '16px',
                     fontSize: '12px',
-                    color: 'var(--color-text-secondary)',
+                    color: 'var(--foreground-muted)',
                   }}
                 >
                   {affectedAliases.map((a) => (
@@ -71,7 +71,7 @@ export function DeleteProviderModal({
               <div
                 style={{
                   fontSize: '12px',
-                  color: 'var(--color-text-secondary)',
+                  color: 'var(--foreground-muted)',
                   fontStyle: 'italic',
                 }}
               >
@@ -96,10 +96,10 @@ export function DeleteProviderModal({
               gap: '12px',
             }}
           >
-            <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--color-text)' }}>
+            <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--foreground)' }}>
               Delete (Retain Targets)
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+            <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
               Removes only the provider. Model alias targets that reference this provider will
               remain but may cause errors.
             </div>

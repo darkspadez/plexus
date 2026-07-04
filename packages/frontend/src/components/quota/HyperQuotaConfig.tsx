@@ -14,7 +14,7 @@ export const HyperQuotaConfig: React.FC<HyperQuotaConfigProps> = ({ options, onC
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
+        <label className="font-sans text-[13px] font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input
@@ -22,7 +22,7 @@ export const HyperQuotaConfig: React.FC<HyperQuotaConfigProps> = ({ options, onC
           onChange={(e) => handleChange('endpoint', e.target.value)}
           placeholder="https://hyper.charm.land/v1/credits"
         />
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[10px] text-foreground-subtle">
           Custom endpoint URL. Defaults to Hyper&apos;s credits endpoint.
         </span>
       </div>

@@ -15,7 +15,7 @@ import {
 import { CopyButton } from '../ui/CopyButton';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Badge } from '../ui/Badge';
+import { Pill } from '../chips/Pill';
 import { OpenRouterSlugInput } from '../ui/OpenRouterSlugInput';
 import { DebouncedInput } from '../ui/DebouncedInput';
 import { Tooltip } from '../ui/Tooltip';
@@ -68,7 +68,7 @@ const getApiBadgeStyle = (apiType: string): React.CSSProperties => {
 
 // Consistent compact field class used everywhere in the model editor
 const FIELD_CLS =
-  'w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary';
+  'w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent';
 
 // ── ModelIdInputCompact ──
 function ModelIdInputCompact({
@@ -199,14 +199,14 @@ export function ProviderModelsEditor({
   }, [piModels, editingProvider.models]);
 
   return (
-    <div className="border border-border-glass rounded-md">
+    <div className="border border-border rounded-md">
       <div
-        className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover transition-colors duration-200 select-none hover:bg-bg-glass"
+        className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated transition-colors duration-200 select-none hover:bg-surface"
         onClick={() => setIsModelsOpen(!isModelsOpen)}
       >
         {isModelsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         <span style={{ fontWeight: 600, fontSize: '13px', flex: 1 }}>Provider Models</span>
-        <Badge status="connected">{Object.keys(editingProvider.models || {}).length} Models</Badge>
+        <Pill tone="success">{Object.keys(editingProvider.models || {}).length} Models</Pill>
         <Button
           size="sm"
           variant="secondary"
@@ -224,8 +224,8 @@ export function ProviderModelsEditor({
         <div
           style={{
             padding: '8px',
-            borderTop: '1px solid var(--color-border-glass)',
-            background: 'var(--color-bg-subtle)',
+            borderTop: '1px solid var(--border)',
+            background: 'var(--surface-sunken)',
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -240,9 +240,9 @@ export function ProviderModelsEditor({
                 <div
                   key={mId}
                   style={{
-                    border: '1px solid var(--color-border-glass)',
+                    border: '1px solid var(--border)',
                     borderRadius: 'var(--radius-sm)',
-                    background: 'var(--color-bg-surface)',
+                    background: 'var(--surface)',
                   }}
                 >
                   <div
@@ -275,13 +275,13 @@ export function ProviderModelsEditor({
                       }
                     >
                       {testState?.loading ? (
-                        <Loader2 size={14} className="animate-spin text-text-secondary" />
+                        <Loader2 size={14} className="animate-spin text-foreground-muted" />
                       ) : testState?.showResult && testState.result === 'success' ? (
                         <CheckCircle size={14} className="text-success" />
                       ) : testState?.showResult && testState.result === 'error' ? (
                         <XCircle size={14} className="text-danger" />
                       ) : (
-                        <Play size={14} className="text-primary opacity-60" />
+                        <Play size={14} className="text-accent opacity-60" />
                       )}
                     </div>
                     <CopyButton
@@ -322,7 +322,7 @@ export function ProviderModelsEditor({
                     <div
                       style={{
                         padding: '8px',
-                        borderTop: '1px solid var(--color-border-glass)',
+                        borderTop: '1px solid var(--border)',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '6px',
@@ -330,10 +330,8 @@ export function ProviderModelsEditor({
                     >
                       {/* 2-column primary layout: left = meta, right = pricing */}
                       <div
+                        className="grid grid-cols-1 sm:grid-cols-2 gap-2"
                         style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1fr 1fr',
-                          gap: '8px',
                           alignItems: 'start',
                         }}
                       >
@@ -341,13 +339,13 @@ export function ProviderModelsEditor({
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           {/* Compact Model ID — bypasses Input component's py-2 */}
                           <div className="flex flex-col gap-1">
-                            <label className="font-body text-[11px] font-medium text-text-secondary">
+                            <label className="font-sans text-[11px] font-medium text-foreground-muted">
                               Model ID
                             </label>
                             <ModelIdInputCompact modelId={mId} onCommit={updateModelId} />
                           </div>
                           <div className="flex flex-col gap-1">
-                            <label className="font-body text-[11px] font-medium text-text-secondary">
+                            <label className="font-sans text-[11px] font-medium text-foreground-muted">
                               Model Type
                             </label>
                             <select
@@ -387,7 +385,7 @@ export function ProviderModelsEditor({
 
                           {(!mCfg.type || mCfg.type === 'text') && (
                             <div className="flex flex-col gap-1">
-                              <label className="font-body text-[11px] font-medium text-text-secondary">
+                              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                                 Access Via
                               </label>
                               <div
@@ -475,7 +473,7 @@ export function ProviderModelsEditor({
                                 })}
                               </div>
                               {(!mCfg.access_via || mCfg.access_via.length === 0) && (
-                                <span className="font-body text-[11px] text-text-muted italic">
+                                <span className="font-sans text-[11px] text-foreground-subtle italic">
                                   empty = use any provider API
                                 </span>
                               )}
@@ -503,7 +501,7 @@ export function ProviderModelsEditor({
 
                           {/* pi-ai Model ID */}
                           <div className="flex flex-col gap-1">
-                            <label className="font-body text-[11px] font-medium text-text-secondary">
+                            <label className="font-sans text-[11px] font-medium text-foreground-muted">
                               pi-ai Model ID
                             </label>
                             {piAiProvider && piModels.length > 0 && !piModelCustom[mId] ? (
@@ -552,7 +550,7 @@ export function ProviderModelsEditor({
                                 {piAiProvider && piModels.length > 0 && piModelCustom[mId] && (
                                   <button
                                     type="button"
-                                    className="font-body text-[11px] text-text-muted hover:text-text px-1 flex-shrink-0"
+                                    className="font-sans text-[11px] text-foreground-subtle hover:text-foreground px-1 flex-shrink-0"
                                     title="Back to list"
                                     onClick={() =>
                                       setPiModelCustom((prev) => ({ ...prev, [mId]: false }))
@@ -569,7 +567,7 @@ export function ProviderModelsEditor({
                         {/* Right: Pricing Source + Pricing Inputs */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           <div className="flex flex-col gap-1">
-                            <label className="font-body text-[11px] font-medium text-text-secondary">
+                            <label className="font-sans text-[11px] font-medium text-foreground-muted">
                               Pricing Source
                             </label>
                             <select
@@ -616,15 +614,7 @@ export function ProviderModelsEditor({
 
                           {/* Simple pricing */}
                           {mCfg.pricing?.source === 'simple' && (
-                            <div
-                              className="grid grid-cols-2"
-                              style={{
-                                background: 'var(--color-bg-subtle)',
-                                padding: '8px',
-                                borderRadius: 'var(--radius-sm)',
-                                gap: '6px',
-                              }}
-                            >
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-surface-sunken p-2 rounded-sm">
                               {[
                                 { label: 'Input $/M', key: 'input' },
                                 { label: 'Output $/M', key: 'output' },
@@ -632,7 +622,7 @@ export function ProviderModelsEditor({
                                 { label: 'Cache Write $/M', key: 'cache_write' },
                               ].map(({ label, key }) => (
                                 <div key={key} className="flex flex-col gap-0.5">
-                                  <label className="font-body text-[11px] font-medium text-text-secondary">
+                                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
                                     {label}
                                   </label>
                                   <input
@@ -658,7 +648,7 @@ export function ProviderModelsEditor({
                           {mCfg.pricing?.source === 'openrouter' && (
                             <div
                               style={{
-                                background: 'var(--color-bg-subtle)',
+                                background: 'var(--surface-sunken)',
                                 padding: '8px',
                                 borderRadius: 'var(--radius-sm)',
                                 display: 'flex',
@@ -667,7 +657,7 @@ export function ProviderModelsEditor({
                               }}
                             >
                               <div className="flex flex-col gap-0.5">
-                                <label className="font-body text-[11px] font-medium text-text-secondary">
+                                <label className="font-sans text-[11px] font-medium text-foreground-muted">
                                   OpenRouter Model Slug
                                 </label>
                                 <OpenRouterSlugInput
@@ -681,14 +671,14 @@ export function ProviderModelsEditor({
                                 />
                               </div>
                               <div className="flex flex-col gap-0.5">
-                                <label className="font-body text-[11px] font-medium text-text-secondary">
+                                <label className="font-sans text-[11px] font-medium text-foreground-muted">
                                   Discount{' '}
-                                  <span className="font-normal text-text-muted">
+                                  <span className="font-normal text-foreground-subtle">
                                     (0.1 = 10% off)
                                   </span>
                                 </label>
                                 <input
-                                  className="w-full py-1 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                                  className="w-full py-1 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                                   type="number"
                                   step="0.01"
                                   min="0"
@@ -713,7 +703,7 @@ export function ProviderModelsEditor({
                           {mCfg.pricing?.source === 'defined' && (
                             <div
                               style={{
-                                background: 'var(--color-bg-subtle)',
+                                background: 'var(--surface-sunken)',
                                 padding: '8px',
                                 borderRadius: 'var(--radius-sm)',
                                 display: 'flex',
@@ -728,7 +718,7 @@ export function ProviderModelsEditor({
                                   alignItems: 'center',
                                 }}
                               >
-                                <span className="font-body text-[11px] font-medium text-text-secondary">
+                                <span className="font-sans text-[11px] font-medium text-foreground-muted">
                                   Pricing Ranges
                                 </span>
                                 <Button
@@ -761,7 +751,7 @@ export function ProviderModelsEditor({
                                 <div
                                   key={idx}
                                   style={{
-                                    border: '1px solid var(--color-border-glass)',
+                                    border: '1px solid var(--border)',
                                     padding: '8px',
                                     borderRadius: 'var(--radius-sm)',
                                     position: 'relative',
@@ -790,7 +780,7 @@ export function ProviderModelsEditor({
                                   >
                                     <X size={14} />
                                   </Button>
-                                  <div className="grid grid-cols-2" style={{ gap: '6px' }}>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                                     {[
                                       {
                                         label: 'Lower Bound',
@@ -824,11 +814,11 @@ export function ProviderModelsEditor({
                                       },
                                     ].map(({ label, field, val }) => (
                                       <div key={field} className="flex flex-col gap-0.5">
-                                        <label className="font-body text-[10px] font-medium text-text-secondary">
+                                        <label className="font-sans text-[10px] font-medium text-foreground-muted">
                                           {label}
                                         </label>
                                         <input
-                                          className="w-full py-1 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                                          className="w-full py-1 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                                           type="number"
                                           step="0.000001"
                                           value={val}
@@ -859,7 +849,7 @@ export function ProviderModelsEditor({
                                 </div>
                               ))}
                               {(!mCfg.pricing.range || mCfg.pricing.range.length === 0) && (
-                                <div className="text-text-muted italic text-center text-[11px] py-2">
+                                <div className="text-foreground-subtle italic text-center text-[11px] py-2">
                                   No ranges defined.
                                 </div>
                               )}
@@ -870,7 +860,7 @@ export function ProviderModelsEditor({
                           {mCfg.pricing?.source === 'per_request' && (
                             <div
                               style={{
-                                background: 'var(--color-bg-subtle)',
+                                background: 'var(--surface-sunken)',
                                 padding: '8px',
                                 borderRadius: 'var(--radius-sm)',
                                 display: 'flex',
@@ -879,11 +869,11 @@ export function ProviderModelsEditor({
                               }}
                             >
                               <div className="flex flex-col gap-0.5">
-                                <label className="font-body text-[11px] font-medium text-text-secondary">
+                                <label className="font-sans text-[11px] font-medium text-foreground-muted">
                                   Cost Per Request ($)
                                 </label>
                                 <input
-                                  className="w-full py-1 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                                  className="w-full py-1 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                                   type="number"
                                   step="0.000001"
                                   min="0"
@@ -898,7 +888,7 @@ export function ProviderModelsEditor({
                                   }
                                 />
                               </div>
-                              <span className="font-body text-[11px] text-text-muted italic">
+                              <span className="font-sans text-[11px] text-foreground-subtle italic">
                                 Flat fee per API call, regardless of token count.
                               </span>
                             </div>
@@ -907,9 +897,9 @@ export function ProviderModelsEditor({
                       </div>
 
                       {/* Per-Model Adapters — disclosure */}
-                      <div className="border border-border-glass rounded-md overflow-hidden">
+                      <div className="border border-border rounded-md overflow-hidden">
                         <div
-                          className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover hover:bg-bg-glass"
+                          className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface"
                           onClick={() =>
                             setModelAdaptersOpen((prev) => ({ ...prev, [mId]: !prev[mId] }))
                           }
@@ -919,7 +909,7 @@ export function ProviderModelsEditor({
                           ) : (
                             <ChevronRight size={14} />
                           )}
-                          <span className="font-body text-[12px] font-medium text-text-secondary flex-1">
+                          <span className="font-sans text-[12px] font-medium text-foreground-muted flex-1">
                             Model Adapters
                           </span>
                           {(() => {
@@ -929,24 +919,19 @@ export function ProviderModelsEditor({
                                 : [mCfg.adapter]
                               : [];
                             return modelAdapters.length > 0 ? (
-                              <Badge
-                                status="neutral"
-                                style={{ fontSize: '10px', padding: '2px 8px' }}
-                              >
+                              <Pill tone="neutral" size="sm">
                                 {modelAdapters.length}
-                              </Badge>
+                              </Pill>
                             ) : null;
                           })()}
                         </div>
                         {modelAdaptersOpen[mId] && (
                           <div
+                            className="grid grid-cols-1 sm:grid-cols-2 gap-1"
                             style={{
-                              display: 'grid',
-                              gridTemplateColumns: '1fr 1fr',
-                              gap: '4px',
                               padding: '8px',
-                              borderTop: '1px solid var(--color-border-glass)',
-                              background: 'var(--color-bg-subtle)',
+                              borderTop: '1px solid var(--border)',
+                              background: 'var(--surface-sunken)',
                             }}
                           >
                             {isGpt5Model(mId) &&
@@ -1037,10 +1022,10 @@ export function ProviderModelsEditor({
                                     cursor: 'pointer',
                                     padding: '4px 8px',
                                     borderRadius: 'var(--radius-sm)',
-                                    border: '1px solid var(--color-border-glass)',
+                                    border: '1px solid var(--border)',
                                     background: active
-                                      ? 'var(--color-bg-hover)'
-                                      : 'var(--color-bg-glass)',
+                                      ? 'var(--surface-elevated)'
+                                      : 'var(--surface)',
                                   }}
                                 >
                                   <input
@@ -1076,11 +1061,11 @@ export function ProviderModelsEditor({
                                     }}
                                   />
                                   <div>
-                                    <div className="font-body text-[12px] font-medium text-text">
+                                    <div className="font-sans text-[12px] font-medium text-foreground">
                                       {a.label}
                                     </div>
                                     <div
-                                      className="font-body text-[11px] text-text-secondary"
+                                      className="font-sans text-[11px] text-foreground-muted"
                                       style={{ lineHeight: 1.35 }}
                                     >
                                       {a.description}
@@ -1106,16 +1091,16 @@ export function ProviderModelsEditor({
                                 <div
                                   style={{
                                     gridColumn: '1 / -1',
-                                    borderTop: '1px solid var(--color-border-glass)',
+                                    borderTop: '1px solid var(--border)',
                                     marginTop: '4px',
                                     paddingTop: '6px',
                                   }}
                                 >
-                                  <div className="font-body text-[11px] font-medium text-text-secondary mb-1">
+                                  <div className="font-sans text-[11px] font-medium text-foreground-muted mb-1">
                                     Model Override Rules
                                   </div>
                                   <div
-                                    className="font-body text-[10px] text-text-muted mb-2"
+                                    className="font-sans text-[10px] text-foreground-subtle mb-2"
                                     style={{ lineHeight: 1.3 }}
                                   >
                                     When ANY condition matches, rewrite the model name. Use dotted
@@ -1125,15 +1110,15 @@ export function ProviderModelsEditor({
                                     <div
                                       key={rIdx}
                                       style={{
-                                        border: '1px solid var(--color-border-glass)',
+                                        border: '1px solid var(--border)',
                                         borderRadius: 'var(--radius-sm)',
                                         padding: '6px',
                                         marginBottom: '4px',
-                                        background: 'var(--color-bg-subtle)',
+                                        background: 'var(--surface-sunken)',
                                       }}
                                     >
                                       {/* Rewrite rule */}
-                                      <div className="font-body text-[10px] font-medium text-text-muted mb-1">
+                                      <div className="font-sans text-[10px] font-medium text-foreground-subtle mb-1">
                                         Rewrite
                                       </div>
                                       <div
@@ -1144,12 +1129,12 @@ export function ProviderModelsEditor({
                                         }}
                                       >
                                         <div
-                                          className="font-body text-[12px] text-text-muted"
+                                          className="font-sans text-[12px] text-foreground-subtle"
                                           style={{
                                             flex: 2,
                                             padding: '5px 8px',
-                                            background: 'var(--color-bg-glass)',
-                                            border: '1px solid var(--color-border-glass)',
+                                            background: 'var(--surface)',
+                                            border: '1px solid var(--border)',
                                             borderRadius: 'var(--radius-sm)',
                                             overflow: 'hidden',
                                             textOverflow: 'ellipsis',
@@ -1159,7 +1144,7 @@ export function ProviderModelsEditor({
                                         >
                                           {mId}
                                         </div>
-                                        <span className="font-body text-[11px] text-text-muted">
+                                        <span className="font-sans text-[11px] text-foreground-subtle">
                                           →
                                         </span>
                                         <div style={{ flex: 1 }}>
@@ -1214,11 +1199,11 @@ export function ProviderModelsEditor({
                                       {/* Conditions separator */}
                                       <div
                                         style={{
-                                          borderTop: '1px solid var(--color-border-glass)',
+                                          borderTop: '1px solid var(--border)',
                                           margin: '6px 0 4px 0',
                                         }}
                                       />
-                                      <div className="font-body text-[10px] font-medium text-text-muted mb-1">
+                                      <div className="font-sans text-[10px] font-medium text-foreground-subtle mb-1">
                                         Conditions (any match triggers rewrite)
                                       </div>
                                       {/* Condition column headers */}
@@ -1231,13 +1216,13 @@ export function ProviderModelsEditor({
                                         }}
                                       >
                                         <span
-                                          className="font-body text-[9px] font-medium text-text-muted"
+                                          className="font-sans text-[9px] font-medium text-foreground-subtle"
                                           style={{ flex: 1, paddingLeft: '8px' }}
                                         >
                                           Field path (dotted)
                                         </span>
                                         <span
-                                          className="font-body text-[9px] font-medium text-text-muted"
+                                          className="font-sans text-[9px] font-medium text-foreground-subtle"
                                           style={{ flex: 1, paddingLeft: '8px' }}
                                         >
                                           Value (blank = presence check)
@@ -1390,7 +1375,7 @@ export function ProviderModelsEditor({
                                         style={{ marginLeft: '8px', padding: '2px 6px' }}
                                       >
                                         <Plus size={12} />{' '}
-                                        <span className="font-body text-[10px]">Condition</span>
+                                        <span className="font-sans text-[10px]">Condition</span>
                                       </Button>
                                     </div>
                                   ))}
@@ -1417,7 +1402,7 @@ export function ProviderModelsEditor({
                                     style={{ marginTop: '2px' }}
                                   >
                                     <Plus size={12} />{' '}
-                                    <span className="font-body text-[10px]">Rule</span>
+                                    <span className="font-sans text-[10px]">Rule</span>
                                   </Button>
                                 </div>
                               );
@@ -1439,16 +1424,16 @@ export function ProviderModelsEditor({
                                 <div
                                   style={{
                                     gridColumn: '1 / -1',
-                                    borderTop: '1px solid var(--color-border-glass)',
+                                    borderTop: '1px solid var(--border)',
                                     marginTop: '4px',
                                     paddingTop: '6px',
                                   }}
                                 >
-                                  <div className="font-body text-[11px] font-medium text-text-secondary mb-1">
+                                  <div className="font-sans text-[11px] font-medium text-foreground-muted mb-1">
                                     Reasoning Rewrite Rules
                                   </div>
                                   <div
-                                    className="font-body text-[10px] text-text-muted mb-2"
+                                    className="font-sans text-[10px] text-foreground-subtle mb-2"
                                     style={{ lineHeight: 1.3 }}
                                   >
                                     Map unified reasoning fields to provider-specific formats. Each
@@ -1458,11 +1443,11 @@ export function ProviderModelsEditor({
                                     <div
                                       key={rIdx}
                                       style={{
-                                        border: '1px solid var(--color-border-glass)',
+                                        border: '1px solid var(--border)',
                                         borderRadius: 'var(--radius-sm)',
                                         padding: '6px',
                                         marginBottom: '4px',
-                                        background: 'var(--color-bg-subtle)',
+                                        background: 'var(--surface-sunken)',
                                       }}
                                     >
                                       {/* Source + When condition */}
@@ -1500,7 +1485,7 @@ export function ProviderModelsEditor({
                                         {/* When operator */}
                                         <div style={{ flex: 0.7 }}>
                                           <select
-                                            className="w-full py-1 pl-2 pr-2 font-body text-[11px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                                            className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                                             value={rule.when?.op ?? ''}
                                             onChange={(e) => {
                                               const op = e.target.value;
@@ -1614,7 +1599,7 @@ export function ProviderModelsEditor({
                                         </Button>
                                       </div>
                                       {/* Rewrites */}
-                                      <div className="font-body text-[10px] font-medium text-text-muted mb-1">
+                                      <div className="font-sans text-[10px] font-medium text-foreground-subtle mb-1">
                                         Rewrites
                                       </div>
                                       {(rule.rewrites ?? []).map((rw: any, rwIdx: number) => (
@@ -1663,7 +1648,7 @@ export function ProviderModelsEditor({
                                           {/* Value type selector */}
                                           <div style={{ flex: 0.7 }}>
                                             <select
-                                              className="w-full py-1 pl-2 pr-2 font-body text-[11px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                                              className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                                               value={
                                                 rw.value === null
                                                   ? 'null'
@@ -1741,13 +1726,13 @@ export function ProviderModelsEditor({
                                             {(() => {
                                               if (rw.value === null)
                                                 return (
-                                                  <span className="font-body text-[11px] text-text-muted italic">
+                                                  <span className="font-sans text-[11px] text-foreground-subtle italic">
                                                     null
                                                   </span>
                                                 );
                                               if (rw.value?.from === 'source')
                                                 return (
-                                                  <span className="font-body text-[11px] text-text-muted italic">
+                                                  <span className="font-sans text-[11px] text-foreground-subtle italic">
                                                     passthrough
                                                   </span>
                                                 );
@@ -1989,16 +1974,16 @@ export function ProviderModelsEditor({
                                         style={{ marginLeft: '8px', padding: '2px 6px' }}
                                       >
                                         <Plus size={12} />{' '}
-                                        <span className="font-body text-[10px]">Rewrite</span>
+                                        <span className="font-sans text-[10px]">Rewrite</span>
                                       </Button>
                                       {/* Strip paths */}
                                       <div
                                         style={{
-                                          borderTop: '1px solid var(--color-border-glass)',
+                                          borderTop: '1px solid var(--border)',
                                           margin: '6px 0 4px 0',
                                         }}
                                       />
-                                      <div className="font-body text-[10px] font-medium text-text-muted mb-1">
+                                      <div className="font-sans text-[10px] font-medium text-foreground-subtle mb-1">
                                         Strip paths (remove from payload after rewrite)
                                       </div>
                                       <div
@@ -2020,11 +2005,11 @@ export function ProviderModelsEditor({
                                               }}
                                             >
                                               <div
-                                                className="font-body text-[11px] text-text"
+                                                className="font-sans text-[11px] text-foreground"
                                                 style={{
                                                   padding: '2px 8px',
-                                                  background: 'var(--color-bg-glass)',
-                                                  border: '1px solid var(--color-border-glass)',
+                                                  background: 'var(--surface)',
+                                                  border: '1px solid var(--border)',
                                                   borderRadius: 'var(--radius-sm)',
                                                 }}
                                               >
@@ -2136,7 +2121,7 @@ export function ProviderModelsEditor({
                                     style={{ marginTop: '2px' }}
                                   >
                                     <Plus size={12} />{' '}
-                                    <span className="font-body text-[10px]">Rule</span>
+                                    <span className="font-sans text-[10px]">Rule</span>
                                   </Button>
                                 </div>
                               );
@@ -2146,9 +2131,9 @@ export function ProviderModelsEditor({
                       </div>
 
                       {/* Per-Model Extra Body Fields */}
-                      <div className="border border-border-glass rounded-md overflow-hidden">
+                      <div className="border border-border rounded-md overflow-hidden">
                         <div
-                          className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover hover:bg-bg-glass"
+                          className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface"
                           onClick={() =>
                             setIsModelExtraBodyOpen({
                               ...isModelExtraBodyOpen,
@@ -2161,12 +2146,12 @@ export function ProviderModelsEditor({
                           ) : (
                             <ChevronRight size={14} />
                           )}
-                          <span className="font-body text-[12px] font-medium text-text-secondary flex-1">
+                          <span className="font-sans text-[12px] font-medium text-foreground-muted flex-1">
                             Extra Body Fields
                           </span>
-                          <Badge status="neutral" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                          <Pill tone="neutral" size="sm">
                             {Object.keys(mCfg.extraBody || {}).length}
-                          </Badge>
+                          </Pill>
                           <Button
                             size="sm"
                             variant="secondary"
@@ -2187,12 +2172,12 @@ export function ProviderModelsEditor({
                               flexDirection: 'column',
                               gap: '4px',
                               padding: '8px',
-                              borderTop: '1px solid var(--color-border-glass)',
-                              background: 'var(--color-bg-subtle)',
+                              borderTop: '1px solid var(--border)',
+                              background: 'var(--surface-sunken)',
                             }}
                           >
                             {Object.entries(mCfg.extraBody || {}).length === 0 && (
-                              <div className="font-body text-[11px] text-text-secondary italic">
+                              <div className="font-sans text-[11px] text-foreground-muted italic">
                                 No extra body fields configured.
                               </div>
                             )}
@@ -2237,9 +2222,9 @@ export function ProviderModelsEditor({
                       </div>
 
                       {/* Per-Model Advanced */}
-                      <div className="border border-border-glass rounded-md overflow-hidden">
+                      <div className="border border-border rounded-md overflow-hidden">
                         <div
-                          className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-bg-hover hover:bg-bg-glass"
+                          className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface"
                           onClick={() =>
                             setModelAdvancedOpen((prev) => ({ ...prev, [mId]: !prev[mId] }))
                           }
@@ -2249,24 +2234,18 @@ export function ProviderModelsEditor({
                           ) : (
                             <ChevronRight size={14} />
                           )}
-                          <span className="font-body text-[12px] font-medium text-text-secondary flex-1">
+                          <span className="font-sans text-[12px] font-medium text-foreground-muted flex-1">
                             Advanced
                           </span>
                           {mCfg.maxConcurrency != null && (
-                            <Badge
-                              status="neutral"
-                              style={{ fontSize: '10px', padding: '2px 8px' }}
-                            >
+                            <Pill tone="neutral" size="sm">
                               Concurrency: {mCfg.maxConcurrency}
-                            </Badge>
+                            </Pill>
                           )}
                           {mCfg.auto_compat === true && (
-                            <Badge
-                              status="neutral"
-                              style={{ fontSize: '10px', padding: '2px 8px' }}
-                            >
+                            <Pill tone="neutral" size="sm">
                               Auto Compat
-                            </Badge>
+                            </Pill>
                           )}
                         </div>
                         {modelAdvancedOpen[mId] && (
@@ -2276,8 +2255,8 @@ export function ProviderModelsEditor({
                               flexDirection: 'column',
                               gap: '6px',
                               padding: '8px',
-                              borderTop: '1px solid var(--color-border-glass)',
-                              background: 'var(--color-bg-subtle)',
+                              borderTop: '1px solid var(--border)',
+                              background: 'var(--surface-sunken)',
                             }}
                           >
                             <div className="flex flex-col gap-0.5">
@@ -2292,9 +2271,11 @@ export function ProviderModelsEditor({
                                   }
                                 />
                                 <div>
-                                  <div className="font-body text-[12px] text-text">Auto Compat</div>
+                                  <div className="font-sans text-[12px] text-foreground">
+                                    Auto Compat
+                                  </div>
                                   <div
-                                    className="font-body text-[11px] text-text-muted"
+                                    className="font-sans text-[11px] text-foreground-muted"
                                     style={{ lineHeight: 1.35 }}
                                   >
                                     Use pi-ai registry hints for this model.
@@ -2303,9 +2284,9 @@ export function ProviderModelsEditor({
                               </label>
                             </div>
                             <div className="flex flex-col gap-0.5">
-                              <label className="font-body text-[11px] font-medium text-text-secondary">
+                              <label className="font-sans text-[11px] font-medium text-foreground-muted">
                                 Max Concurrency
-                                <span className="font-normal text-[10px] text-text-muted ml-1">
+                                <span className="font-normal text-[10px] text-foreground-subtle ml-1">
                                   this model only
                                 </span>
                               </label>
@@ -2328,7 +2309,7 @@ export function ProviderModelsEditor({
                                   }
                                 }}
                               />
-                              <span className="font-body text-[11px] text-text-muted italic">
+                              <span className="font-sans text-[11px] text-foreground-subtle italic">
                                 Limit in-flight requests for this model. Leave empty to use the
                                 provider-wide limit or no limit.
                               </span>

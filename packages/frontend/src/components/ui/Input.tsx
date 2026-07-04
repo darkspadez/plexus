@@ -25,13 +25,13 @@ export const Input: React.FC<InputProps> = ({
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
-        <label htmlFor={inputId} className="font-body text-xs font-medium text-text-secondary">
+        <label htmlFor={inputId} className="font-sans text-xs font-medium text-foreground-muted">
           {label}
         </label>
       )}
       <div className="relative flex items-center">
         {leadingIcon && (
-          <span className="pointer-events-none absolute left-3 flex items-center text-text-muted">
+          <span className="pointer-events-none absolute left-3 flex items-center text-foreground-muted">
             {leadingIcon}
           </span>
         )}
@@ -39,12 +39,13 @@ export const Input: React.FC<InputProps> = ({
           id={inputId}
           aria-invalid={!!error}
           className={clsx(
-            'w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none transition-all duration-fast placeholder:text-text-muted',
-            'hover:border-border-2',
-            'focus:border-primary focus:shadow-[0_0_0_3px_rgba(245,158,11,0.18)]',
+            'w-full h-8 py-1.5 font-sans text-sm text-foreground bg-background border rounded-md outline-none transition-colors duration-150',
+            'placeholder:text-foreground-muted',
+            'hover:border-border-strong',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
             'disabled:opacity-50 disabled:cursor-not-allowed',
-            leadingIcon ? 'pl-9' : 'pl-3',
-            trailingAction ? 'pr-10' : 'pr-3',
+            leadingIcon ? 'pl-9 pr-3' : 'px-3',
+            trailingAction ? 'pr-10' : '',
             error ? 'border-danger' : 'border-border',
             className
           )}
@@ -55,7 +56,7 @@ export const Input: React.FC<InputProps> = ({
         )}
       </div>
       {error && <span className="text-danger text-xs">{error}</span>}
-      {!error && hint && <span className="text-text-muted text-xs">{hint}</span>}
+      {!error && hint && <span className="text-foreground-subtle text-xs">{hint}</span>}
     </div>
   );
 };

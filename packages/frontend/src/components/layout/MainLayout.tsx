@@ -1,7 +1,26 @@
+/**
+ * MainLayout — root shell.
+ *
+ * Desktop (md+):
+ *   - Fixed sidebar on left (220px expanded / 64px collapsed)
+ *   - Content column: sticky TopBar (48px) + scrolling <main>
+ *   - Per-page PageHeader sticks below TopBar (top-12 on md+)
+ *
+ * Mobile (< md):
+ *   - Sticky AppBar (48px, hamburger + logo + theme/accent controls)
+ *   - No sidebar visible; Drawer overlay on hamburger press
+ *   - Per-page PageHeader sticks below AppBar (top-12, same offset)
+ *
+ * Overflow strategy: overflow-x-clip on <main> (not overflow-x-hidden) so
+ * position:sticky inside <main> still works. No clip on the outer wrapper
+ * so the sticky AppBar is not broken on mobile.
+ */
 import React from 'react';
-import { clsx } from 'clsx';
+import { cn } from '../../lib/cn';
 import { Sidebar } from './Sidebar';
 import { AppBar } from './AppBar';
+import { TopBar } from './TopBar';
+import { Footer } from './Footer';
 import { Drawer } from '../ui/Drawer';
 import { useSidebar } from '../../contexts/SidebarContext';
 
@@ -9,32 +28,39 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
   const { isCollapsed, isMobileOpen, closeMobile } = useSidebar();
 
   return (
-    // No overflow-x-clip here — the AppBar lives in this wrapper as a sticky
-    // child, and clip-on-the-parent can break sticky positioning in some
-    // browsers. Horizontal overflow is contained one level down on <main>.
-    <div className="min-h-screen bg-bg-deep">
+    <div className="min-h-screen bg-background">
+      {/* Mobile header — hidden on md+ */}
       <AppBar />
 
-      {/* Desktop fixed sidebar. Hidden below md. */}
+      {/* Desktop fixed sidebar — hidden below md */}
       <Sidebar mode="desktop" />
 
-      {/* Mobile drawer — only mounted while open. */}
+      {/* Mobile drawer — overlay on hamburger */}
       <Drawer open={isMobileOpen} onClose={closeMobile} aria-label="Main navigation">
         <Sidebar mode="drawer" />
       </Drawer>
 
-      <main
-        className={clsx(
-          // overflow-x: clip (NOT hidden) keeps wide children from blowing out
-          // the viewport on mobile WITHOUT turning <main> into a scroll
-          // container — overflow-x:hidden would have done that and broken
-          // every `position: sticky` page header inside.
-          'min-h-screen min-w-0 overflow-x-clip transition-[margin] duration-300',
+      {/* Content column — shifts right on desktop to clear the sidebar */}
+      <div
+        className={cn(
+          'flex min-h-screen flex-col transition-[margin] duration-300',
           isCollapsed ? 'md:ml-[64px]' : 'md:ml-[220px]'
         )}
       >
-        {children}
-      </main>
+        {/* Desktop TopBar — hidden on mobile (md:flex in TopBar itself) */}
+        <TopBar />
+
+        {/*
+          overflow-x-clip (NOT hidden): prevents wide children from blowing out
+          the viewport without turning <main> into a scroll container — which
+          would break every position:sticky PageHeader inside.
+          flex-1 so the footer is pushed to the bottom on short pages.
+        */}
+        <main className="min-w-0 flex-1 overflow-x-clip">{children}</main>
+
+        {/* App-wide footer (version moved here from the sidebar) */}
+        <Footer />
+      </div>
     </div>
   );
 };

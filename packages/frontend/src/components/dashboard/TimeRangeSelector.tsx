@@ -118,21 +118,16 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+    <div className="flex flex-wrap items-center gap-2">
       {options.map((range) => {
         if (range === 'custom') {
           return (
-            <div key={range} style={{ position: 'relative' }} ref={pickerRef}>
+            <div key={range} className="relative" ref={pickerRef}>
               <Button
                 size="sm"
                 variant={value === range ? 'primary' : 'secondary'}
                 onClick={handleCustomClick}
-                style={{
-                  textTransform: 'capitalize',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
+                className="capitalize flex items-center gap-1.5"
               >
                 <Calendar size={14} />
                 Custom
@@ -146,38 +141,12 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
               </Button>
 
               {showCustomPicker && value === 'custom' && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    marginTop: '8px',
-                    padding: '12px',
-                    backgroundColor: 'var(--bg-card)',
-                    border: '1px solid var(--border-glass)',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    zIndex: 1000,
-                    minWidth: '280px',
-                  }}
-                >
-                  <div style={{ marginBottom: '12px' }}>
-                    <div style={{ marginBottom: '8px' }}>
+                <div className="absolute right-0 top-full z-[100] mt-2 min-w-[280px] rounded-lg border border-border bg-surface-elevated p-3 shadow-md">
+                  <div className="mb-3">
+                    <div className="mb-2">
                       <button
                         onClick={() => setShowPresetDropdown(!showPresetDropdown)}
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          backgroundColor: 'var(--bg-hover)',
-                          border: '1px solid var(--border-glass)',
-                          borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '13px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        }}
+                        className="flex w-full cursor-pointer items-center justify-between rounded-[6px] border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground-muted"
                       >
                         <span>Quick Select</span>
                         <ChevronDown
@@ -191,31 +160,14 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
                     </div>
 
                     {showPresetDropdown && (
-                      <div
-                        ref={dropdownRef}
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '4px',
-                          marginBottom: '12px',
-                        }}
-                      >
+                      <div ref={dropdownRef} className="mb-3 flex flex-col gap-1">
                         {PRESETS.map((preset) => (
                           <button
                             key={preset.value}
                             onClick={() => handlePresetSelect(preset.value)}
-                            style={{
-                              padding: '6px 12px',
-                              backgroundColor: 'transparent',
-                              border: 'none',
-                              borderRadius: '4px',
-                              color: 'var(--text-primary)',
-                              fontSize: '13px',
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                            }}
+                            className="cursor-pointer rounded-sm border-0 bg-transparent px-3 py-1.5 text-left text-sm text-foreground-muted"
                             onMouseEnter={(e) =>
-                              (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')
+                              (e.currentTarget.style.backgroundColor = 'var(--surface-elevated)')
                             }
                             onMouseLeave={(e) =>
                               (e.currentTarget.style.backgroundColor = 'transparent')
@@ -228,85 +180,34 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
                     )}
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div className="flex flex-col gap-2">
                     <div>
-                      <label
-                        style={{
-                          display: 'block',
-                          fontSize: '12px',
-                          color: 'var(--text-secondary)',
-                          marginBottom: '4px',
-                        }}
-                      >
-                        Start Date
-                      </label>
+                      <label className="mb-1 block text-xs text-foreground-muted">Start Date</label>
                       <input
                         type="datetime-local"
                         value={startDate}
                         onChange={(e) => handleDateChange('start', e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '6px 8px',
-                          backgroundColor: 'var(--bg-input)',
-                          border: '1px solid var(--border-glass)',
-                          borderRadius: '4px',
-                          color: 'var(--text-primary)',
-                          fontSize: '13px',
-                        }}
+                        className="w-full rounded-sm border border-border bg-surface-sunken px-2 py-1.5 text-sm text-foreground"
                       />
                     </div>
 
                     <div>
-                      <label
-                        style={{
-                          display: 'block',
-                          fontSize: '12px',
-                          color: 'var(--text-secondary)',
-                          marginBottom: '4px',
-                        }}
-                      >
-                        End Date
-                      </label>
+                      <label className="mb-1 block text-xs text-foreground-muted">End Date</label>
                       <input
                         type="datetime-local"
                         value={endDate}
                         onChange={(e) => handleDateChange('end', e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '6px 8px',
-                          backgroundColor: 'var(--bg-input)',
-                          border: '1px solid var(--border-glass)',
-                          borderRadius: '4px',
-                          color: 'var(--text-primary)',
-                          fontSize: '13px',
-                        }}
+                        className="w-full rounded-sm border border-border bg-surface-sunken px-2 py-1.5 text-sm text-foreground"
                       />
                     </div>
 
                     {error && (
-                      <div
-                        style={{
-                          padding: '6px 8px',
-                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                          border: '1px solid rgba(239, 68, 68, 0.3)',
-                          borderRadius: '4px',
-                          color: 'var(--danger)',
-                          fontSize: '12px',
-                        }}
-                      >
+                      <div className="rounded-sm border border-danger/30 bg-danger-subtle px-2 py-1.5 text-xs text-danger">
                         {error}
                       </div>
                     )}
 
-                    <div
-                      style={{
-                        padding: '6px 8px',
-                        backgroundColor: 'var(--bg-hover)',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        color: 'var(--text-secondary)',
-                      }}
-                    >
+                    <div className="rounded-sm bg-surface-elevated px-2 py-1.5 text-xs text-foreground-muted">
                       {customRange && formatDateRange(customRange.start, customRange.end)}
                     </div>
                   </div>
@@ -326,7 +227,7 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
               setShowCustomPicker(false);
               setShowPresetDropdown(false);
             }}
-            style={{ textTransform: 'capitalize' }}
+            className="capitalize"
           >
             {range}
           </Button>

@@ -19,7 +19,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({ className, height, width, ro
       aria-live="polite"
       style={style}
       className={clsx(
-        'animate-pulse bg-bg-hover/60',
+        'animate-pulse bg-surface-elevated',
         {
           'rounded-sm': rounded === 'sm',
           'rounded-md': rounded === 'md',

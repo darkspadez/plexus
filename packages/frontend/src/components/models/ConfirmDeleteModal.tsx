@@ -63,12 +63,12 @@ export function ConfirmDeleteModal({
           <Trash2 size={24} style={{ color: 'var(--color-danger)' }} />
         </div>
         <div>
-          <p className="text-text" style={{ marginBottom: '8px', fontWeight: 500 }}>
+          <p className="text-foreground" style={{ marginBottom: '8px', fontWeight: 500 }}>
             {title === 'Delete Model Alias'
               ? 'Are you sure you want to delete this alias?'
               : 'Are you sure you want to delete all configured models?'}
           </p>
-          <p className="text-text-secondary" style={{ fontSize: '14px' }}>
+          <p className="text-foreground-muted" style={{ fontSize: '14px' }}>
             {message}
           </p>
         </div>

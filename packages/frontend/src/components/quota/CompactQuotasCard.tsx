@@ -25,7 +25,7 @@ export const CompactQuotasCard: React.FC<CompactQuotasCardProps> = ({
 
   return (
     <div
-      className="px-2 py-1 space-y-1 cursor-pointer hover:bg-bg-hover transition-colors"
+      className="px-2 py-1 space-y-1 cursor-pointer hover:bg-surface-elevated transition-colors"
       onClick={() => navigate('/quotas')}
       role="button"
       tabIndex={0}
@@ -54,7 +54,9 @@ export const CompactQuotasCard: React.FC<CompactQuotasCardProps> = ({
                 !isLast && 'border-b border-border pb-1.5'
               )}
             >
-              <span className="text-[11px] text-text-secondary truncate flex-1">{displayName}</span>
+              <span className="text-[11px] text-foreground-muted truncate flex-1">
+                {displayName}
+              </span>
               <AlertTriangle className="w-3 h-3 text-danger flex-shrink-0" />
             </div>
           );
@@ -69,8 +71,10 @@ export const CompactQuotasCard: React.FC<CompactQuotasCardProps> = ({
                 !isLast && 'border-b border-border pb-1.5'
               )}
             >
-              <span className="text-[11px] text-text-secondary truncate flex-1">{displayName}</span>
-              <span className="text-[11px] text-text-muted">—</span>
+              <span className="text-[11px] text-foreground-muted truncate flex-1">
+                {displayName}
+              </span>
+              <span className="text-[11px] text-foreground-subtle">—</span>
             </div>
           );
         }
@@ -81,7 +85,7 @@ export const CompactQuotasCard: React.FC<CompactQuotasCardProps> = ({
             key={quota.checkerId}
             className={clsx('py-1', !isLast && 'border-b border-border pb-1.5')}
           >
-            <span className="text-[11px] text-text-muted pl-0 block truncate mb-0.5">
+            <span className="text-[11px] text-foreground-subtle pl-0 block truncate mb-0.5">
               {displayName}
             </span>
             <div className="space-y-px">

@@ -4,6 +4,39 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Plexus</title>
+    <!--
+      Boot script — sets data-theme/data-accent before React hydrates so the
+      first paint matches the user's preference (no FOUC). See DESIGN_SYSTEM.md §3.1.
+      Default theme: 'system' (resolves via prefers-color-scheme).
+      Default accent: 'amber'.
+    -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('plexus.theme') || 'system';
+          var resolved = t;
+          if (t === 'system') {
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          } else if (t !== 'light' && t !== 'dark') {
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.dataset.theme = resolved;
+
+          var accents = ['blue', 'green', 'orange', 'violet', 'rose', 'amber'];
+          var a = localStorage.getItem('plexus.accent') || 'amber';
+          document.documentElement.dataset.accent = accents.indexOf(a) >= 0 ? a : 'amber';
+        } catch (e) {
+          document.documentElement.dataset.theme = 'dark';
+          document.documentElement.dataset.accent = 'amber';
+        }
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="root"></div>

@@ -63,10 +63,10 @@ export const AllowanceMeterRow: React.FC<AllowanceMeterRowProps> = ({
     return (
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center justify-between gap-1 min-w-0">
-          <span className="text-[11px] text-text-secondary truncate flex-1">{meter.label}</span>
+          <span className="text-[11px] text-foreground-muted truncate flex-1">{meter.label}</span>
           {(pct !== null || reset) && (
             <span
-              className="text-[10px] tabular-nums text-text-muted flex-shrink-0"
+              className="text-[10px] tabular-nums text-foreground-subtle flex-shrink-0"
               title={reset ? `Resets at ${reset.absolute}` : undefined}
             >
               {pct !== null && `${Math.round(pct)}%`}
@@ -76,7 +76,7 @@ export const AllowanceMeterRow: React.FC<AllowanceMeterRowProps> = ({
           )}
         </div>
         {pct !== null && (
-          <div className="h-1.5 rounded-full bg-bg-subtle overflow-hidden border border-border/30">
+          <div className="h-1.5 rounded-full bg-surface-sunken overflow-hidden border border-border/30">
             <div
               className={clsx(
                 'h-full rounded-full transition-all duration-500',
@@ -94,21 +94,21 @@ export const AllowanceMeterRow: React.FC<AllowanceMeterRowProps> = ({
     <div
       className={clsx(
         'flex flex-col gap-1 py-0.5',
-        onClick && 'cursor-pointer hover:bg-bg-hover rounded px-1 -mx-1 transition-colors'
+        onClick && 'cursor-pointer hover:bg-surface-elevated rounded px-1 -mx-1 transition-colors'
       )}
       onClick={onClick}
       title={onClick ? 'Click to view history' : undefined}
     >
       <div className="flex items-center justify-between gap-1 min-w-0">
-        <span className="text-xs text-text-secondary truncate min-w-0 flex-1">{meter.label}</span>
+        <span className="text-xs text-foreground-muted truncate min-w-0 flex-1">{meter.label}</span>
         {meter.scope && (
-          <span className="text-[10px] text-text-muted px-1 bg-bg-subtle border border-border-glass/40 rounded uppercase tracking-wider font-mono shrink-0">
+          <span className="text-[10px] text-text-muted px-1 bg-surface-sunken border border-border-glass/40 rounded uppercase tracking-wider font-mono shrink-0">
             {meter.scope}
           </span>
         )}
       </div>
       {pct !== null && (
-        <div className="h-1.5 rounded-full bg-bg-subtle overflow-hidden border border-border/30">
+        <div className="h-1.5 rounded-full bg-surface-sunken overflow-hidden border border-border/30">
           <div
             className={clsx(
               'h-full rounded-full transition-all duration-500',
@@ -120,9 +120,9 @@ export const AllowanceMeterRow: React.FC<AllowanceMeterRowProps> = ({
       )}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         {remaining !== undefined && (
-          <span className="text-xs tabular-nums text-text">{remaining} left</span>
+          <span className="text-xs tabular-nums text-foreground">{remaining} left</span>
         )}
-        {period && <span className="text-[10px] text-text-muted">{period}</span>}
+        {period && <span className="text-[10px] text-foreground-subtle">{period}</span>}
         {pct !== null && (
           <span
             className={clsx(
@@ -131,7 +131,7 @@ export const AllowanceMeterRow: React.FC<AllowanceMeterRowProps> = ({
                 ? 'text-danger'
                 : meter.status === 'warning'
                   ? 'text-warning'
-                  : 'text-text-secondary'
+                  : 'text-foreground-muted'
             )}
           >
             {Math.round(pct)}%

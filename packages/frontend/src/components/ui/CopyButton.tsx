@@ -54,11 +54,12 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
         aria-label={copied ? 'Copied' : label}
         title={!canCopy ? 'Copy requires HTTPS connection' : copied ? 'Copied!' : label}
         className={clsx(
-          'inline-flex items-center justify-center rounded-md transition-colors duration-fast focus-visible:outline-2 focus-visible:outline focus-visible:outline-primary focus-visible:outline-offset-2',
+          'inline-flex items-center justify-center rounded-md transition-colors duration-150',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
           size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
           !canCopy
-            ? 'text-text-muted cursor-not-allowed opacity-50'
-            : 'text-text-muted hover:text-text hover:bg-bg-hover cursor-pointer',
+            ? 'text-foreground-muted cursor-not-allowed opacity-50'
+            : 'text-foreground-muted hover:text-foreground hover:bg-surface-elevated cursor-pointer',
           className
         )}
       >
@@ -74,10 +75,11 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
       disabled={!canCopy}
       title={!canCopy ? 'Copy requires HTTPS connection' : undefined}
       className={clsx(
-        'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-all duration-fast focus-visible:outline-2 focus-visible:outline focus-visible:outline-primary focus-visible:outline-offset-2',
+        'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         !canCopy
-          ? 'border-border-glass/30 bg-bg-glass/30 text-text-muted cursor-not-allowed opacity-50'
-          : 'border-border-glass bg-bg-glass text-text-secondary hover:text-text hover:border-primary cursor-pointer',
+          ? 'border-border/30 bg-surface/30 text-foreground-muted cursor-not-allowed opacity-50'
+          : 'border-border bg-surface text-foreground-muted hover:text-foreground hover:border-accent cursor-pointer',
         className
       )}
     >
