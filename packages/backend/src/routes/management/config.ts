@@ -445,6 +445,32 @@ export async function registerConfigRoutes(
       return reply.code(400).send({ error: 'Object body is required' });
     }
 
+    // `default_quotas` is the one system setting with referential integrity:
+    // every name must exist in `user_quotas`, mirroring the membership checks
+    // on /quota/clear and /quota/recompute (the runtime only skip-and-warns on
+    // dangling names, silently enforcing nothing). `null` clears the setting.
+    if ('default_quotas' in body && body.default_quotas != null) {
+      const dq = body.default_quotas;
+      if (!Array.isArray(dq) || dq.some((v) => typeof v !== 'string')) {
+        return reply.code(400).send({
+          error: {
+            message: `'default_quotas' must be an array of quota names`,
+            type: 'invalid_request_error',
+          },
+        });
+      }
+      const defined = await configService.getRepository().getAllUserQuotas();
+      const unknown = dq.filter((name) => !(name in defined));
+      if (unknown.length > 0) {
+        return reply.code(400).send({
+          error: {
+            message: `Unknown quota name(s) in 'default_quotas': ${unknown.join(', ')}. Quotas must be defined in user_quotas first.`,
+            type: 'invalid_request_error',
+          },
+        });
+      }
+    }
+
     try {
       await configService.setSettingsBulk(body);
       logger.debug('System settings updated via API');
