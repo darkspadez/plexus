@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
@@ -8,6 +8,10 @@ import { CostToolTip } from '../components/ui/CostToolTip';
 import { DataTable } from '../components/ui/DataTable';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
+import { RequestDetailPanel } from '../components/logs/RequestDetailPanel';
+import { apiFormatsDiffer, getRoutePath } from '../components/logs/route';
+import { ApiFormatChip, Pill } from '../components/chips';
+import type { PillTone } from '../components/chips';
 import { SECTION_NAMES } from '../lib/nav';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
@@ -18,17 +22,13 @@ import {
   type UsageSortField,
 } from '../lib/api';
 import {
-  KWH_PER_SLICE,
   formatBytes,
   formatCost,
-  formatEnergy,
   formatMs,
-  formatSlices,
   formatTPS,
   getEstimatedBytesPerToken,
 } from '../lib/format';
 import { isClipboardAvailable, copyToClipboard } from '../lib/clipboard';
-import { formatApiTypeLabel, getApiBaseType } from '../lib/apiFormats';
 import { DateTimePicker } from '../components/ui/DateTimePicker';
 import {
   ChevronLeft,
@@ -36,42 +36,15 @@ import {
   Trash2,
   Bug,
   Zap,
-  ZapOff,
-  AlertTriangle,
   Languages,
   MoveHorizontal,
-  CloudUpload,
-  CloudDownload,
-  BrainCog,
-  PackageOpen,
   Copy,
-  Variable,
-  AudioLines,
-  Volume2,
-  Wrench,
-  MessagesSquare,
-  PlugZap,
-  CirclePause,
-  Octagon,
-  Hammer,
-  RulerDimensionLine,
   ChevronDown,
-  Image as ImageIcon,
-  ShieldCheck,
   FileText,
-  RotateCcw,
-  PencilLine,
-  Plane,
   Eye,
   ScanSearch,
   PlayCircle,
   Circle,
-  X,
-  Ban,
-  Timer,
-  CheckCircle,
-  XCircle,
-  Gauge,
   Wifi,
   WifiOff,
   Loader,
@@ -80,50 +53,24 @@ import {
 import { cn } from '../lib/cn';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-// @ts-ignore
-import messagesLogo from '../assets/messages.svg';
-// @ts-ignore
-import antigravityLogo from '../assets/antigravity.svg';
-// @ts-ignore
-import chatLogo from '../assets/chat.svg';
-// @ts-ignore
-import geminiLogo from '../assets/gemini.svg';
-// @ts-ignore
-import responsesLogo from '../assets/responses.svg';
 
 const SSE_HEARTBEAT_TIMEOUT_MS = 30_000;
 
-interface RetryAttemptDetail {
-  index: number;
-  provider: string;
-  model: string;
-  apiType?: string;
-  status: 'success' | 'failed' | 'skipped';
-  reason: string;
-  statusCode?: number;
-  retryable?: boolean;
-}
-
-const parseRetryHistory = (value?: string | null): RetryAttemptDetail[] => {
-  if (!value) return [];
-
-  try {
-    const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter((entry): entry is RetryAttemptDetail => {
-      return (
-        entry &&
-        typeof entry.index === 'number' &&
-        typeof entry.provider === 'string' &&
-        typeof entry.model === 'string' &&
-        typeof entry.status === 'string' &&
-        typeof entry.reason === 'string'
-      );
-    });
-  } catch {
-    return [];
-  }
+/**
+ * Collapsed-row status rendering per request `responseStatus` — a local Pill
+ * tone + label pair. Deliberately independent of the design system's `Status`
+ * health vocabulary (a closed union with no room for request-level outcomes);
+ * any status not listed here renders the failed fallback.
+ */
+const RESPONSE_STATUS_PILLS: Record<string, { tone: PillTone; label: string }> = {
+  success: { tone: 'success', label: 'ok' },
+  pending: { tone: 'warning', label: 'pending' },
+  cancelled: { tone: 'neutral', label: 'cancelled' },
+  timeout: { tone: 'warning', label: 'timeout' },
+};
+const RESPONSE_STATUS_PILL_FALLBACK: { tone: PillTone; label: string } = {
+  tone: 'danger',
+  label: 'failed',
 };
 
 const getOffsetFromSearchParams = (searchParams: URLSearchParams) => {
@@ -153,7 +100,7 @@ const PaginationControls = ({
   total,
   onOffsetChange,
 }: PaginationControlsProps) => (
-  <div className="flex items-center justify-between gap-2 px-2 py-2 sm:justify-end sm:gap-3 sm:px-3 sm:py-3">
+  <div className="flex items-center justify-between gap-2 sm:justify-end sm:gap-3">
     <span className="text-xs text-foreground-muted font-mono">
       Page {currentPage} of {Math.max(1, totalPages)}
     </span>
@@ -198,26 +145,6 @@ export const Logs = () => {
     endDate: '',
   });
 
-  const apiLogos: Record<string, string> = {
-    messages: messagesLogo,
-    antigravity: antigravityLogo,
-    chat: chatLogo,
-    gemini: geminiLogo,
-    responses: responsesLogo,
-    'openai-responses': responsesLogo,
-    // pi-ai/OAuth outgoing API types
-    'google-generative-ai': geminiLogo,
-    'openai-completions': chatLogo,
-    'anthropic-messages': messagesLogo,
-  };
-
-  const PI_AI_OUTGOING_TYPES = new Set([
-    'google-generative-ai',
-    'openai-completions',
-    'anthropic-messages',
-    'openai-responses',
-  ]);
-
   // Delete Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteMode, setDeleteMode] = useState<'all' | 'older'>('older');
@@ -227,8 +154,9 @@ export const Logs = () => {
   // Single Delete State
   const [selectedLogIdForDelete, setSelectedLogIdForDelete] = useState<string | null>(null);
   const [isSingleDeleteModalOpen, setIsSingleDeleteModalOpen] = useState(false);
-  const [selectedRetryLog, setSelectedRetryLog] = useState<UsageRecord | null>(null);
-  const [isRetryModalOpen, setIsRetryModalOpen] = useState(false);
+
+  // Row-expansion state for the Requests-table dossier (RequestDetailPanel).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const filtersRef = useRef(filters);
   // sseConnected tracks whether the live-update SSE stream is currently active.
@@ -261,11 +189,23 @@ export const Logs = () => {
   const [, setProgressTick] = useState(0);
   // liveTick triggers re-renders every 100ms so pending-request durations update live.
   const [, setLiveTick] = useState(0);
+  // Mirrors `logs` for the liveTick interval below, so it can check for a
+  // pending row without depending on `logs` (which would tear down and
+  // rebuild the interval on every log update).
+  const logsRef = useRef<UsageRecord[]>(logs);
+  useEffect(() => {
+    logsRef.current = logs;
+  }, [logs]);
 
   useEffect(() => {
-    // Only tick while the SSE stream is active so duration counters freeze when it drops.
+    // Tick only while a pending request actually needs a live duration —
+    // ticking whenever SSE is merely connected re-rendered this table (and
+    // any open RequestDetailPanel) 10x/s even with nothing in flight, which
+    // was starving the expander button's click handler.
     const interval = setInterval(() => {
-      if (sseConnected.current) setLiveTick((t) => t + 1);
+      if (sseConnected.current && logsRef.current.some((l) => l.responseStatus === 'pending')) {
+        setLiveTick((t) => t + 1);
+      }
     }, 100);
     return () => clearInterval(interval);
   }, []);
@@ -333,11 +273,6 @@ export const Logs = () => {
   const handleDelete = (requestId: string) => {
     setSelectedLogIdForDelete(requestId);
     setIsSingleDeleteModalOpen(true);
-  };
-
-  const handleRetryDetails = (log: UsageRecord) => {
-    setSelectedRetryLog(log);
-    setIsRetryModalOpen(true);
   };
 
   const confirmDeleteSingle = async () => {
@@ -690,7 +625,6 @@ export const Logs = () => {
     }
   };
 
-  const selectedRetryHistory = parseRetryHistory(selectedRetryLog?.retryHistory);
   const showLiveStatus = !!adminKey && offset === 0 && sortBy === 'date' && sortDir === 'desc';
   const hasActiveFilters = Boolean(
     filters.apiKey ||
@@ -700,8 +634,27 @@ export const Logs = () => {
       filters.endDate
   );
 
+  // getRowId/renderExpanded/rowClassName are passed straight through to
+  // DataTable, which wires getRowId into TanStack's row model and calls
+  // renderExpanded directly — stable identities here keep them from
+  // recomputing on every liveTick re-render.
+  const getLogRowId = useCallback((row: UsageRecord) => row.requestId, []);
+  const renderLogExpanded = useCallback((row: UsageRecord) => <RequestDetailPanel log={row} />, []);
+  const getLogRowClassName = useCallback(
+    (log: UsageRecord) =>
+      cn(
+        log.responseStatus === 'pending' && 'bg-warning/5',
+        log.requestId === newestLogId && 'animate-slide-in'
+      ),
+    [newestLogId]
+  );
+
   // ---------------------------------------------------------------------------
-  // DataTable column definitions for the Logs table.
+  // DataTable column definitions for the Logs table — the two-line ledger.
+  // Every cell is at most two text lines (L1 text-sm, L2 text-xs muted); tier-2
+  // detail (cache-write tokens, per-metric cost breakdown, message/tool counts,
+  // vision-fallthrough model, E2E throughput, attempts) lives in
+  // RequestDetailPanel, rendered by DataTable's renderExpanded below.
   // All columns have enableSorting=false — sorting is server-side, driven by
   // renderSortableHeader + handleSort which update sortBy/sortDir state and
   // trigger loadLogs(). TanStack sorting must not re-order the SSE-updated array.
@@ -709,23 +662,19 @@ export const Logs = () => {
   const logsColumns = useMemo<ColumnDef<UsageRecord>[]>(
     () => [
       {
-        id: 'date',
+        id: 'time',
         header: () => renderSortableHeader('Date', 'date'),
         enableSorting: false,
-        meta: { priority: 'high', mobileTitle: true },
+        meta: { priority: 'high', mobileTitle: true, widthClass: 'px-3 2xl:px-4' },
         cell: ({ row }) => {
           const log = row.original;
           const formatted = formatDateSafely(log.date);
           return (
             <div className="flex flex-col">
-              <span style={{ fontWeight: '500' }}>{formatted.time}</span>
-              <span
-                style={{
-                  color: 'var(--foreground-muted)',
-                  fontSize: '0.85em',
-                  whiteSpace: 'nowrap',
-                }}
-              >
+              <span className="whitespace-nowrap font-mono text-sm font-medium">
+                {formatted.time}
+              </span>
+              <span className="whitespace-nowrap text-xs text-foreground-muted">
                 {formatted.date}
               </span>
             </div>
@@ -733,163 +682,59 @@ export const Logs = () => {
         },
       },
       {
-        id: 'apiKey',
+        id: 'key',
         header: () => renderSortableHeader('Key', 'apiKey'),
         enableSorting: false,
-        meta: { priority: 'high', mobileLabel: 'Key' },
+        meta: { priority: 'high', mobileLabel: 'Key', widthClass: 'px-3 2xl:px-4' },
         cell: ({ row }) => {
           const log = row.original;
           return (
             <div
-              className="flex flex-col"
+              className={cn(
+                'flex min-w-0 max-w-[130px] flex-col 2xl:max-w-none',
+                log.sourceIp && 'cursor-help'
+              )}
               title={log.sourceIp ? `IP: ${log.sourceIp}` : undefined}
-              style={log.sourceIp ? { cursor: 'help' } : undefined}
             >
-              <span style={{ fontWeight: '500' }}>{log.apiKey || '-'}</span>
+              <span className="truncate text-sm font-medium">{log.apiKey || '-'}</span>
               {log.attribution && (
-                <span style={{ color: 'var(--foreground-muted)', fontSize: '0.85em' }}>
-                  {log.attribution}
-                </span>
+                <span className="truncate text-xs text-foreground-muted">{log.attribution}</span>
               )}
             </div>
           );
         },
       },
       {
-        id: 'api',
-        header: 'API',
+        id: 'route',
+        header: () => renderSortableHeader('Route', 'incomingModelAlias'),
         enableSorting: false,
-        meta: { priority: 'medium', mobileLabel: 'API' },
+        meta: { priority: 'high', mobileLabel: 'Route', widthClass: 'px-3 2xl:px-4' },
         cell: ({ row }) => {
           const log = row.original;
+          // Destructured consts (not `log.` property reads) so TypeScript's
+          // aliased-condition narrowing carries through `apiTypesDiffer` to the
+          // ApiFormatChip props below.
+          const { incomingApiType, outgoingApiType } = log;
+          const routePath = getRoutePath(log);
+          const apiTypesDiffer =
+            !!incomingApiType &&
+            !!outgoingApiType &&
+            apiFormatsDiffer(incomingApiType, outgoingApiType);
+
           return (
-            <div
-              className="whitespace-nowrap"
-              title={`Incoming: ${formatApiTypeLabel(log.incomingApiType)} → Outgoing: ${formatApiTypeLabel(log.outgoingApiType)} • ${log.isStreamed ? 'Streamed' : 'Non-streamed'} • ${log.outgoingApiType && PI_AI_OUTGOING_TYPES.has(log.outgoingApiType) ? 'pi-ai native' : log.isPassthrough ? 'Direct/Passthrough' : 'Translated'}`}
-              style={{ cursor: 'help' }}
-            >
-              {/* Intentional fixed per-category visual encoding — raw palette colors are correct here,
-                  NOT semantic tokens. Each api type has a stable identity color. Do not migrate to theme tokens. */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                  <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                    {log.incomingApiType === 'embeddings' ? (
-                      <Variable size={16} className="text-green-500" />
-                    ) : log.incomingApiType === 'transcriptions' ? (
-                      <AudioLines size={16} className="text-purple-500" />
-                    ) : log.incomingApiType === 'speech' ? (
-                      <Volume2 size={16} className="text-orange-500" />
-                    ) : log.incomingApiType === 'images' ? (
-                      <ImageIcon size={16} className="text-fuchsia-500" />
-                    ) : log.incomingApiType === 'oauth' ? (
-                      <ShieldCheck size={16} className="text-emerald-500" />
-                    ) : log.incomingApiType && apiLogos[getApiBaseType(log.incomingApiType)] ? (
-                      <img
-                        src={apiLogos[getApiBaseType(log.incomingApiType)]}
-                        alt={formatApiTypeLabel(log.incomingApiType)}
-                        title={formatApiTypeLabel(log.incomingApiType)}
-                        style={{ width: '16px', height: '16px' }}
-                      />
-                    ) : (
-                      '?'
-                    )}
-                  </div>
-                  <span style={{ width: '14px', textAlign: 'center' }}>→</span>
-                  <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                    {log.outgoingApiType === 'embeddings' ? (
-                      <Variable size={16} className="text-green-500" />
-                    ) : log.outgoingApiType === 'transcriptions' ? (
-                      <AudioLines size={16} className="text-purple-500" />
-                    ) : log.outgoingApiType === 'speech' ? (
-                      <Volume2 size={16} className="text-orange-500" />
-                    ) : log.outgoingApiType === 'images' ? (
-                      <ImageIcon size={16} className="text-fuchsia-500" />
-                    ) : log.outgoingApiType === 'oauth' ? (
-                      <ShieldCheck size={16} className="text-emerald-500" />
-                    ) : log.outgoingApiType && apiLogos[getApiBaseType(log.outgoingApiType)] ? (
-                      <img
-                        src={apiLogos[getApiBaseType(log.outgoingApiType)]}
-                        alt={formatApiTypeLabel(log.outgoingApiType)}
-                        title={formatApiTypeLabel(log.outgoingApiType)}
-                        style={{ width: '16px', height: '16px' }}
-                      />
-                    ) : (
-                      '?'
-                    )}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    borderTop: '1px solid var(--border)',
-                    margin: '1px 4px',
-                    width: '44px',
-                  }}
-                />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                  <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                    {log.isStreamed ? (
-                      <Zap size={12} className="text-blue-400" />
-                    ) : (
-                      <ZapOff size={12} className="text-gray-400" />
-                    )}
-                  </div>
-                  <span style={{ width: '14px' }} />
-                  <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                    {log.outgoingApiType && PI_AI_OUTGOING_TYPES.has(log.outgoingApiType) ? (
-                      <Pi size={12} className="text-emerald-400" />
-                    ) : log.isPassthrough ? (
-                      <MoveHorizontal size={12} className="text-yellow-500" />
-                    ) : (
-                      <Languages size={12} className="text-purple-400" />
-                    )}
-                  </div>
-                </div>
-                {(log.isVisionFallthrough || log.isDescriptorRequest) && (
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: '2px', marginTop: '2px' }}
-                  >
-                    <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                      {log.isVisionFallthrough && (
-                        <div
-                          title={`Vision Fallthrough${log.visionFallthroughModel ? ` via ${log.visionFallthroughModel}` : ''} (Images converted to text)`}
-                        >
-                          <ScanSearch size={12} className="text-amber-500" />
-                        </div>
-                      )}
-                    </div>
-                    <span style={{ width: '14px' }} />
-                    <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                      {log.isDescriptorRequest && (
-                        <div title="Descriptor Request (Generated image description)">
-                          <Eye size={12} className="text-blue-500" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        },
-      },
-      {
-        id: 'model',
-        header: () => renderSortableHeader('Model', 'incomingModelAlias'),
-        enableSorting: false,
-        meta: { priority: 'high', mobileLabel: 'Model' },
-        cell: ({ row }) => {
-          const log = row.original;
-          return (
-            <div className="flex min-w-0 flex-col gap-0.5 break-all lg:whitespace-nowrap">
-              <div className="group/model flex items-center gap-1">
-                <span>{log.incomingModelAlias || '-'}</span>
+            <div className="flex min-w-0 max-w-[170px] flex-col gap-0.5 whitespace-nowrap 2xl:max-w-none">
+              <div className="group/alias flex items-center gap-1.5">
+                <span className="min-w-0 truncate font-mono text-sm font-medium">
+                  {log.incomingModelAlias || '-'}
+                </span>
                 {log.incomingModelAlias && log.incomingModelAlias !== '-' && (
                   <button
+                    type="button"
                     onClick={async () => {
                       if (!isClipboardAvailable()) return;
                       await copyToClipboard(log.incomingModelAlias || '');
                     }}
-                    className="opacity-0 group-hover/model:opacity-100 transition-opacity bg-transparent border-0 cursor-pointer p-0 flex items-center disabled:opacity-0"
+                    className="flex shrink-0 items-center border-0 bg-transparent p-0 opacity-0 transition-opacity group-hover/alias:opacity-100 disabled:opacity-0"
                     title={
                       isClipboardAvailable() ? 'Copy incoming model alias' : 'Copy requires HTTPS'
                     }
@@ -898,18 +743,60 @@ export const Logs = () => {
                     <Copy size={12} className="text-foreground-muted hover:text-foreground" />
                   </button>
                 )}
+                {/* Intentional fixed raw-palette glyph hues (not semantic tokens) — each
+                    signal (streamed, route path, vision/descriptor) keeps a stable identity
+                    color for quick visual scanning, matching the rest of this row today. */}
+                <span className="flex shrink-0 items-center gap-1">
+                  {log.isStreamed && (
+                    <span title="Streamed" className="cursor-help">
+                      <Zap size={12} className="text-blue-400" />
+                    </span>
+                  )}
+                  {routePath === 'native' ? (
+                    <span title="pi-ai native" className="cursor-help">
+                      <Pi size={12} className="text-emerald-400" />
+                    </span>
+                  ) : routePath === 'passthrough' ? (
+                    <span title="Direct/Passthrough" className="cursor-help">
+                      <MoveHorizontal size={12} className="text-yellow-500" />
+                    </span>
+                  ) : (
+                    <span title="Translated" className="cursor-help">
+                      <Languages size={12} className="text-purple-400" />
+                    </span>
+                  )}
+                  {log.isVisionFallthrough ? (
+                    <span
+                      title="Vision fallthrough (images converted to text)"
+                      className="cursor-help"
+                    >
+                      <ScanSearch size={12} className="text-amber-500" />
+                    </span>
+                  ) : log.isDescriptorRequest ? (
+                    <span
+                      title="Descriptor request (generated image description)"
+                      className="cursor-help"
+                    >
+                      <Eye size={12} className="text-blue-500" />
+                    </span>
+                  ) : null}
+                </span>
               </div>
-              <div className="group/selected flex items-center gap-1">
-                <span style={{ color: 'var(--foreground-muted)', fontSize: '0.9em' }}>
+              <div className="group/selected flex items-center gap-1.5 text-xs text-foreground-muted">
+                <span
+                  className="min-w-0 truncate font-mono"
+                  title={`${log.provider || '-'}:${log.selectedModelName || '-'}`}
+                >
                   {log.provider || '-'}:{log.selectedModelName || '-'}
                 </span>
                 {log.selectedModelName && log.selectedModelName !== '-' && (
                   <button
+                    type="button"
                     onClick={async () => {
                       if (!isClipboardAvailable()) return;
                       await copyToClipboard(log.selectedModelName || '');
                     }}
-                    className="opacity-0 group-hover/selected:opacity-100 transition-opacity bg-transparent border-0 cursor-pointer p-0 flex items-center disabled:opacity-0"
+                    className="flex shrink-0 items-center border-0 bg-transparent p-0 opacity-0 transition-opacity group-hover/selected:opacity-100 disabled:opacity-0"
                     title={
                       isClipboardAvailable() ? 'Copy selected model name' : 'Copy requires HTTPS'
                     }
@@ -918,31 +805,14 @@ export const Logs = () => {
                     <Copy size={10} className="text-foreground-muted hover:text-foreground" />
                   </button>
                 )}
-              </div>
-              {log.isVisionFallthrough && log.visionFallthroughModel && (
-                <div
-                  className="group/vft flex items-center gap-1"
-                  title="Vision fallthrough descriptor model"
-                >
-                  <ScanSearch size={10} className="text-amber-500 shrink-0" />
-                  <span style={{ color: 'var(--foreground-muted)', fontSize: '0.8em' }}>
-                    {log.visionFallthroughModel}
+                {apiTypesDiffer && (
+                  <span className="flex shrink-0 items-center gap-1">
+                    <ApiFormatChip format={incomingApiType} />
+                    <span aria-hidden>→</span>
+                    <ApiFormatChip format={outgoingApiType} />
                   </span>
-                  <button
-                    onClick={async () => {
-                      if (!isClipboardAvailable()) return;
-                      await copyToClipboard(log.visionFallthroughModel || '');
-                    }}
-                    className="opacity-0 group-hover/vft:opacity-100 transition-opacity bg-transparent border-0 cursor-pointer p-0 flex items-center disabled:opacity-0"
-                    title={
-                      isClipboardAvailable() ? 'Copy fallthrough model name' : 'Copy requires HTTPS'
-                    }
-                    disabled={!isClipboardAvailable()}
-                  >
-                    <Copy size={10} className="text-foreground-muted hover:text-foreground" />
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           );
         },
@@ -951,96 +821,36 @@ export const Logs = () => {
         id: 'tokens',
         header: 'Tokens',
         enableSorting: false,
-        meta: { priority: 'medium', mobileLabel: 'Tokens' },
+        meta: {
+          priority: 'medium',
+          mobileLabel: 'Tokens',
+          align: 'right',
+          widthClass: 'px-3 2xl:px-4',
+        },
         cell: ({ row }) => {
           const log = row.original;
+          const inputLabel =
+            (log.tokensInput || 0) === 0 ? '-' : formatLargeNumber(log.tokensInput || 0);
+          const outputLabel =
+            (log.tokensOutput || 0) === 0 ? '-' : formatLargeNumber(log.tokensOutput || 0);
+          const l2Segments: string[] = [];
+          if (log.tokensCached) l2Segments.push(`cached ${formatLargeNumber(log.tokensCached)}`);
+          if (log.tokensReasoning) l2Segments.push(`rsn ${formatLargeNumber(log.tokensReasoning)}`);
+
           return (
-            <div
-              title={`Input: ${(log.tokensInput || 0) === 0 ? '-' : formatLargeNumber(log.tokensInput || 0)} • Output: ${(log.tokensOutput || 0) === 0 ? '-' : formatLargeNumber(log.tokensOutput || 0)} • Reasoning: ${(log.tokensReasoning || 0) === 0 ? '-' : formatLargeNumber(log.tokensReasoning || 0)} • Cached: ${(log.tokensCached || 0) === 0 ? '-' : formatLargeNumber(log.tokensCached || 0)} • Cache Write: ${(log.tokensCacheWrite || 0) === 0 ? '-' : formatLargeNumber(log.tokensCacheWrite || 0)}${log.tokensEstimated ? ' • * = Estimated' : ''}`}
-              style={{ cursor: 'help' }}
-            >
-              {/* Intentional fixed per-token-type visual encoding — raw palette colors are correct here,
-                  NOT semantic tokens. Each token type (input/output/reasoning/cached) has a stable
-                  identity color for quick visual scanning. Do not migrate to theme tokens. */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <CloudUpload size={12} className="text-blue-400" />
-                    <span style={{ fontWeight: '500', fontSize: '0.9em', minWidth: '30px' }}>
-                      {(log.tokensInput || 0) === 0 ? '-' : formatLargeNumber(log.tokensInput || 0)}
-                      {log.tokensEstimated ? (
-                        <sup style={{ fontSize: '0.7em', opacity: 0.6 }}>*</sup>
-                      ) : null}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <BrainCog size={12} className="text-purple-400" />
-                    <span
-                      style={{
-                        color: 'var(--foreground-muted)',
-                        fontSize: '0.85em',
-                        minWidth: '30px',
-                      }}
-                    >
-                      {(log.tokensReasoning || 0) === 0
-                        ? '-'
-                        : formatLargeNumber(log.tokensReasoning || 0)}
-                      {log.tokensEstimated ? (
-                        <sup style={{ fontSize: '0.7em', opacity: 0.6 }}>*</sup>
-                      ) : null}
-                    </span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <CloudDownload size={12} className="text-green-400" />
-                    <span style={{ fontWeight: '500', fontSize: '0.9em', minWidth: '30px' }}>
-                      {(log.tokensOutput || 0) === 0
-                        ? '-'
-                        : formatLargeNumber(log.tokensOutput || 0)}
-                      {log.tokensEstimated ? (
-                        <sup style={{ fontSize: '0.7em', opacity: 0.6 }}>*</sup>
-                      ) : null}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <PackageOpen size={12} className="text-orange-400" />
-                    <span
-                      style={{
-                        color: 'var(--foreground-muted)',
-                        fontSize: '0.85em',
-                        minWidth: '30px',
-                      }}
-                    >
-                      {(log.tokensCached || 0) === 0
-                        ? '-'
-                        : formatLargeNumber(log.tokensCached || 0)}
-                      {log.tokensEstimated ? (
-                        <sup style={{ fontSize: '0.7em', opacity: 0.6 }}>*</sup>
-                      ) : null}
-                    </span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <PencilLine size={12} className="text-fuchsia-400" />
-                    <span
-                      style={{
-                        color: 'var(--foreground-muted)',
-                        fontSize: '0.85em',
-                        minWidth: '30px',
-                      }}
-                    >
-                      {(log.tokensCacheWrite || 0) === 0
-                        ? '-'
-                        : formatLargeNumber(log.tokensCacheWrite || 0)}
-                      {log.tokensEstimated ? (
-                        <sup style={{ fontSize: '0.7em', opacity: 0.6 }}>*</sup>
-                      ) : null}
-                    </span>
-                  </div>
-                </div>
-              </div>
+            <div className="flex flex-col font-mono tabular-nums">
+              <span className="whitespace-nowrap text-sm">
+                {inputLabel}
+                {log.tokensEstimated ? <sup className="text-[0.7em] opacity-60">*</sup> : null}
+                {' → '}
+                {outputLabel}
+                {log.tokensEstimated ? <sup className="text-[0.7em] opacity-60">*</sup> : null}
+              </span>
+              {l2Segments.length > 0 && (
+                <span className="hidden whitespace-nowrap text-xs text-foreground-muted 2xl:inline">
+                  {l2Segments.join(' · ')}
+                </span>
+              )}
             </div>
           );
         },
@@ -1049,64 +859,27 @@ export const Logs = () => {
         id: 'cost',
         header: () => renderSortableHeader('Cost', 'costTotal'),
         enableSorting: false,
-        meta: { priority: 'medium', mobileLabel: 'Cost' },
+        meta: {
+          priority: 'medium',
+          mobileLabel: 'Cost',
+          align: 'right',
+          widthClass: 'px-3 2xl:px-4',
+        },
         cell: ({ row }) => {
           const log = row.original;
-          if (log.costTotal === undefined || log.costTotal === null) {
-            return (
-              <span
-                style={{
-                  color: 'var(--foreground-muted)',
-                  fontSize: '1.2em',
-                  display: 'block',
-                  textAlign: 'center',
-                }}
-              >
-                -
-              </span>
-            );
+          if (log.costTotal == null || log.costTotal === 0) {
+            return <span className="font-mono text-sm text-foreground-muted">-</span>;
           }
+          const costLabel = formatCost(log.costTotal, 6);
           return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <div>
-                {log.costSource ? (
-                  <CostToolTip source={log.costSource} costMetadata={log.costMetadata}>
-                    <span style={{ fontWeight: '500', cursor: 'help' }}>
-                      {log.costTotal === 0 ? '-' : formatCost(log.costTotal, 6)}
-                    </span>
-                  </CostToolTip>
-                ) : (
-                  <span style={{ fontWeight: '500' }}>
-                    {log.costTotal === 0 ? '-' : formatCost(log.costTotal, 6)}
-                  </span>
-                )}
-              </div>
-              <div style={{ borderTop: '1px solid var(--border)', margin: '1px 2px' }} />
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'auto 1fr auto 1fr',
-                  gap: '2px 4px',
-                  alignItems: 'center',
-                }}
-              >
-                <CloudUpload size={10} className="text-blue-400" />
-                <span style={{ color: 'var(--foreground-muted)', fontSize: '0.85em' }}>
-                  {log.costInput === 0 ? '$-.----' : formatCost(log.costInput || 0)}
-                </span>
-                <CloudDownload size={10} className="text-green-400" />
-                <span style={{ color: 'var(--foreground-muted)', fontSize: '0.85em' }}>
-                  {log.costOutput === 0 ? '$-.----' : formatCost(log.costOutput || 0)}
-                </span>
-                <PackageOpen size={10} className="text-orange-400" />
-                <span style={{ color: 'var(--foreground-muted)', fontSize: '0.85em' }}>
-                  {log.costCached === 0 ? '$-.----' : formatCost(log.costCached || 0)}
-                </span>
-                <PencilLine size={10} className="text-fuchsia-400" />
-                <span style={{ color: 'var(--foreground-muted)', fontSize: '0.85em' }}>
-                  {log.costCacheWrite === 0 ? '$-.----' : formatCost(log.costCacheWrite || 0)}
-                </span>
-              </div>
+            <div className="whitespace-nowrap font-mono text-sm font-medium tabular-nums">
+              {log.costSource ? (
+                <CostToolTip source={log.costSource} costMetadata={log.costMetadata}>
+                  <span className="cursor-help">{costLabel}</span>
+                </CostToolTip>
+              ) : (
+                costLabel
+              )}
             </div>
           );
         },
@@ -1115,26 +888,26 @@ export const Logs = () => {
         id: 'perf',
         header: () => renderSortableHeader('Perf', 'durationMs'),
         enableSorting: false,
-        meta: { priority: 'medium', mobileLabel: 'Perf' },
+        meta: {
+          priority: 'medium',
+          mobileLabel: 'Perf',
+          align: 'right',
+          widthClass: 'px-3 2xl:px-4',
+        },
         cell: ({ row }) => {
           const log = row.original;
-          const progress =
-            log.responseStatus === 'pending'
-              ? progressMapRef.current.get(log.requestId)
-              : undefined;
+          const isPending = log.responseStatus === 'pending';
+          const progress = isPending ? progressMapRef.current.get(log.requestId) : undefined;
           const rawDurationMs =
             log.durationMs != null && log.durationMs > 0
               ? log.durationMs
-              : log.responseStatus === 'pending'
+              : isPending
                 ? Date.now() - log.startTime
                 : null;
-          const liveDuration = rawDurationMs != null ? formatMs(rawDurationMs) : '-';
-          const e2eOutputTokens = Number(log.tokensOutput || 0) + Number(log.tokensReasoning || 0);
-          const e2e =
-            log.durationMs != null && log.durationMs > 0 && e2eOutputTokens > 0
-              ? e2eOutputTokens / (log.durationMs / 1000)
-              : null;
+          const durationLabel = rawDurationMs != null ? formatMs(rawDurationMs) : '-';
 
+          let secondLineText: string | null = null;
+          let secondLineWarn = false;
           if (progress) {
             const bytesPerToken = getEstimatedBytesPerToken(log);
             const effectiveBytesPerSec =
@@ -1149,182 +922,34 @@ export const Logs = () => {
               effectiveBytesPerSec > 0
                 ? effectiveBytesPerSec / bytesPerToken
                 : null;
-            return (
-              <div
-                className="whitespace-nowrap"
-                style={{ display: 'flex', flexDirection: 'column' }}
-              >
-                <span>Duration: {liveDuration}</span>
-                <span
-                  style={{
-                    color: 'var(--foreground-muted)',
-                    fontSize: '0.85em',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  <CloudDownload size={12} className="text-yellow-400" />
-                  <span>{formatBytes(progress.bytesReceived)}</span>
-                </span>
-                {progress.bytesPerSec != null && (
-                  <span
-                    style={{
-                      color: 'var(--foreground-muted)',
-                      fontSize: '0.85em',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                  >
-                    <Gauge size={12} className="text-foreground-muted" />
-                    {formatBytes(progress.bytesPerSec)}/s
-                  </span>
-                )}
-                {estTokensPerSec != null && (
-                  <span
-                    style={{
-                      color: 'var(--foreground-muted)',
-                      fontSize: '0.85em',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                    title={`Estimated tokens/sec (~${Math.round(bytesPerToken)} bytes/token accounting for SSE + JSON framing)`}
-                  >
-                    <Zap size={12} className="text-amber-400" />
-                    <span>~{formatTPS(estTokensPerSec)} tok/s</span>
-                  </span>
-                )}
-              </div>
-            );
+            const parts = [formatBytes(progress.bytesReceived)];
+            if (progress.bytesPerSec != null) parts.push(`${formatBytes(progress.bytesPerSec)}/s`);
+            if (estTokensPerSec != null) parts.push(`~${formatTPS(estTokensPerSec)} t/s`);
+            secondLineText = parts.join(' · ');
+            secondLineWarn = true;
+          } else {
+            const parts: string[] = [];
+            if (log.ttftMs && log.ttftMs > 0) parts.push(`TTFT ${formatMs(log.ttftMs)}`);
+            if (log.tokensPerSec && log.tokensPerSec > 0)
+              parts.push(`${formatTPS(log.tokensPerSec)} t/s`);
+            if (parts.length > 0) secondLineText = parts.join(' · ');
           }
+
           return (
-            <div className="whitespace-nowrap" style={{ display: 'flex', flexDirection: 'column' }}>
-              <span>Duration: {liveDuration}</span>
-              <span
-                style={{
-                  color: 'var(--foreground-muted)',
-                  fontSize: '0.85em',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {log.ttftMs && log.ttftMs > 0 ? `TTFT: ${formatMs(log.ttftMs)}` : ''}
+            <div className="flex flex-col font-mono tabular-nums">
+              <span className={cn('whitespace-nowrap text-sm', isPending && 'text-warning')}>
+                {durationLabel}
               </span>
-              <span
-                style={{
-                  color: 'var(--foreground-muted)',
-                  fontSize: '0.85em',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {log.tokensPerSec && log.tokensPerSec > 0
-                  ? `TPS: ${formatTPS(log.tokensPerSec)}`
-                  : ''}
-              </span>
-              <span
-                style={{
-                  color: 'var(--foreground-muted)',
-                  fontSize: '0.85em',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {e2e != null ? `E2E: ${formatTPS(e2e)}` : ''}
-              </span>
-            </div>
-          );
-        },
-      },
-      {
-        id: 'meta',
-        header: 'Meta',
-        enableSorting: false,
-        meta: { priority: 'low', mobileLabel: 'Meta' },
-        cell: ({ row }) => {
-          const log = row.original;
-          return (
-            <div
-              title={
-                log.kwhUsed != null && log.kwhUsed > 0
-                  ? `Energy: ${formatEnergy(log.kwhUsed)} ≈ ${formatSlices(log.kwhUsed / KWH_PER_SLICE)} toast slices`
-                  : undefined
-              }
-              style={log.kwhUsed != null && log.kwhUsed > 0 ? { cursor: 'help' } : undefined}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                    className="text-blue-400"
-                  >
-                    <MessagesSquare size={12} />
-                    <span style={{ fontWeight: '500', fontSize: '0.9em', minWidth: '20px' }}>
-                      {(log.messageCount || 0) === 0 ? '-' : log.messageCount}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 text-green-400">
-                    <PlugZap size={12} />
-                    <span
-                      style={{
-                        color: 'var(--foreground-muted)',
-                        fontSize: '0.85em',
-                        minWidth: '20px',
-                      }}
-                    >
-                      {(log.toolCallsCount || 0) === 0 ? '-' : log.toolCallsCount}
-                    </span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                    className="text-orange-400"
-                  >
-                    <Wrench size={12} />
-                    <span style={{ fontWeight: '500', fontSize: '0.9em', minWidth: '20px' }}>
-                      {(log.toolsDefined || 0) === 0 ? '-' : log.toolsDefined}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {log.finishReason === 'end_turn' ? (
-                      <CirclePause size={12} className="text-yellow-500" />
-                    ) : log.finishReason === 'stop' ? (
-                      <Octagon size={12} className="text-danger" />
-                    ) : log.finishReason === 'tool_calls' ? (
-                      <Hammer size={12} className="text-purple-500" />
-                    ) : log.finishReason === 'length' || log.finishReason === 'max_tokens' ? (
-                      <RulerDimensionLine size={12} className="text-pink-400" />
-                    ) : (
-                      <ChevronDown size={12} className="text-gray-400" />
-                    )}
-                    <span
-                      style={{
-                        color: 'var(--foreground-muted)',
-                        fontSize: '0.85em',
-                        minWidth: '20px',
-                      }}
-                    >
-                      {log.finishReason || '-'}
-                    </span>
-                  </div>
-                </div>
-                {log.attemptCount && log.attemptCount > 1 && (
-                  <div style={{ display: 'flex', gap: '16px' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleRetryDetails(log)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                      className="text-orange-500 bg-transparent border-0 p-0 cursor-pointer hover:text-orange-400 transition-colors"
-                      title="View retry history"
-                    >
-                      <RotateCcw size={12} />
-                      <span style={{ fontWeight: '500', fontSize: '0.9em', minWidth: '20px' }}>
-                        {log.attemptCount}x
-                      </span>
-                    </button>
-                  </div>
-                )}
-              </div>
+              {secondLineText && (
+                <span
+                  className={cn(
+                    'hidden whitespace-nowrap text-xs 2xl:inline',
+                    secondLineWarn ? 'text-warning' : 'text-foreground-muted'
+                  )}
+                >
+                  {secondLineText}
+                </span>
+              )}
             </div>
           );
         },
@@ -1333,67 +958,30 @@ export const Logs = () => {
         id: 'status',
         header: 'Status',
         enableSorting: false,
-        meta: { priority: 'high', mobileLabel: 'Status' },
+        meta: { priority: 'high', mobileLabel: 'Status', widthClass: 'w-px px-5' },
         cell: ({ row }) => {
           const log = row.original;
+          // Pure state display — zero interactivity. Error/trace navigation
+          // lives in the dossier's View error / View trace buttons (and the
+          // actions column's trace button); clicks anywhere in this cell
+          // bubble to the row and toggle expansion.
+          const statusPill: { tone: PillTone; label: string } = log.hasError
+            ? { tone: 'danger', label: 'err' }
+            : (RESPONSE_STATUS_PILLS[log.responseStatus] ?? RESPONSE_STATUS_PILL_FALLBACK);
+
           return (
-            <div className="flex gap-2 items-center">
-              {log.hasError && (
-                <button
-                  onClick={() => navigate('/errors', { state: { requestId: log.requestId } })}
-                  className={cn(
-                    'inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-xl text-xs font-medium cursor-pointer transition-all duration-200 border',
-                    'text-danger border-danger/30 bg-danger-subtle hover:bg-danger/25'
-                  )}
-                  style={{ width: '52px' }}
-                  title="View Error Details"
+            <div className="flex flex-col items-start gap-1">
+              <Pill tone={statusPill.tone} size="sm">
+                {statusPill.label}
+              </Pill>
+              {log.attemptCount && log.attemptCount > 1 && (
+                <Pill
+                  tone="warning"
+                  size="sm"
+                  title={`${log.attemptCount} attempts — expand the row for details`}
                 >
-                  <AlertTriangle size={12} />
-                  <span style={{ fontWeight: 600 }}>✗</span>
-                </button>
-              )}
-              {log.hasDebug && (
-                <button
-                  onClick={() => navigate('/debug', { state: { requestId: log.requestId } })}
-                  className={cn(
-                    'inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-xl text-xs font-medium cursor-pointer transition-all duration-200 border',
-                    'text-info border-info/30 bg-info-subtle hover:bg-info/25'
-                  )}
-                  style={{ width: '52px' }}
-                  title="View Debug Trace"
-                >
-                  <Bug size={12} />
-                  <span style={{ fontWeight: 600 }}>✓</span>
-                </button>
-              )}
-              {!log.hasError && !log.hasDebug && (
-                <div
-                  className={cn(
-                    'inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-xl text-xs font-medium border',
-                    log.responseStatus === 'success'
-                      ? 'text-success border-success/30 bg-emerald-500/15'
-                      : log.responseStatus === 'pending'
-                        ? 'text-warning border-warning/30 bg-yellow-500/15'
-                        : log.responseStatus === 'cancelled'
-                          ? 'text-info border-info/30 bg-info-subtle'
-                          : log.responseStatus === 'timeout'
-                            ? 'text-warning border-warning/30 bg-warning-subtle'
-                            : 'text-danger border-danger/30 bg-danger-subtle'
-                  )}
-                  style={{ width: '52px' }}
-                >
-                  {log.responseStatus === 'success' ? (
-                    <CheckCircle size={12} />
-                  ) : log.responseStatus === 'pending' ? (
-                    <Plane size={12} className="animate-pulse" />
-                  ) : log.responseStatus === 'cancelled' ? (
-                    <Ban size={12} />
-                  ) : log.responseStatus === 'timeout' ? (
-                    <Timer size={12} />
-                  ) : (
-                    <XCircle size={12} />
-                  )}
-                </div>
+                  {log.attemptCount}×
+                </Pill>
               )}
             </div>
           );
@@ -1401,19 +989,36 @@ export const Logs = () => {
       },
       {
         id: 'delete',
-        header: () => <Trash2 size={12} />,
+        header: 'Actions',
         enableSorting: false,
-        meta: { priority: 'high', align: 'center' },
+        // priority 'low' keeps this column off the mobile cards — the card
+        // header already exposes delete via mobileActions.
+        meta: { priority: 'low', align: 'right', widthClass: 'w-px px-2' },
         cell: ({ row }) => {
           const log = row.original;
           return (
-            <button
-              onClick={() => handleDelete(log.requestId)}
-              className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-danger-subtle hover:text-danger opacity-0 group-hover:opacity-100"
-              title="Delete log"
-            >
-              <Trash2 size={14} />
-            </button>
+            <div className="flex items-center justify-end gap-1">
+              {log.hasDebug && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/debug', { state: { requestId: log.requestId } })}
+                  className="flex h-6 w-6 items-center justify-center rounded-md border-0 bg-transparent text-foreground-subtle transition-all duration-200 cursor-pointer hover:bg-surface-elevated hover:text-foreground"
+                  aria-label="View trace"
+                  title="View trace"
+                >
+                  <Bug size={12} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleDelete(log.requestId)}
+                className="flex h-6 w-6 items-center justify-center rounded-md border-0 bg-transparent text-foreground-subtle transition-all duration-200 cursor-pointer hover:bg-danger-subtle hover:text-danger"
+                aria-label="Delete log"
+                title="Delete log"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
           );
         },
       },
@@ -1426,6 +1031,7 @@ export const Logs = () => {
     <div className="flex flex-col min-h-full">
       <PageHeader
         title={SECTION_NAMES['/logs']}
+        sticky={false}
         subtitle={
           principal?.role === 'limited' && principal.keyName
             ? `Scoped to key "${principal.keyName}"`
@@ -1433,11 +1039,59 @@ export const Logs = () => {
         }
         actions={
           <>
+            <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-2">
+              {!isLimited && (
+                <div className="w-full sm:w-40">
+                  <SearchInput
+                    placeholder="Key…"
+                    value={filters.apiKey}
+                    onChange={(v) => setFilters({ ...filters, apiKey: v })}
+                  />
+                </div>
+              )}
+              <div className="w-full sm:w-40">
+                <SearchInput
+                  placeholder="Model…"
+                  value={filters.incomingModelAlias}
+                  onChange={(v) => setFilters({ ...filters, incomingModelAlias: v })}
+                />
+              </div>
+              <div className="w-full sm:w-36">
+                <SearchInput
+                  placeholder="Provider…"
+                  value={filters.provider}
+                  onChange={(v) => setFilters({ ...filters, provider: v })}
+                />
+              </div>
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                <div className="flex w-full min-w-0 items-center gap-1.5 sm:w-auto sm:gap-2">
+                  <PlayCircle size={18} className="shrink-0 text-foreground-muted sm:h-6 sm:w-6" />
+                  <DateTimePicker
+                    value={filters.startDate}
+                    onChange={(v) => setFilters((prev) => ({ ...prev, startDate: v }))}
+                    placeholder="Start date"
+                    className="min-w-0 flex-1 sm:flex-none"
+                  />
+                </div>
+                <div className="flex w-full min-w-0 items-center gap-1.5 sm:w-auto sm:gap-2">
+                  <Circle size={18} className="shrink-0 text-foreground-muted sm:h-6 sm:w-6" />
+                  <DateTimePicker
+                    value={filters.endDate}
+                    onChange={(v) => setFilters((prev) => ({ ...prev, endDate: v }))}
+                    placeholder="End date"
+                    className="min-w-0 flex-1 sm:flex-none"
+                  />
+                </div>
+              </div>
+              <Button type="submit" variant="primary" size="md" className="w-full sm:w-auto">
+                Search
+              </Button>
+            </form>
             {/* SSE live-update connection status — only visible when on page 1, sorted by date desc */}
             {showLiveStatus && (
               <span
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium select-none sm:px-2.5',
+                  'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium select-none',
                   sseStatus === 'connected' && 'bg-success-subtle text-success border-success/20',
                   sseStatus === 'reconnecting' &&
                     'bg-warning-subtle text-warning border-warning/20',
@@ -1477,67 +1131,64 @@ export const Logs = () => {
             )}
           </>
         }
-      >
-        <form onSubmit={handleSearch} className="flex flex-wrap items-end gap-2">
-          {!isLimited && (
-            <div className="w-full sm:w-56">
-              <SearchInput
-                placeholder="Key…"
-                value={filters.apiKey}
-                onChange={(v) => setFilters({ ...filters, apiKey: v })}
-              />
-            </div>
-          )}
-          <div className="w-full sm:w-56">
-            <SearchInput
-              placeholder="Model…"
-              value={filters.incomingModelAlias}
-              onChange={(v) => setFilters({ ...filters, incomingModelAlias: v })}
-            />
-          </div>
-          <div className="w-full sm:w-44">
-            <SearchInput
-              placeholder="Provider…"
-              value={filters.provider}
-              onChange={(v) => setFilters({ ...filters, provider: v })}
-            />
-          </div>
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-            <div className="flex w-full min-w-0 items-center gap-1.5 sm:w-auto sm:gap-2">
-              <PlayCircle size={18} className="shrink-0 text-foreground-muted sm:h-6 sm:w-6" />
-              <DateTimePicker
-                value={filters.startDate}
-                onChange={(v) => setFilters((prev) => ({ ...prev, startDate: v }))}
-                placeholder="Start date"
-                className="min-w-0 flex-1 sm:flex-none"
-              />
-            </div>
-            <div className="flex w-full min-w-0 items-center gap-1.5 sm:w-auto sm:gap-2">
-              <Circle size={18} className="shrink-0 text-foreground-muted sm:h-6 sm:w-6" />
-              <DateTimePicker
-                value={filters.endDate}
-                onChange={(v) => setFilters((prev) => ({ ...prev, endDate: v }))}
-                placeholder="End date"
-                className="min-w-0 flex-1 sm:flex-none"
-              />
-            </div>
-            {(filters.startDate || filters.endDate) && (
+      />
+
+      <PageContainer>
+        <DataTable<UsageRecord>
+          columns={logsColumns}
+          data={logs}
+          loading={loading && logs.length === 0}
+          getRowKey={(row) => row.requestId}
+          getRowId={getLogRowId}
+          renderExpanded={renderLogExpanded}
+          expandedIds={expanded}
+          onExpandedChange={setExpanded}
+          emptyTitle={hasActiveFilters ? 'No requests found' : 'No requests yet'}
+          emptyDescription={
+            hasActiveFilters
+              ? 'Try adjusting your search filters.'
+              : 'Proxied requests will appear here as traffic flows through the gateway.'
+          }
+          emptyIcon={<FileText />}
+          breakpoint="xl"
+          rowClassName={getLogRowClassName}
+          mobileActions={(log) => (
+            <>
+              {log.hasDebug && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/debug', { state: { requestId: log.requestId } })}
+                  className="flex h-6 w-6 items-center justify-center rounded-md border-0 bg-transparent text-foreground-subtle transition-all duration-200 cursor-pointer hover:bg-surface-elevated hover:text-foreground"
+                  aria-label="View trace"
+                  title="View trace"
+                >
+                  <Bug size={12} />
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setFilters({ ...filters, startDate: '', endDate: '' })}
-                className="rounded-md border-0 bg-transparent text-foreground-subtle transition-colors duration-fast hover:bg-surface-elevated hover:text-foreground"
-                title="Clear date filters"
+                onClick={() => handleDelete(log.requestId)}
+                className="flex h-6 w-6 items-center justify-center rounded-md border-0 bg-transparent text-foreground-subtle transition-all duration-200 cursor-pointer hover:bg-danger-subtle hover:text-danger"
+                aria-label="Delete log"
+                title="Delete log"
               >
-                <X size={14} />
+                <Trash2 size={12} />
               </button>
-            )}
-          </div>
-          <Button type="submit" variant="primary" size="md" className="w-full sm:w-auto">
-            Search
-          </Button>
-          <div className="w-full sm:w-40">
+            </>
+          )}
+        />
+
+        {/* Pagination — deliberately outside the table frame (Fix 3): a slim
+            muted bar, not another bordered box. Per-page selector moved here
+            from the old filter form; URL ?offset= plumbing (updateOffset) is
+            unchanged. */}
+        <div className="mt-3 flex items-center justify-end gap-3 text-xs text-foreground-muted">
+          <label htmlFor="logs-per-page" className="text-xs text-foreground-muted">
+            Per page
+          </label>
+          <div className="w-20">
             <Select
-              label="Per page"
+              id="logs-per-page"
               value={String(limit)}
               onChange={handleLimitChange}
               options={[
@@ -1548,122 +1199,16 @@ export const Logs = () => {
               ]}
             />
           </div>
-        </form>
-      </PageHeader>
-
-      <PageContainer>
-        <DataTable<UsageRecord>
-          columns={logsColumns}
-          data={logs}
-          loading={loading && logs.length === 0}
-          getRowKey={(row) => row.requestId}
-          emptyTitle={hasActiveFilters ? 'No requests found' : 'No requests yet'}
-          emptyDescription={
-            hasActiveFilters
-              ? 'Try adjusting your search filters.'
-              : 'Proxied requests will appear here as traffic flows through the gateway.'
-          }
-          emptyIcon={<FileText />}
-          breakpoint="lg"
-          headerSlot={
-            <PaginationControls
-              currentPage={currentPage}
-              totalPages={totalPages}
-              offset={offset}
-              limit={limit}
-              total={total}
-              onOffsetChange={updateOffset}
-            />
-          }
-          footerSlot={
-            <PaginationControls
-              currentPage={currentPage}
-              totalPages={totalPages}
-              offset={offset}
-              limit={limit}
-              total={total}
-              onOffsetChange={updateOffset}
-            />
-          }
-          rowClassName={(log) =>
-            cn(
-              log.responseStatus === 'pending' && 'bg-warning/5',
-              log.requestId === newestLogId && 'animate-slide-in'
-            )
-          }
-          mobileActions={(log) => (
-            <button
-              onClick={() => handleDelete(log.requestId)}
-              className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-danger-subtle hover:text-danger"
-              title="Delete log"
-            >
-              <Trash2 size={14} />
-            </button>
-          )}
-        />
-      </PageContainer>
-
-      <Modal
-        isOpen={isRetryModalOpen}
-        onClose={() => setIsRetryModalOpen(false)}
-        title="Retry History"
-        footer={
-          <Button variant="secondary" onClick={() => setIsRetryModalOpen(false)}>
-            Close
-          </Button>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          <div className="text-sm text-foreground-muted">
-            <div>
-              Request: <span className="text-foreground">{selectedRetryLog?.requestId || '-'}</span>
-            </div>
-            <div>
-              Attempts:{' '}
-              <span className="text-foreground">{selectedRetryLog?.attemptCount || 1}</span>
-            </div>
-          </div>
-
-          {selectedRetryHistory.length === 0 ? (
-            <div className="text-sm text-foreground-muted">
-              No retry history is available for this request.
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 max-h-96 overflow-y-auto">
-              {selectedRetryHistory.map((attempt) => (
-                <div
-                  key={`${attempt.index}-${attempt.provider}-${attempt.model}`}
-                  className={cn(
-                    'rounded-lg border p-3',
-                    attempt.status === 'success'
-                      ? 'border-emerald-500/30 bg-emerald-500/10'
-                      : attempt.status === 'skipped'
-                        ? 'border-yellow-500/30 bg-yellow-500/10'
-                        : 'border-danger/30 bg-danger-subtle'
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="font-medium text-sm text-foreground">
-                      Attempt {attempt.index}: {attempt.provider}/{attempt.model}
-                    </div>
-                    <div className="text-xs uppercase tracking-wide text-foreground-muted">
-                      {attempt.status}
-                    </div>
-                  </div>
-                  <div className="text-sm text-foreground-muted">
-                    <div>API: {attempt.apiType || '-'}</div>
-                    {attempt.statusCode ? <div>Status Code: {attempt.statusCode}</div> : null}
-                    {attempt.retryable !== undefined ? (
-                      <div>Retryable: {attempt.retryable ? 'yes' : 'no'}</div>
-                    ) : null}
-                    <div className="mt-2 text-foreground">{attempt.reason}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            offset={offset}
+            limit={limit}
+            total={total}
+            onOffsetChange={updateOffset}
+          />
         </div>
-      </Modal>
+      </PageContainer>
 
       <Modal
         isOpen={isDeleteModalOpen}

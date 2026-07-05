@@ -155,6 +155,13 @@
     font-feature-settings: "tnum", "ss01";
   }
 
+  /* Tailwind v4 preflight gives buttons cursor:default; restore pointer so
+     interactive controls read as clickable like links. Disabled stays default. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   body {
     font-family: var(--font-sans);
     font-size: var(--text-sm);
