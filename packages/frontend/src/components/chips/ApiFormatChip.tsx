@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
+import { getApiBaseType } from '../../lib/apiFormats';
 
 export type ApiFormat = 'OpenAI' | 'Anthropic' | 'Gemini' | 'Responses';
 
@@ -10,20 +11,46 @@ const FORMAT_HUES: Record<ApiFormat, { hex: string; subtle: string }> = {
   Responses: { hex: '#7C5CFC', subtle: 'rgba(124,92,252,0.12)' },
 };
 
+// Aliases cover both the legacy/client-facing vocabulary (chat, messages,
+// gemini, responses, openai, anthropic, google) AND the pi-ai (inference-v2)
+// `KnownApi` wire-format vocabulary (e.g. anthropic-messages, openai-completions),
+// so incoming and outgoing api types both resolve onto the same four branded
+// formats regardless of which pipeline produced them. Azure/Vertex/Codex names
+// are hosting/vendor variants of an already-known shape and map to that shape's
+// branded format; `bedrock-converse-stream` and `mistral-conversations` have no
+// confident 1:1 branded equivalent today and intentionally fall through to the
+// unbranded (raw text) chip rendering below.
 const FORMAT_ALIASES: Record<string, ApiFormat> = {
   chat: 'OpenAI',
   openai: 'OpenAI',
+  'openai-completions': 'OpenAI',
   messages: 'Anthropic',
   anthropic: 'Anthropic',
+  'anthropic-messages': 'Anthropic',
   gemini: 'Gemini',
   google: 'Gemini',
+  'google-generative-ai': 'Gemini',
+  'google-generative-ai-vertex': 'Gemini',
+  'google-vertex': 'Gemini',
   responses: 'Responses',
+  'openai-responses': 'Responses',
+  'azure-openai-responses': 'Responses',
+  'openai-codex-responses': 'Responses',
 };
 
-const resolveFormat = (raw: string): ApiFormat | null => {
-  const lower = raw.toLowerCase();
-  if (lower in FORMAT_ALIASES) return FORMAT_ALIASES[lower]!;
-  return null;
+/**
+ * Resolves a raw incoming/outgoing api-type string (legacy or pi-ai vocabulary)
+ * onto its branded `ApiFormat`, or `null` when unrecognized. Exported so callers
+ * (e.g. `getRoutePath` / `apiFormatsDiffer` in components/logs/route.ts) can
+ * compare two raw api-type strings by their resolved format instead of the raw
+ * strings themselves.
+ */
+export const resolveApiFormat = (value: string | undefined): ApiFormat | null => {
+  if (!value) return null;
+  const lower = value.toLowerCase();
+  // Upstream api types may carry a `type:subtype` suffix (see lib/apiFormats);
+  // fall back to the base type so subtyped variants still resolve to a brand.
+  return FORMAT_ALIASES[lower] ?? FORMAT_ALIASES[getApiBaseType(lower)] ?? null;
 };
 
 interface ApiFormatChipProps {
@@ -32,7 +59,7 @@ interface ApiFormatChipProps {
 }
 
 export const ApiFormatChip: React.FC<ApiFormatChipProps> = ({ format, className }) => {
-  const resolved = resolveFormat(format);
+  const resolved = resolveApiFormat(format);
   if (!resolved) {
     return (
       <span

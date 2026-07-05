@@ -23,7 +23,7 @@ export const PageContainer: React.FC<PageContainerProps> = ({
   return (
     <div
       className={cn(
-        'mx-auto w-full min-w-0 p-3 sm:p-6 sm:pt-2 lg:p-8 lg:pt-2',
+        'mx-auto w-full min-w-0 p-3 pt-1 sm:p-6 sm:pt-2 lg:p-8 lg:pt-2',
         widthClasses[width],
         className
       )}
