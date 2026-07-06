@@ -11,9 +11,19 @@
  *   - No sidebar visible; Drawer overlay on hamburger press
  *   - Per-page PageHeader sticks below AppBar (top-12, same offset)
  *
- * Overflow strategy: overflow-x-clip on <main> (not overflow-x-hidden) so
- * position:sticky inside <main> still works. No clip on the outer wrapper
- * so the sticky AppBar is not broken on mobile.
+ * Footer behavior (deliberate "classic sticky footer", not always-pinned):
+ * the content column is min-h-screen (not h-screen) and <main> is flex-1
+ * with no scroll of its own — so on a SHORT page, <main> is stretched to
+ * fill the remaining height and Footer naturally lands at the viewport
+ * bottom, next to Sidebar's own fixed Collapse row (see Footer.tsx's
+ * matching height/padding). On a TALL page, the whole column grows past
+ * one viewport height and the document itself scrolls — Footer trails
+ * after the real content instead of staying pinned, and will no longer
+ * line up with Sidebar's Collapse row while scrolling. Both are intended:
+ * Footer should only look "pinned" when there's nothing to scroll past.
+ * overflow-x-clip on <main> (not overflow-x-hidden) so position:sticky
+ * inside <main> still works; no clip on the outer wrapper so the sticky
+ * AppBar is not broken on mobile.
  */
 import React from 'react';
 import { cn } from '../../lib/cn';
@@ -53,7 +63,10 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
         {/*
           overflow-x-clip (NOT hidden): prevents wide children from blowing out
           the viewport without turning <main> into a scroll container — which
-          would break every position:sticky PageHeader inside.
+          would break every position:sticky PageHeader inside (defaults to
+          false today, but the option should keep working) and would make
+          Footer always-pinned regardless of content length, which is not
+          the desired "classic sticky footer" behavior here (see file header).
           flex-1 so the footer is pushed to the bottom on short pages.
         */}
         <main className="min-w-0 flex-1 overflow-x-clip">{children}</main>

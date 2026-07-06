@@ -14,6 +14,7 @@ import { useToast } from '../../contexts/ToastContext';
 
 export const CONFIG_EXPORT_KEY = ['config-export'] as const;
 export const COMPACTION_CONFIG_KEY = ['compaction-config'] as const;
+export const GRAFANA_URL_KEY = ['grafana-url'] as const;
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -202,6 +203,30 @@ export const useSaveTrustedProxies = () => {
       toast.success('Trusted proxies saved');
     },
     onError: (err: Error) => toast.error(err.message, 'Failed to save trusted proxies'),
+  });
+};
+
+// ---------------------------------------------------------------------------
+// Grafana URL (query + mutation)
+// ---------------------------------------------------------------------------
+
+export const useGrafanaUrl = () =>
+  useQuery({
+    queryKey: GRAFANA_URL_KEY,
+    queryFn: () => api.getGrafanaUrl(),
+  });
+
+export const useSaveGrafanaUrl = () => {
+  const qc = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: (grafanaUrl: string) => api.setGrafanaUrl(grafanaUrl),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: GRAFANA_URL_KEY });
+      toast.success('Grafana URL saved');
+    },
+    onError: (err: Error) => toast.error(err.message, 'Failed to save Grafana URL'),
   });
 };
 

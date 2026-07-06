@@ -19,6 +19,8 @@ import {
   toExplorationPayload,
   networkFormSchema,
   toNetworkPayload,
+  grafanaFormSchema,
+  toGrafanaPayload,
   type StallFormParsed,
   type CompactionFormParsed,
 } from '../config-schemas';
@@ -615,6 +617,53 @@ describe('networkFormSchema + toNetworkPayload', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(toNetworkPayload(result.data)).toEqual([]);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Grafana URL Settings
+// ---------------------------------------------------------------------------
+
+describe('grafanaFormSchema + toGrafanaPayload', () => {
+  test('accepts empty string (feature disabled, optional field)', () => {
+    const result = grafanaFormSchema.safeParse({ grafanaUrl: '' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(toGrafanaPayload(result.data)).toBe('');
+    }
+  });
+
+  test('accepts a valid http:// URL', () => {
+    const result = grafanaFormSchema.safeParse({ grafanaUrl: 'http://grafana.example.com' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(toGrafanaPayload(result.data)).toBe('http://grafana.example.com');
+    }
+  });
+
+  test('accepts a valid https:// URL', () => {
+    const result = grafanaFormSchema.safeParse({ grafanaUrl: 'https://grafana.example.com' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(toGrafanaPayload(result.data)).toBe('https://grafana.example.com');
+    }
+  });
+
+  test('rejects a string without an http(s):// prefix', () => {
+    const result = grafanaFormSchema.safeParse({ grafanaUrl: 'grafana.example.com' });
+    expect(result.success).toBe(false);
+  });
+
+  test('trims surrounding whitespace before validating a URL', () => {
+    const result = grafanaFormSchema.safeParse({
+      grafanaUrl: '  https://grafana.example.com  ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // .transform(v => v.trim()) runs before the http(s):// refine check
+      expect(result.data.grafanaUrl).toBe('https://grafana.example.com');
+      expect(toGrafanaPayload(result.data)).toBe('https://grafana.example.com');
     }
   });
 });

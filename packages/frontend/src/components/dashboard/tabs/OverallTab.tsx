@@ -193,7 +193,7 @@ export const OverallTab: React.FC = () => {
         <TimeRangeSelector
           value={timeRange}
           onChange={(r) => {
-            if (r !== 'custom' && r !== 'live') setTimeRange(r);
+            if (r !== 'custom' && r !== 'all') setTimeRange(r);
           }}
           options={['hour', 'day', 'week', 'month']}
         />

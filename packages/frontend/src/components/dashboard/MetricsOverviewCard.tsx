@@ -20,13 +20,7 @@ export const MetricsOverviewCard: React.FC<MetricsOverviewCardProps> = ({
 }) => {
   return (
     <Card title={title}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
-          gap: '16px',
-        }}
-      >
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-4">
         {metrics.map((metric, index) => (
           <div
             key={index}
@@ -36,10 +30,7 @@ export const MetricsOverviewCard: React.FC<MetricsOverviewCardProps> = ({
               <span className="font-sans text-xs font-semibold text-foreground-subtle uppercase tracking-wider">
                 {metric.label}
               </span>
-              <div
-                className="w-8 h-8 rounded-sm flex items-center justify-center text-white"
-                style={{ background: 'var(--surface-elevated)' }}
-              >
+              <div className="w-8 h-8 rounded-sm flex items-center justify-center bg-surface-elevated text-accent">
                 {metric.icon}
               </div>
             </div>

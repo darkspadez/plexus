@@ -1,14 +1,6 @@
 import { useState } from 'react';
 import { KWH_PER_SLICE, formatDuration, formatEnergy, formatSlices } from '../lib/format';
-import { Tv, Flame, Play, Gamepad2, Lightbulb } from 'lucide-react';
-import toastFull from '../assets/toast/toast-full.png';
-import toast75 from '../assets/toast/toast-75.png';
-import toast50 from '../assets/toast/toast-50.png';
-import toast25 from '../assets/toast/toast-25.png';
-import loafFull from '../assets/toast/loaf-full.png';
-import loaf75 from '../assets/toast/loaf-75.png';
-import loaf50 from '../assets/toast/loaf-50.png';
-import loaf25 from '../assets/toast/loaf-25.png';
+import { Tv, Flame, Play, Gamepad2, Lightbulb, Croissant } from 'lucide-react';
 
 interface ComparisonOption {
   id: string;
@@ -83,36 +75,6 @@ const COMPARISONS: ComparisonOption[] = [
   },
 ];
 
-const SLICES_PER_LOAF = 20;
-const SLICE_LAYOUT_THRESHOLD = 30;
-const MAX_LOAVES_TO_RENDER = 8;
-
-interface QuartileImages {
-  full: string;
-  seventyFive: string;
-  half: string;
-  quarter: string;
-}
-
-const getQuartileImage = (fraction: number, images: QuartileImages) => {
-  if (fraction > 0.75) return images.full;
-  if (fraction > 0.5) return images.seventyFive;
-  if (fraction > 0.25) return images.half;
-  return images.quarter;
-};
-
-const buildUnits = (value: number): number[] => {
-  if (value <= 0) return [];
-
-  const fullUnits = Math.floor(value);
-  const remainder = value - fullUnits;
-  const units = Array.from({ length: fullUnits }, () => 1);
-  if (remainder > 0) {
-    units.push(remainder);
-  }
-  return units;
-};
-
 interface TotalEnergyComparisonProps {
   /** Pre-computed total kWh used across all requests (from backend summary). */
   totalKwh?: number;
@@ -122,25 +84,7 @@ export function TotalEnergyComparison({ totalKwh = 0 }: TotalEnergyComparisonPro
   const [activeTab, setActiveTab] = useState<'slices' | string>('slices');
 
   const totalSlices = totalKwh / KWH_PER_SLICE;
-  const useLoaves = totalSlices > SLICE_LAYOUT_THRESHOLD;
-
-  const toastImages = {
-    full: toastFull,
-    seventyFive: toast75,
-    half: toast50,
-    quarter: toast25,
-  };
-  const loafImages = {
-    full: loafFull,
-    seventyFive: loaf75,
-    half: loaf50,
-    quarter: loaf25,
-  };
-
   const slicesEquivalent = formatSlices(totalSlices);
-  const units = buildUnits(useLoaves ? totalSlices / SLICES_PER_LOAF : totalSlices);
-  const displayedUnits = useLoaves ? units.slice(0, MAX_LOAVES_TO_RENDER) : units;
-  const hasOverflowLoaves = useLoaves && units.length > MAX_LOAVES_TO_RENDER;
 
   const selectedComparison = COMPARISONS.find((c) => c.id === activeTab);
 
@@ -155,40 +99,9 @@ export function TotalEnergyComparison({ totalKwh = 0 }: TotalEnergyComparisonPro
         </div>
       </div>
 
-      {displayedUnits.length === 0 && (
-        <div className="text-sm text-foreground-muted text-center">No usage yet.</div>
-      )}
-
-      {!useLoaves && displayedUnits.length > 0 && (
-        <div className="grid grid-cols-6 gap-2 justify-items-center items-center w-fit mx-auto">
-          {displayedUnits.map((fraction, index) => (
-            <img
-              key={`toast-${index}`}
-              src={getQuartileImage(fraction, toastImages)}
-              alt=""
-              className="w-12 h-12 object-contain"
-            />
-          ))}
-        </div>
-      )}
-
-      {useLoaves && displayedUnits.length > 0 && (
-        <div className="space-y-3">
-          <div className="grid [grid-template-columns:repeat(2,minmax(0,1fr))] gap-3 justify-items-center items-center w-fit mx-auto">
-            {displayedUnits.map((fraction, index) => (
-              <img
-                key={`loaf-${index}`}
-                src={getQuartileImage(fraction, loafImages)}
-                alt=""
-                className="w-[150px] h-auto object-contain"
-              />
-            ))}
-          </div>
-          {hasOverflowLoaves && (
-            <div className="text-sm text-foreground-muted text-center">You are a bad person.</div>
-          )}
-        </div>
-      )}
+      <div className="flex items-center justify-center">
+        <Croissant size={28} className="text-amber-400" />
+      </div>
 
       <div className="flex items-center gap-3 text-xs text-foreground-subtle">
         <span>Toaster uses ~800 W</span>
