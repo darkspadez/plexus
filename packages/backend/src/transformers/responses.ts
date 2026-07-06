@@ -17,6 +17,67 @@ import { encode } from 'eventsource-encoder';
 import { logger } from '../utils/logger';
 import { normalizeOpenAIChatUsage, normalizeOpenAIResponsesUsage } from '../utils/usage-normalizer';
 
+// Some Responses clients have been observed replaying tool calls with composite
+// IDs like "call_...|fc_...". OpenAI-compatible providers validate call_id
+// length and require the model-generated "call_..." ID, so only repair that
+// exact observed shape instead of rewriting arbitrary caller-provided IDs.
+export function normalizeCompositeResponsesCallIds(body: any): number {
+  if (!body || typeof body !== 'object' || !Array.isArray(body.input)) {
+    return 0;
+  }
+
+  let normalizedCount = 0;
+  for (const item of body.input) {
+    if (!item || typeof item !== 'object' || typeof item.call_id !== 'string') {
+      continue;
+    }
+
+    const separatorIndex = item.call_id.indexOf('|');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const callId = item.call_id.slice(0, separatorIndex);
+    const itemId = item.call_id.slice(separatorIndex + 1);
+    if (!callId.startsWith('call_') || !itemId.startsWith('fc_')) {
+      continue;
+    }
+
+    item.call_id = callId;
+    normalizedCount++;
+  }
+
+  return normalizedCount;
+}
+
+// Reasoning items are valid replay context, but some OpenAI-compatible
+// Responses providers reject replayed plaintext reasoning text with
+// "content max length 0". Drop only the optional plaintext content array while
+// preserving the reasoning item, summary, status, id, and encrypted_content.
+export function normalizeResponsesReasoningContent(body: any): number {
+  if (!body || typeof body !== 'object' || !Array.isArray(body.input)) {
+    return 0;
+  }
+
+  let normalizedCount = 0;
+  for (const item of body.input) {
+    if (
+      !item ||
+      typeof item !== 'object' ||
+      item.type !== 'reasoning' ||
+      !Array.isArray(item.content) ||
+      item.content.length === 0
+    ) {
+      continue;
+    }
+
+    item.content = [];
+    normalizedCount++;
+  }
+
+  return normalizedCount;
+}
+
 /**
  * ResponsesTransformer
  *
@@ -1069,7 +1130,10 @@ export class ResponsesTransformer implements Transformer {
             const { done, value: unifiedChunk } = await reader.read();
             if (done) {
               if (!hasSentCreated) {
-                ensureCreated(controller, { model: responseModel, created: responseCreatedAt });
+                ensureCreated(controller, {
+                  model: responseModel,
+                  created: responseCreatedAt,
+                });
               }
               const outputItems = finalizeOutputItems(controller);
               sendEvent(controller, {

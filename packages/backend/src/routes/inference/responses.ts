@@ -1,7 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { logger } from '../../utils/logger';
 import { Dispatcher } from '../../services/dispatcher';
-import { ResponsesTransformer } from '../../transformers/responses';
+import {
+  ResponsesTransformer,
+  normalizeCompositeResponsesCallIds,
+  normalizeResponsesReasoningContent,
+} from '../../transformers/responses';
 import { UsageStorageService } from '../../services/usage-storage';
 import { ResponsesStorageService } from '../../services/responses-storage';
 import { UsageRecord } from '../../types/usage';
@@ -73,9 +77,11 @@ export async function registerResponsesRoute(
       const transformer = new ResponsesTransformer();
 
       // Helper to normalize input into the standardized array format
-      function normalizeInput(
-        input: unknown
-      ): Array<{ type: string; role: string; content: Array<{ type: string; text: string }> }> {
+      function normalizeInput(input: unknown): Array<{
+        type: string;
+        role: string;
+        content: Array<{ type: string; text: string }>;
+      }> {
         return Array.isArray(input)
           ? (input as any[])
           : [
@@ -130,6 +136,23 @@ export async function registerResponsesRoute(
         body.input = [...conversationItems, ...currentInput];
       }
 
+      // Keep debug capture faithful to the client payload, then repair the
+      // dispatch body so strict Responses providers don't reject composite
+      // tool call IDs observed in replayed Codex CLI conversations.
+      const rawBodyForDebug = JSON.parse(JSON.stringify(body));
+      const normalizedCallIds = normalizeCompositeResponsesCallIds(body);
+      const normalizedReasoningItems = normalizeResponsesReasoningContent(body);
+      if (normalizedCallIds > 0) {
+        logger.warn(
+          `Normalized ${normalizedCallIds} composite Responses call_id value(s) for request ${requestId}`
+        );
+      }
+      if (normalizedReasoningItems > 0) {
+        logger.warn(
+          `Removed plaintext content from ${normalizedReasoningItems} Responses reasoning item(s) for request ${requestId}`
+        );
+      }
+
       let unifiedRequest = await transformer.parseRequest(body);
       unifiedRequest.incomingApiType = 'responses';
       unifiedRequest.originalBody = body;
@@ -164,7 +187,11 @@ export async function registerResponsesRoute(
         };
       }
 
-      DebugManager.getInstance().startLog(requestId, body, sanitizeHeaders(request.headers as any));
+      DebugManager.getInstance().startLog(
+        requestId,
+        rawBodyForDebug,
+        sanitizeHeaders(request.headers as any)
+      );
 
       // Check quota before processing
       if (quotaEnforcer) {
