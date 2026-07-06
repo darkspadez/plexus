@@ -346,6 +346,31 @@ export function toNetworkPayload(values: NetworkFormValues): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// Grafana URL Settings
+//
+// Empty string is allowed (feature disabled / link hidden). Non-empty values
+// must start with http:// or https://, mirroring the backend validation in
+// packages/backend/src/routes/management/config.ts (PATCH /grafana-url).
+// ---------------------------------------------------------------------------
+
+export const grafanaFormSchema = z.object({
+  grafanaUrl: z
+    .string()
+    .transform((v) => v.trim())
+    .pipe(
+      z.string().refine((v) => v === '' || /^https?:\/\//.test(v), {
+        message: 'Must start with http:// or https://',
+      })
+    ),
+});
+
+export type GrafanaFormValues = z.infer<typeof grafanaFormSchema>;
+
+export function toGrafanaPayload(values: GrafanaFormValues): string {
+  return values.grafanaUrl;
+}
+
+// ---------------------------------------------------------------------------
 // Context Compaction Settings
 //
 // All form fields are strings (native input values), same approach as Stall.

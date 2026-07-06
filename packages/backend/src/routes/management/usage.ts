@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { encode } from 'eventsource-encoder';
-import { and, eq, gte, lte, sql, isNull, isNotNull } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, sql, isNull, isNotNull } from 'drizzle-orm';
 import { getCurrentDialect, getSchema } from '../../db/client';
 import {
   UsageStorageService,
@@ -8,6 +8,63 @@ import {
   type UsageSortField,
 } from '../../services/observability/usage-storage';
 import { isLimited, scopedKeyName } from './_principal';
+
+/**
+ * Shared range-window resolution for the usage-summary and
+ * errors-by-provider endpoints, which otherwise duplicated an identical
+ * allow-list check plus a `rangeStart`/`rangeEnd` computation.
+ *
+ * `'all'` resolves to an epoch `rangeStart`, relying on the existing
+ * `gte(startTime, rangeStartMs)` filter in each handler's query to act as a
+ * no-op lower bound (mirrors the all-time precedent in metrics.ts, which
+ * simply omits a lower-bound filter for its cumulative totals).
+ */
+function computeUsageRangeWindow(
+  range: string,
+  startDateStr: string | undefined,
+  endDateStr: string | undefined,
+  now: Date
+): { rangeStart: Date; rangeEnd: Date } | { error: string } {
+  if (range === 'custom') {
+    if (!startDateStr || !endDateStr) {
+      return { error: 'startDate and endDate are required for custom range' };
+    }
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return { error: 'Invalid date format' };
+    }
+    if (endDate < startDate) {
+      return { error: 'endDate must be after startDate' };
+    }
+    return { rangeStart: startDate, rangeEnd: endDate };
+  }
+
+  if (!['hour', 'day', 'week', 'month', 'all'].includes(range)) {
+    return { error: 'Invalid range' };
+  }
+
+  const rangeStart = new Date(now);
+  const rangeEnd = new Date(now);
+  switch (range) {
+    case 'hour':
+      rangeStart.setHours(rangeStart.getHours() - 1);
+      break;
+    case 'day':
+      rangeStart.setHours(rangeStart.getHours() - 24);
+      break;
+    case 'week':
+      rangeStart.setDate(rangeStart.getDate() - 7);
+      break;
+    case 'month':
+      rangeStart.setDate(rangeStart.getDate() - 30);
+      break;
+    case 'all':
+      rangeStart.setTime(0);
+      break;
+  }
+  return { rangeStart, rangeEnd };
+}
 
 const USAGE_FIELDS = new Set([
   'requestId',
@@ -196,49 +253,14 @@ export async function registerUsageRoutes(
     const startDateStr = query.startDate;
     const endDateStr = query.endDate;
 
-    // Validate custom date range if provided
-    if (range === 'custom') {
-      if (!startDateStr || !endDateStr) {
-        return reply
-          .code(400)
-          .send({ error: 'startDate and endDate are required for custom range' });
-      }
-      const startDate = new Date(startDateStr);
-      const endDate = new Date(endDateStr);
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        return reply.code(400).send({ error: 'Invalid date format' });
-      }
-      if (endDate < startDate) {
-        return reply.code(400).send({ error: 'endDate must be after startDate' });
-      }
-    } else if (!['hour', 'day', 'week', 'month'].includes(range)) {
-      return reply.code(400).send({ error: 'Invalid range' });
-    }
-
     const now = new Date();
     now.setSeconds(0, 0);
-    let rangeStart = new Date(now);
-    let rangeEnd = new Date(now);
 
-    if (range === 'custom' && startDateStr && endDateStr) {
-      rangeStart = new Date(startDateStr);
-      rangeEnd = new Date(endDateStr);
-    } else {
-      switch (range as 'hour' | 'day' | 'week' | 'month') {
-        case 'hour':
-          rangeStart.setHours(rangeStart.getHours() - 1);
-          break;
-        case 'day':
-          rangeStart.setHours(rangeStart.getHours() - 24);
-          break;
-        case 'week':
-          rangeStart.setDate(rangeStart.getDate() - 7);
-          break;
-        case 'month':
-          rangeStart.setDate(rangeStart.getDate() - 30);
-          break;
-      }
+    const window = computeUsageRangeWindow(range, startDateStr, endDateStr, now);
+    if ('error' in window) {
+      return reply.code(400).send({ error: window.error });
     }
+    const { rangeStart, rangeEnd } = window;
 
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
@@ -246,8 +268,10 @@ export async function registerUsageRoutes(
     statsStart.setDate(statsStart.getDate() - 7);
 
     let stepSeconds = 60;
-    if (range === 'custom') {
-      // Calculate appropriate step based on range duration (adaptive bucketing)
+    if (range === 'custom' || range === 'all') {
+      // Calculate appropriate step based on range duration (adaptive bucketing).
+      // 'all' shares this branch since its true duration is unbounded (epoch
+      // rangeStart), same as a long custom range.
       const durationMs = rangeEnd.getTime() - rangeStart.getTime();
       const durationMinutes = durationMs / (1000 * 60);
       const durationSeconds = durationMs / 1000;
@@ -321,6 +345,7 @@ export async function registerUsageRoutes(
           cachedTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCached}), 0)`,
           cacheWriteTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCacheWrite}), 0)`,
           kwhUsed: sql<number>`COALESCE(SUM(${schema.requestUsage.kwhUsed}), 0)`,
+          errors: sql<number>`COALESCE(SUM(CASE WHEN ${schema.requestUsage.responseStatus} != 'success' THEN 1 ELSE 0 END), 0)`,
         })
         .from(schema.requestUsage)
         .where(
@@ -343,6 +368,7 @@ export async function registerUsageRoutes(
           kwhUsed: sql<number>`COALESCE(SUM(${schema.requestUsage.kwhUsed}), 0)`,
           avgDurationMs: sql<number>`COALESCE(AVG(${schema.requestUsage.durationMs}), 0)`,
           totalDurationMs: sql<number>`COALESCE(SUM(${schema.requestUsage.durationMs}), 0)`,
+          errors: sql<number>`COALESCE(SUM(CASE WHEN ${schema.requestUsage.responseStatus} != 'success' THEN 1 ELSE 0 END), 0)`,
         })
         .from(schema.requestUsage)
         .where(
@@ -384,6 +410,7 @@ export async function registerUsageRoutes(
         kwhUsed: 0,
         avgDurationMs: 0,
         totalDurationMs: 0,
+        errors: 0,
       };
 
       const todayRow = todayRows[0] || {
@@ -407,6 +434,7 @@ export async function registerUsageRoutes(
           cachedTokens: toNumber(row.cachedTokens),
           cacheWriteTokens: toNumber(row.cacheWriteTokens),
           kwhUsed: toNumber(row.kwhUsed),
+          errors: toNumber(row.errors),
           tokens:
             toNumber(row.inputTokens) +
             toNumber(row.outputTokens) +
@@ -423,6 +451,7 @@ export async function registerUsageRoutes(
           totalKwhUsed: toNumber(statsRow.kwhUsed),
           avgDurationMs: toNumber(statsRow.avgDurationMs),
           totalDurationMs: toNumber(statsRow.totalDurationMs),
+          totalErrors: toNumber(statsRow.errors),
         },
         today: {
           requests: toNumber(todayRow.requests),
@@ -435,6 +464,99 @@ export async function registerUsageRoutes(
           totalCost: toNumber(todayRow.totalCost),
         },
       });
+    } catch (e: any) {
+      return reply.code(500).send({ error: e.message });
+    }
+  });
+
+  fastify.get('/v0/management/usage/errors-by-provider', async (request, reply) => {
+    const query = request.query as any;
+    const range = query.range || 'day';
+    const startDateStr = query.startDate;
+    const endDateStr = query.endDate;
+
+    const now = new Date();
+    now.setSeconds(0, 0);
+
+    const window = computeUsageRangeWindow(range, startDateStr, endDateStr, now);
+    if ('error' in window) {
+      return reply.code(400).send({ error: window.error });
+    }
+    const { rangeStart, rangeEnd } = window;
+
+    const db = usageStorage.getDb();
+    const schema = getSchema();
+    const rangeStartMs = rangeStart.getTime();
+    const rangeEndMs = rangeEnd.getTime();
+
+    const toNumber = (value: unknown) =>
+      value === null || value === undefined ? 0 : Number(value);
+
+    // Scope by the limited user's key if applicable.
+    const errorsByProviderScopeKey = scopedKeyName(request);
+    const keyFilter = errorsByProviderScopeKey
+      ? eq(schema.requestUsage.apiKey, errorsByProviderScopeKey)
+      : undefined;
+
+    try {
+      const rows = await db
+        .select({
+          provider: schema.requestUsage.provider,
+          requests: sql<number>`COUNT(*)`,
+          errors: sql<number>`COALESCE(SUM(CASE WHEN ${schema.requestUsage.responseStatus} != 'success' THEN 1 ELSE 0 END), 0)`,
+        })
+        .from(schema.requestUsage)
+        .where(
+          and(
+            gte(schema.requestUsage.startTime, rangeStartMs),
+            lte(schema.requestUsage.startTime, rangeEndMs),
+            ...(keyFilter ? [keyFilter] : [])
+          )
+        )
+        .groupBy(schema.requestUsage.provider)
+        .orderBy(schema.requestUsage.provider);
+
+      const lastErrorRows = await db
+        .select({
+          provider: schema.requestUsage.provider,
+          errorMessage: schema.inferenceErrors.errorMessage,
+          createdAt: schema.inferenceErrors.createdAt,
+        })
+        .from(schema.requestUsage)
+        .innerJoin(
+          schema.inferenceErrors,
+          eq(schema.inferenceErrors.requestId, schema.requestUsage.requestId)
+        )
+        .where(
+          and(
+            gte(schema.requestUsage.startTime, rangeStartMs),
+            lte(schema.requestUsage.startTime, rangeEndMs),
+            sql`${schema.requestUsage.responseStatus} != 'success'`,
+            ...(keyFilter ? [keyFilter] : [])
+          )
+        )
+        .orderBy(desc(schema.inferenceErrors.createdAt));
+
+      const lastErrorByProvider = new Map<string, string>();
+      for (const row of lastErrorRows as any[]) {
+        if (!row.provider) continue;
+        if (lastErrorByProvider.has(row.provider)) continue;
+        lastErrorByProvider.set(row.provider, row.errorMessage);
+      }
+
+      return reply.send(
+        rows.map((row: any) => {
+          const requests = toNumber(row.requests);
+          const errors = toNumber(row.errors);
+          return {
+            provider: row.provider,
+            requests,
+            errors,
+            errorRate: requests > 0 ? errors / requests : 0,
+            lastErrorMessage: lastErrorByProvider.get(row.provider) ?? null,
+          };
+        })
+      );
     } catch (e: any) {
       return reply.code(500).send({ error: e.message });
     }

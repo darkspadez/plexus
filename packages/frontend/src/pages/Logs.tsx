@@ -1031,7 +1031,6 @@ export const Logs = () => {
     <div className="flex flex-col min-h-full">
       <PageHeader
         title={SECTION_NAMES['/logs']}
-        sticky={false}
         subtitle={
           principal?.role === 'limited' && principal.keyName
             ? `Scoped to key "${principal.keyName}"`

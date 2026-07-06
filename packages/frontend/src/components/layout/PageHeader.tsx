@@ -8,7 +8,7 @@ interface PageHeaderProps {
   /** Render below the title/actions row (filters, tabs, etc.). */
   children?: React.ReactNode;
   className?: string;
-  /** Sticky to top of scroll container with glass background. Defaults to true. */
+  /** Sticky to top of scroll container with glass background. Defaults to false. */
   sticky?: boolean;
 }
 
@@ -18,7 +18,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   actions,
   children,
   className,
-  sticky = true,
+  sticky = false,
 }) => {
   return (
     <div

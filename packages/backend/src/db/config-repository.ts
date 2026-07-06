@@ -1503,6 +1503,10 @@ export class ConfigRepository {
     return this.getSetting<string[]>('trustedProxies', ['0.0.0.0/0', '::/0']);
   }
 
+  async getGrafanaUrl(): Promise<string> {
+    return this.getSetting<string>('grafanaUrl', '');
+  }
+
   async getBackgroundExplorationConfig(): Promise<BackgroundExplorationConfig> {
     const enabled = await this.getSetting<boolean>('backgroundExploration.enabled', false);
     const stalenessThresholdSeconds = await this.getSetting<number>(

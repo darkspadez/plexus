@@ -564,7 +564,7 @@ export function DataTable<TData>({
                       <th
                         key={h.id}
                         className={cn(
-                          'h-9 text-[10px] font-medium uppercase tracking-wider text-foreground-muted',
+                          'h-11 text-[10px] font-medium uppercase tracking-wider text-foreground-muted',
                           isExpanderCol ? 'w-6 px-2' : 'px-4',
                           align === 'right'
                             ? 'text-right'

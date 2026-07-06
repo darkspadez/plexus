@@ -10,7 +10,9 @@ import {
   type CustomDateRange,
 } from '../../lib/date';
 
-export type TimeRange = 'live' | 'hour' | 'day' | 'week' | 'month' | 'custom';
+export type TimeRange = 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all';
+
+const RANGE_LABELS: Partial<Record<TimeRange, string>> = { all: 'All Time' };
 
 interface TimeRangeSelectorProps {
   value: TimeRange;
@@ -229,7 +231,7 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
             }}
             className="capitalize"
           >
-            {range}
+            {RANGE_LABELS[range] ?? range}
           </Button>
         );
       })}

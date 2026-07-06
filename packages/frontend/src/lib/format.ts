@@ -191,6 +191,18 @@ export function formatTimeLabel(timestamp: string): string {
 }
 
 /**
+ * Format a timestamp string into a short date-only label for chart axes
+ * (e.g., "May 15"). Use this for buckets that span multiple days (week/month
+ * ranges), where an hour:minute label can't distinguish one bucket from the
+ * next.
+ */
+export function formatDateLabel(timestamp: string): string {
+  const date = parseTimestamp(timestamp);
+  if (date) return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return timestamp;
+}
+
+/**
  * Format a timestamp string into a detailed date-time label for chart tooltips.
  * Includes date and time (e.g., "2025/05/15 14:00").
  */

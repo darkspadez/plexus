@@ -57,10 +57,13 @@ export const useConcurrencyData = (options?: {
 // Mutation: clear ALL cooldowns
 export const useClearCooldowns = () => {
   const qc = useQueryClient();
-  const { error: toastError } = useToast();
+  const { success, error: toastError } = useToast();
   return useMutation({
     mutationFn: () => api.clearCooldown(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_DATA_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: DASHBOARD_DATA_KEY });
+      success('All cooldowns cleared');
+    },
     onError: (err: Error) => toastError(`Failed to clear cooldowns: ${err.message}`),
   });
 };
@@ -68,11 +71,14 @@ export const useClearCooldowns = () => {
 // Mutation: clear single cooldown
 export const useClearSingleCooldown = () => {
   const qc = useQueryClient();
-  const { error: toastError } = useToast();
+  const { success, error: toastError } = useToast();
   return useMutation({
     mutationFn: ({ provider, model }: { provider: string; model?: string }) =>
       api.clearCooldown(provider, model),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_DATA_KEY }),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: DASHBOARD_DATA_KEY });
+      success(`Cooldown cleared for ${variables.provider}`);
+    },
     onError: (err: Error) => toastError(`Failed to clear cooldown: ${err.message}`),
   });
 };

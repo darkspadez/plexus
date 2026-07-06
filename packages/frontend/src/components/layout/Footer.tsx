@@ -13,7 +13,7 @@ export const Footer: React.FC = () => {
   const appVersion: string = process.env.APP_VERSION || 'dev';
 
   return (
-    <footer className="shrink-0 border-t border-border px-4 py-3 text-center text-xs text-foreground-subtle">
+    <footer className="shrink-0 border-t border-border px-4 py-4 text-center text-xs text-foreground-subtle">
       © 2025–2026 Plexus · {appVersion}
     </footer>
   );

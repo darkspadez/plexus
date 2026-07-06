@@ -645,6 +645,42 @@ export async function registerConfigRoutes(
     }
   });
 
+  // ─── Grafana URL ────────────────────────────────────────────────────
+  fastify.get('/v0/management/config/grafana-url', async (_request, reply) => {
+    try {
+      const grafanaUrl = await configService.getRepository().getGrafanaUrl();
+      return reply.send({ grafanaUrl });
+    } catch (e: any) {
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  fastify.patch('/v0/management/config/grafana-url', async (request, reply) => {
+    const body = request.body as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return reply.code(400).send({ error: 'Object body is required' });
+    }
+
+    const value = (body as { grafanaUrl?: unknown }).grafanaUrl;
+    if (typeof value !== 'string') {
+      return reply.code(400).send({ error: 'grafanaUrl must be a string' });
+    }
+
+    const trimmed = value.trim();
+    if (trimmed && !/^https?:\/\//.test(trimmed)) {
+      return reply.code(400).send({ error: 'grafanaUrl must start with http:// or https://' });
+    }
+
+    try {
+      await configService.setSetting('grafanaUrl', trimmed);
+      logger.debug('Grafana URL updated via API');
+      return reply.send({ grafanaUrl: trimmed });
+    } catch (e: any) {
+      logger.error('Failed to patch grafana-url config', e);
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
   // ─── Cooldown Policy ──────────────────────────────────────────────
 
   fastify.get('/v0/management/config/cooldown', async (_request, reply) => {

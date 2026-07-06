@@ -518,7 +518,6 @@ export const McpPage: React.FC = () => {
         <PageHeader
           title={SECTION_NAMES['/mcp']}
           subtitle="Model Context Protocol connections and the Plexus admin skill"
-          sticky
         />
         <PageContainer>
           <div className="flex flex-col gap-4">

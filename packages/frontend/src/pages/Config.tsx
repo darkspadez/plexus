@@ -16,6 +16,7 @@ import {
   Save,
   Radar,
   Network,
+  LineChart,
   Trash2,
 } from 'lucide-react';
 import { api } from '../lib/api';
@@ -28,12 +29,9 @@ import { Button } from '../components/ui/Button';
 import { Switch } from '../components/ui/Switch';
 import { Select } from '../components/ui/Select';
 import { Disclosure } from '../components/ui/Disclosure';
-import { EmptyState } from '../components/ui/EmptyState';
 import { TagSelect } from '../components/ui/TagSelect';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
-import type { CardLayout } from '../types/card';
-import { DEFAULT_CARD_ORDER, LAYOUT_STORAGE_KEY } from '../types/card';
 import { useConfigExport, CONFIG_EXPORT_KEY } from '../hooks/queries/useConfig';
 import {
   useSaveFailoverPolicy,
@@ -45,6 +43,8 @@ import {
   useSaveBackgroundExploration,
   useSaveExplorationRates,
   useSaveTrustedProxies,
+  useGrafanaUrl,
+  useSaveGrafanaUrl,
   useRefreshModelMetadata,
   useBackupDownload,
   useFullBackupDownload,
@@ -67,6 +67,8 @@ import {
   toExplorationPayload,
   networkFormSchema,
   toNetworkPayload,
+  grafanaFormSchema,
+  toGrafanaPayload,
   type FailoverFormValues,
   type CooldownFormValues,
   type TimeoutFormValues,
@@ -76,6 +78,7 @@ import {
   type CompactionFormParsed,
   type ExplorationFormValues,
   type NetworkFormValues,
+  type GrafanaFormValues,
 } from './config-schemas';
 
 class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -1425,6 +1428,91 @@ const NetworkPanel = () => {
 };
 
 // ---------------------------------------------------------------------------
+// Grafana Settings Panel
+// ---------------------------------------------------------------------------
+
+const GrafanaPanel = () => {
+  const grafanaQuery = useGrafanaUrl();
+  const saveGrafanaUrl = useSaveGrafanaUrl();
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isValid },
+  } = useForm<GrafanaFormValues>({
+    resolver: zodResolver(grafanaFormSchema),
+    defaultValues: { grafanaUrl: '' },
+    mode: 'onChange',
+  });
+
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (grafanaQuery.data) {
+      reset({ grafanaUrl: grafanaQuery.data.grafanaUrl });
+      setLoaded(true);
+    }
+  }, [grafanaQuery.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onSubmit = (values: GrafanaFormValues) => {
+    const payload = toGrafanaPayload(values);
+    saveGrafanaUrl.mutate(payload, {
+      onSuccess: (updated) => {
+        reset({ grafanaUrl: updated.grafanaUrl });
+      },
+    });
+  };
+
+  return (
+    <Disclosure
+      title="Grafana"
+      defaultOpen={false}
+      extra={
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleSubmit(onSubmit)}
+          isLoading={saveGrafanaUrl.isPending}
+          disabled={!loaded || !isValid || saveGrafanaUrl.isPending}
+          leftIcon={<Save size={14} />}
+        >
+          Save
+        </Button>
+      }
+    >
+      <form id="grafana-form" onSubmit={handleSubmit(onSubmit)}>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <LineChart size={16} className="text-accent" />
+            <div>
+              <p className="font-sans text-[12px] font-medium text-foreground">Grafana URL</p>
+              <p className="font-sans text-[11px] text-foreground-subtle">
+                Base URL of your Grafana instance, used to link out to dashboards from Plexus. Leave
+                blank to hide those links.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <input
+              id="grafanaUrl"
+              type="text"
+              placeholder="https://grafana.example.com"
+              {...register('grafanaUrl')}
+              className="w-full max-w-md h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+            />
+            {errors.grafanaUrl && (
+              <p className="text-[11px] text-warning mt-1">{errors.grafanaUrl.message}</p>
+            )}
+          </div>
+        </div>
+      </form>
+    </Disclosure>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Main Config page
 // ---------------------------------------------------------------------------
 
@@ -1435,7 +1523,6 @@ export const Config = () => {
   const config = configData ? JSON.stringify(configData, null, 2) : '';
 
   const restoreInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Action mutations
   const refreshMetadata = useRefreshModelMetadata();
@@ -1445,26 +1532,12 @@ export const Config = () => {
   const resetLogs = useResetLogs();
   const restart = useRestart();
 
-  const [cardLayout, setCardLayout] = useState<CardLayout>([]);
-
   // Surface config export load failures
   useEffect(() => {
     if (isConfigError) {
       toast.error('Failed to load config');
     }
   }, [isConfigError]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as CardLayout;
-        setCardLayout(parsed);
-      } catch {
-        console.error('Failed to parse card layout');
-      }
-    }
-  }, []);
 
   const triggerDownload = (content: string, filename: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
@@ -1478,53 +1551,8 @@ export const Config = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportLayout = () =>
-    triggerDownload(
-      JSON.stringify(cardLayout, null, 2),
-      'plexus-card-layout.json',
-      'application/json'
-    );
-
   const handleExportConfig = () =>
     triggerDownload(config, 'plexus-config-export.json', 'application/json');
-
-  const handleImportLayout = () => fileInputRef.current?.click();
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const parsed = JSON.parse(content) as CardLayout;
-
-        if (
-          Array.isArray(parsed) &&
-          parsed.every((item) => typeof item.id === 'string' && typeof item.order === 'number')
-        ) {
-          const validIds = new Set<string>(DEFAULT_CARD_ORDER);
-          const allIdsValid = parsed.every((item: { id: string }) => validIds.has(item.id));
-          if (!allIdsValid) {
-            toast.error('Invalid card layout: contains unknown card IDs');
-            return;
-          }
-
-          localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(parsed));
-          setCardLayout(parsed);
-          toast.success('Card layout imported');
-        } else {
-          toast.error('Invalid card layout format');
-        }
-      } catch {
-        toast.error('Failed to import: Invalid JSON file');
-      }
-    };
-    reader.readAsText(file);
-
-    event.target.value = '';
-  };
 
   const handleRestoreClick = () => restoreInputRef.current?.click();
 
@@ -1607,6 +1635,9 @@ export const Config = () => {
           {/* ─── Network / Trusted Proxies ──────────────────────────── */}
           <NetworkPanel />
 
+          {/* ─── Grafana Settings ────────────────────────────────────── */}
+          <GrafanaPanel />
+
           <Card
             title="Model Metadata"
             extra={
@@ -1678,66 +1709,6 @@ export const Config = () => {
                 className="hidden"
                 onChange={handleRestoreFileSelect}
               />
-            </div>
-          </Card>
-
-          <Card
-            title="Card Layout"
-            extra={
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleExportLayout}
-                  leftIcon={<Download size={14} />}
-                >
-                  Export
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleImportLayout}
-                  leftIcon={<Upload size={14} />}
-                >
-                  Import
-                </Button>
-              </div>
-            }
-          >
-            <p className="text-sm text-foreground-muted mb-4">
-              Import or export your Live Metrics card layout configuration.
-            </p>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-
-            <div>
-              <h4 className="font-sans text-xs font-semibold uppercase tracking-wider text-foreground-subtle mb-3">
-                Current Card Order
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {cardLayout.length === 0 && (
-                  <EmptyState
-                    variant="dense"
-                    title="Default layout"
-                    description="No card customizations saved — drag dashboard cards to arrange them."
-                  />
-                )}
-                {cardLayout.map((card, index) => (
-                  <div
-                    key={card.id}
-                    className="px-3 py-1.5 bg-surface rounded-md border border-border text-xs text-foreground"
-                  >
-                    <span className="text-foreground-subtle mr-2">{index + 1}.</span>
-                    {card.id}
-                  </div>
-                ))}
-              </div>
             </div>
           </Card>
 

@@ -144,6 +144,7 @@ export interface UsageData {
   cachedTokens: number;
   cacheWriteTokens: number;
   kwhUsed: number;
+  errors: number;
 }
 
 export interface TodayMetrics {
@@ -584,10 +585,11 @@ interface UsageSummarySeriesPoint {
   cacheWriteTokens: number;
   kwhUsed: number;
   tokens: number;
+  errors: number;
 }
 
 export interface UsageSummaryResponse {
-  range: 'hour' | 'day' | 'week' | 'month' | 'custom';
+  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all';
   series: UsageSummarySeriesPoint[];
   stats: {
     totalRequests: number;
@@ -595,8 +597,24 @@ export interface UsageSummaryResponse {
     totalKwhUsed: number;
     avgDurationMs: number;
     totalDurationMs: number;
+    totalErrors: number;
   };
   today: TodayMetrics;
+}
+
+/**
+ * One row of GET /v0/management/usage/errors-by-provider.
+ *
+ * `provider` is `null` for requests that couldn't be attributed to a
+ * provider (e.g. failed before routing) — callers must handle that case
+ * explicitly rather than assuming a string.
+ */
+export interface ErrorsByProviderPoint {
+  provider: string | null;
+  requests: number;
+  errors: number;
+  errorRate: number;
+  lastErrorMessage: string | null;
 }
 
 type UsageRecordField = keyof UsageRecord;
@@ -699,7 +717,10 @@ const normalizeNow = (): Date => {
   return now;
 };
 
-const getUsageRangeConfig = (range: 'hour' | 'day' | 'week' | 'month' | 'custom', now: Date) => {
+const getUsageRangeConfig = (
+  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all',
+  now: Date
+) => {
   const startDate = new Date(now);
   let bucketFormat: (d: Date) => string;
   let buckets = 0;
@@ -736,75 +757,10 @@ const getUsageRangeConfig = (range: 'hour' | 'day' | 'week' | 'month' | 'custom'
   return { startDate, bucketFormat, buckets, step };
 };
 
-const buildUsageSeries = (
-  records: Array<Partial<UsageRecord>>,
-  range: 'hour' | 'day' | 'week' | 'month',
-  now: Date
-): UsageData[] => {
-  const { startDate, bucketFormat, buckets, step } = getUsageRangeConfig(range, now);
-  const grouped: Record<string, UsageData> = {};
-  const nowMs = now.getTime();
-
-  for (let i = buckets; i >= 0; i--) {
-    const t = new Date(nowMs - i * step);
-    if (range === 'day') t.setMinutes(0, 0, 0);
-    if (range === 'week' || range === 'month') t.setHours(0, 0, 0, 0);
-
-    const key = bucketFormat(t);
-    if (!grouped[key]) {
-      grouped[key] = {
-        timestamp: key,
-        requests: 0,
-        tokens: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        cachedTokens: 0,
-        cacheWriteTokens: 0,
-        kwhUsed: 0,
-      };
-    }
-  }
-
-  records.forEach((record) => {
-    if (!record.date) return;
-    const d = new Date(record.date);
-    if (d < startDate) return;
-
-    if (range === 'day') d.setMinutes(0, 0, 0);
-    if (range === 'week' || range === 'month') d.setHours(0, 0, 0, 0);
-
-    const key = bucketFormat(d);
-    if (!grouped[key]) {
-      grouped[key] = {
-        timestamp: key,
-        requests: 0,
-        tokens: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        cachedTokens: 0,
-        cacheWriteTokens: 0,
-        kwhUsed: 0,
-      };
-    }
-
-    const inputTokens = record.tokensInput || 0;
-    const outputTokens = record.tokensOutput || 0;
-    const cachedTokens = record.tokensCached || 0;
-    const cacheWriteTokens = record.tokensCacheWrite || 0;
-
-    grouped[key].requests++;
-    grouped[key].tokens += inputTokens + outputTokens + cachedTokens + cacheWriteTokens;
-    grouped[key].inputTokens += inputTokens;
-    grouped[key].outputTokens += outputTokens;
-    grouped[key].cachedTokens += cachedTokens;
-    grouped[key].cacheWriteTokens += cacheWriteTokens;
-    grouped[key].kwhUsed += record.kwhUsed || 0;
-  });
-
-  return Object.values(grouped);
-};
-
-const formatBucketLabel = (range: 'hour' | 'day' | 'week' | 'month' | 'custom', date: Date) => {
+const formatBucketLabel = (
+  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all',
+  date: Date
+) => {
   if (range === 'hour' || range === 'day') {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
@@ -838,6 +794,7 @@ const buildSummarySeries = (summary: UsageSummaryResponse, now: Date): UsageData
       cachedTokens,
       cacheWriteTokens,
       kwhUsed: point?.kwhUsed || 0,
+      errors: point?.errors || 0,
     };
   }
 
@@ -904,7 +861,7 @@ const fetchUsageRecords = async <T extends UsageRecordField>(
 };
 
 const fetchUsageSummary = async (
-  range: 'hour' | 'day' | 'week' | 'month' | 'custom',
+  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all',
   cache = true,
   startDate?: string,
   endDate?: string
@@ -940,6 +897,53 @@ const fetchUsageSummary = async (
   const res = await fetchWithAuth(url);
   if (!res.ok) throw new Error('Failed to fetch usage summary');
   return (await res.json()) as UsageSummaryResponse;
+};
+
+const errorsByProviderRequestCache = new Map<
+  string,
+  { expiresAt: number; promise: Promise<ErrorsByProviderPoint[]> }
+>();
+
+const fetchErrorsByProvider = async (
+  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all',
+  cache = true,
+  startDate?: string,
+  endDate?: string
+): Promise<ErrorsByProviderPoint[]> => {
+  const searchParams = new URLSearchParams();
+  searchParams.set('range', range);
+
+  if (range === 'custom' && startDate && endDate) {
+    searchParams.set('startDate', startDate);
+    searchParams.set('endDate', endDate);
+  }
+
+  const queryString = searchParams.toString();
+  const url = `${API_BASE}/v0/management/usage/errors-by-provider?${queryString}`;
+
+  if (cache) {
+    const cached = errorsByProviderRequestCache.get(queryString);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.promise;
+    }
+
+    const promise = (async () => {
+      const res = await fetchWithAuth(url);
+      if (!res.ok) throw new Error('Failed to fetch errors by provider');
+      return (await res.json()) as ErrorsByProviderPoint[];
+    })();
+
+    errorsByProviderRequestCache.set(queryString, {
+      expiresAt: Date.now() + USAGE_CACHE_TTL_MS,
+      promise,
+    });
+    promise.catch(() => errorsByProviderRequestCache.delete(queryString));
+    return promise;
+  }
+
+  const res = await fetchWithAuth(url);
+  if (!res.ok) throw new Error('Failed to fetch errors by provider');
+  return (await res.json()) as ErrorsByProviderPoint[];
 };
 
 const fetchConfigCached = async (): Promise<any> => {
@@ -1282,8 +1286,7 @@ export const api = {
   /**
    * Fetch the raw usage-summary response for the current principal.
    *
-   * Unlike `getSummaryData` (which reshapes series into chart-ready rows),
-   * this returns the untransformed backend payload including `stats` (7-day
+   * Returns the untransformed backend payload including `stats` (7-day
    * window) and `today` roll-ups. Used by the Overall dashboard tab to
    * compute range-scoped totals without having to duplicate the endpoint
    * definition.
@@ -1293,7 +1296,7 @@ export const api = {
    * their own.
    */
   getUsageSummary: async (
-    range: 'hour' | 'day' | 'week' | 'month' | 'custom' = 'day',
+    range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all' = 'day',
     cache = true,
     startDate?: string,
     endDate?: string
@@ -1307,97 +1310,24 @@ export const api = {
   },
 
   /**
-   * Fetch pre-aggregated summary data from the backend.
-   * This is much more efficient than getUsageData for time-series views.
+   * Fetch per-provider error counts from GET /v0/management/usage/errors-by-provider.
+   *
+   * Unlike `getUsageByProvider` (which pages through raw usage records and
+   * aggregates client-side), this calls a purpose-built backend endpoint
+   * directly and returns its response as-is — no client-side aggregation.
+   * `provider` may be `null` for requests that couldn't be attributed to a
+   * provider; callers must handle that case.
    */
-  getSummaryData: async (
-    range: 'hour' | 'day' | 'week' | 'month' | 'custom' = 'week',
+  getErrorsByProvider: async (
+    range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all' = 'day',
     cache = true,
     startDate?: string,
     endDate?: string
-  ): Promise<any[]> => {
+  ): Promise<ErrorsByProviderPoint[]> => {
     try {
-      const summaryResponse = await fetchUsageSummary(range, cache, startDate, endDate);
-      const series = summaryResponse.series || [];
-
-      // Hard limit to prevent memory issues
-      const limitedSeries = series.length > 100 ? series.slice(0, 100) : series;
-
-      // Return raw data with minimal transformation
-      return limitedSeries.map((point) => ({
-        timestamp: String(point.bucketStartMs),
-        requests: point.requests,
-        tokens: point.tokens,
-        inputTokens: point.inputTokens,
-        outputTokens: point.outputTokens,
-        cachedTokens: point.cachedTokens,
-        cacheWriteTokens: point.cacheWriteTokens,
-        kwhUsed: point.kwhUsed,
-      }));
+      return await fetchErrorsByProvider(range, cache, startDate, endDate);
     } catch (e) {
-      console.error('API Error getSummaryData', e);
-      return [];
-    }
-  },
-
-  /**
-   * Fetch pre-aggregated energy stats from the backend.
-   * Uses the same /summary endpoint but returns only totalKwhUsed,
-   * avoiding the need to fetch 1000 individual records for energy calculations.
-   */
-  getEnergySummary: async (
-    range: 'hour' | 'day' | 'week' | 'month' | 'custom' = 'week',
-    cache = true,
-    startDate?: string,
-    endDate?: string
-  ): Promise<{ totalKwhUsed: number } | null> => {
-    try {
-      const summaryResponse = await fetchUsageSummary(range, cache, startDate, endDate);
-      const stats = summaryResponse.stats;
-      return {
-        totalKwhUsed: stats.totalKwhUsed || 0,
-      };
-    } catch (e) {
-      console.error('API Error getEnergySummary', e);
-      return null;
-    }
-  },
-
-  getUsageData: async (
-    range: 'hour' | 'day' | 'week' | 'month' | 'custom' = 'week',
-    cache = true,
-    startDate?: string,
-    endDate?: string
-  ): Promise<UsageData[]> => {
-    try {
-      const now = normalizeNow();
-
-      let queryStartDate: Date;
-      let queryEndDate: Date;
-
-      if (range === 'custom' && startDate && endDate) {
-        queryStartDate = new Date(startDate);
-        queryEndDate = new Date(endDate);
-      } else {
-        const { startDate: configStart } = getUsageRangeConfig(
-          range as 'hour' | 'day' | 'week' | 'month',
-          now
-        );
-        queryStartDate = configStart;
-        queryEndDate = now;
-      }
-
-      const usageResponse = await fetchUsageRecords({
-        limit: 5000,
-        startDate: queryStartDate.toISOString(),
-        endDate: queryEndDate.toISOString(),
-        fields: USAGE_PAGE_FIELDS,
-        cache,
-      });
-
-      return buildUsageSeries(usageResponse.data || [], range === 'custom' ? 'day' : range, now);
-    } catch (e) {
-      console.error('API Error getUsageData', e);
+      console.error('API Error getErrorsByProvider', e);
       return [];
     }
   },
@@ -1571,68 +1501,6 @@ export const api = {
       return Object.values(aggregated).sort((a, b) => b.requests - a.requests);
     } catch (e) {
       console.error('API Error getUsageByProvider', e);
-      return [];
-    }
-  },
-
-  getUsageByKey: async (
-    range: 'hour' | 'day' | 'week' | 'month' | 'custom' = 'week',
-    cache = true,
-    startDate?: string,
-    endDate?: string
-  ): Promise<PieChartDataPoint[]> => {
-    try {
-      const now = normalizeNow();
-
-      let queryStartDate: Date;
-      let queryEndDate: Date;
-
-      if (range === 'custom' && startDate && endDate) {
-        queryStartDate = new Date(startDate);
-        queryEndDate = new Date(endDate);
-      } else {
-        const { startDate: configStart } = getUsageRangeConfig(
-          range as 'hour' | 'day' | 'week' | 'month',
-          now
-        );
-        queryStartDate = configStart;
-        queryEndDate = now;
-      }
-
-      const usageResponse = await fetchUsageRecords({
-        limit: 5000,
-        startDate: queryStartDate.toISOString(),
-        endDate: queryEndDate.toISOString(),
-        fields: USAGE_PAGE_FIELDS,
-        cache,
-      });
-
-      const records = usageResponse.data || [];
-
-      const aggregated: Record<string, PieChartDataPoint> = {};
-
-      records.forEach((r) => {
-        if (r.apiKey === 'probe') return;
-
-        const name = r.apiKey
-          ? r.apiKey.length > 8
-            ? `${r.apiKey.slice(0, 8)}...`
-            : r.apiKey
-          : 'Unknown';
-        if (!aggregated[name]) {
-          aggregated[name] = { name, requests: 0, tokens: 0 };
-        }
-        aggregated[name].requests++;
-        aggregated[name].tokens +=
-          (r.tokensInput || 0) +
-          (r.tokensOutput || 0) +
-          (r.tokensCached || 0) +
-          (r.tokensCacheWrite || 0);
-      });
-
-      return Object.values(aggregated).sort((a, b) => b.requests - a.requests);
-    } catch (e) {
-      console.error('API Error getUsageByKey', e);
       return [];
     }
   },
@@ -3431,6 +3299,26 @@ export const api = {
       body: JSON.stringify({ enabled }),
     });
     if (!res.ok) throw new Error('Failed to update capture-trace-on-error setting');
+    return res.json();
+  },
+
+  // ─── Grafana URL ────────────────────────────────────────────────────
+
+  /** Fetch the configured Grafana base URL (empty string if unset). */
+  getGrafanaUrl: async (): Promise<{ grafanaUrl: string }> => {
+    const res = await fetchWithAuth(`${API_BASE}/v0/management/config/grafana-url`);
+    if (!res.ok) throw new Error('Failed to fetch grafana-url setting');
+    return res.json();
+  },
+
+  /** Update the configured Grafana base URL. Empty string clears it. */
+  setGrafanaUrl: async (grafanaUrl: string): Promise<{ grafanaUrl: string }> => {
+    const res = await fetchWithAuth(`${API_BASE}/v0/management/config/grafana-url`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grafanaUrl }),
+    });
+    if (!res.ok) throw new Error('Failed to update grafana-url setting');
     return res.json();
   },
 
