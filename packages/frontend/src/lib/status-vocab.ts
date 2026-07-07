@@ -1,9 +1,11 @@
 /**
- * Status vocabulary translation — see DESIGN_SYSTEM.md §7.4.
+ * Status vocabulary translation.
  *
- * The backend returns its own status literals (per-resource); the design system
- * fixes a single vocabulary the UI uses everywhere. This module is the only
- * place where the two meet. Keep it exhaustive — TypeScript catches drift.
+ * The backend returns its own status literals (per-resource); this module
+ * fixes a single vocabulary (`Status`) the UI uses everywhere, maps each
+ * value to a display tone (`statusTone`), and translates backend connection
+ * statuses into that vocabulary (`fromConnectionStatus`). Keep it
+ * exhaustive — TypeScript catches drift.
  */
 
 export type Status =
@@ -38,27 +40,6 @@ export const statusTone = (status: Status): StatusTone => {
       return 'neutral';
     default: {
       const _exhaustive: never = status;
-      return _exhaustive;
-    }
-  }
-};
-
-/**
- * Map a backend meter status (`ok` | `warning` | `critical` | `exhausted`) to
- * the design-system vocab. Used for quotas, rate-limited resources.
- */
-export type BackendMeterStatus = 'ok' | 'warning' | 'critical' | 'exhausted';
-export const fromMeterStatus = (s: BackendMeterStatus): Status => {
-  switch (s) {
-    case 'ok':
-      return 'Active';
-    case 'warning':
-      return 'Degraded';
-    case 'critical':
-    case 'exhausted':
-      return 'Exceeded';
-    default: {
-      const _exhaustive: never = s;
       return _exhaustive;
     }
   }
