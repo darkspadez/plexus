@@ -82,6 +82,11 @@ describe('burnRatePerDay', () => {
     const segment = [point(0, 10), point(5 * 60_000, 20)];
     expect(burnRatePerDay(segment)).toBeNull();
   });
+
+  test('non-finite span (NaN ts from an unparseable timestamp) -> null, never NaN', () => {
+    const segment = [point(Number.NaN, 100), point(NOW, 200)];
+    expect(burnRatePerDay(segment)).toBeNull();
+  });
 });
 
 describe('projectRunwayMs', () => {
@@ -239,5 +244,47 @@ describe('computeMeterBurn', () => {
     ];
     const result = computeMeterBurn(rows, m, NOW);
     expect(result?.perDayLabel).toBe('400/day');
+  });
+
+  test('unparseable checkedAt never leaks NaN — unusable series -> null', () => {
+    const m = meter({ limit: 1000 });
+    // Only two rows carry `used`, and one has a broken timestamp; once it is
+    // dropped the series collapses to a single point. Before the non-finite
+    // guards this produced spanMs = NaN, which failed the `<` check OPEN and
+    // rendered a "NaN/day" tile.
+    const rows: MeterHistoryRow[] = [
+      row({ checkedAt: 'not-a-real-date', used: 200 }),
+      row({ checkedAt: new Date(NOW).toISOString(), used: 600 }),
+    ];
+    expect(computeMeterBurn(rows, m, NOW)).toBeNull();
+  });
+
+  test('an unparseable-timestamp row is dropped; the rest still computes cleanly', () => {
+    const m = meter({ limit: 1000 });
+    const rows: MeterHistoryRow[] = [
+      row({ checkedAt: new Date(NOW - 24 * HOUR).toISOString(), used: 200 }),
+      row({ checkedAt: 'not-a-real-date', used: 400 }),
+      row({ checkedAt: new Date(NOW).toISOString(), used: 600 }),
+    ];
+    const result = computeMeterBurn(rows, m, NOW);
+    expect(result?.perDayLabel).toBe('400/day');
+    expect(result?.runwayLabel).toBe('1d');
+  });
+
+  test('used series present but flat -> null; no silent %-fallback', () => {
+    const m = meter();
+    // The pct series alone would yield 80.0%/day (see the %-fallback test),
+    // so a non-null result here would prove the fallback fired. The %-series
+    // is a data-AVAILABILITY fallback (used missing), not a rate-computability
+    // fallback (used present but flat).
+    const rows: MeterHistoryRow[] = [
+      row({
+        checkedAt: new Date(NOW - 12 * HOUR).toISOString(),
+        used: 500,
+        utilizationPercent: 20,
+      }),
+      row({ checkedAt: new Date(NOW).toISOString(), used: 500, utilizationPercent: 60 }),
+    ];
+    expect(computeMeterBurn(rows, m, NOW)).toBeNull();
   });
 });
