@@ -143,10 +143,21 @@ export const Quotas = () => {
     severityCounts.critical +
     severityCounts.warning;
 
+  // Data refetches every 30s (and after each per-checker refresh), so a
+  // severity a user has filtered on can drop to a 0 count between renders —
+  // at which point its chip stops rendering and there'd be no UI left to
+  // clear the filter. Falling back to null the moment the count hits 0 keeps
+  // the filter self-clearing instead of leaving the table stuck on an
+  // unrepresentable, unclearable filter.
+  const effectiveSeverityFilter =
+    severityFilter && severityCounts[severityFilter] > 0 ? severityFilter : null;
+
+  const hasActiveFilter = search.trim() !== '' || effectiveSeverityFilter !== null;
+
   const rows = useMemo<VisibleQuotaTableRow[]>(() => {
     const term = search.trim().toLowerCase();
     const filtered = allRows.filter((row) => {
-      if (severityFilter && row.severity !== severityFilter) return false;
+      if (effectiveSeverityFilter && row.severity !== effectiveSeverityFilter) return false;
       if (!term) return true;
       return (
         row.displayName.toLowerCase().includes(term) ||
@@ -162,7 +173,7 @@ export const Quotas = () => {
       ...row,
       visibleIsFirstInGroup: index === 0 || filtered[index - 1].checkerId !== row.checkerId,
     }));
-  }, [allRows, search, severityFilter]);
+  }, [allRows, search, effectiveSeverityFilter]);
 
   const toggleSeverityFilter = (severity: QuotaRowSeverity) => {
     setSeverityFilter((prev) => (prev === severity ? null : severity));
@@ -198,13 +209,15 @@ export const Quotas = () => {
         cell: ({ row }) => {
           const r = row.original;
           if (!r.meter) {
+            if (r.pending) {
+              return <span className="text-xs text-foreground-subtle">Pending first check...</span>;
+            }
+            if (r.checkerSuccess) {
+              return <span className="text-xs text-foreground-subtle">No meters reported</span>;
+            }
             return (
-              <span className="text-xs text-foreground-subtle">
-                {r.pending
-                  ? 'Pending first check...'
-                  : r.checkerSuccess
-                    ? 'No meters reported'
-                    : r.checkerError || 'Check failed'}
+              <span className="line-clamp-1 text-xs text-foreground-subtle" title={r.checkerError}>
+                {r.checkerError || 'Check failed'}
               </span>
             );
           }
@@ -366,14 +379,18 @@ export const Quotas = () => {
             onRowClick={handleRowClick}
             rowClassName={(row) => ROW_TINT_BY_SEVERITY[row.severity] ?? ''}
             emptyIcon={<Gauge />}
-            emptyTitle="No quota checkers yet"
-            emptyDescription="Configure quota checkers in your provider settings to monitor usage."
+            emptyTitle={hasActiveFilter ? 'No matching meters' : 'No quota checkers yet'}
+            emptyDescription={
+              hasActiveFilter
+                ? 'Try a different search term or clear the severity filter.'
+                : 'Configure quota checkers in your provider settings to monitor usage.'
+            }
             headerSlot={
               <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
                 <div className="flex flex-wrap items-center gap-1.5">
                   {needsAttentionCount === 0 ? (
                     <span className="text-xs text-foreground-subtle">
-                      All {allRows.length} meters healthy
+                      All {severityCounts.ok} meters healthy
                     </span>
                   ) : (
                     (['exhausted', 'error', 'critical', 'warning', 'ok', 'pending'] as const)
@@ -383,9 +400,10 @@ export const Quotas = () => {
                           key={severity}
                           type="button"
                           onClick={() => toggleSeverityFilter(severity)}
+                          aria-pressed={effectiveSeverityFilter === severity}
                           className={cn(
                             'rounded-full border px-2 py-0.5 text-xs transition-colors',
-                            severityFilter === severity
+                            effectiveSeverityFilter === severity
                               ? 'border-accent bg-accent-subtle text-accent'
                               : 'border-border text-foreground-muted hover:bg-surface-elevated'
                           )}
@@ -404,6 +422,7 @@ export const Quotas = () => {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search..."
+                    aria-label="Search meters"
                     className="h-8 w-40 rounded-md border border-border bg-surface pl-7 pr-2 text-xs text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </div>
