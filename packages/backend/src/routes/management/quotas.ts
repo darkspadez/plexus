@@ -45,6 +45,7 @@ export async function registerQuotaRoutes(
             meters: latest?.meters ?? [],
             success: latest?.success ?? true,
             ...(latest?.error ? { error: latest.error } : {}),
+            ...(latest?.checkedAt ? { checkedAt: latest.checkedAt } : {}),
           });
         } catch (error) {
           configured.push({
