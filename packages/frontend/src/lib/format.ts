@@ -46,11 +46,14 @@ export function formatTimeAgo(seconds: number): string {
 /**
  * Format an ISO resets-at timestamp as a short relative string, e.g.
  * "in 3h 20m". Falls back to an absolute date for far-future resets.
+ *
+ * @param now - Current time in epoch ms; injected (rather than read via
+ *   `Date.now()` internally) so callers and tests can pin it.
  */
-export function formatResetsIn(iso: string | null): string {
+export function formatResetsIn(iso: string | null | undefined, now: number = Date.now()): string {
   if (!iso) return '—';
   const resetsAt = new Date(iso).getTime();
-  const diffMs = resetsAt - Date.now();
+  const diffMs = resetsAt - now;
   if (diffMs <= 0) return 'resetting now';
   const diffSeconds = Math.floor(diffMs / 1000);
   const days = Math.floor(diffSeconds / 86400);
