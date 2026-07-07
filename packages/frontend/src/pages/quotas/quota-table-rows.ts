@@ -21,6 +21,7 @@ export interface QuotaTableRow {
   severity: QuotaRowSeverity;
   checkerSuccess: boolean;
   checkerError?: string;
+  checkedAt?: string;
   pending: boolean;
 }
 
@@ -70,6 +71,7 @@ export function buildQuotaTableRows(
       severity: entry.severity,
       checkerSuccess: checker.success,
       checkerError: checker.error,
+      checkedAt: checker.checkedAt,
       pending: checker.pending ?? false,
     }));
     return { displayName, groupSeverityRank, rows };
@@ -82,4 +84,45 @@ export function buildQuotaTableRows(
   });
 
   return groups.flatMap((g) => g.rows);
+}
+
+// `isFirstInGroup` (from buildQuotaTableRows) is computed once against the
+// FULL unfiltered row set. Search/severity filtering can remove a group's
+// true first row while keeping a later row from the same group, leaving the
+// survivor with a stale `isFirstInGroup: false`. `visibleIsFirstInGroup` is
+// recomputed against the FILTERED array's own adjacency so the Provider cell
+// is always correct for what's actually on screen.
+export type VisibleQuotaTableRow = QuotaTableRow & {
+  visibleIsFirstInGroup: boolean;
+  /** First visible row of a group that is NOT the table's first row — used for the group divider rule. */
+  showGroupRule: boolean;
+};
+
+export function toVisibleRows(
+  rows: QuotaTableRow[],
+  search: string,
+  severityFilter: QuotaRowSeverity | null
+): VisibleQuotaTableRow[] {
+  const term = search.trim().toLowerCase();
+  const filtered = rows.filter((row) => {
+    if (severityFilter && row.severity !== severityFilter) return false;
+    if (!term) return true;
+    return (
+      row.displayName.toLowerCase().includes(term) ||
+      (row.checkerType ?? '').toLowerCase().includes(term) ||
+      (row.meter?.label ?? '').toLowerCase().includes(term)
+    );
+  });
+  // buildQuotaTableRows keeps a checker's rows contiguous, and .filter()
+  // only removes elements (never reorders), so comparing each surviving
+  // row's checkerId to the previous surviving row's checkerId is a valid
+  // "first in its visible group" check.
+  return filtered.map((row, index) => {
+    const visibleIsFirstInGroup = index === 0 || filtered[index - 1].checkerId !== row.checkerId;
+    return {
+      ...row,
+      visibleIsFirstInGroup,
+      showGroupRule: visibleIsFirstInGroup && index > 0,
+    };
+  });
 }
