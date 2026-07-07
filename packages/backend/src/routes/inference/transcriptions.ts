@@ -142,7 +142,7 @@ export async function registerTranscriptionsRoute(
           fileSize,
           mimeType: fileData.mimetype,
           language,
-          prompt: prompt ? '(provided)' : undefined,
+          prompt,
           response_format,
           temperature,
         },

@@ -95,7 +95,6 @@ export async function registerSpeechRoute(
         {
           ...body,
           inputLength: body.input?.length || 0,
-          instructions: body.instructions ? '(provided)' : undefined,
         },
         sanitizeHeaders(request.headers as any)
       );

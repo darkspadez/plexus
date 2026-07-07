@@ -221,7 +221,7 @@ describe('Transcriptions Debug Logging', () => {
     expect(debugLog.rawRequest.filename).toBe('test.mp3');
     expect(debugLog.rawRequest.mimeType).toBe('audio/mpeg');
     expect(debugLog.rawRequest.language).toBe('en');
-    expect(debugLog.rawRequest.prompt).toBe('(provided)'); // We log '(provided)' instead of actual prompt
+    expect(debugLog.rawRequest.prompt).toBe('Test prompt');
     expect(debugLog.rawRequest.temperature).toBe(0.5);
 
     // CRITICAL: Binary file should not be in rawRequest
