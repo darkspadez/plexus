@@ -1,17 +1,77 @@
-import { useState, useMemo } from 'react';
-import { RefreshCw, Cpu, Gauge, AlertTriangle } from 'lucide-react';
-import { clsx } from 'clsx';
+import { useMemo, useState } from 'react';
+import { RefreshCw, Gauge, Wallet, Search } from 'lucide-react';
+import type { ColumnDef } from '@tanstack/react-table';
 import { useQuotaCheckers, useTriggerQuotaCheck } from '../hooks/queries/useQuotas';
-import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { EmptyState } from '../components/ui/EmptyState';
+import { DataTable } from '../components/ui/DataTable';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
-import type { QuotaCheckerInfo, Meter } from '../types/quota';
-import { CombinedBalancesCard } from '../components/quota/CombinedBalancesCard';
-import { AllowanceMeterRow } from '../components/quota/AllowanceMeterRow';
+import { StatusDot } from '../components/chips/StatusDot';
+import type { Status } from '../lib/status-vocab';
+import { formatMeterValue } from '../components/quota/MeterValue';
 import { MeterHistoryModal } from '../components/quota/MeterHistoryModal';
-import { getCheckerDisplayName } from '../components/quota/checker-presentation';
+import type { Meter, QuotaCheckerInfo } from '../types/quota';
+import {
+  buildQuotaTableRows,
+  type QuotaRowSeverity,
+  type QuotaTableRow,
+} from './quotas/quota-table-rows';
+import { cn } from '../lib/cn';
+
+// Mirrors fromMeterStatus() in lib/status-vocab.ts for the four meter statuses,
+// plus the two checker-level states that have no meter (error, pending).
+// critical and exhausted intentionally share the same displayed status
+// (Exceeded) — the design system doesn't distinguish them visually, only the
+// internal sort rank does.
+const SEVERITY_TO_STATUS: Record<QuotaRowSeverity, Status> = {
+  exhausted: 'Exceeded',
+  error: 'Error',
+  critical: 'Exceeded',
+  warning: 'Degraded',
+  ok: 'Active',
+  pending: 'Idle',
+};
+
+const BAR_COLOR_BY_SEVERITY: Record<QuotaRowSeverity, string> = {
+  exhausted: 'bg-danger',
+  error: 'bg-danger',
+  critical: 'bg-danger',
+  warning: 'bg-warning',
+  ok: 'bg-success',
+  pending: 'bg-foreground-subtle',
+};
+
+// Anti-alarm color budget: ok/pending rows stay neutral (no className), so the
+// warning+ tint below actually pops instead of competing with a fully-colored
+// row for every severity.
+const ROW_TINT_BY_SEVERITY: Partial<Record<QuotaRowSeverity, string>> = {
+  exhausted: 'border-l-2 border-l-danger bg-danger-subtle',
+  error: 'border-l-2 border-l-danger bg-danger-subtle',
+  critical: 'border-l-2 border-l-danger bg-danger-subtle',
+  warning: 'border-l-2 border-l-warning bg-warning-subtle',
+};
+
+function periodLabel(meter: Meter): string {
+  if (!meter.periodValue || !meter.periodUnit) return '';
+  const cycle = meter.periodCycle === 'rolling' ? 'rolling' : 'fixed';
+  const unit =
+    meter.periodUnit === 'hour'
+      ? 'h'
+      : meter.periodUnit === 'day'
+        ? 'd'
+        : meter.periodUnit === 'minute'
+          ? 'min'
+          : meter.periodUnit === 'week'
+            ? 'wk'
+            : 'mo';
+  return `${meter.periodValue}${unit} ${cycle}`;
+}
+
+function remainingValue(meter: Meter): number | undefined {
+  if (meter.remaining !== undefined) return meter.remaining;
+  if (meter.used !== undefined && meter.limit !== undefined) return meter.limit - meter.used;
+  return undefined;
+}
 
 export const Quotas = () => {
   const [refreshing, setRefreshing] = useState<Set<string>>(new Set());
@@ -20,11 +80,14 @@ export const Quotas = () => {
     meter: Meter;
     displayName: string;
   } | null>(null);
+  const [search, setSearch] = useState('');
+  const [severityFilter, setSeverityFilter] = useState<QuotaRowSeverity | null>(null);
 
   const checkersQuery = useQuotaCheckers({ refetchInterval: 30_000 });
   const triggerCheckMutation = useTriggerQuotaCheck();
 
-  const quotas: (QuotaCheckerInfo & { pending?: boolean })[] = checkersQuery.data?.configured ?? [];
+  const checkers: (QuotaCheckerInfo & { pending?: boolean })[] =
+    checkersQuery.data?.configured ?? [];
   const displayNameMap = useMemo<Map<string, string>>(
     () => new Map((checkersQuery.data?.knownTypes ?? []).map((t) => [t.type, t.displayName])),
     [checkersQuery.data?.knownTypes]
@@ -44,88 +107,207 @@ export const Quotas = () => {
     });
   };
 
-  const balanceQuotas = useMemo(
-    () => quotas.filter((q) => q.pending || q.meters.some((m) => m.kind === 'balance')),
-    [quotas]
+  const allRows = useMemo(
+    () => buildQuotaTableRows(checkers, displayNameMap),
+    [checkers, displayNameMap]
   );
 
-  const allowanceQuotas = useMemo(
-    () => quotas.filter((q) => q.pending || q.meters.some((m) => m.kind === 'allowance')),
-    [quotas]
-  );
+  const severityCounts = useMemo(() => {
+    const counts: Record<QuotaRowSeverity, number> = {
+      exhausted: 0,
+      error: 0,
+      critical: 0,
+      warning: 0,
+      ok: 0,
+      pending: 0,
+    };
+    for (const row of allRows) counts[row.severity]++;
+    return counts;
+  }, [allRows]);
 
-  // Group allowance quotas by checkerType for display
-  const allowanceGroups = useMemo(() => {
-    const groups: Record<string, (QuotaCheckerInfo & { pending?: boolean })[]> = {};
-    for (const quota of allowanceQuotas) {
-      const key = quota.checkerType || quota.checkerId;
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(quota);
-    }
-    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
-  }, [allowanceQuotas]);
+  const needsAttentionCount =
+    severityCounts.exhausted + severityCounts.error + severityCounts.critical;
 
-  const renderCheckerCard = (
-    quota: QuotaCheckerInfo & { pending?: boolean },
-    _groupDisplayName: string
-  ) => {
-    const allowances = quota.meters.filter((m) => m.kind === 'allowance');
+  const rows = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return allRows.filter((row) => {
+      if (severityFilter && row.severity !== severityFilter) return false;
+      if (!term) return true;
+      return (
+        row.displayName.toLowerCase().includes(term) ||
+        (row.checkerType ?? '').toLowerCase().includes(term) ||
+        (row.meter?.label ?? '').toLowerCase().includes(term)
+      );
+    });
+  }, [allRows, search, severityFilter]);
 
-    return (
-      <div
-        key={quota.checkerId}
-        className="relative rounded-lg border border-border bg-surface-elevated/60 p-4"
-      >
-        <button
-          type="button"
-          onClick={() => handleRefresh(quota.checkerId)}
-          disabled={refreshing.has(quota.checkerId) || quota.pending}
-          aria-label="Refresh"
-          className="absolute top-2 right-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-subtle hover:bg-surface-elevated hover:text-foreground transition-colors duration-fast disabled:opacity-50"
-        >
-          <RefreshCw
-            size={14}
-            className={clsx((refreshing.has(quota.checkerId) || quota.pending) && 'animate-spin')}
-          />
-        </button>
+  const toggleSeverityFilter = (severity: QuotaRowSeverity) => {
+    setSeverityFilter((prev) => (prev === severity ? null : severity));
+  };
 
-        <div className="pr-8">
-          {quota.pending ? (
-            <span className="text-xs text-foreground-subtle">Pending first check...</span>
-          ) : !quota.success ? (
-            <div className="flex items-center gap-2 text-danger">
-              <AlertTriangle size={14} />
-              <span className="text-xs">Check failed</span>
-              {quota.error && (
-                <span className="text-xs text-foreground-subtle truncate">{quota.error}</span>
+  const columns = useMemo<ColumnDef<QuotaTableRow>[]>(
+    () => [
+      {
+        id: 'provider',
+        header: 'Provider',
+        enableSorting: false,
+        meta: { priority: 'high', mobileTitle: true },
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <div className={cn(!r.isFirstInGroup && 'md:invisible')}>
+              <div className="font-medium text-foreground">{r.displayName}</div>
+              {(r.checkerType || r.oauthAccountId) && (
+                <div className="text-xs text-foreground-subtle">
+                  {r.checkerType}
+                  {r.oauthAccountId && ` · ${r.oauthAccountId}`}
+                </div>
               )}
             </div>
-          ) : allowances.length === 0 ? (
-            <span className="text-xs text-foreground-subtle">No data yet</span>
-          ) : (
-            <div className="space-y-2">
-              {allowances.map((meter) => (
-                <AllowanceMeterRow
-                  key={meter.key}
-                  meter={meter}
-                  onClick={() =>
-                    setHistoryTarget({
-                      quota,
-                      meter,
-                      displayName: _groupDisplayName,
-                    })
-                  }
-                />
-              ))}
+          );
+        },
+      },
+      {
+        id: 'meter',
+        header: 'Meter',
+        enableSorting: false,
+        meta: { priority: 'high' },
+        cell: ({ row }) => {
+          const r = row.original;
+          if (!r.meter) {
+            return (
+              <span className="text-xs text-foreground-subtle">
+                {r.checkerSuccess ? 'No meters reported' : r.checkerError || 'Check failed'}
+              </span>
+            );
+          }
+          const period = periodLabel(r.meter);
+          return (
+            <div className="flex items-center gap-1.5">
+              {r.meter.kind === 'balance' ? (
+                <Wallet size={12} className="shrink-0 text-info" />
+              ) : (
+                <Gauge size={12} className="shrink-0 text-accent" />
+              )}
+              <span className="text-foreground">{r.meter.label}</span>
+              {period && <span className="text-xs text-foreground-subtle">{period}</span>}
             </div>
-          )}
-        </div>
-      </div>
-    );
+          );
+        },
+      },
+      {
+        id: 'remaining',
+        header: 'Remaining',
+        enableSorting: false,
+        meta: { priority: 'high', align: 'right' },
+        cell: ({ row }) => {
+          const m = row.original.meter;
+          const value = m ? remainingValue(m) : undefined;
+          if (!m || value === undefined) return <span className="text-foreground-subtle">—</span>;
+          return (
+            <span className="tabular-nums text-foreground">
+              {formatMeterValue(value, m.unit, true)}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'usedLimit',
+        header: 'Used / Limit',
+        enableSorting: false,
+        meta: { priority: 'medium', align: 'right' },
+        cell: ({ row }) => {
+          const m = row.original.meter;
+          if (!m) return <span className="text-foreground-subtle">—</span>;
+          const used = m.used !== undefined ? formatMeterValue(m.used, m.unit, true) : '—';
+          const limit = m.limit !== undefined ? formatMeterValue(m.limit, m.unit, true) : '—';
+          return (
+            <span className="tabular-nums text-xs text-foreground-muted">
+              {used} / {limit}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'usage',
+        header: 'Usage',
+        enableSorting: false,
+        meta: { priority: 'medium' },
+        cell: ({ row }) => {
+          const r = row.original;
+          const pct =
+            r.meter && typeof r.meter.utilizationPercent === 'number'
+              ? r.meter.utilizationPercent
+              : null;
+          if (pct === null) return <span className="text-foreground-subtle">—</span>;
+          const clamped = Math.max(0, Math.min(100, pct));
+          return (
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-12 shrink-0 overflow-hidden rounded-full border border-border/30 bg-surface-sunken">
+                <div
+                  className={cn('h-full rounded-full', BAR_COLOR_BY_SEVERITY[r.severity])}
+                  style={{ width: `${clamped}%` }}
+                />
+              </div>
+              <span className="tabular-nums text-xs text-foreground-muted">
+                {Math.round(clamped)}%
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        enableSorting: false,
+        meta: { priority: 'high' },
+        cell: ({ row }) => <StatusDot status={SEVERITY_TO_STATUS[row.original.severity]} />,
+      },
+      {
+        id: 'refresh',
+        header: '',
+        enableSorting: false,
+        meta: { priority: 'low', widthClass: 'w-10' },
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRefresh(r.checkerId);
+              }}
+              disabled={refreshing.has(r.checkerId)}
+              aria-label="Refresh"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-subtle transition-colors hover:bg-surface-elevated hover:text-foreground disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={cn(refreshing.has(r.checkerId) && 'animate-spin')} />
+            </button>
+          );
+        },
+      },
+    ],
+    [refreshing]
+  );
+
+  const handleRowClick = (row: QuotaTableRow) => {
+    if (!row.meter) return;
+    setHistoryTarget({
+      quota: {
+        checkerId: row.checkerId,
+        checkerType: row.checkerType,
+        success: row.checkerSuccess,
+        error: row.checkerError,
+        meters: [row.meter],
+        oauthAccountId: row.oauthAccountId,
+      },
+      meter: row.meter,
+      displayName: row.displayName,
+    });
   };
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="flex min-h-full flex-col">
       <PageHeader
         title="Quotas"
         subtitle="Provider balances and rate-quota allowances"
@@ -135,7 +317,7 @@ export const Quotas = () => {
             size="md"
             onClick={() => checkersQuery.refetch()}
             disabled={loading}
-            leftIcon={<RefreshCw size={14} className={clsx(loading && 'animate-spin')} />}
+            leftIcon={<RefreshCw size={14} className={cn(loading && 'animate-spin')} />}
           >
             Refresh all
           </Button>
@@ -143,61 +325,64 @@ export const Quotas = () => {
       />
 
       <PageContainer>
-        {loading && quotas.length === 0 ? (
-          <div className="flex items-center justify-center h-64 gap-3">
+        {loading && checkers.length === 0 ? (
+          <div className="flex h-64 items-center justify-center gap-3">
             <RefreshCw size={20} className="animate-spin text-accent" />
             <span className="text-foreground-muted">Loading quotas...</span>
           </div>
-        ) : quotas.length === 0 ? (
-          <Card>
-            <EmptyState
-              variant="dense"
-              icon={<Gauge />}
-              title="No quota checkers yet"
-              description="Configure quota checkers in your provider settings to monitor usage."
-            />
-          </Card>
         ) : (
-          <div className="flex flex-col gap-6">
-            {balanceQuotas.length > 0 && (
-              <section>
-                <CombinedBalancesCard
-                  balanceQuotas={balanceQuotas}
-                  onRefresh={handleRefresh}
-                  refreshing={refreshing}
-                  displayNameMap={displayNameMap}
-                />
-              </section>
-            )}
-
-            {allowanceGroups.length > 0 && (
-              <section>
-                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
-                  <Cpu size={18} className="text-accent" />
-                  <h2 className="font-sans text-h2 font-semibold text-foreground">Rate Limits</h2>
+          <DataTable<QuotaTableRow>
+            columns={columns}
+            data={rows}
+            getRowId={(row) => row.rowId}
+            getRowKey={(row) => row.rowId}
+            onRowClick={handleRowClick}
+            rowClassName={(row) => ROW_TINT_BY_SEVERITY[row.severity] ?? ''}
+            emptyIcon={<Gauge />}
+            emptyTitle="No quota checkers yet"
+            emptyDescription="Configure quota checkers in your provider settings to monitor usage."
+            headerSlot={
+              <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {needsAttentionCount === 0 ? (
+                    <span className="text-xs text-foreground-subtle">
+                      All {allRows.length} meters healthy
+                    </span>
+                  ) : (
+                    (['exhausted', 'error', 'critical', 'warning', 'ok', 'pending'] as const)
+                      .filter((severity) => severityCounts[severity] > 0)
+                      .map((severity) => (
+                        <button
+                          key={severity}
+                          type="button"
+                          onClick={() => toggleSeverityFilter(severity)}
+                          className={cn(
+                            'rounded-full border px-2 py-0.5 text-xs transition-colors',
+                            severityFilter === severity
+                              ? 'border-accent bg-accent-subtle text-accent'
+                              : 'border-border text-foreground-muted hover:bg-surface-elevated'
+                          )}
+                        >
+                          {severityCounts[severity]} {severity}
+                        </button>
+                      ))
+                  )}
                 </div>
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {allowanceGroups.map(([checkerType, quotasList]) => {
-                    const displayName = getCheckerDisplayName(
-                      checkerType,
-                      quotasList[0]?.checkerId ?? checkerType,
-                      displayNameMap
-                    );
-                    return (
-                      <div key={checkerType} className="flex flex-col gap-3">
-                        <h3 className="font-sans text-xs font-semibold text-foreground-muted uppercase tracking-wider px-1 border-b border-border pb-2">
-                          {displayName}
-                        </h3>
-                        <div className="flex flex-col gap-3">
-                          {quotasList.map((quota) => renderCheckerCard(quota, displayName))}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="relative">
+                  <Search
+                    size={14}
+                    className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-foreground-subtle"
+                  />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search..."
+                    className="h-8 w-40 rounded-md border border-border bg-surface pl-7 pr-2 text-xs text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
                 </div>
-              </section>
-            )}
-          </div>
+              </div>
+            }
+          />
         )}
         {historyTarget && (
           <MeterHistoryModal
