@@ -99,6 +99,12 @@ describe('allowanceSubtext', () => {
     const m = meter({ periodValue: 1, periodUnit: 'month', resetsAt });
     expect(allowanceSubtext(m, NOW)).toBe(`1mo · resets ${expectedReset}`);
   });
+
+  test('unparseable resetsAt is NaN-guarded by formatResetsIn, so the reset part is omitted', () => {
+    const m = meter({ periodValue: 1, periodUnit: 'month', resetsAt: 'not-a-real-date' });
+    expect(formatResetsIn(m.resetsAt, NOW)).toBe('—'); // sanity: pins the NaN-guard branch
+    expect(allowanceSubtext(m, NOW)).toBe('1mo');
+  });
 });
 
 describe('checkedAgoLabel', () => {

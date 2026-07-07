@@ -53,6 +53,7 @@ export function formatTimeAgo(seconds: number): string {
 export function formatResetsIn(iso: string | null | undefined, now: number = Date.now()): string {
   if (!iso) return '—';
   const resetsAt = new Date(iso).getTime();
+  if (!Number.isFinite(resetsAt)) return '—';
   const diffMs = resetsAt - now;
   if (diffMs <= 0) return 'resetting now';
   const diffSeconds = Math.floor(diffMs / 1000);

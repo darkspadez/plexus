@@ -11,7 +11,7 @@ import {
 import { RefreshCw } from 'lucide-react';
 import { api } from '../../lib/api';
 import { formatMeterValue } from './MeterValue';
-import { computeMeterBurn } from './burn-rate';
+import { computeMeterBurn, type MeterHistoryRow } from './burn-rate';
 import type { Meter, QuotaCheckerInfo } from '../../types/quota';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
@@ -38,18 +38,8 @@ interface MeterHistoryModalProps {
   displayName: string;
 }
 
-interface HistoryRow {
-  checkedAt: string | number;
-  remaining?: number | null;
-  used?: number | null;
-  limit?: number | null;
-  utilizationPercent?: number | null;
-  success?: boolean;
-  meterKey?: string;
-}
-
 // Pick the best value to chart: remaining for balances, utilizationPercent for allowances.
-function getChartValue(row: HistoryRow, kind: 'balance' | 'allowance'): number | null {
+function getChartValue(row: MeterHistoryRow, kind: 'balance' | 'allowance'): number | null {
   if (!row.success) return null;
   if (kind === 'balance') {
     return row.remaining ?? null;
@@ -73,7 +63,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
   displayName,
 }) => {
   const [range, setRange] = useState<TimeRange>('24h');
-  const [rawHistory, setRawHistory] = useState<HistoryRow[]>([]);
+  const [rawHistory, setRawHistory] = useState<MeterHistoryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,7 +86,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
         const days = TIME_RANGES.find((r) => r.key === range)!.days;
         const result = await api.getQuotaHistory(quota.checkerId, meter.key, `${days}d`);
         if (!cancelled && result?.history) {
-          const sorted = [...result.history].sort((a: HistoryRow, b: HistoryRow) => {
+          const sorted = [...result.history].sort((a: MeterHistoryRow, b: MeterHistoryRow) => {
             const ta =
               typeof a.checkedAt === 'number' ? a.checkedAt : new Date(a.checkedAt).getTime();
             const tb =
@@ -214,12 +204,16 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
       </div>
 
       {/* Stats row */}
-      {stats && (
+      {(stats || burn) && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           {[
-            { label: 'Current', value: formatTooltip(stats.current), title: undefined },
-            { label: 'Min', value: formatTooltip(stats.min), title: undefined },
-            { label: 'Max', value: formatTooltip(stats.max), title: undefined },
+            {
+              label: 'Current',
+              value: stats ? formatTooltip(stats.current) : '—',
+              title: undefined,
+            },
+            { label: 'Min', value: stats ? formatTooltip(stats.min) : '—', title: undefined },
+            { label: 'Max', value: stats ? formatTooltip(stats.max) : '—', title: undefined },
             { label: 'Avg burn/day', value: burn?.perDayLabel ?? '—', title: undefined },
             {
               label: isBalance ? 'Depletes in' : 'Exhausts in',

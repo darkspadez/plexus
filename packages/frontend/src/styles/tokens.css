@@ -89,15 +89,10 @@
   --danger-foreground: #FFFFFF;
   --danger-subtle:     rgba(220, 38, 38, 0.12);
 
-  /* Critical sits between warning and danger — nearly-exhausted (>=90%) quota
-     meters, distinct from fully-exhausted (>=100%, uses --danger). Orange-600:
-     critical does TEXT duty (text-critical on bg-critical-subtle pills), so
-     text contrast on white (3.56:1, above sibling warning's 3.19:1) takes
-     precedence over mark-CVD separation from --warning, which is below the
-     validator floor but sanctioned by the page's secondary encoding — every
-     severity pairs its color with a distinct label and fill weight
-     (dataviz palette validator; see .superpowers/sdd/task-4-report.md). */
-  --critical:            #EA580C;
+  /* Orange critical sits between warning and danger. Its value favors
+     pill-text contrast over CVD mark separation from --warning; labels
+     and fill weight (the page's secondary encoding) mitigate that gap. */
+  --critical:            var(--hue-orange-500);
   --critical-foreground: #FFFFFF;
   --critical-subtle:     rgba(234, 88, 12, 0.12);
 
@@ -133,13 +128,9 @@
   --danger-foreground: #1A0808;
   --danger-subtle:     rgba(239, 68, 68, 0.18);
 
-  /* Critical: orange-600 (#EA580C) — one step darker than the #F97316
-     (orange-500) starting point, which sat too close to --warning under CVD
-     simulation. #EA580C clears the CVD floor against both --warning and
-     --danger with a strong margin (dataviz palette validator; see
-     .superpowers/sdd/task-4-report.md). --critical-foreground follows the
-     same "near-black, hue-matched, low chroma" derivation as the other dark
-     -foreground tokens. */
+  /* Orange critical sits between warning and danger. Its value favors
+     pill-text contrast over CVD mark separation from --warning; labels
+     and fill weight (the page's secondary encoding) mitigate that gap. */
   --critical:            #EA580C;
   --critical-foreground: #1D0D07;
   --critical-subtle:     rgba(234, 88, 12, 0.18);

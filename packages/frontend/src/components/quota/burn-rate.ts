@@ -11,13 +11,7 @@ import { formatDuration } from '../../lib/format';
 
 export type BurnPoint = { ts: number; value: number };
 
-/**
- * Shape of one row from GET /v0/management/quotas/:checkerId/history.
- * Mirrors MeterHistoryModal's local `HistoryRow` field-for-field; kept as a
- * separate type (rather than imported) so this module has no dependency on
- * a .tsx file — TS structural typing makes the two interchangeable at the
- * modal's call site.
- */
+/** Shape of one row from GET /v0/management/quotas/:checkerId/history. */
 export interface MeterHistoryRow {
   checkedAt: string | number;
   remaining?: number | null;
@@ -140,6 +134,15 @@ function finalizeRunway(
   return { perDayLabel, runwayLabel: formatDuration(Math.round(runwayMs / 1000)) };
 }
 
+// Trim display noise from the raw per-day rate before it hits formatMeterValue
+// (e.g. "2,880/day" rather than "2,879.882/day"). >=100/day, whole-number
+// precision reads best; below that, 2 decimals keeps low-volume rates legible
+// without rounding them all the way down to whole numbers. Only the label is
+// rounded — runway math downstream still uses the raw `perDay`.
+function roundPerDayForLabel(perDay: number): number {
+  return perDay >= 100 ? Math.round(perDay) : Math.round(perDay * 100) / 100;
+}
+
 function computeAllowanceBurn(rows: TimedRow[], meter: Meter, now: number): MeterBurn | null {
   const usedPoints = numericPoints(rows, 'used');
   const pctPoints = numericPoints(rows, 'utilizationPercent');
@@ -152,7 +155,7 @@ function computeAllowanceBurn(rows: TimedRow[], meter: Meter, now: number): Mete
   if (perDay === null) return null;
 
   const perDayLabel = useUsedSeries
-    ? `${formatMeterValue(perDay, meter.unit, true)}/day`
+    ? `${formatMeterValue(roundPerDayForLabel(perDay), meter.unit, true)}/day`
     : `${perDay.toFixed(1)}%/day`;
 
   const lastUsed = usedPoints[usedPoints.length - 1]?.value;
@@ -172,7 +175,7 @@ function computeBalanceBurn(rows: TimedRow[], meter: Meter, now: number): MeterB
   const perDay = burnRatePerDay(segment);
   if (perDay === null) return null;
 
-  const perDayLabel = `${formatMeterValue(perDay, meter.unit, true)}/day`;
+  const perDayLabel = `${formatMeterValue(roundPerDayForLabel(perDay), meter.unit, true)}/day`;
   const remaining = points[points.length - 1].value;
 
   return finalizeRunway(perDayLabel, remaining, perDay, meter, now, false);

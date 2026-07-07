@@ -42,8 +42,8 @@ describe('formatResetsIn', () => {
     expect(formatResetsIn(iso, NOW)).toBe(expected);
   });
 
-  test('an unparseable ISO string produces "in NaNm" (documents existing behavior; not desired handling)', () => {
-    expect(formatResetsIn('not-a-real-date', NOW)).toBe('in NaNm');
+  test('an unparseable ISO string is guarded against NaN and returns an em dash', () => {
+    expect(formatResetsIn('not-a-real-date', NOW)).toBe('—');
   });
 });
 

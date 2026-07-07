@@ -91,7 +91,7 @@ function RowRefreshButton({
         onRefresh(row.checkerId);
       }}
       disabled={isRefreshing || row.pending}
-      aria-label="Refresh"
+      aria-label={`Refresh ${row.displayName}`}
       className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-subtle transition-colors hover:bg-surface-elevated hover:text-foreground disabled:opacity-50"
     >
       <RefreshCw size={14} className={cn(isRefreshing && 'animate-spin')} />
