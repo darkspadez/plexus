@@ -39,3 +39,9 @@ export function quotaUsagePercent(
   if (entry.limit > 0) return Math.min(100, (entry.currentUsage / entry.limit) * 100);
   return entry.allowed ? 0 : 100;
 }
+
+/** Count failed checks in a settled fan-out. api.triggerQuotaCheck resolves
+ *  null on failure (it never rejects today); a rejection would also be a failure. */
+export function countFailedChecks(results: PromiseSettledResult<unknown>[]): number {
+  return results.filter((r) => r.status === 'rejected' || r.value == null).length;
+}
