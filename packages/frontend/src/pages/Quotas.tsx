@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react';
 import { RefreshCw, Gauge, Wallet } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { useQuotaCheckers, useTriggerQuotaCheck } from '../hooks/queries/useQuotas';
+import {
+  useQuotaCheckers,
+  useTriggerQuotaCheck,
+  useTriggerAllQuotaChecks,
+} from '../hooks/queries/useQuotas';
 import { Button } from '../components/ui/Button';
 import { DataTable } from '../components/ui/DataTable';
 import { PageHeader } from '../components/layout/PageHeader';
@@ -107,6 +111,7 @@ export const Quotas = () => {
 
   const checkersQuery = useQuotaCheckers({ refetchInterval: 30_000 });
   const triggerCheckMutation = useTriggerQuotaCheck();
+  const triggerAllMutation = useTriggerAllQuotaChecks();
 
   const checkers: (QuotaCheckerInfo & { pending?: boolean })[] =
     checkersQuery.data?.configured ?? [];
@@ -126,6 +131,25 @@ export const Quotas = () => {
           return next;
         });
       },
+    });
+  };
+
+  // Pending checkers are excluded -- their per-row buttons are disabled for
+  // the same reason (no configured checker to force-recheck yet).
+  const handleRefreshAll = () => {
+    const ids = checkers.filter((c) => !c.pending).map((c) => c.checkerId);
+    if (ids.length === 0) return;
+    setRefreshing((prev) => new Set([...prev, ...ids])); // every affected row spins
+    triggerAllMutation.mutate(ids, {
+      // Spinners clear together, not per-checker: rows don't have fresh data
+      // until the single invalidation-triggered refetch lands, so clearing
+      // any one row's spinner earlier would misleadingly signal freshness.
+      onSettled: () =>
+        setRefreshing((prev) => {
+          const next = new Set(prev);
+          ids.forEach((id) => next.delete(id));
+          return next;
+        }),
     });
   };
 
@@ -341,9 +365,11 @@ export const Quotas = () => {
           <Button
             variant="secondary"
             size="md"
-            onClick={() => checkersQuery.refetch()}
-            disabled={loading}
-            leftIcon={<RefreshCw size={14} className={cn(loading && 'animate-spin')} />}
+            onClick={handleRefreshAll}
+            disabled={triggerAllMutation.isPending || checkers.length === 0}
+            leftIcon={
+              <RefreshCw size={14} className={cn(triggerAllMutation.isPending && 'animate-spin')} />
+            }
           >
             Refresh all
           </Button>
