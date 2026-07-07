@@ -60,6 +60,8 @@ For programmatic configuration, use the Management API (`/v0/management/*`). All
 | `GET /v0/management/keys` | List all API keys |
 | `PUT /v0/management/keys/{name}` | Create/update key |
 | `DELETE /v0/management/keys/{name}` | Remove key |
+| `GET /v0/management/debug` | Read in-memory debug capture state |
+| `PATCH /v0/management/debug` | Update in-memory global/key/alias/provider debug capture targets |
 | `GET /v0/management/user-quotas` | List quota definitions |
 | `PUT /v0/management/user-quotas/{name}` | Create/update quota |
 | `DELETE /v0/management/user-quotas/{name}` | Remove quota |
@@ -67,6 +69,25 @@ For programmatic configuration, use the Management API (`/v0/management/*`). All
 | `PUT /v0/management/config` | Import config (replace all) |
 
 See the [API Reference](/docs/openapi/openapi.yaml) for complete endpoint documentation.
+
+### Debug Trace Capture
+
+Debug trace targeting is runtime-only. `GET /v0/management/debug` returns the
+current in-memory state, and `PATCH /v0/management/debug` can update:
+
+```json
+{
+  "enabled": false,
+  "keys": ["mobile-app"],
+  "aliases": ["gpt-4o-mini"],
+  "providers": ["openai"]
+}
+```
+
+Capture is inclusive: a request is recorded when any enabled dimension matches
+the request key, canonical model alias, selected provider, or global flag. Setting
+`providers` does not filter out global/key/alias capture. `keys`, `aliases`, and
+`providers` can be set to `null` or `[]` to clear that target list.
 
 ---
 

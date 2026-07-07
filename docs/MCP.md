@@ -83,7 +83,7 @@ All normal responses redact sensitive fields (API keys, secrets, tokens, cookies
 | `plexus_quota` | `list`, `get`, `put`, `create`, `update`, `delete` | Inspect and manage user quota definitions. |
 | `plexus_quota_checker` | `types`, `list`, `get` | Inspect upstream quota checker configuration. |
 | `plexus_usage` | `list`, `summary`, `delete`, `delete_all` | Review request logs and usage summaries; delete individual or bulk usage logs. |
-| `plexus_debug` | `state`, `update`, `logs`, `get_log`, `delete_log`, `delete_all_logs` | Inspect and manage debug tracing and stored debug logs. |
+| `plexus_debug` | `state`, `update`, `logs`, `get_log`, `delete_log`, `delete_all_logs` | Inspect and manage in-memory debug tracing targets (`enabled`, `keys`, `aliases`, `providers`) and stored debug logs. |
 | `plexus_mcp_gateway` | `servers_list`, `list`, `get`, `put`, `create`, `update`, `delete` | Inspect and manage upstream MCP gateway server configuration. |
 | `plexus_settings` | `get` | Get settings by category (failover, cooldown, timeout, stall, exploration, etc.) |
 | `plexus_system_logs` | `recent`, `level`, `set_level`, `reset_level` | Inspect recent in-memory Plexus system logs from the bounded ring buffer and control the runtime logging level. |

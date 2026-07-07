@@ -128,8 +128,8 @@ describe('Plexus management MCP routes', () => {
   });
 
   beforeEach(() => {
+    DebugManager.getInstance().resetForTesting();
     DebugManager.getInstance().setEnabled(false);
-    DebugManager.getInstance().setProviderFilter(null);
     mockLogLevel = 'info';
     registerSpy(fastify, 'inject').mockImplementation(async (options: any) => {
       const request = typeof options === 'string' ? { url: options, method: 'GET' } : options;
@@ -425,6 +425,8 @@ describe('Plexus management MCP routes', () => {
           enabled: DebugManager.getInstance().isEnabled(),
           enabledGlobal: DebugManager.getInstance().isEnabled(),
           enabledKeys: DebugManager.getInstance().getEnabledKeys(),
+          keys: DebugManager.getInstance().getEnabledKeys(),
+          aliases: DebugManager.getInstance().getEnabledAliases(),
           providers: DebugManager.getInstance().getProviderFilter(),
         });
       }
@@ -433,10 +435,15 @@ describe('Plexus management MCP routes', () => {
         if (typeof body.enabled === 'boolean') DebugManager.getInstance().setEnabled(body.enabled);
         if (body.providers !== undefined)
           DebugManager.getInstance().setProviderFilter(body.providers ?? null);
+        if (body.keys !== undefined) DebugManager.getInstance().setEnabledKeys(body.keys ?? null);
+        if (body.aliases !== undefined)
+          DebugManager.getInstance().setEnabledAliases(body.aliases ?? null);
         return json({
           enabled: DebugManager.getInstance().isEnabled(),
           enabledGlobal: DebugManager.getInstance().isEnabled(),
           enabledKeys: DebugManager.getInstance().getEnabledKeys(),
+          keys: DebugManager.getInstance().getEnabledKeys(),
+          aliases: DebugManager.getInstance().getEnabledAliases(),
           providers: DebugManager.getInstance().getProviderFilter(),
         });
       }

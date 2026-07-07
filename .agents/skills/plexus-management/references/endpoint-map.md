@@ -37,7 +37,7 @@ Useful usage query params include `limit`, `offset`, `sortBy`, `sortDir`, `start
 | Action | Method | Path |
 | --- | --- | --- |
 | Get debug state | `GET` | `/v0/management/debug` |
-| Update global debug state | `PATCH` | `/v0/management/debug` |
+| Update in-memory debug state | `PATCH` | `/v0/management/debug` |
 | Toggle current key debug | `POST` | `/v0/management/self/debug/toggle` |
 | List debug logs | `GET` | `/v0/management/debug/logs` |
 | Get one debug log | `GET` | `/v0/management/debug/logs/{requestId}` |
@@ -47,10 +47,16 @@ Useful usage query params include `limit`, `offset`, `sortBy`, `sortDir`, `start
 Debug state body examples:
 
 ```json
-{"enabled":true,"providers":null}
-{"enabled":true,"providers":["openai","anthropic"]}
+{"enabled":true}
+{"enabled":false,"keys":["mobile-app"],"aliases":["gpt-4o-mini"],"providers":["openai","anthropic"]}
+{"keys":null,"aliases":null,"providers":null}
 {"enabled":false}
 ```
+
+Debug target state is in-memory only. Capture is inclusive: a request is
+recorded when any enabled dimension matches the request key, canonical model
+alias, selected provider, or global flag. `providers` is a provider target list,
+not a filter that suppresses global/key/alias capture.
 
 ## Providers And Provider Quotas
 

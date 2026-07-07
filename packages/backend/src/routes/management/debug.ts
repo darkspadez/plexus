@@ -7,6 +7,8 @@ import { isLimited, scopedKeyName } from './_principal';
 const patchDebugSchema = z.object({
   enabled: z.boolean().optional(),
   providers: z.array(z.string()).nullable().optional(),
+  keys: z.array(z.string()).nullable().optional(),
+  aliases: z.array(z.string()).nullable().optional(),
 });
 
 export async function registerDebugRoutes(
@@ -30,6 +32,8 @@ export async function registerDebugRoutes(
         enabledGlobal,
         enabledForKey,
         providers: debugManager.getProviderFilter(),
+        keys: [scopeKey].filter((key) => debugManager.isKeyDimensionEnabled(key)),
+        aliases: debugManager.getEnabledAliases(),
       });
     }
     return reply.send({
@@ -37,6 +41,8 @@ export async function registerDebugRoutes(
       enabledGlobal: debugManager.isEnabled(),
       enabledKeys: debugManager.getEnabledKeys(),
       providers: debugManager.getProviderFilter(),
+      keys: debugManager.getEnabledKeys(),
+      aliases: debugManager.getEnabledAliases(),
     });
   });
 
@@ -60,12 +66,20 @@ export async function registerDebugRoutes(
     if (parsed.data.providers !== undefined) {
       debugManager.setProviderFilter(parsed.data.providers);
     }
+    if (parsed.data.keys !== undefined) {
+      debugManager.setEnabledKeys(parsed.data.keys);
+    }
+    if (parsed.data.aliases !== undefined) {
+      debugManager.setEnabledAliases(parsed.data.aliases);
+    }
 
     return reply.send({
       enabled: debugManager.isEnabled(),
       enabledGlobal: debugManager.isEnabled(),
       enabledKeys: debugManager.getEnabledKeys(),
       providers: debugManager.getProviderFilter(),
+      keys: debugManager.getEnabledKeys(),
+      aliases: debugManager.getEnabledAliases(),
     });
   });
 

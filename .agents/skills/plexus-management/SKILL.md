@@ -100,7 +100,11 @@ curl -fsS "$PLEXUS_BASE_URL/v0/management/aliases" \
 ### Review Or Toggle Debug Tracing
 
 - Check state with `GET /v0/management/debug`.
-- Enable globally with `PATCH /v0/management/debug` and `{"enabled":true,"providers":null}` or set `providers` to an array of provider slugs.
+- Debug target state is in-memory only; it resets on process restart except for `DEBUG=true` startup global capture.
+- Enable globally with `PATCH /v0/management/debug` and `{"enabled":true}`.
+- Set inclusive capture targets with `PATCH /v0/management/debug` and any of `keys`, `aliases`, or `providers`, for example `{"enabled":false,"keys":["mobile-app"],"aliases":["gpt-4o-mini"],"providers":["openai"]}`.
+- Capture is inclusive: a request is recorded when any enabled dimension matches the request key, canonical model alias, selected provider, or global flag. Setting `providers` does not filter out global/key/alias capture.
+- Clear a target list by sending `null` or `[]`, for example `{"providers":null}`.
 - Disable with `PATCH /v0/management/debug` and `{"enabled":false}`.
 - List captures with `GET /v0/management/debug/logs?limit=50`.
 - Fetch a full trace with `GET /v0/management/debug/logs/{requestId}`.
@@ -173,4 +177,3 @@ To load the endpoint map, check for the local copy first. If found, read it dire
 
 local: .agents/skills/plexus-management/references/endpoint-map.md
 fallback with curl: "https://raw.githubusercontent.com/mcowger/plexus/refs/heads/main/.agents/skills/plexus-management/references/endpoint-map.md"
-

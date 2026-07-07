@@ -210,7 +210,7 @@ tags:
       | `defined` | Explicit pricing ranges from `pricing.range` in model config. |
       | `per_request` | Flat fee per call; full amount in `costInput`, others zero. |
   - name: Management — Debug
-    description: Per-request debug capture toggles and logs.
+    description: In-memory debug capture targets and stored debug trace logs.
   - name: Management — Errors
     description: Inference error log storage.
   - name: Management — MCP Logs

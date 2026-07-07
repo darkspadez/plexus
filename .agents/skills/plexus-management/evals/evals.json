@@ -21,8 +21,8 @@
     },
     {
       "id": 4,
-      "prompt": "Temporarily enable global debug tracing for the dev system, restricted to the first configured provider if a provider exists. First record the current debug state, apply the change, verify it, then restore the exact original debug state before finishing. Use PLEXUS_BASE_URL and PLEXUS_ADMIN_KEY.",
-      "expected_output": "Reads current debug state, lists providers, PATCHes /v0/management/debug with a provider filter, verifies state, restores the previous state exactly, and reports both before/after states.",
+      "prompt": "Temporarily enable debug tracing for the dev system for the first configured provider if a provider exists, without enabling global tracing. First record the current debug state, apply the provider capture target, verify it, then restore the exact original debug state before finishing. Use PLEXUS_BASE_URL and PLEXUS_ADMIN_KEY.",
+      "expected_output": "Reads current debug state, lists providers, PATCHes /v0/management/debug with an inclusive provider capture target, verifies state, restores the previous state exactly, and reports both before/after states.",
       "files": []
     },
     {

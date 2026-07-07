@@ -1407,7 +1407,7 @@ function getToolDescription(toolName: string) {
     case 'plexus_usage':
       return 'Review request logs and summaries. Operations: list, summary, delete, delete_all.';
     case 'plexus_debug':
-      return 'Review and manage debug tracing. Operations: state, update, logs, get_log, delete_log, delete_all_logs.';
+      return 'Review and manage debug tracing. Operations: state, update, logs, get_log, delete_log, delete_all_logs. Debug capture targets are in-memory and inclusive: update body may include enabled, keys, aliases, and providers; a request is captured when any enabled dimension matches.';
     case 'plexus_mcp_gateway':
       return 'Inspect and manage Plexus upstream MCP gateway configuration. Operations: servers_list, list, get, put, create, update, delete, status, start, stop, restart, logs.';
     case 'plexus_settings':

@@ -2254,29 +2254,60 @@ export const api = {
     }
   },
 
-  getDebugMode: async (): Promise<{ enabled: boolean; providers: string[] | null }> => {
+  getDebugMode: async (): Promise<{
+    enabled: boolean;
+    enabledGlobal?: boolean;
+    enabledKeys?: string[];
+    providers: string[] | null;
+    keys: string[] | null;
+    aliases: string[] | null;
+  }> => {
     try {
       const res = await fetchWithAuth(`${API_BASE}/v0/management/debug`);
       if (!res.ok) throw new Error('Failed to fetch debug status');
       const json = await res.json();
       return {
         enabled: !!json.enabled,
+        enabledGlobal: json.enabledGlobal === undefined ? undefined : !!json.enabledGlobal,
+        enabledKeys: Array.isArray(json.enabledKeys) ? json.enabledKeys : undefined,
         providers: json.providers || null,
+        keys: json.keys || json.enabledKeys || null,
+        aliases: json.aliases || null,
       };
     } catch (e) {
       console.error('API Error getDebugMode', e);
-      return { enabled: false, providers: null };
+      return { enabled: false, providers: null, keys: null, aliases: null };
     }
   },
 
   setDebugMode: async (
     enabled: boolean,
-    providers?: string[] | null
-  ): Promise<{ enabled: boolean; providers: string[] | null }> => {
+    providers?: string[] | null,
+    keys?: string[] | null,
+    aliases?: string[] | null
+  ): Promise<{
+    enabled: boolean;
+    enabledGlobal?: boolean;
+    enabledKeys?: string[];
+    providers: string[] | null;
+    keys: string[] | null;
+    aliases: string[] | null;
+  }> => {
     try {
-      const body: { enabled: boolean; providers?: string[] | null } = { enabled };
+      const body: {
+        enabled: boolean;
+        providers?: string[] | null;
+        keys?: string[] | null;
+        aliases?: string[] | null;
+      } = { enabled };
       if (providers !== undefined) {
         body.providers = providers;
+      }
+      if (keys !== undefined) {
+        body.keys = keys;
+      }
+      if (aliases !== undefined) {
+        body.aliases = aliases;
       }
       const res = await fetchWithAuth(`${API_BASE}/v0/management/debug`, {
         method: 'PATCH',
@@ -2287,7 +2318,11 @@ export const api = {
       const json = await res.json();
       return {
         enabled: !!json.enabled,
+        enabledGlobal: json.enabledGlobal === undefined ? undefined : !!json.enabledGlobal,
+        enabledKeys: Array.isArray(json.enabledKeys) ? json.enabledKeys : undefined,
         providers: json.providers || null,
+        keys: json.keys || json.enabledKeys || null,
+        aliases: json.aliases || null,
       };
     } catch (e) {
       console.error('API Error setDebugMode', e);
