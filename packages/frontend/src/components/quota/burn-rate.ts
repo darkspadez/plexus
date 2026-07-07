@@ -73,7 +73,10 @@ export function burnRatePerDay(segment: BurnPoint[]): number | null {
   const first = segment[0];
   const last = segment[segment.length - 1];
   const spanMs = last.ts - first.ts;
-  if (spanMs < MIN_SPAN_MS) return null;
+  // Number.isFinite also rejects a NaN span (unparseable timestamp) — a bare
+  // `<` comparison is false for NaN, i.e. it would fail OPEN and let a NaN
+  // rate leak into the labels.
+  if (!Number.isFinite(spanMs) || spanMs < MIN_SPAN_MS) return null;
   const delta = last.value - first.value;
   if (delta === 0) return null;
   return (Math.abs(delta) / spanMs) * MS_PER_DAY;
@@ -175,7 +178,16 @@ function computeBalanceBurn(rows: TimedRow[], meter: Meter, now: number): MeterB
   return finalizeRunway(perDayLabel, remaining, perDay, meter, now, false);
 }
 
-/** Composed entry point the modal calls. */
+/**
+ * Composed entry point the modal calls.
+ *
+ * Null-vs-'—' contract: returns null iff no per-day rate is computable
+ * (no usable series, flat/short/sub-span segment) — exactly the case where
+ * BOTH tiles show '—', so the modal renders `burn?.x ?? '—'`. When a rate
+ * exists but the runway doesn't (no remaining, or an allowance window
+ * resets before projected exhaustion), the result is non-null with
+ * `runwayLabel: '—'` (plus `runwayNote` in the reset case).
+ */
 export function computeMeterBurn(
   rows: MeterHistoryRow[],
   meter: Meter,
@@ -184,6 +196,9 @@ export function computeMeterBurn(
   const relevant: TimedRow[] = rows
     .filter((row) => row.success && (row.meterKey == null || row.meterKey === meter.key))
     .map((row) => ({ ...row, ts: toTs(row.checkedAt) }))
+    // Drop rows whose checkedAt didn't parse — a NaN ts would poison every
+    // downstream span/sort computation.
+    .filter((row) => Number.isFinite(row.ts))
     .sort((a, b) => a.ts - b.ts);
 
   return meter.kind === 'allowance'
