@@ -241,16 +241,6 @@ describe('buildQuotaTableRows', () => {
 });
 
 describe('toVisibleRows', () => {
-  test('severity filtering keeps only matching rows', () => {
-    const rows: QuotaTableRow[] = [
-      makeRow({ rowId: 'a', checkerId: 'a', displayName: 'Alpha', severity: 'critical' }),
-      makeRow({ rowId: 'b', checkerId: 'b', displayName: 'Beta', severity: 'ok' }),
-      makeRow({ rowId: 'c', checkerId: 'c', displayName: 'Gamma', severity: 'critical' }),
-    ];
-    const visible = toVisibleRows(rows, '', 'critical');
-    expect(visible.map((r) => r.rowId)).toEqual(['a', 'c']);
-  });
-
   test('search matches displayName, checkerType, and meter label, case-insensitively', () => {
     const rows: QuotaTableRow[] = [
       makeRow({
@@ -278,11 +268,11 @@ describe('toVisibleRows', () => {
     ];
 
     // Matches displayName only ('provider' isn't a substring of any checkerType or meter label here).
-    expect(toVisibleRows(rows, 'PROVIDER', null).map((r) => r.rowId)).toEqual(['a']);
+    expect(toVisibleRows(rows, 'PROVIDER').map((r) => r.rowId)).toEqual(['a']);
     // Matches checkerType only.
-    expect(toVisibleRows(rows, 'BETA-TYPE', null).map((r) => r.rowId)).toEqual(['b']);
+    expect(toVisibleRows(rows, 'BETA-TYPE').map((r) => r.rowId)).toEqual(['b']);
     // Matches meter label only.
-    expect(toVisibleRows(rows, 'special meter', null).map((r) => r.rowId)).toEqual(['b']);
+    expect(toVisibleRows(rows, 'special meter').map((r) => r.rowId)).toEqual(['b']);
   });
 
   test('whitespace-only search matches all rows', () => {
@@ -290,17 +280,7 @@ describe('toVisibleRows', () => {
       makeRow({ rowId: 'a', checkerId: 'a', displayName: 'Alpha', severity: 'ok' }),
       makeRow({ rowId: 'b', checkerId: 'b', displayName: 'Beta', severity: 'critical' }),
     ];
-    expect(toVisibleRows(rows, '   ', null).map((r) => r.rowId)).toEqual(['a', 'b']);
-  });
-
-  test('severity filter and search combine with AND', () => {
-    const rows: QuotaTableRow[] = [
-      makeRow({ rowId: 'a', checkerId: 'a', displayName: 'Alpha', severity: 'critical' }),
-      makeRow({ rowId: 'b', checkerId: 'b', displayName: 'Alphabet', severity: 'ok' }),
-      makeRow({ rowId: 'c', checkerId: 'c', displayName: 'Beta', severity: 'critical' }),
-    ];
-    // 'alpha' matches a & b by displayName; severity 'critical' matches a & c; AND => only 'a'.
-    expect(toVisibleRows(rows, 'alpha', 'critical').map((r) => r.rowId)).toEqual(['a']);
+    expect(toVisibleRows(rows, '   ').map((r) => r.rowId)).toEqual(['a', 'b']);
   });
 
   test('a surviving non-first row becomes the visible group head when the true first row is filtered out', () => {
@@ -309,6 +289,7 @@ describe('toVisibleRows', () => {
         rowId: 'g1',
         checkerId: 'group-1',
         displayName: 'Group',
+        checkerType: 'group-critical',
         severity: 'critical',
         isFirstInGroup: true,
       }),
@@ -316,11 +297,14 @@ describe('toVisibleRows', () => {
         rowId: 'g2',
         checkerId: 'group-1',
         displayName: 'Group',
+        checkerType: 'group-ok',
         severity: 'ok',
         isFirstInGroup: false,
       }),
     ];
-    const visible = toVisibleRows(rows, '', 'ok');
+    // Search for 'group-ok' matches only g2's checkerType, filtering out the
+    // true first row (g1) and leaving g2 as the sole survivor.
+    const visible = toVisibleRows(rows, 'group-ok');
     expect(visible).toHaveLength(1);
     expect(visible[0].rowId).toBe('g2');
     expect(visible[0].visibleIsFirstInGroup).toBe(true);
@@ -350,7 +334,7 @@ describe('toVisibleRows', () => {
         isFirstInGroup: true,
       }),
     ];
-    const visible = toVisibleRows(rows, '', null);
+    const visible = toVisibleRows(rows, '');
     expect(visible.map((r) => ({ rowId: r.rowId, showGroupRule: r.showGroupRule }))).toEqual([
       { rowId: 'a1', showGroupRule: false }, // very first visible row
       { rowId: 'a2', showGroupRule: false }, // not first-in-group

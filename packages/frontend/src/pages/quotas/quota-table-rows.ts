@@ -98,14 +98,9 @@ export type VisibleQuotaTableRow = QuotaTableRow & {
   showGroupRule: boolean;
 };
 
-export function toVisibleRows(
-  rows: QuotaTableRow[],
-  search: string,
-  severityFilter: QuotaRowSeverity | null
-): VisibleQuotaTableRow[] {
+export function toVisibleRows(rows: QuotaTableRow[], search: string): VisibleQuotaTableRow[] {
   const term = search.trim().toLowerCase();
   const filtered = rows.filter((row) => {
-    if (severityFilter && row.severity !== severityFilter) return false;
     if (!term) return true;
     return (
       row.displayName.toLowerCase().includes(term) ||

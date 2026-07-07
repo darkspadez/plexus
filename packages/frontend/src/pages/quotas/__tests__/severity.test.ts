@@ -1,9 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
-  SEVERITY_ORDER,
   SEVERITY_LABEL,
   SEVERITY_DOT_CLASS,
-  SEVERITY_PILL_CLASS,
   SEVERITY_BAR_CLASS,
   SEVERITY_TRACK_CLASS,
   SEVERITY_ACCENT_CLASS,
@@ -16,8 +14,8 @@ import type { QuotaRowSeverity } from '../quota-table-rows';
 const ALL_SEVERITIES = Object.keys(SEVERITY_LABEL) as QuotaRowSeverity[];
 const sorted = (arr: readonly string[]) => [...arr].sort();
 
-// The four severities that get "attention" treatment (pill + row accent);
-// ok/pending are deliberately unadorned — see severity.ts's header comment.
+// The four severities that get "attention" treatment (row accent); ok/pending
+// are deliberately unadorned — see severity.ts's header comment.
 const ATTENTION_SEVERITIES: QuotaRowSeverity[] = ['exhausted', 'error', 'critical', 'warning'];
 
 describe('SEVERITY_LABEL', () => {
@@ -43,24 +41,12 @@ describe('SEVERITY_LABEL', () => {
 });
 
 describe('critical vs exhausted stay visually distinct', () => {
-  test('SEVERITY_PILL_CLASS.critical differs from SEVERITY_PILL_CLASS.exhausted', () => {
-    expect(SEVERITY_PILL_CLASS.critical).not.toBe(SEVERITY_PILL_CLASS.exhausted);
+  test('SEVERITY_DOT_CLASS.critical differs from SEVERITY_DOT_CLASS.exhausted', () => {
+    expect(SEVERITY_DOT_CLASS.critical).not.toBe(SEVERITY_DOT_CLASS.exhausted);
   });
 
   test('SEVERITY_BAR_CLASS.critical differs from SEVERITY_BAR_CLASS.exhausted', () => {
     expect(SEVERITY_BAR_CLASS.critical).not.toBe(SEVERITY_BAR_CLASS.exhausted);
-  });
-});
-
-describe('SEVERITY_ORDER', () => {
-  test('contains every QuotaRowSeverity exactly once', () => {
-    expect(SEVERITY_ORDER.length).toBe(ALL_SEVERITIES.length);
-    expect(new Set(SEVERITY_ORDER).size).toBe(SEVERITY_ORDER.length);
-    expect(sorted(SEVERITY_ORDER)).toEqual(sorted(ALL_SEVERITIES));
-  });
-
-  test('matches the exact order from the spec (most urgent first)', () => {
-    expect(SEVERITY_ORDER).toEqual(['exhausted', 'error', 'critical', 'warning', 'ok', 'pending']);
   });
 });
 
@@ -77,10 +63,6 @@ describe('every map covers its documented severities', () => {
     expect(sorted(Object.keys(SEVERITY_TRACK_CLASS))).toEqual(sorted(ALL_SEVERITIES));
   });
 
-  test('SEVERITY_PILL_CLASS covers exactly the four attention severities (ok/pending get no pill)', () => {
-    expect(sorted(Object.keys(SEVERITY_PILL_CLASS))).toEqual(sorted(ATTENTION_SEVERITIES));
-  });
-
   test('SEVERITY_ACCENT_CLASS covers exactly the four attention severities (ok/pending rows are unadorned)', () => {
     expect(sorted(Object.keys(SEVERITY_ACCENT_CLASS))).toEqual(sorted(ATTENTION_SEVERITIES));
   });
@@ -95,15 +77,6 @@ describe('exact class strings from the spec', () => {
       warning: 'bg-warning',
       ok: 'bg-success',
       pending: 'bg-foreground-subtle',
-    });
-  });
-
-  test('SEVERITY_PILL_CLASS', () => {
-    expect(SEVERITY_PILL_CLASS).toEqual({
-      exhausted: 'bg-danger text-danger-foreground',
-      error: 'bg-danger-subtle text-danger',
-      critical: 'bg-critical-subtle text-critical',
-      warning: 'bg-warning-subtle text-warning',
     });
   });
 
