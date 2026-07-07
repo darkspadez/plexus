@@ -1,13 +1,12 @@
 import { useMemo, useState } from 'react';
-import { RefreshCw, Gauge, Wallet, Search } from 'lucide-react';
+import { RefreshCw, Gauge, Wallet } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useQuotaCheckers, useTriggerQuotaCheck } from '../hooks/queries/useQuotas';
 import { Button } from '../components/ui/Button';
 import { DataTable } from '../components/ui/DataTable';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
-import { StatusDot } from '../components/chips/StatusDot';
-import type { Status } from '../lib/status-vocab';
+import { SearchInput } from '../components/ui/SearchInput';
 import { formatMeterValue } from '../components/quota/MeterValue';
 import { MeterHistoryModal } from '../components/quota/MeterHistoryModal';
 import type { Meter, QuotaCheckerInfo } from '../types/quota';
@@ -18,61 +17,82 @@ import {
   type QuotaTableRow,
   type VisibleQuotaTableRow,
 } from './quotas/quota-table-rows';
+import {
+  SEVERITY_ACCENT_CLASS,
+  SEVERITY_BAR_CLASS,
+  SEVERITY_DOT_CLASS,
+  SEVERITY_LABEL,
+  SEVERITY_ORDER,
+  SEVERITY_PILL_CLASS,
+  SEVERITY_TRACK_CLASS,
+} from './quotas/severity';
+import {
+  allowanceSubtext,
+  checkedAgoLabel,
+  remainingValue,
+  usagePercent,
+  usedLimitText,
+} from './quotas/quota-format';
 import { cn } from '../lib/cn';
 
-// Mirrors fromMeterStatus() in lib/status-vocab.ts for the four meter statuses,
-// plus the two checker-level states that have no meter (error, pending).
-// critical and exhausted intentionally share the same displayed status
-// (Exceeded) — the design system doesn't distinguish them visually, only the
-// internal sort rank does.
-const SEVERITY_TO_STATUS: Record<QuotaRowSeverity, Status> = {
-  exhausted: 'Exceeded',
-  error: 'Error',
-  critical: 'Exceeded',
-  warning: 'Degraded',
-  ok: 'Active',
-  pending: 'Idle',
+const SeverityBadge = ({ severity }: { severity: QuotaRowSeverity }) => {
+  const pill = SEVERITY_PILL_CLASS[severity];
+  if (pill) {
+    return (
+      <span
+        className={cn(
+          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+          pill
+        )}
+      >
+        {SEVERITY_LABEL[severity]}
+      </span>
+    );
+  }
+  // ok / pending: quiet dot + muted label (anti-alarm budget)
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span
+        aria-hidden
+        className={cn('inline-block size-2 shrink-0 rounded-full', SEVERITY_DOT_CLASS[severity])}
+      />
+      <span className="text-sm font-medium text-foreground-muted">{SEVERITY_LABEL[severity]}</span>
+    </span>
+  );
 };
 
-const BAR_COLOR_BY_SEVERITY: Record<QuotaRowSeverity, string> = {
-  exhausted: 'bg-danger',
-  error: 'bg-danger',
-  critical: 'bg-danger',
-  warning: 'bg-warning',
-  ok: 'bg-success',
-  pending: 'bg-foreground-subtle',
-};
-
-// Anti-alarm color budget: ok/pending rows stay neutral (no className), so the
-// warning+ tint below actually pops instead of competing with a fully-colored
-// row for every severity.
-const ROW_TINT_BY_SEVERITY: Partial<Record<QuotaRowSeverity, string>> = {
-  exhausted: 'border-l-2 border-l-danger bg-danger-subtle',
-  error: 'border-l-2 border-l-danger bg-danger-subtle',
-  critical: 'border-l-2 border-l-danger bg-danger-subtle',
-  warning: 'border-l-2 border-l-warning bg-warning-subtle',
-};
-
-function periodLabel(meter: Meter): string {
-  if (!meter.periodValue || !meter.periodUnit) return '';
-  const cycle = meter.periodCycle === 'rolling' ? 'rolling' : 'fixed';
-  const unit =
-    meter.periodUnit === 'hour'
-      ? 'h'
-      : meter.periodUnit === 'day'
-        ? 'd'
-        : meter.periodUnit === 'minute'
-          ? 'min'
-          : meter.periodUnit === 'week'
-            ? 'wk'
-            : 'mo';
-  return `${meter.periodValue}${unit} ${cycle}`;
-}
-
-function remainingValue(meter: Meter): number | undefined {
-  if (meter.remaining !== undefined) return meter.remaining;
-  if (meter.used !== undefined && meter.limit !== undefined) return meter.limit - meter.used;
-  return undefined;
+/**
+ * Refresh-trigger button for one provider row — shared by the desktop
+ * "refresh" column cell and the mobile card's `mobileActions` slot. Kept
+ * module-level (not nested inside `Quotas`) so its component identity is
+ * stable across renders instead of remounting every row's button on every
+ * Quotas re-render (see DataTable.tsx's ExpanderCell comment for the same
+ * concern with per-render component identity).
+ */
+function RowRefreshButton({
+  row,
+  refreshing,
+  onRefresh,
+}: {
+  row: VisibleQuotaTableRow;
+  refreshing: Set<string>;
+  onRefresh: (checkerId: string) => void;
+}) {
+  const isRefreshing = refreshing.has(row.checkerId);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onRefresh(row.checkerId);
+      }}
+      disabled={isRefreshing || row.pending}
+      aria-label="Refresh"
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-subtle transition-colors hover:bg-surface-elevated hover:text-foreground disabled:opacity-50"
+    >
+      <RefreshCw size={14} className={cn(isRefreshing && 'animate-spin')} />
+    </button>
+  );
 }
 
 export const Quotas = () => {
@@ -128,9 +148,9 @@ export const Quotas = () => {
   }, [allRows]);
 
   // "Needs attention" for the all-clear banner: anything above ok/pending
-  // severity, including warning — warning rows are still amber-tinted in the
-  // table body (ROW_TINT_BY_SEVERITY.warning), so the banner must not claim
-  // full health while they're present.
+  // severity, including warning — warning rows still get a left accent
+  // border in the table body (SEVERITY_ACCENT_CLASS.warning), so the banner
+  // must not claim full health while they're present.
   const needsAttentionCount =
     severityCounts.exhausted +
     severityCounts.error +
@@ -166,14 +186,16 @@ export const Quotas = () => {
         meta: { priority: 'high', mobileTitle: true },
         cell: ({ row }) => {
           const r = row.original;
+          const subtextParts = [r.oauthAccountId, checkedAgoLabel(r.checkedAt)].filter(
+            (part): part is string => Boolean(part)
+          );
           return (
             <div className={cn(!r.visibleIsFirstInGroup && 'md:invisible')}>
-              <div className="font-medium text-foreground">{r.displayName}</div>
-              {(r.checkerType || r.oauthAccountId) && (
-                <div className="text-xs text-foreground-subtle">
-                  {r.checkerType}
-                  {r.oauthAccountId && ` · ${r.oauthAccountId}`}
-                </div>
+              <div className="truncate font-medium text-foreground" title={r.displayName}>
+                {r.displayName}
+              </div>
+              {subtextParts.length > 0 && (
+                <div className="text-xs text-foreground-subtle">{subtextParts.join(' · ')}</div>
               )}
             </div>
           );
@@ -199,16 +221,58 @@ export const Quotas = () => {
               </span>
             );
           }
-          const period = periodLabel(r.meter);
+          const subtext = allowanceSubtext(r.meter);
           return (
-            <div className="flex items-center gap-1.5">
-              {r.meter.kind === 'balance' ? (
-                <Wallet size={12} className="shrink-0 text-info" />
+            <div>
+              <div className="flex items-center gap-1.5">
+                {r.meter.kind === 'balance' ? (
+                  <Wallet size={12} className="shrink-0 text-info" />
+                ) : (
+                  <Gauge size={12} className="shrink-0 text-accent" />
+                )}
+                <span className="truncate text-foreground" title={r.meter.label}>
+                  {r.meter.label}
+                </span>
+              </div>
+              {subtext && <div className="text-xs text-foreground-subtle">{subtext}</div>}
+            </div>
+          );
+        },
+      },
+      {
+        id: 'usage',
+        header: 'Usage',
+        enableSorting: false,
+        meta: { priority: 'medium' },
+        cell: ({ row }) => {
+          const r = row.original;
+          const pct = usagePercent(r.meter);
+          const usedLimit = usedLimitText(r.meter);
+          return (
+            <div>
+              {pct === null ? (
+                <span className="text-foreground-subtle">—</span>
               ) : (
-                <Gauge size={12} className="shrink-0 text-accent" />
+                <div className="flex items-center gap-2">
+                  <div
+                    className={cn(
+                      'h-1.5 w-12 shrink-0 overflow-hidden rounded-full',
+                      SEVERITY_TRACK_CLASS[r.severity]
+                    )}
+                  >
+                    <div
+                      className={cn('h-full rounded-full', SEVERITY_BAR_CLASS[r.severity])}
+                      style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
+                    />
+                  </div>
+                  <span className="tabular-nums text-xs text-foreground-muted">
+                    {Math.round(pct)}%
+                  </span>
+                </div>
               )}
-              <span className="text-foreground">{r.meter.label}</span>
-              {period && <span className="text-xs text-foreground-subtle">{period}</span>}
+              {usedLimit && (
+                <div className="tabular-nums text-xs text-foreground-subtle">{usedLimit}</div>
+              )}
             </div>
           );
         },
@@ -221,56 +285,13 @@ export const Quotas = () => {
         cell: ({ row }) => {
           const m = row.original.meter;
           const value = m ? remainingValue(m) : undefined;
-          if (!m || value === undefined) return <span className="text-foreground-subtle">—</span>;
+          if (!m || value === undefined) {
+            return <span className="text-foreground-subtle">—</span>;
+          }
           return (
-            <span className="tabular-nums text-foreground">
+            <span className="text-sm font-medium tabular-nums text-foreground">
               {formatMeterValue(value, m.unit, true)}
             </span>
-          );
-        },
-      },
-      {
-        id: 'usedLimit',
-        header: 'Used / Limit',
-        enableSorting: false,
-        meta: { priority: 'medium', align: 'right' },
-        cell: ({ row }) => {
-          const m = row.original.meter;
-          if (!m) return <span className="text-foreground-subtle">—</span>;
-          const used = m.used !== undefined ? formatMeterValue(m.used, m.unit, true) : '—';
-          const limit = m.limit !== undefined ? formatMeterValue(m.limit, m.unit, true) : '—';
-          return (
-            <span className="tabular-nums text-xs text-foreground-muted">
-              {used} / {limit}
-            </span>
-          );
-        },
-      },
-      {
-        id: 'usage',
-        header: 'Usage',
-        enableSorting: false,
-        meta: { priority: 'medium' },
-        cell: ({ row }) => {
-          const r = row.original;
-          const pct =
-            r.meter && typeof r.meter.utilizationPercent === 'number'
-              ? r.meter.utilizationPercent
-              : null;
-          if (pct === null) return <span className="text-foreground-subtle">—</span>;
-          const clamped = Math.max(0, Math.min(100, pct));
-          return (
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 w-12 shrink-0 overflow-hidden rounded-full border border-border/30 bg-surface-sunken">
-                <div
-                  className={cn('h-full rounded-full', BAR_COLOR_BY_SEVERITY[r.severity])}
-                  style={{ width: `${clamped}%` }}
-                />
-              </div>
-              <span className="tabular-nums text-xs text-foreground-muted">
-                {Math.round(clamped)}%
-              </span>
-            </div>
           );
         },
       },
@@ -279,30 +300,16 @@ export const Quotas = () => {
         header: 'Status',
         enableSorting: false,
         meta: { priority: 'high' },
-        cell: ({ row }) => <StatusDot status={SEVERITY_TO_STATUS[row.original.severity]} />,
+        cell: ({ row }) => <SeverityBadge severity={row.original.severity} />,
       },
       {
         id: 'refresh',
         header: '',
         enableSorting: false,
         meta: { priority: 'low', widthClass: 'w-10' },
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRefresh(r.checkerId);
-              }}
-              disabled={refreshing.has(r.checkerId) || r.pending}
-              aria-label="Refresh"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-subtle transition-colors hover:bg-surface-elevated hover:text-foreground disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={cn(refreshing.has(r.checkerId) && 'animate-spin')} />
-            </button>
-          );
-        },
+        cell: ({ row }) => (
+          <RowRefreshButton row={row.original} refreshing={refreshing} onRefresh={handleRefresh} />
+        ),
       },
     ],
     [refreshing]
@@ -318,6 +325,7 @@ export const Quotas = () => {
         error: row.checkerError,
         meters: [row.meter],
         oauthAccountId: row.oauthAccountId,
+        checkedAt: row.checkedAt,
       },
       meter: row.meter,
       displayName: row.displayName,
@@ -342,7 +350,7 @@ export const Quotas = () => {
         }
       />
 
-      <PageContainer>
+      <PageContainer width="wide">
         {loading && checkers.length === 0 ? (
           <div className="flex h-64 items-center justify-center gap-3">
             <RefreshCw size={20} className="animate-spin text-accent" />
@@ -355,7 +363,15 @@ export const Quotas = () => {
             getRowId={(row) => row.rowId}
             getRowKey={(row) => row.rowId}
             onRowClick={handleRowClick}
-            rowClassName={(row) => ROW_TINT_BY_SEVERITY[row.severity] ?? ''}
+            rowClassName={(row) =>
+              cn(
+                SEVERITY_ACCENT_CLASS[row.severity],
+                row.showGroupRule && 'md:border-t-2 md:border-t-border-strong'
+              )
+            }
+            mobileActions={(row) => (
+              <RowRefreshButton row={row} refreshing={refreshing} onRefresh={handleRefresh} />
+            )}
             emptyIcon={<Gauge />}
             emptyTitle={hasActiveFilter ? 'No matching meters' : 'No quota checkers yet'}
             emptyDescription={
@@ -371,37 +387,36 @@ export const Quotas = () => {
                       All {severityCounts.ok} meters healthy
                     </span>
                   ) : (
-                    (['exhausted', 'error', 'critical', 'warning', 'ok', 'pending'] as const)
-                      .filter((severity) => severityCounts[severity] > 0)
-                      .map((severity) => (
+                    SEVERITY_ORDER.filter((severity) => severityCounts[severity] > 0).map(
+                      (severity) => (
                         <button
                           key={severity}
                           type="button"
                           onClick={() => toggleSeverityFilter(severity)}
                           aria-pressed={effectiveSeverityFilter === severity}
                           className={cn(
-                            'rounded-full border px-2 py-0.5 text-xs transition-colors',
+                            'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition-colors',
                             effectiveSeverityFilter === severity
                               ? 'border-accent bg-accent-subtle text-accent'
                               : 'border-border text-foreground-muted hover:bg-surface-elevated'
                           )}
                         >
-                          {severityCounts[severity]} {severity}
+                          <span
+                            aria-hidden
+                            className={cn('size-1.5 rounded-full', SEVERITY_DOT_CLASS[severity])}
+                          />
+                          {severityCounts[severity]} {SEVERITY_LABEL[severity]}
                         </button>
-                      ))
+                      )
+                    )
                   )}
                 </div>
-                <div className="relative">
-                  <Search
-                    size={14}
-                    className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-foreground-subtle"
-                  />
-                  <input
+                <div className="w-full sm:w-56">
+                  <SearchInput
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search..."
+                    onChange={setSearch}
+                    placeholder="Search meters…"
                     aria-label="Search meters"
-                    className="h-8 w-40 rounded-md border border-border bg-surface pl-7 pr-2 text-xs text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </div>
               </div>

@@ -26,7 +26,7 @@ export function periodAbbrev(meter: Meter): string | null {
   return `${meter.periodValue}${unit}${suffix}`;
 }
 
-/** Meter-cell subtext for allowances: "1mo · resets in 12d 4h".
+/** Meter-cell subtext for allowances: "1mo · resets in 3d 4h".
  *  null for kind==='balance' and when no parts exist. */
 export function allowanceSubtext(meter: Meter, now: number = Date.now()): string | null {
   if (meter.kind === 'balance') return null;
