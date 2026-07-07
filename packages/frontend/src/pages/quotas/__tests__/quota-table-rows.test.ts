@@ -1,6 +1,5 @@
 import { expect, test, describe } from 'vitest';
-import { buildQuotaTableRows, toVisibleRows } from '../quota-table-rows';
-import type { QuotaTableRow, QuotaRowSeverity } from '../quota-table-rows';
+import { buildQuotaTableRows } from '../quota-table-rows';
 import type { Meter, QuotaCheckerInfo } from '../../../types/quota';
 
 function meter(overrides: Partial<Meter> & { key: string; status: Meter['status'] }): Meter {
@@ -9,25 +8,6 @@ function meter(overrides: Partial<Meter> & { key: string; status: Meter['status'
     kind: 'allowance',
     unit: 'requests',
     utilizationPercent: 'unknown',
-    ...overrides,
-  };
-}
-
-// Minimal QuotaTableRow builder for toVisibleRows tests — these exercise
-// filtering/adjacency logic directly, so tests construct rows by hand rather
-// than going through buildQuotaTableRows.
-function makeRow(
-  overrides: Partial<QuotaTableRow> & {
-    rowId: string;
-    checkerId: string;
-    displayName: string;
-    severity: QuotaRowSeverity;
-  }
-): QuotaTableRow {
-  return {
-    checkerSuccess: true,
-    isFirstInGroup: false,
-    pending: false,
     ...overrides,
   };
 }
@@ -178,6 +158,25 @@ describe('buildQuotaTableRows', () => {
     expect(apertisRows[1].isFirstInGroup).toBe(false);
   });
 
+  test('showGroupRule is false for the first row overall, true for later group heads, false within a group', () => {
+    const rows = buildQuotaTableRows(CHECKERS);
+    // First row overall (copilot-1, first group — see the severity-rank test
+    // above) sits directly under the <thead>, so it gets no divider even
+    // though it is a group head.
+    expect(rows[0].checkerId).toBe('copilot-1');
+    expect(rows[0].isFirstInGroup).toBe(true);
+    expect(rows[0].showGroupRule).toBe(false);
+
+    // First row of a later group (nanogpt-1) gets the divider.
+    const nanogptRows = rows.filter((r) => r.checkerId === 'nanogpt-1');
+    expect(nanogptRows[0].isFirstInGroup).toBe(true);
+    expect(nanogptRows[0].showGroupRule).toBe(true);
+
+    // A non-first row within a group never gets the divider.
+    expect(nanogptRows[1].isFirstInGroup).toBe(false);
+    expect(nanogptRows[1].showGroupRule).toBe(false);
+  });
+
   test('a checker with a failed check produces one row with severity "error" and no meter', () => {
     const rows = buildQuotaTableRows(CHECKERS);
     const row = rows.find((r) => r.checkerId === 'broken-1')!;
@@ -237,108 +236,5 @@ describe('buildQuotaTableRows', () => {
     const rows = buildQuotaTableRows(CHECKERS);
     const row = rows.find((r) => r.checkerId === 'openrouter-1')!;
     expect(row.checkedAt).toBeUndefined();
-  });
-});
-
-describe('toVisibleRows', () => {
-  test('search matches displayName, checkerType, and meter label, case-insensitively', () => {
-    const rows: QuotaTableRow[] = [
-      makeRow({
-        rowId: 'a',
-        checkerId: 'a',
-        displayName: 'Alpha Provider',
-        checkerType: 'alpha-type',
-        severity: 'ok',
-      }),
-      makeRow({
-        rowId: 'b',
-        checkerId: 'b',
-        displayName: 'Beta',
-        checkerType: 'beta-type',
-        severity: 'ok',
-        meter: meter({ key: 'special', label: 'Special Meter Label', status: 'ok' }),
-      }),
-      makeRow({
-        rowId: 'c',
-        checkerId: 'c',
-        displayName: 'Gamma',
-        checkerType: 'gamma-type',
-        severity: 'ok',
-      }),
-    ];
-
-    // Matches displayName only ('provider' isn't a substring of any checkerType or meter label here).
-    expect(toVisibleRows(rows, 'PROVIDER').map((r) => r.rowId)).toEqual(['a']);
-    // Matches checkerType only.
-    expect(toVisibleRows(rows, 'BETA-TYPE').map((r) => r.rowId)).toEqual(['b']);
-    // Matches meter label only.
-    expect(toVisibleRows(rows, 'special meter').map((r) => r.rowId)).toEqual(['b']);
-  });
-
-  test('whitespace-only search matches all rows', () => {
-    const rows: QuotaTableRow[] = [
-      makeRow({ rowId: 'a', checkerId: 'a', displayName: 'Alpha', severity: 'ok' }),
-      makeRow({ rowId: 'b', checkerId: 'b', displayName: 'Beta', severity: 'critical' }),
-    ];
-    expect(toVisibleRows(rows, '   ').map((r) => r.rowId)).toEqual(['a', 'b']);
-  });
-
-  test('a surviving non-first row becomes the visible group head when the true first row is filtered out', () => {
-    const rows: QuotaTableRow[] = [
-      makeRow({
-        rowId: 'g1',
-        checkerId: 'group-1',
-        displayName: 'Group',
-        checkerType: 'group-critical',
-        severity: 'critical',
-        isFirstInGroup: true,
-      }),
-      makeRow({
-        rowId: 'g2',
-        checkerId: 'group-1',
-        displayName: 'Group',
-        checkerType: 'group-ok',
-        severity: 'ok',
-        isFirstInGroup: false,
-      }),
-    ];
-    // Search for 'group-ok' matches only g2's checkerType, filtering out the
-    // true first row (g1) and leaving g2 as the sole survivor.
-    const visible = toVisibleRows(rows, 'group-ok');
-    expect(visible).toHaveLength(1);
-    expect(visible[0].rowId).toBe('g2');
-    expect(visible[0].visibleIsFirstInGroup).toBe(true);
-  });
-
-  test('showGroupRule is false for the first visible row, true for later group heads, false within a group', () => {
-    const rows: QuotaTableRow[] = [
-      makeRow({
-        rowId: 'a1',
-        checkerId: 'a',
-        displayName: 'Alpha',
-        severity: 'critical',
-        isFirstInGroup: true,
-      }),
-      makeRow({
-        rowId: 'a2',
-        checkerId: 'a',
-        displayName: 'Alpha',
-        severity: 'ok',
-        isFirstInGroup: false,
-      }),
-      makeRow({
-        rowId: 'b1',
-        checkerId: 'b',
-        displayName: 'Beta',
-        severity: 'warning',
-        isFirstInGroup: true,
-      }),
-    ];
-    const visible = toVisibleRows(rows, '');
-    expect(visible.map((r) => ({ rowId: r.rowId, showGroupRule: r.showGroupRule }))).toEqual([
-      { rowId: 'a1', showGroupRule: false }, // very first visible row
-      { rowId: 'a2', showGroupRule: false }, // not first-in-group
-      { rowId: 'b1', showGroupRule: true }, // later group head
-    ]);
   });
 });

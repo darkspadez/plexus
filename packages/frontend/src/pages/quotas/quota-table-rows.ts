@@ -17,6 +17,8 @@ export interface QuotaTableRow {
   displayName: string;
   oauthAccountId?: string;
   isFirstInGroup: boolean;
+  /** First row of a group that is NOT the table's overall first row — used for the group divider rule. */
+  showGroupRule: boolean;
   meter?: Meter;
   severity: QuotaRowSeverity;
   checkerSuccess: boolean;
@@ -67,6 +69,8 @@ export function buildQuotaTableRows(
       displayName,
       oauthAccountId: checker.oauthAccountId,
       isFirstInGroup: index === 0,
+      // Finalized below, once group order and the overall flattened index are known.
+      showGroupRule: false,
       meter: entry.meter,
       severity: entry.severity,
       checkerSuccess: checker.success,
@@ -83,41 +87,12 @@ export function buildQuotaTableRows(
     return a.displayName.localeCompare(b.displayName);
   });
 
-  return groups.flatMap((g) => g.rows);
-}
-
-// `isFirstInGroup` (from buildQuotaTableRows) is computed once against the
-// FULL unfiltered row set. Search filtering can remove a group's
-// true first row while keeping a later row from the same group, leaving the
-// survivor with a stale `isFirstInGroup: false`. `visibleIsFirstInGroup` is
-// recomputed against the FILTERED array's own adjacency so the Provider cell
-// is always correct for what's actually on screen.
-export type VisibleQuotaTableRow = QuotaTableRow & {
-  visibleIsFirstInGroup: boolean;
-  /** First visible row of a group that is NOT the table's first row — used for the group divider rule. */
-  showGroupRule: boolean;
-};
-
-export function toVisibleRows(rows: QuotaTableRow[], search: string): VisibleQuotaTableRow[] {
-  const term = search.trim().toLowerCase();
-  const filtered = rows.filter((row) => {
-    if (!term) return true;
-    return (
-      row.displayName.toLowerCase().includes(term) ||
-      (row.checkerType ?? '').toLowerCase().includes(term) ||
-      (row.meter?.label ?? '').toLowerCase().includes(term)
-    );
-  });
-  // buildQuotaTableRows keeps a checker's rows contiguous, and .filter()
-  // only removes elements (never reorders), so comparing each surviving
-  // row's checkerId to the previous surviving row's checkerId is a valid
-  // "first in its visible group" check.
-  return filtered.map((row, index) => {
-    const visibleIsFirstInGroup = index === 0 || filtered[index - 1].checkerId !== row.checkerId;
-    return {
+  // The very first row overall is a group head too, but it sits directly
+  // under the <thead>, so it gets no divider; every later group head does.
+  return groups
+    .flatMap((g) => g.rows)
+    .map((row, index) => ({
       ...row,
-      visibleIsFirstInGroup,
-      showGroupRule: visibleIsFirstInGroup && index > 0,
-    };
-  });
+      showGroupRule: row.isFirstInGroup && index > 0,
+    }));
 }
