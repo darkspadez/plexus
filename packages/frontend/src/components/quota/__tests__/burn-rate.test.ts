@@ -271,6 +271,31 @@ describe('computeMeterBurn', () => {
     expect(result?.runwayLabel).toBe('1d');
   });
 
+  test('label rounds a noisy >=100/day rate to the nearest whole number', () => {
+    // 839 used over 7h -> 2876.571428571429/day: exercises the "2,879.882/day"
+    // -> "2,880/day" style noise the live tile used to show verbatim.
+    const m = meter({ limit: 10_000 });
+    const rows: MeterHistoryRow[] = [
+      row({ checkedAt: new Date(NOW - 7 * HOUR).toISOString(), used: 1000 }),
+      row({ checkedAt: new Date(NOW).toISOString(), used: 1839 }),
+    ];
+    const result = computeMeterBurn(rows, m, NOW);
+    expect(result?.perDayLabel).toBe(`${formatMeterValue(2877, 'tokens', true)}/day`);
+    expect(result?.perDayLabel).toBe('2,877/day'); // sanity: pins the Math.round(>=100) shape
+  });
+
+  test('label rounds a noisy <100/day rate to 2 decimals', () => {
+    // 8.5 remaining depleted over 7h -> 29.142857142857146/day.
+    const m = meter({ kind: 'balance', unit: 'requests' });
+    const rows: MeterHistoryRow[] = [
+      row({ checkedAt: new Date(NOW - 7 * HOUR).toISOString(), remaining: 50 }),
+      row({ checkedAt: new Date(NOW).toISOString(), remaining: 41.5 }),
+    ];
+    const result = computeMeterBurn(rows, m, NOW);
+    expect(result?.perDayLabel).toBe(`${formatMeterValue(29.14, 'requests', true)}/day`);
+    expect(result?.perDayLabel).toBe('29.14/day'); // sanity: pins the 2-decimal (<100) shape
+  });
+
   test('used series present but flat -> null; no silent %-fallback', () => {
     const m = meter();
     // The pct series alone would yield 80.0%/day (see the %-fallback test),
