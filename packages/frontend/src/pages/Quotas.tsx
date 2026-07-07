@@ -73,6 +73,14 @@ function remainingValue(meter: Meter): number | undefined {
   return undefined;
 }
 
+// `isFirstInGroup` (from buildQuotaTableRows) is computed once against the
+// FULL unfiltered row set. Search/severity filtering can remove a group's
+// true first row while keeping a later row from the same group, leaving the
+// survivor with a stale `isFirstInGroup: false`. `visibleIsFirstInGroup` is
+// recomputed against the FILTERED array's own adjacency so the Provider cell
+// is always correct for what's actually on screen.
+type VisibleQuotaTableRow = QuotaTableRow & { visibleIsFirstInGroup: boolean };
+
 export const Quotas = () => {
   const [refreshing, setRefreshing] = useState<Set<string>>(new Set());
   const [historyTarget, setHistoryTarget] = useState<{
@@ -125,12 +133,19 @@ export const Quotas = () => {
     return counts;
   }, [allRows]);
 
+  // "Needs attention" for the all-clear banner: anything above ok/pending
+  // severity, including warning — warning rows are still amber-tinted in the
+  // table body (ROW_TINT_BY_SEVERITY.warning), so the banner must not claim
+  // full health while they're present.
   const needsAttentionCount =
-    severityCounts.exhausted + severityCounts.error + severityCounts.critical;
+    severityCounts.exhausted +
+    severityCounts.error +
+    severityCounts.critical +
+    severityCounts.warning;
 
-  const rows = useMemo(() => {
+  const rows = useMemo<VisibleQuotaTableRow[]>(() => {
     const term = search.trim().toLowerCase();
-    return allRows.filter((row) => {
+    const filtered = allRows.filter((row) => {
       if (severityFilter && row.severity !== severityFilter) return false;
       if (!term) return true;
       return (
@@ -139,13 +154,21 @@ export const Quotas = () => {
         (row.meter?.label ?? '').toLowerCase().includes(term)
       );
     });
+    // buildQuotaTableRows keeps a checker's rows contiguous, and .filter()
+    // only removes elements (never reorders), so comparing each surviving
+    // row's checkerId to the previous surviving row's checkerId is a valid
+    // "first in its visible group" check.
+    return filtered.map((row, index) => ({
+      ...row,
+      visibleIsFirstInGroup: index === 0 || filtered[index - 1].checkerId !== row.checkerId,
+    }));
   }, [allRows, search, severityFilter]);
 
   const toggleSeverityFilter = (severity: QuotaRowSeverity) => {
     setSeverityFilter((prev) => (prev === severity ? null : severity));
   };
 
-  const columns = useMemo<ColumnDef<QuotaTableRow>[]>(
+  const columns = useMemo<ColumnDef<VisibleQuotaTableRow>[]>(
     () => [
       {
         id: 'provider',
@@ -155,7 +178,7 @@ export const Quotas = () => {
         cell: ({ row }) => {
           const r = row.original;
           return (
-            <div className={cn(!r.isFirstInGroup && 'md:invisible')}>
+            <div className={cn(!r.visibleIsFirstInGroup && 'md:invisible')}>
               <div className="font-medium text-foreground">{r.displayName}</div>
               {(r.checkerType || r.oauthAccountId) && (
                 <div className="text-xs text-foreground-subtle">
@@ -177,7 +200,11 @@ export const Quotas = () => {
           if (!r.meter) {
             return (
               <span className="text-xs text-foreground-subtle">
-                {r.checkerSuccess ? 'No meters reported' : r.checkerError || 'Check failed'}
+                {r.pending
+                  ? 'Pending first check...'
+                  : r.checkerSuccess
+                    ? 'No meters reported'
+                    : r.checkerError || 'Check failed'}
               </span>
             );
           }
@@ -277,7 +304,7 @@ export const Quotas = () => {
                 e.stopPropagation();
                 handleRefresh(r.checkerId);
               }}
-              disabled={refreshing.has(r.checkerId)}
+              disabled={refreshing.has(r.checkerId) || r.pending}
               aria-label="Refresh"
               className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-subtle transition-colors hover:bg-surface-elevated hover:text-foreground disabled:opacity-50"
             >
@@ -331,7 +358,7 @@ export const Quotas = () => {
             <span className="text-foreground-muted">Loading quotas...</span>
           </div>
         ) : (
-          <DataTable<QuotaTableRow>
+          <DataTable<VisibleQuotaTableRow>
             columns={columns}
             data={rows}
             getRowId={(row) => row.rowId}
