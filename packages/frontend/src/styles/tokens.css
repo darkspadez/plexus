@@ -90,13 +90,16 @@
   --danger-subtle:     rgba(220, 38, 38, 0.12);
 
   /* Critical sits between warning and danger — nearly-exhausted (>=90%) quota
-     meters, distinct from fully-exhausted (>=100%, uses --danger). Base hex
-     nudged from the orange-600 starting point (#EA580C) to orange-400
-     (#FB923C): #EA580C's CVD-simulated separation from --warning was too low
+     meters, distinct from fully-exhausted (>=100%, uses --danger). Orange-600:
+     critical does TEXT duty (text-critical on bg-critical-subtle pills), so
+     text contrast on white (3.56:1, above sibling warning's 3.19:1) takes
+     precedence over mark-CVD separation from --warning, which is below the
+     validator floor but sanctioned by the page's secondary encoding — every
+     severity pairs its color with a distinct label and fill weight
      (dataviz palette validator; see .superpowers/sdd/task-4-report.md). */
-  --critical:            #FB923C;
+  --critical:            #EA580C;
   --critical-foreground: #FFFFFF;
-  --critical-subtle:     rgba(251, 146, 60, 0.12);
+  --critical-subtle:     rgba(234, 88, 12, 0.12);
 
   --info:            var(--hue-info);
   --info-foreground: #FFFFFF;
