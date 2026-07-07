@@ -89,6 +89,15 @@
   --danger-foreground: #FFFFFF;
   --danger-subtle:     rgba(220, 38, 38, 0.12);
 
+  /* Critical sits between warning and danger — nearly-exhausted (>=90%) quota
+     meters, distinct from fully-exhausted (>=100%, uses --danger). Base hex
+     nudged from the orange-600 starting point (#EA580C) to orange-400
+     (#FB923C): #EA580C's CVD-simulated separation from --warning was too low
+     (dataviz palette validator; see .superpowers/sdd/task-4-report.md). */
+  --critical:            #FB923C;
+  --critical-foreground: #FFFFFF;
+  --critical-subtle:     rgba(251, 146, 60, 0.12);
+
   --info:            var(--hue-info);
   --info-foreground: #FFFFFF;
   --info-subtle:     rgba(37, 99, 235, 0.12);
@@ -120,6 +129,17 @@
   --danger:            #EF4444;
   --danger-foreground: #1A0808;
   --danger-subtle:     rgba(239, 68, 68, 0.18);
+
+  /* Critical: orange-600 (#EA580C) — one step darker than the #F97316
+     (orange-500) starting point, which sat too close to --warning under CVD
+     simulation. #EA580C clears the CVD floor against both --warning and
+     --danger with a strong margin (dataviz palette validator; see
+     .superpowers/sdd/task-4-report.md). --critical-foreground follows the
+     same "near-black, hue-matched, low chroma" derivation as the other dark
+     -foreground tokens. */
+  --critical:            #EA580C;
+  --critical-foreground: #1D0D07;
+  --critical-subtle:     rgba(234, 88, 12, 0.18);
 
   --info:            #3B82F6;
   --info-foreground: #0A1428;
