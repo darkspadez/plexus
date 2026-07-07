@@ -11,10 +11,12 @@ import {
 import { RefreshCw } from 'lucide-react';
 import { api } from '../../lib/api';
 import { formatMeterValue } from './MeterValue';
+import { computeMeterBurn } from './burn-rate';
 import type { Meter, QuotaCheckerInfo } from '../../types/quota';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { TOOLTIP_STYLE, GRID_PROPS, AXIS_TICK_STYLE } from '../../lib/chartPalette';
+import { checkedAgoLabel } from '../../pages/quotas/quota-format';
 
 type TimeRange = '1h' | '3h' | '6h' | '12h' | '24h' | '1w' | '4w';
 
@@ -147,6 +149,19 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
     };
   }, [chartData]);
 
+  // Anchor "now" once per fetched batch (not per render) so the burn stats
+  // don't drift while the modal sits open with the same data.
+  const now = useMemo(() => Date.now(), [rawHistory]);
+
+  // Forward-looking burn stats, computed from the RAW rows (not chartData,
+  // which collapses allowances to utilization% and loses `used`). Reflects
+  // only the currently selected time-range's fetched series — switching
+  // ranges recomputes, which is intended (a longer window sees more history
+  // and a steadier slope).
+  const burn = useMemo(() => computeMeterBurn(rawHistory, meter, now), [rawHistory, meter, now]);
+
+  const checkedLabel = checkedAgoLabel(quota.checkedAt);
+
   const isBalance = meter.kind === 'balance';
   // Use chart-4 (cyan) for balance, chart-2 (violet) for allowance — via CSS vars
   const areaColor = isBalance ? 'var(--chart-4)' : 'var(--chart-2)';
@@ -172,10 +187,13 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
       }
     >
       {/* Subtitle */}
-      <p className="text-xs text-foreground-muted mb-4">
-        {displayName}
-        {quota.oauthAccountId && ` · ${quota.oauthAccountId}`}
-      </p>
+      <div className="mb-4">
+        <p className="text-xs text-foreground-muted">
+          {displayName}
+          {quota.oauthAccountId && ` · ${quota.oauthAccountId}`}
+        </p>
+        {checkedLabel && <p className="text-xs text-foreground-subtle mt-0.5">{checkedLabel}</p>}
+      </div>
 
       {/* Time-range selector */}
       <div className="flex items-center gap-1 overflow-x-auto mb-4">
@@ -197,15 +215,22 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
 
       {/* Stats row */}
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           {[
-            { label: 'Current', value: formatTooltip(stats.current) },
-            { label: 'Min', value: formatTooltip(stats.min) },
-            { label: 'Max', value: formatTooltip(stats.max) },
-          ].map(({ label, value }) => (
+            { label: 'Current', value: formatTooltip(stats.current), title: undefined },
+            { label: 'Min', value: formatTooltip(stats.min), title: undefined },
+            { label: 'Max', value: formatTooltip(stats.max), title: undefined },
+            { label: 'Avg burn/day', value: burn?.perDayLabel ?? '—', title: undefined },
+            {
+              label: isBalance ? 'Depletes in' : 'Exhausts in',
+              value: burn?.runwayLabel ?? '—',
+              title: burn?.runwayNote,
+            },
+          ].map(({ label, value, title }) => (
             <div
               key={label}
               className="rounded-lg border border-border bg-surface-elevated px-3 py-2"
+              title={title}
             >
               <div className="text-[10px] text-foreground-subtle uppercase tracking-wider">
                 {label}
