@@ -1,27 +1,18 @@
 /**
  * severity.ts — the Quotas page's single source of truth for severity
- * vocabulary: display order, labels, and every Tailwind class string used to
- * render severity (filter-chip dots, status-column pills, usage-meter bars +
- * tracks, and row accents).
+ * vocabulary: labels and every Tailwind class string used to render
+ * severity. Status renders as a colored dot + neutral label in the status
+ * column (color from `SEVERITY_DOT_CLASS`), plus the usage-meter bar/track
+ * and the row's left accent.
  *
  * Why critical vs exhausted matters: the page used to render `critical`
  * (>=90% utilization) and `exhausted` (>=100%) as identical red "Exceeded"
  * pills, hiding the difference between "almost out" and "actually out."
- * Every map below keeps them visually and textually distinct — exhausted is
- * the page's only solid-filled pill (max alarm); critical uses the orange
- * `--critical` token instead of `--danger` so it never collides with true
- * exhaustion.
+ * Every map below keeps them visually distinct — critical uses the orange
+ * `--critical` token (`bg-critical`) instead of `--danger` (`bg-danger`) so
+ * it never collides with true exhaustion.
  */
 import type { QuotaRowSeverity } from './quota-table-rows';
-
-export const SEVERITY_ORDER: readonly QuotaRowSeverity[] = [
-  'exhausted',
-  'error',
-  'critical',
-  'warning',
-  'ok',
-  'pending',
-];
 
 export const SEVERITY_LABEL: Record<QuotaRowSeverity, string> = {
   exhausted: 'Exhausted',
@@ -32,7 +23,7 @@ export const SEVERITY_LABEL: Record<QuotaRowSeverity, string> = {
   pending: 'Pending',
 };
 
-// Dots (filter chips; also the ok/pending status treatment)
+// Dots — the status column's color indicator for every severity.
 export const SEVERITY_DOT_CLASS: Record<QuotaRowSeverity, string> = {
   exhausted: 'bg-danger',
   error: 'bg-danger',
@@ -40,16 +31,6 @@ export const SEVERITY_DOT_CLASS: Record<QuotaRowSeverity, string> = {
   warning: 'bg-warning',
   ok: 'bg-success',
   pending: 'bg-foreground-subtle',
-};
-
-// Status-column pills — exhausted is the ONLY filled pill (max alarm);
-// ok/pending deliberately have no pill (dot + muted label) to preserve the
-// page's anti-alarm color budget.
-export const SEVERITY_PILL_CLASS: Partial<Record<QuotaRowSeverity, string>> = {
-  exhausted: 'bg-danger text-danger-foreground',
-  error: 'bg-danger-subtle text-danger',
-  critical: 'bg-critical-subtle text-critical',
-  warning: 'bg-warning-subtle text-warning',
 };
 
 // Usage-meter fill + its hue-matched track (track = dim step of the SAME hue)

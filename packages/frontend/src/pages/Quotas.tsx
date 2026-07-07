@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { RefreshCw, Gauge, Wallet } from 'lucide-react';
+import { RefreshCw, Gauge, Wallet, CornerDownRight } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   useQuotaCheckers,
@@ -26,8 +26,6 @@ import {
   SEVERITY_BAR_CLASS,
   SEVERITY_DOT_CLASS,
   SEVERITY_LABEL,
-  SEVERITY_ORDER,
-  SEVERITY_PILL_CLASS,
   SEVERITY_TRACK_CLASS,
 } from './quotas/severity';
 import {
@@ -39,31 +37,15 @@ import {
 } from './quotas/quota-format';
 import { cn } from '../lib/cn';
 
-const SeverityBadge = ({ severity }: { severity: QuotaRowSeverity }) => {
-  const pill = SEVERITY_PILL_CLASS[severity];
-  if (pill) {
-    return (
-      <span
-        className={cn(
-          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-          pill
-        )}
-      >
-        {SEVERITY_LABEL[severity]}
-      </span>
-    );
-  }
-  // ok / pending: quiet dot + muted label (anti-alarm budget)
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span
-        aria-hidden
-        className={cn('inline-block size-2 shrink-0 rounded-full', SEVERITY_DOT_CLASS[severity])}
-      />
-      <span className="text-sm font-medium text-foreground-muted">{SEVERITY_LABEL[severity]}</span>
-    </span>
-  );
-};
+const SeverityBadge = ({ severity }: { severity: QuotaRowSeverity }) => (
+  <span className="inline-flex items-center gap-2">
+    <span
+      aria-hidden
+      className={cn('inline-block size-2 shrink-0 rounded-full', SEVERITY_DOT_CLASS[severity])}
+    />
+    <span className="text-sm font-medium text-foreground">{SEVERITY_LABEL[severity]}</span>
+  </span>
+);
 
 /**
  * Refresh-trigger button for one provider row — shared by the desktop
@@ -107,7 +89,6 @@ export const Quotas = () => {
     displayName: string;
   } | null>(null);
   const [search, setSearch] = useState('');
-  const [severityFilter, setSeverityFilter] = useState<QuotaRowSeverity | null>(null);
 
   const checkersQuery = useQuotaCheckers({ refetchInterval: 30_000 });
   const triggerCheckMutation = useTriggerQuotaCheck();
@@ -158,48 +139,12 @@ export const Quotas = () => {
     [checkers, displayNameMap]
   );
 
-  const severityCounts = useMemo(() => {
-    const counts: Record<QuotaRowSeverity, number> = {
-      exhausted: 0,
-      error: 0,
-      critical: 0,
-      warning: 0,
-      ok: 0,
-      pending: 0,
-    };
-    for (const row of allRows) counts[row.severity]++;
-    return counts;
-  }, [allRows]);
-
-  // "Needs attention" for the all-clear banner: anything above ok/pending
-  // severity, including warning — warning rows still get a left accent
-  // border in the table body (SEVERITY_ACCENT_CLASS.warning), so the banner
-  // must not claim full health while they're present.
-  const needsAttentionCount =
-    severityCounts.exhausted +
-    severityCounts.error +
-    severityCounts.critical +
-    severityCounts.warning;
-
-  // Data refetches every 30s (and after each per-checker refresh), so a
-  // severity a user has filtered on can drop to a 0 count between renders —
-  // at which point its chip stops rendering and there'd be no UI left to
-  // clear the filter. Falling back to null the moment the count hits 0 keeps
-  // the filter self-clearing instead of leaving the table stuck on an
-  // unrepresentable, unclearable filter.
-  const effectiveSeverityFilter =
-    severityFilter && severityCounts[severityFilter] > 0 ? severityFilter : null;
-
-  const hasActiveFilter = search.trim() !== '' || effectiveSeverityFilter !== null;
+  const hasActiveFilter = search.trim() !== '';
 
   const rows = useMemo<VisibleQuotaTableRow[]>(
-    () => toVisibleRows(allRows, search, effectiveSeverityFilter),
-    [allRows, search, effectiveSeverityFilter]
+    () => toVisibleRows(allRows, search),
+    [allRows, search]
   );
-
-  const toggleSeverityFilter = (severity: QuotaRowSeverity) => {
-    setSeverityFilter((prev) => (prev === severity ? null : severity));
-  };
 
   const columns = useMemo<ColumnDef<VisibleQuotaTableRow>[]>(
     () => [
@@ -211,18 +156,31 @@ export const Quotas = () => {
         cell: ({ row }) => {
           const r = row.original;
           const subtextParts = [r.oauthAccountId, checkedAgoLabel(r.checkedAt)].filter(
-            (part): part is string => Boolean(part)
+            (p): p is string => Boolean(p)
           );
-          return (
-            <div className={cn(!r.visibleIsFirstInGroup && 'md:invisible')}>
+          const nameBlock = (
+            <>
               <div className="truncate font-medium text-foreground" title={r.displayName}>
                 {r.displayName}
               </div>
               {subtextParts.length > 0 && (
                 <div className="text-xs text-foreground-subtle">{subtextParts.join(' · ')}</div>
               )}
-            </div>
+            </>
           );
+          if (!r.visibleIsFirstInGroup) {
+            return (
+              <div>
+                {/* desktop: indent + branch connector marks "same provider, continued" */}
+                <div className="hidden md:flex items-center pl-3 text-foreground-subtle">
+                  <CornerDownRight size={14} className="shrink-0" aria-hidden />
+                </div>
+                {/* mobile: each card stays self-labeled with the provider name */}
+                <div className="md:hidden">{nameBlock}</div>
+              </div>
+            );
+          }
+          return <div>{nameBlock}</div>;
         },
       },
       {
@@ -362,21 +320,34 @@ export const Quotas = () => {
         title="Quotas"
         subtitle="Provider balances and rate-quota allowances"
         actions={
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={handleRefreshAll}
-            disabled={triggerAllMutation.isPending || checkers.length === 0}
-            leftIcon={
-              <RefreshCw size={14} className={cn(triggerAllMutation.isPending && 'animate-spin')} />
-            }
-          >
-            Refresh all
-          </Button>
+          <>
+            <div className="w-full sm:w-64">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search meters…"
+                aria-label="Search meters"
+              />
+            </div>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={handleRefreshAll}
+              disabled={triggerAllMutation.isPending || checkers.length === 0}
+              leftIcon={
+                <RefreshCw
+                  size={14}
+                  className={cn(triggerAllMutation.isPending && 'animate-spin')}
+                />
+              }
+            >
+              Refresh all
+            </Button>
+          </>
         }
       />
 
-      <PageContainer width="wide">
+      <PageContainer>
         {loading && checkers.length === 0 ? (
           <div className="flex h-64 items-center justify-center gap-3">
             <RefreshCw size={20} className="animate-spin text-accent" />
@@ -404,48 +375,6 @@ export const Quotas = () => {
               hasActiveFilter
                 ? 'Try a different search term or clear the severity filter.'
                 : 'Configure quota checkers in your provider settings to monitor usage.'
-            }
-            headerSlot={
-              <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {needsAttentionCount === 0 ? (
-                    <span className="text-xs text-foreground-subtle">
-                      All {severityCounts.ok} meters healthy
-                    </span>
-                  ) : (
-                    SEVERITY_ORDER.filter((severity) => severityCounts[severity] > 0).map(
-                      (severity) => (
-                        <button
-                          key={severity}
-                          type="button"
-                          onClick={() => toggleSeverityFilter(severity)}
-                          aria-pressed={effectiveSeverityFilter === severity}
-                          className={cn(
-                            'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition-colors',
-                            effectiveSeverityFilter === severity
-                              ? 'border-accent bg-accent-subtle text-accent'
-                              : 'border-border text-foreground-muted hover:bg-surface-elevated'
-                          )}
-                        >
-                          <span
-                            aria-hidden
-                            className={cn('size-1.5 rounded-full', SEVERITY_DOT_CLASS[severity])}
-                          />
-                          {severityCounts[severity]} {SEVERITY_LABEL[severity]}
-                        </button>
-                      )
-                    )
-                  )}
-                </div>
-                <div className="w-full sm:w-56">
-                  <SearchInput
-                    value={search}
-                    onChange={setSearch}
-                    placeholder="Search meters…"
-                    aria-label="Search meters"
-                  />
-                </div>
-              </div>
             }
           />
         )}
