@@ -13,8 +13,10 @@ import { MeterHistoryModal } from '../components/quota/MeterHistoryModal';
 import type { Meter, QuotaCheckerInfo } from '../types/quota';
 import {
   buildQuotaTableRows,
+  toVisibleRows,
   type QuotaRowSeverity,
   type QuotaTableRow,
+  type VisibleQuotaTableRow,
 } from './quotas/quota-table-rows';
 import { cn } from '../lib/cn';
 
@@ -72,14 +74,6 @@ function remainingValue(meter: Meter): number | undefined {
   if (meter.used !== undefined && meter.limit !== undefined) return meter.limit - meter.used;
   return undefined;
 }
-
-// `isFirstInGroup` (from buildQuotaTableRows) is computed once against the
-// FULL unfiltered row set. Search/severity filtering can remove a group's
-// true first row while keeping a later row from the same group, leaving the
-// survivor with a stale `isFirstInGroup: false`. `visibleIsFirstInGroup` is
-// recomputed against the FILTERED array's own adjacency so the Provider cell
-// is always correct for what's actually on screen.
-type VisibleQuotaTableRow = QuotaTableRow & { visibleIsFirstInGroup: boolean };
 
 export const Quotas = () => {
   const [refreshing, setRefreshing] = useState<Set<string>>(new Set());
@@ -154,26 +148,10 @@ export const Quotas = () => {
 
   const hasActiveFilter = search.trim() !== '' || effectiveSeverityFilter !== null;
 
-  const rows = useMemo<VisibleQuotaTableRow[]>(() => {
-    const term = search.trim().toLowerCase();
-    const filtered = allRows.filter((row) => {
-      if (effectiveSeverityFilter && row.severity !== effectiveSeverityFilter) return false;
-      if (!term) return true;
-      return (
-        row.displayName.toLowerCase().includes(term) ||
-        (row.checkerType ?? '').toLowerCase().includes(term) ||
-        (row.meter?.label ?? '').toLowerCase().includes(term)
-      );
-    });
-    // buildQuotaTableRows keeps a checker's rows contiguous, and .filter()
-    // only removes elements (never reorders), so comparing each surviving
-    // row's checkerId to the previous surviving row's checkerId is a valid
-    // "first in its visible group" check.
-    return filtered.map((row, index) => ({
-      ...row,
-      visibleIsFirstInGroup: index === 0 || filtered[index - 1].checkerId !== row.checkerId,
-    }));
-  }, [allRows, search, effectiveSeverityFilter]);
+  const rows = useMemo<VisibleQuotaTableRow[]>(
+    () => toVisibleRows(allRows, search, effectiveSeverityFilter),
+    [allRows, search, effectiveSeverityFilter]
+  );
 
   const toggleSeverityFilter = (severity: QuotaRowSeverity) => {
     setSeverityFilter((prev) => (prev === severity ? null : severity));
