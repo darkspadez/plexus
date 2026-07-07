@@ -87,7 +87,7 @@ export function buildQuotaTableRows(
 }
 
 // `isFirstInGroup` (from buildQuotaTableRows) is computed once against the
-// FULL unfiltered row set. Search/severity filtering can remove a group's
+// FULL unfiltered row set. Search filtering can remove a group's
 // true first row while keeping a later row from the same group, leaving the
 // survivor with a stale `isFirstInGroup: false`. `visibleIsFirstInGroup` is
 // recomputed against the FILTERED array's own adjacency so the Provider cell
