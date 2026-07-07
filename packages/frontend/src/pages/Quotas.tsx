@@ -10,16 +10,13 @@ import { Button } from '../components/ui/Button';
 import { DataTable } from '../components/ui/DataTable';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
-import { SearchInput } from '../components/ui/SearchInput';
 import { formatMeterValue } from '../components/quota/MeterValue';
 import { MeterHistoryModal } from '../components/quota/MeterHistoryModal';
 import type { Meter, QuotaCheckerInfo } from '../types/quota';
 import {
   buildQuotaTableRows,
-  toVisibleRows,
   type QuotaRowSeverity,
   type QuotaTableRow,
-  type VisibleQuotaTableRow,
 } from './quotas/quota-table-rows';
 import {
   SEVERITY_ACCENT_CLASS,
@@ -60,7 +57,7 @@ function RowRefreshButton({
   refreshing,
   onRefresh,
 }: {
-  row: VisibleQuotaTableRow;
+  row: QuotaTableRow;
   refreshing: Set<string>;
   onRefresh: (checkerId: string) => void;
 }) {
@@ -88,7 +85,6 @@ export const Quotas = () => {
     meter: Meter;
     displayName: string;
   } | null>(null);
-  const [search, setSearch] = useState('');
 
   const checkersQuery = useQuotaCheckers({ refetchInterval: 30_000 });
   const triggerCheckMutation = useTriggerQuotaCheck();
@@ -134,19 +130,12 @@ export const Quotas = () => {
     });
   };
 
-  const allRows = useMemo(
+  const rows = useMemo(
     () => buildQuotaTableRows(checkers, displayNameMap),
     [checkers, displayNameMap]
   );
 
-  const hasActiveFilter = search.trim() !== '';
-
-  const rows = useMemo<VisibleQuotaTableRow[]>(
-    () => toVisibleRows(allRows, search),
-    [allRows, search]
-  );
-
-  const columns = useMemo<ColumnDef<VisibleQuotaTableRow>[]>(
+  const columns = useMemo<ColumnDef<QuotaTableRow>[]>(
     () => [
       {
         id: 'provider',
@@ -168,7 +157,7 @@ export const Quotas = () => {
               )}
             </>
           );
-          if (!r.visibleIsFirstInGroup) {
+          if (!r.isFirstInGroup) {
             return (
               <div>
                 {/* desktop: indent + branch connector marks "same provider, continued" */}
@@ -320,30 +309,17 @@ export const Quotas = () => {
         title="Quotas"
         subtitle="Provider balances and rate-quota allowances"
         actions={
-          <>
-            <div className="w-full sm:w-64">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Search meters…"
-                aria-label="Search meters"
-              />
-            </div>
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={handleRefreshAll}
-              disabled={triggerAllMutation.isPending || checkers.length === 0}
-              leftIcon={
-                <RefreshCw
-                  size={14}
-                  className={cn(triggerAllMutation.isPending && 'animate-spin')}
-                />
-              }
-            >
-              Refresh all
-            </Button>
-          </>
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={handleRefreshAll}
+            disabled={triggerAllMutation.isPending || checkers.length === 0}
+            leftIcon={
+              <RefreshCw size={14} className={cn(triggerAllMutation.isPending && 'animate-spin')} />
+            }
+          >
+            Refresh all
+          </Button>
         }
       />
 
@@ -354,7 +330,7 @@ export const Quotas = () => {
             <span className="text-foreground-muted">Loading quotas...</span>
           </div>
         ) : (
-          <DataTable<VisibleQuotaTableRow>
+          <DataTable<QuotaTableRow>
             columns={columns}
             data={rows}
             getRowId={(row) => row.rowId}
@@ -370,12 +346,8 @@ export const Quotas = () => {
               <RowRefreshButton row={row} refreshing={refreshing} onRefresh={handleRefresh} />
             )}
             emptyIcon={<Gauge />}
-            emptyTitle={hasActiveFilter ? 'No matching meters' : 'No quota checkers yet'}
-            emptyDescription={
-              hasActiveFilter
-                ? 'Try a different search term.'
-                : 'Configure quota checkers in your provider settings to monitor usage.'
-            }
+            emptyTitle="No quota checkers yet"
+            emptyDescription="Configure quota checkers in your provider settings to monitor usage."
           />
         )}
         {historyTarget && (
