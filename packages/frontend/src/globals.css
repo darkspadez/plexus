@@ -27,6 +27,9 @@
   --color-danger:             var(--danger);
   --color-danger-foreground:  var(--danger-foreground);
   --color-danger-subtle:      var(--danger-subtle);
+  --color-critical:           var(--critical);
+  --color-critical-foreground: var(--critical-foreground);
+  --color-critical-subtle:    var(--critical-subtle);
   --color-info:               var(--info);
   --color-info-foreground:    var(--info-foreground);
   --color-info-subtle:        var(--info-subtle);
