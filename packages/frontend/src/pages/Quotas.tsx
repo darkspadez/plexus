@@ -373,7 +373,7 @@ export const Quotas = () => {
             emptyTitle={hasActiveFilter ? 'No matching meters' : 'No quota checkers yet'}
             emptyDescription={
               hasActiveFilter
-                ? 'Try a different search term or clear the severity filter.'
+                ? 'Try a different search term.'
                 : 'Configure quota checkers in your provider settings to monitor usage.'
             }
           />
