@@ -140,60 +140,55 @@ Starting Plexus Dev Stack...
 The data directory persists across restarts (same worktree isolation as SQLite).
 Override it with `PLEXUS_PGLITE_DATA_DIR=/path/to/dir bun run dev:pglite`.
 
-### Seeding baseline data
+### Seeding the dev database
 
-After starting the dev server, seed it with a realistic baseline configuration
-(providers, model aliases, quota definitions, and API keys) that exercises the
-full feature set without requiring any real external credentials:
+A **fresh** dev database (no existing SQLite file / PGlite data dir) is seeded automatically the
+first time you run `bun run dev` or `bun run dev:agent` — no manual step needed. On a fresh boot:
 
-```bash
-bun run populate-dev
-```
+1. `packages/backend/scripts/seed-dev.ts` populates config end-to-end (providers pointed at a
+   built-in mock upstream, quotas, model aliases, API keys, MCP servers, settings, OAuth
+   credentials) and backfills ~30 days of synthetic history (usage, errors, debug traces, MCP
+   calls, quota state) so the admin panel isn't empty on first login.
+2. `scripts/mock-upstream.ts` starts as a managed child — a dependency-free server impersonating
+   every seeded provider (OpenAI/Anthropic/Gemini-compatible endpoints, quota/balance endpoints,
+   a minimal MCP server).
+3. Once the backend is healthy, `scripts/live-ticker.ts` starts as a managed child, driving real
+   traffic through the gateway (chat/embeddings/MCP calls, streaming, organic retries and quota
+   429s) so the admin panel keeps visibly updating while you work.
 
-This is idempotent — safe to re-run at any time. It uses `PUT` throughout, so
-existing resources are replaced rather than duplicated.
-
-#### What gets seeded
-
-| Category | Count | Notes |
-|---|---|---|
-| Providers | 11 | Frontier cloud providers (Kilocode, Wisgate, Neuralwatt, OpenRouter, Google, OpenAI, Anthropic, CC, CC-Sigma, OpenLimits, Ozore) |
-| Quotas | 2 | Daily, weekly budgets and limits |
-| Model aliases | 19 | Frontier model architectures (gpt-5.x, claude-4.5/5, gemini-3.5, deepseek-v4) for chat, embeddings, speech, transcriptions |
-| API keys | 4 | Default, OWUI, GithubKey, GHAKey |
-
-All provider URLs are mapped to their real production API gateways, but with safe, redacted mock keys by default. No real secrets are checked into the codebase.
-
-#### Adding your own data
-
-Create `scripts/user-populate.json` (git-ignored — see `scripts/user-populate.example.json`
-for the format). Anything in that file is merged over the defaults when you run
-`bun run populate-dev`, so you can add real provider keys or personal aliases
-without touching committed files and without risk of accidentally leaking secrets.
+Re-running against an already-seeded database does **not** reseed — the mock upstream and ticker
+still start (gated on a marker file, not your data — see below), but your data is left untouched.
 
 #### Environment variables
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `PLEXUS_URL` | `http://localhost` | Base URL of the target instance |
-| `PLEXUS_PORT` | derived from cwd | Port (matches `bun run dev` automatically) |
-| `PLEXUS_ADMIN_KEY` | `password` | Admin key |
+| Variable | Purpose |
+|---|---|
+| `PLEXUS_SEED=0` / `off` | Disable the seeder. Marker-gated mock upstream/ticker startup is unaffected. |
+| `PLEXUS_SEED=fresh` | Wipe the local DB (+ marker) and reseed, even if data already exists. Refuses (exit 1) on a real Postgres `DATABASE_URL`. |
+| `PLEXUS_TICKER=0` / `off` | Disable just the live ticker. |
+| `PLEXUS_TICKER_INTERVAL_MS` | Base ticker cadence in ms (default `5500`, jittered ~55%-145%). |
 
-### Resetting to a clean state
+#### Standalone scripts
 
-To wipe the database and restart the backend in one step:
+Every piece also runs on its own, outside `dev.ts`:
 
 ```bash
-bun run clear-dev
+bun run seed-dev              # seed the current DATABASE_URL directly
+bun run seed-dev -- --force   # wipe existing config + telemetry and reseed
+bun run mock-upstream         # just the mock provider fleet
+bun run ticker                # just the traffic generator (needs a seeded, running server)
 ```
 
-This deletes the SQLite file from `/tmp` and sends `SIGHUP` to the running dev
-server, which gracefully shuts down the backend and immediately relaunches it
-against the empty database. The frontend is unaffected. The whole cycle takes
-about two seconds.
+#### Marker file
 
-After clearing, re-run `bun run populate-dev` to restore the baseline config.
+After a successful seed, `seed-dev.ts` writes `${tmpdir()}/plexus-<worktree>.seeded`. `dev.ts`
+gates spawning the mock upstream and ticker on this file's presence rather than on database
+contents, so pointing `DATABASE_URL` at a restored or real database never triggers mock traffic
+against it.
 
-> **Note:** `clear-dev` relies on a PID file written by `bun run dev` to
-> `/tmp/plexus-<worktree>.pid`. If the server is not running, it will delete
-> the database file and exit cleanly without error.
+#### Precedence with `prep-dev` / staging restore
+
+If a backup source is available (`PLEXUS_STAGING_URL` + `PLEXUS_STAGING_ADMIN_KEY`, or a saved
+`.dev-data/backup.tar.gz`) **and** you run full mode (`bun run dev:full` / `dev:agent`) on a fresh
+database, restoring that data via `prep-dev` wins over the synthetic seeder — see
+`bun run prep-dev --help` for the staging-backup workflow.
