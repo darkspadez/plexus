@@ -23,6 +23,7 @@
     "dev:get:port": "bun run scripts/dev-config.ts port",
     "dev:get:db_path": "bun run scripts/dev-config.ts db_path",
     "mock-upstream": "bun run scripts/mock-upstream.ts",
+    "seed-dev": "bun run --cwd packages/backend scripts/seed-dev.ts",
     "build:frontend": "cd packages/frontend && bun run build",
     "build:frontend:if-needed": "[ -n \"$CI\" ] || bun run build:frontend",
     "compile:macos": "bun run build:frontend:if-needed && bun build packages/backend/src/index.ts packages/backend/drizzle/migrations/*.sql packages/backend/drizzle/migrations_pg/*.sql packages/frontend/dist/*.png packages/frontend/dist/*.ico packages/frontend/dist/*.svg packages/frontend/dist/*.webmanifest --compile --asset-naming=\"[name].[ext]\" --target=bun-darwin-arm64 --outfile plexus-macos",
