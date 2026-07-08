@@ -29,6 +29,7 @@
     "sync:cli-skill": "bun run scripts/sync-cli-skill.ts",
     "mock-upstream": "bun run scripts/mock-upstream.ts",
     "seed-dev": "bun run --cwd packages/backend scripts/seed-dev.ts",
+    "ticker": "bun run scripts/live-ticker.ts",
     "build:frontend": "cd packages/frontend && bun run build",
     "build:frontend:if-needed": "[ -n \"$CI\" ] || bun run build:frontend",
     "precompile:macos": "bun run generate:openapi:asset",
