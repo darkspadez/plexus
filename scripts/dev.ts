@@ -1,7 +1,7 @@
 import { join, basename } from 'path';
 import { tmpdir } from 'os';
 import { createServer } from 'net';
-import { existsSync, writeFileSync, unlinkSync, rmSync } from 'fs';
+import { existsSync, writeFileSync, unlinkSync, rmSync, readFileSync } from 'fs';
 import { spawn as nodeSpawn, type ChildProcess } from 'child_process';
 import { deriveDevPort } from './dev-port-allocator';
 
@@ -46,9 +46,10 @@ function isFreshDb(): boolean {
   return dbPath ? !existsSync(dbPath) : false;
 }
 
-// PLEXUS_SEED=fresh: wipe the worktree-local database (+ marker) before treating this boot as
-// fresh. Only ever deletes these derived, per-worktree paths — refuses (loudly) to touch a real
-// Postgres server, since we have no safe way to wipe/restore one.
+// PLEXUS_SEED=fresh: wipe the local database (+ marker) before treating this boot as fresh. Only
+// ever deletes whatever DATABASE_URL / PLEXUS_PGLITE_DATA_DIR currently names — usually our own
+// per-worktree default, but these are user-settable, so an explicit value gets wiped too.
+// Refuses (loudly) to touch a real Postgres server, since we have no safe way to wipe/restore one.
 function wipeForFreshSeed(): void {
   const isPglite = process.env.PLEXUS_POSTGRES_DRIVER === 'pglite';
   const isSqlite = process.env.DATABASE_URL!.startsWith('sqlite://');
@@ -110,6 +111,10 @@ function isPortInUse(port: number, host?: string): Promise<boolean> {
   });
 }
 
+// Sequential, not Promise.all-parallel — load-bearing: on Linux, binding both probes
+// concurrently races over the same dual-stack port and can self-conflict, reporting a false
+// "in use" even when the port is actually free. Awaiting each probe's close before starting the
+// next avoids that.
 async function isPortInUseAnyFamily(port: number): Promise<boolean> {
   return (await isPortInUse(port)) || (await isPortInUse(port, '0.0.0.0'));
 }
@@ -184,6 +189,11 @@ if (!process.env.PLEXUS_PORT) {
   process.env.PLEXUS_PORT = process.env.PORT;
 }
 
+// Captured before the defaulting block below, so the marker-JSON mockPort override (see the
+// mock-upstream spawn further down) can tell "user pinned this explicitly" apart from "we're
+// about to derive a default" — only the latter should ever be overridden by a recovered marker.
+const mockPortExplicit = Boolean(process.env.PLEXUS_MOCK_PORT);
+
 // Mock upstream port — same DJB2 hash + 20000-29999 range as scripts/mock-upstream.ts and
 // packages/backend/scripts/seed-dev.ts's own derivations, computed once here and exported so the
 // seeder, the mock upstream child, and the seeded provider configs all agree on one value.
@@ -241,11 +251,23 @@ const backupSource =
 const restoreWinsThisBoot = isFresh && fullMode && backupSource;
 const willSeedPreBoot = seedingEnabled && isFresh && !restoreWinsThisBoot;
 
+// A non-fresh DB (has data) with no marker file is ambiguous from here: it might be a user's own
+// real config (never seeded), or one scripts/seed-dev.ts DID seed whose marker later got purged
+// independently of the DB — e.g. macOS periodically sweeps /tmp contents while leaving on-disk DB
+// files alone. We can't tell which without asking the DB itself, so we always run the seeder
+// subprocess in this case too: it self-guards (packages/backend/scripts/seed-dev.ts:216-238),
+// refusing to reseed and either recovering the marker from the DB's own `dev.seeded` setting or
+// doing nothing and exiting 0 — either way a ~1s round trip.
+const needsMarkerRecovery = seedingEnabled && !isFresh && !existsSync(MARKER_FILE);
+
 function describeSeedStatus(): string {
   if (restoreWinsThisBoot) return 'restoring from backup source';
   if (!seedingEnabled) return 'seeding disabled';
   if (!isFresh) {
-    return existsSync(MARKER_FILE) ? 'seeded DB (marker present)' : 'no seed marker (not seeded)';
+    // seedingEnabled is true here, so a missing marker means needsMarkerRecovery will run the
+    // seeder subprocess below to find out one way or the other — "not seeded" would be a lie if
+    // this DB turns out to carry a purged marker.
+    return existsSync(MARKER_FILE) ? 'seeded DB (marker present)' : 'checking seed marker…';
   }
   return 'seeding fresh DB…';
 }
@@ -370,12 +392,13 @@ function spawnBackend(): ChildProcess {
 }
 
 // --- Seed a fresh DB before the backend boots (unless disabled, or a backup source wins) ---
+// --- Also recovers a purged marker file against a non-fresh, possibly-already-seeded DB.    ---
 
-if (willSeedPreBoot) {
-  console.log(
-    '\n[dev] Fresh database detected — seeding via packages/backend/scripts/seed-dev.ts...\n'
-  );
-  await new Promise<void>((resolve) => {
+// Spawns packages/backend/scripts/seed-dev.ts and waits for it to exit. Shared by the fresh-DB
+// seed path and the marker-recovery path below — from here they're the same subprocess call;
+// seed-dev.ts itself decides (via hasExisting/--force) whether to actually reseed or just recover.
+function runSeeder(): Promise<void> {
+  return new Promise<void>((resolve) => {
     const proc = nodeSpawn('bun', ['run', 'scripts/seed-dev.ts'], {
       cwd: BACKEND_DIR,
       env: { ...process.env },
@@ -384,18 +407,27 @@ if (willSeedPreBoot) {
     proc.on('close', (code) => {
       if (code !== 0) {
         console.error(
-          `[dev] SEEDER FAILED (exit code ${code}) — continuing boot with an unseeded/partially-seeded database.`
+          `[dev] SEEDER FAILED (exit code ${code}) — continuing boot with an unseeded/partially-seeded database. ` +
+            'Retry with PLEXUS_SEED=fresh or run: bun run seed-dev'
         );
       }
       resolve();
     });
     proc.on('error', (err) => {
       console.error(
-        `[dev] Failed to launch seeder: ${err instanceof Error ? err.message : err}. Continuing boot.`
+        `[dev] Failed to launch seeder: ${err instanceof Error ? err.message : err}. Continuing boot. ` +
+          'Retry with PLEXUS_SEED=fresh or run: bun run seed-dev'
       );
       resolve();
     });
   });
+}
+
+if (willSeedPreBoot) {
+  console.log(
+    '\n[dev] Fresh database detected — seeding via packages/backend/scripts/seed-dev.ts...\n'
+  );
+  await runSeeder();
 } else if (restoreWinsThisBoot) {
   console.log(
     '[dev] Fresh database with a backup source available — restoring via prep-dev after boot.\n'
@@ -407,17 +439,42 @@ if (willSeedPreBoot) {
     unlinkSync(MARKER_FILE);
     console.log(`[dev] Deleted stale seed marker ${MARKER_FILE} (restoring real data instead).`);
   }
+} else if (needsMarkerRecovery) {
+  console.log(
+    '\n[dev] No seed marker for an existing database — checking seed-dev.ts for lost-marker ' +
+      'recovery (it refuses to reseed; only rewrites the marker if this DB was seeded before)...\n'
+  );
+  await runSeeder();
 }
 
-// Captured once, right after the seed/restore decision above: reflects whether this boot has a
-// seed-dev.ts-seeded database to work with. Used both for the mock upstream (below) and the
-// ticker (post-health, further down) so they agree on the same snapshot.
+// Captured once, right after the seed/restore/recovery decision above: reflects whether this
+// boot has a seed-dev.ts-seeded database to work with. Used both for the mock upstream (below)
+// and the ticker (post-health, further down) so they agree on the same snapshot.
 const markerPresent = existsSync(MARKER_FILE);
 
 // --- Mock upstream: managed child, started before the backend so its quota-scheduler ---
 // --- boot-time checks succeed against reachable (seeded) providers. ---
 
 if (markerPresent) {
+  // A marker written under an explicit PLEXUS_MOCK_PORT records that port — if nothing pinned
+  // one for *this* boot, prefer the recorded value over our hash-derived default so the mock
+  // listens where the already-seeded providers' api_base_url actually points (see the marker's
+  // mockPort field, written by packages/backend/scripts/seed-dev.ts's writeMarkerFile).
+  if (!mockPortExplicit) {
+    try {
+      const marker = JSON.parse(readFileSync(MARKER_FILE, 'utf8')) as { mockPort?: unknown };
+      if (
+        typeof marker.mockPort === 'number' &&
+        Number.isFinite(marker.mockPort) &&
+        marker.mockPort > 0
+      ) {
+        process.env.PLEXUS_MOCK_PORT = String(marker.mockPort);
+      }
+    } catch {
+      // Malformed/unreadable marker JSON — keep the hash-derived default already in place.
+    }
+  }
+
   const mockPort = parseInt(process.env.PLEXUS_MOCK_PORT!, 10);
   if (await isPortInUseAnyFamily(mockPort)) {
     console.log(

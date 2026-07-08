@@ -164,9 +164,12 @@ still start (gated on a marker file, not your data — see below), but your data
 | Variable | Purpose |
 |---|---|
 | `PLEXUS_SEED=0` / `off` | Disable the seeder. Marker-gated mock upstream/ticker startup is unaffected. |
-| `PLEXUS_SEED=fresh` | Wipe the local DB (+ marker) and reseed, even if data already exists. Refuses (exit 1) on a real Postgres `DATABASE_URL`. |
+| `PLEXUS_SEED=fresh` | Wipe the local DB (+ marker) and reseed, even if data already exists. Refuses (exit 1) on a real Postgres `DATABASE_URL`. In full mode with a backup source configured, the wipe is followed by a `prep-dev` restore instead of the synthetic seeder — see "Precedence with `prep-dev` / staging restore" below. |
+| `PLEXUS_SEED_ANCHOR` | Epoch-ms override for "now" during telemetry backfill, so two runs against scratch DBs produce byte-identical output. Defaults to the real current time. |
+| `PLEXUS_MOCK_PORT` | Override the mock upstream's port (default: derived from the worktree dir name, `20000`-`29999`). Seeded providers' `api_base_url`s point at whatever value was in effect at seed time. |
 | `PLEXUS_TICKER=0` / `off` | Disable just the live ticker. |
 | `PLEXUS_TICKER_INTERVAL_MS` | Base ticker cadence in ms (default `5500`, jittered ~55%-145%). |
+| `PLEXUS_TICKER_VERBOSE=1` | Per-action ticker log lines (default: terse, heartbeat only). |
 
 #### Standalone scripts
 
