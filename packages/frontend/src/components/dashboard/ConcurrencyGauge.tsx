@@ -126,6 +126,7 @@ export const ConcurrencyGauge: React.FC = () => {
                   stroke={CONCURRENCY_COLORS[idx % CONCURRENCY_COLORS.length]}
                   fill={CONCURRENCY_COLORS[idx % CONCURRENCY_COLORS.length]}
                   fillOpacity={0.6}
+                  isAnimationActive={false}
                 />
               ))}
             </AreaChart>
