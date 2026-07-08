@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { encode } from 'eventsource-encoder';
-import { and, desc, eq, gte, lte, sql, isNull, isNotNull } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { getCurrentDialect, getSchema } from '../../db/client';
 import {
   UsageStorageService,
@@ -264,8 +264,6 @@ export async function registerUsageRoutes(
 
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
-    const statsStart = new Date(now);
-    statsStart.setDate(statsStart.getDate() - 7);
 
     let stepSeconds = 60;
     if (range === 'custom' || range === 'all') {
@@ -319,7 +317,6 @@ export async function registerUsageRoutes(
     const nowMs = now.getTime();
     const rangeStartMs = rangeStart.getTime();
     const rangeEndMs = rangeEnd.getTime();
-    const statsStartMs = statsStart.getTime();
     const todayStartMs = todayStart.getTime();
 
     const stepMsLiteral = sql.raw(String(stepMs));
@@ -373,11 +370,9 @@ export async function registerUsageRoutes(
         .from(schema.requestUsage)
         .where(
           and(
-            gte(schema.requestUsage.startTime, statsStartMs),
-            lte(schema.requestUsage.startTime, nowMs),
-            ...(keyFilter ? [keyFilter] : []),
             gte(schema.requestUsage.startTime, rangeStartMs),
-            lte(schema.requestUsage.startTime, rangeEndMs)
+            lte(schema.requestUsage.startTime, rangeEndMs),
+            ...(keyFilter ? [keyFilter] : [])
           )
         );
 
