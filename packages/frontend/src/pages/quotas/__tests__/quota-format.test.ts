@@ -3,6 +3,7 @@ import {
   periodAbbrev,
   allowanceSubtext,
   checkedAgoLabel,
+  checkerLabel,
   remainingValue,
   usagePercent,
   usedLimitText,
@@ -210,5 +211,15 @@ describe('usedLimitText', () => {
 
   test('undefined meter → null', () => {
     expect(usedLimitText(undefined)).toBeNull();
+  });
+});
+
+describe('checkerLabel', () => {
+  test('distinct checkerId is appended in parens', () => {
+    expect(checkerLabel('Synthetic', 'mock-openai')).toBe('Synthetic ( mock-openai )');
+  });
+
+  test('checkerId identical to displayName renders as just the name', () => {
+    expect(checkerLabel('mock-openai', 'mock-openai')).toBe('mock-openai');
   });
 });
