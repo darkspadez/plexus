@@ -300,6 +300,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
                 fill={`url(#${gradientId})`}
                 dot={false}
                 activeDot={{ r: 4, fill: areaColor }}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>

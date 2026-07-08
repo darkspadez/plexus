@@ -146,6 +146,7 @@ export const TimelineChart: React.FC<TimelineChartProps> = ({ timeRange, startDa
                 fillOpacity={1}
                 fill="url(#liveRequests)"
                 strokeWidth={2}
+                isAnimationActive={false}
               />
               <Area
                 yAxisId="left"
@@ -155,6 +156,7 @@ export const TimelineChart: React.FC<TimelineChartProps> = ({ timeRange, startDa
                 fillOpacity={0.15}
                 fill="var(--danger)"
                 strokeWidth={1.5}
+                isAnimationActive={false}
               />
               <Area
                 yAxisId="right"
@@ -164,6 +166,7 @@ export const TimelineChart: React.FC<TimelineChartProps> = ({ timeRange, startDa
                 fillOpacity={1}
                 fill="url(#liveTokens)"
                 strokeWidth={2}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>
