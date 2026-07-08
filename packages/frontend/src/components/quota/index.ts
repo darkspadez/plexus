@@ -1,6 +1,4 @@
 export { QuotaProgressBar } from './QuotaProgressBar';
-export { QuotaStatusCard } from './QuotaStatusCard';
-export { QuotaChip, hasScope } from './QuotaChip';
 export { WaferQuotaDisplay } from './WaferQuotaDisplay';
 export { WaferQuotaConfig } from './WaferQuotaConfig';
 export { OpenCodeGoQuotaConfig } from './OpenCodeGoQuotaConfig';
