@@ -56,6 +56,14 @@ export function checkedAgoLabel(
   return `checked ${formatTimeAgo(seconds)}`;
 }
 
+/** "Synthetic ( mock-openai )" when checkerId adds information beyond displayName
+ *  (distinct checkers of the same type otherwise render indistinguishably);
+ *  just displayName when checkerId isn't distinct (e.g. no type match, so
+ *  displayName already fell back to checkerId). */
+export function checkerLabel(displayName: string, checkerId: string): string {
+  return checkerId === displayName ? displayName : `${displayName} ( ${checkerId} )`;
+}
+
 /** Moved VERBATIM from Quotas.tsx (remaining ?? limit-used ?? undefined). */
 export function remainingValue(meter: Meter): number | undefined {
   if (meter.remaining !== undefined) return meter.remaining;

@@ -28,6 +28,7 @@ import {
 import {
   allowanceSubtext,
   checkedAgoLabel,
+  checkerLabel,
   remainingValue,
   usagePercent,
   usedLimitText,
@@ -70,7 +71,7 @@ function RowRefreshButton({
         onRefresh(row.checkerId);
       }}
       disabled={isRefreshing || row.pending}
-      aria-label={`Refresh ${row.displayName}`}
+      aria-label={`Refresh ${checkerLabel(row.displayName, row.checkerId)}`}
       className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-subtle transition-colors hover:bg-surface-elevated hover:text-foreground disabled:opacity-50"
     >
       <RefreshCw size={14} className={cn(isRefreshing && 'animate-spin')} />
@@ -144,13 +145,24 @@ export const Quotas = () => {
         meta: { priority: 'high', mobileTitle: true },
         cell: ({ row }) => {
           const r = row.original;
+          // checkerId defaults to the provider slug (see backend
+          // buildProviderQuotaConfigs), so surfacing it next to displayName
+          // disambiguates rows whose displayName collides on checker type
+          // (e.g. several `synthetic` providers all showing "Synthetic").
+          const hasDistinctId = r.checkerId !== r.displayName;
           const subtextParts = [r.oauthAccountId, checkedAgoLabel(r.checkedAt)].filter(
             (p): p is string => Boolean(p)
           );
           const nameBlock = (
             <>
-              <div className="truncate font-medium text-foreground" title={r.displayName}>
-                {r.displayName}
+              <div
+                className="flex items-baseline gap-1.5 truncate"
+                title={checkerLabel(r.displayName, r.checkerId)}
+              >
+                <span className="truncate font-medium text-foreground">{r.displayName}</span>
+                {hasDistinctId && (
+                  <span className="shrink-0 text-xs text-foreground-muted">( {r.checkerId} )</span>
+                )}
               </div>
               {subtextParts.length > 0 && (
                 <div className="text-xs text-foreground-subtle">{subtextParts.join(' · ')}</div>
