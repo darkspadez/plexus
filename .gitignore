@@ -40,8 +40,6 @@ config/plexus.yaml
 config/*.db
 config/*.sqlite
 
-# Local dev populate overrides (may contain real API keys)
-scripts/user-populate.json
 .dev-data/
 .staging-backups/
 config/*.db*

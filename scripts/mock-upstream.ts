@@ -638,6 +638,10 @@ function handleQuota(severity: string): Response {
   const [lo, hi] = bands[severity] ?? [0.15, 0.5];
   const frac = randomFloat(lo, hi);
 
+  // rollingMax/hourlyLimit/weeklyMax are mirrored by packages/backend/scripts/seed-telemetry.ts's
+  // MOCK_QUOTA constant (~:127) — keep the two in sync, or the seeded historical
+  // meter_snapshots series will end at a different scale than a live check against this mock
+  // reports.
   const rollingMax = 1000;
   const rollingUsed = Math.round(rollingMax * frac);
 
@@ -680,6 +684,9 @@ function handleQuota(severity: string): Response {
 // crof, moonshot, novita, cline, sakana, apertis, exedev, kilo, neuralwatt).
 
 function handleBalance(): Response {
+  // [5, 500] is mirrored by packages/backend/scripts/seed-telemetry.ts's MOCK_BALANCE_RANGE
+  // (~:133) — keep the two ranges in sync so seeded historical balance meter_snapshots end where
+  // a live check against this mock would continue.
   return jsonResponse(200, { balance: Number(randomFloat(5, 500).toFixed(2)) });
 }
 
@@ -702,6 +709,9 @@ const MCP_SUPPORTED_PROTOCOL_VERSIONS = [
   '2024-10-07',
 ];
 
+// Tool names are mirrored by packages/backend/scripts/seed-telemetry.ts's MCP_TOOL_NAMES
+// (~:1332) — keep the two lists in sync so seeded historical mcp_request_usage rows reference
+// tools this mock actually serves.
 const MCP_TOOLS = [
   {
     name: 'echo',
@@ -862,7 +872,9 @@ const server = Bun.serve({
     }
 
     const ms = Date.now() - start;
-    console.log(`${method} ${pathname} model=${modelForLog} status=${response.status} ${ms}ms`);
+    console.log(
+      `[mock-upstream] ${method} ${pathname} model=${modelForLog} status=${response.status} ${ms}ms`
+    );
     return response;
   },
   error(err) {

@@ -564,7 +564,21 @@ async function performMcpTick(): Promise<void> {
 // ─── Scheduling loops ─────────────────────────────────────────────────────
 
 const DEFAULT_BASE_INTERVAL_MS = 5_500;
-const BASE_INTERVAL_MS = Number(process.env.PLEXUS_TICKER_INTERVAL_MS) || DEFAULT_BASE_INTERVAL_MS;
+
+// Same validation pattern as the port overrides (derivePort() above / in scripts/dev.ts /
+// scripts/mock-upstream.ts): reject non-finite and <=0 values rather than passing them through.
+// An unguarded negative would otherwise survive `||` (any nonzero number is truthy) and only get
+// floored by nextTickDelayMs()'s Math.max(100, ...) safety net — i.e. every tick firing at a
+// 100ms flood instead of being rejected up front.
+function resolveBaseIntervalMs(): number {
+  const raw = process.env.PLEXUS_TICKER_INTERVAL_MS;
+  if (raw) {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return DEFAULT_BASE_INTERVAL_MS;
+}
+const BASE_INTERVAL_MS = resolveBaseIntervalMs();
 
 function nextTickDelayMs(): number {
   const jittered = BASE_INTERVAL_MS * (0.55 + Math.random() * 0.9); // ~[3s,8s] at the default base

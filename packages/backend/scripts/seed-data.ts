@@ -5,15 +5,18 @@
  * ./seed-dev.ts). No I/O happens here — every function returns plain typed
  * config objects (the same shapes `ConfigRepository.save*` accept) that
  * seed-dev.ts persists in order. Content is fixed literals throughout; the
- * only non-literal value is `Date.now()` inside `buildSettings` (a
- * timestamp, not randomness).
+ * only non-literal values are `Date.now()` inside `buildSettings` and inside
+ * `buildOAuthAccounts` (both timestamps, not randomness).
  *
  * All chat-model ids referenced below come from the mock's fixed model set
  * (`MODEL_IDS` in scripts/mock-upstream.ts, run from the repo root) — that
  * file is the source of truth for which ids exist and which families they
- * belong to. The embeddings model works too (the mock's POST /v1/embeddings
- * accepts any model id); audio/image model ids are catalog dressing whose
- * alias targets are all disabled and never routed.
+ * belong to — EXCEPT `mock-cohere`'s `command-r` / `command-r-plus` (see
+ * buildProviders): no alias ever targets mock-cohere, so those two ids are
+ * catalog-only and never actually dialed against the mock. The embeddings
+ * model works too (the mock's POST /v1/embeddings accepts any model id);
+ * audio/image model ids are catalog dressing whose alias targets are all
+ * disabled and never routed.
  */
 
 import type {
