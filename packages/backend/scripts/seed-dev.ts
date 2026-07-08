@@ -43,6 +43,7 @@ import {
   buildUserQuotas,
   type OAuthAccountSeed,
 } from './seed-data';
+import { resolveSeedAnchor, seedTelemetryPhase } from './seed-telemetry';
 
 const FORCE = process.argv.includes('--force');
 
@@ -244,8 +245,12 @@ async function main(): Promise<void> {
   // ─── Phase 1: config (this task) ──────────────────────────────────────
   const result = await seedConfigPhase(repo, MOCK_PORT);
 
-  // ─── Phase 2: telemetry/history backfill (Task 3 appends here) ────────
-  // e.g. await seedTelemetryPhase(repo, result);
+  // ─── Phase 2: telemetry/history backfill (Task 3) ─────────────────────
+  // `PLEXUS_SEED_ANCHOR` (epoch ms) pins "now" for every generated
+  // timestamp — fixing it across two runs against scratch DBs is Task 3's
+  // determinism proof. Left unset, it defaults to the real current time.
+  const anchor = resolveSeedAnchor();
+  const telemetry = await seedTelemetryPhase(result, anchor);
 
   writeMarkerFile(Date.now(), MOCK_PORT);
 
@@ -260,9 +265,15 @@ async function main(): Promise<void> {
   console.log(`  mcp servers:    ${Object.keys(result.mcpServers).length}`);
   console.log(`  settings:       ${Object.keys(result.settings).length}`);
   console.log(`  oauth accounts: ${result.oauthAccounts.length}`);
+  console.log(`  request usage:  ${telemetry.requestUsage}`);
+  console.log(`  debug logs:     ${telemetry.debugLogs}`);
+  console.log(`  inf. errors:    ${telemetry.inferenceErrors}`);
+  console.log(`  mcp usage:      ${telemetry.mcpRequestUsage}`);
+  console.log(`  meter snaps:    ${telemetry.meterSnapshots}`);
+  console.log(`  quota state:    ${telemetry.quotaState}`);
   console.log(`  mock port:      ${MOCK_PORT}`);
   console.log(`  marker file:    ${MARKER_PATH}`);
-  console.log(`  elapsed:        ${elapsedMs}ms`);
+  console.log(`  elapsed:        ${elapsedMs}ms (telemetry: ${telemetry.elapsedMs}ms)`);
 
   await closeDatabase();
 }
