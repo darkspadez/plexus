@@ -1561,13 +1561,14 @@ interface MeterSnapshotRow {
 
 /** Provider -> story mapping, grounded in seed-data.ts's own quota_checker
  * endpoints (mock-openai -> /quota/warning, mock-anthropic ->
- * /quota/critical, mock-gemini -> /quota/ok, flaky-lab -> /quota/exhausted,
- * mock-openrouter -> /balance). */
+ * /quota/critical, mock-gemini -> /quota/ok, mock-cohere ->
+ * /quota/exhausted, mock-openrouter -> /balance; flaky-lab deliberately has
+ * NO checker — see the seed-data.ts comment there). */
 const PROVIDER_STORY: Record<string, 'ok' | 'warning' | 'critical' | 'exhausted'> = {
   'mock-openai': 'warning',
   'mock-anthropic': 'critical',
   'mock-gemini': 'ok',
-  'flaky-lab': 'exhausted',
+  'mock-cohere': 'exhausted',
 };
 
 function generateMeterSnapshotRows(

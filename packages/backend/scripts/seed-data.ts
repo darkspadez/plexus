@@ -48,7 +48,7 @@ export const OAUTH_PROVIDER_TYPE = 'anthropic';
 export const OAUTH_ACCOUNT_PERSONAL = 'personal';
 export const OAUTH_ACCOUNT_WORK = 'work';
 
-// ─── Providers (~7) ─────────────────────────────────────────────────────
+// ─── Providers (~8) ─────────────────────────────────────────────────────
 //
 // Wire-family note (see task report for the full trail): a plain-string
 // `api_base_url` makes `getProviderTypes()` (packages/backend/src/config.ts)
@@ -171,7 +171,47 @@ export function buildProviders({ mockPort }: MockPortParams): Record<string, Pro
         options: { endpoint: `${base}/balance` },
       },
     },
+    'mock-cohere': {
+      // The "exhausted quota" showcase provider. Its synthetic checker points
+      // at the mock's /quota/exhausted endpoint (~100% utilization), which
+      // the quota-scheduler treats as at/above its exhaustion threshold (99%
+      // by default, and both zod schemas cap maxUtilizationPercent at 100 —
+      // see SyntheticQuotaCheckerOptionsSchema in config.ts and
+      // synthetic-checker.ts) and responds by injecting a provider-wide
+      // cooldown on every check. That permanent cooldown is INTENDED here: it
+      // keeps a live exhausted-severity row on the Quotas page and a
+      // deterministic entry in Service Alerts / GET /v0/management/cooldowns.
+      // Safe because NO alias may ever target this provider — the cooldown
+      // therefore never affects routing. (flaky-lab must NOT play this role:
+      // its aliases need it dialable so the mock's per-request flakiness, not
+      // a pre-emptive week-long cooldown, produces their organic failures.)
+      display_name: 'Mock Cohere',
+      api_base_url: `${base}/v1`,
+      api_key: 'sk-mock-cohere-devkey',
+      enabled: true,
+      disable_cooldown: false,
+      stall_cooldown: false,
+      estimateTokens: false,
+      useClaudeMasking: false,
+      models: {
+        'command-r-plus': { pricing: { source: 'simple', input: 2.5, output: 10 } },
+        'command-r': { pricing: { source: 'simple', input: 0.15, output: 0.6 } },
+      },
+      quota_checker: {
+        type: 'synthetic',
+        enabled: true,
+        intervalMinutes: 30,
+        options: { endpoint: `${base}/quota/exhausted` },
+      },
+    },
     'flaky-lab': {
+      // Deliberately NO quota_checker: variety for the Providers page (rows
+      // both with and without quota badges), and this provider must never
+      // carry the /quota/exhausted story — the scheduler's provider-wide
+      // exhaustion cooldown would permanently block the 'flaky-model-v1'
+      // alias and 'resilient's flaky-first target, whose whole purpose is
+      // organic per-request failures from the mock. The exhausted-severity
+      // showcase lives on mock-cohere above instead.
       display_name: 'Flaky Lab',
       api_base_url: `${base}/v1`,
       api_key: 'sk-mock-flaky-devkey',
@@ -182,12 +222,6 @@ export function buildProviders({ mockPort }: MockPortParams): Record<string, Pro
       useClaudeMasking: false,
       models: {
         'flaky-model-v1': { pricing: { source: 'simple', input: 1, output: 2 } },
-      },
-      quota_checker: {
-        type: 'synthetic',
-        enabled: true,
-        intervalMinutes: 30,
-        options: { endpoint: `${base}/quota/exhausted` },
       },
     },
     'local-ollama': {
