@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { KWH_PER_SLICE, formatDuration, formatEnergy, formatSlices } from '../lib/format';
 import { Tv, Flame, Play, Gamepad2, Lightbulb, Croissant } from 'lucide-react';
+import { Tabs } from './ui/Tabs';
 
 interface ComparisonOption {
   id: string;
@@ -134,41 +135,21 @@ export function TotalEnergyComparison({ totalKwh = 0 }: TotalEnergyComparisonPro
     );
   };
 
+  const tabItems = [
+    { value: 'slices', label: 'Slices' },
+    ...COMPARISONS.map((c) => ({ value: c.id, label: c.shortLabel })),
+  ];
+
   return (
     <div className="space-y-3">
-      {/* Tab Bar */}
-      <div className="border-b border-border overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex gap-0">
-          <button
-            onClick={() => setActiveTab('slices')}
-            className={[
-              'flex items-center gap-2 px-3 py-2 text-[12px] font-medium transition-all border-b-2 -mb-px shrink-0 whitespace-nowrap',
-              activeTab === 'slices'
-                ? 'border-accent text-foreground'
-                : 'border-transparent text-foreground-subtle hover:text-foreground hover:border-border',
-            ].join(' ')}
-          >
-            Slices
-          </button>
-          {COMPARISONS.map((comparison) => {
-            const isActive = activeTab === comparison.id;
-            return (
-              <button
-                key={comparison.id}
-                onClick={() => setActiveTab(comparison.id)}
-                className={[
-                  'flex items-center gap-2 px-3 py-2 text-[12px] font-medium transition-all border-b-2 -mb-px shrink-0 whitespace-nowrap',
-                  isActive
-                    ? 'border-accent text-foreground'
-                    : 'border-transparent text-foreground-subtle hover:text-foreground hover:border-border',
-                ].join(' ')}
-              >
-                {comparison.shortLabel}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* Tab Bar — full-bleed so the underline aligns with the card header border */}
+      <Tabs
+        value={activeTab}
+        onChange={(v) => setActiveTab(v)}
+        items={tabItems}
+        aria-label="Energy comparison"
+        className="-mx-3 sm:-mx-5 -mt-3 sm:-mt-5 sm:pl-1"
+      />
 
       {/* Tab Content */}
       {activeTab === 'slices' && renderSlicesView()}

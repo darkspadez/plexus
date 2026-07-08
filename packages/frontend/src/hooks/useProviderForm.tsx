@@ -5,6 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { api, type Provider, type OAuthSession, fetchQuotaCheckers } from '../lib/api';
 import type { QuotaCheckerInfo } from '../types/quota';
 import { formatMeterValue } from '../components/quota/MeterValue';
+import {
+  periodAbbrev,
+  usagePercent,
+  remainingValue,
+  allowanceSubtext,
+} from '../pages/quotas/quota-format';
 import { Badge } from '../components/ui/Badge';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -878,49 +884,54 @@ export function useProviderForm() {
 
     const badges: React.ReactNode[] = [];
 
-    // Balance pill
-    const balanceMeter = quota.meters.find(
-      (m) => m.kind === 'balance' && m.remaining !== undefined
-    );
-    if (balanceMeter && balanceMeter.remaining !== undefined) {
+    // Balance pills — one per balance meter, colored by its status.
+    for (const meter of quota.meters) {
+      if (meter.kind !== 'balance') continue;
+      const value = remainingValue(meter);
+      if (value === undefined) continue;
+      const status =
+        meter.status === 'exhausted' || meter.status === 'critical'
+          ? 'error'
+          : meter.status === 'warning'
+            ? 'warning'
+            : 'neutral';
       badges.push(
         <Badge
-          key="balance"
-          status="neutral"
-          className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2 bg-surface-sunken border border-border text-foreground-muted"
+          key={`balance-${meter.key}`}
+          status={status}
+          title={meter.label}
+          className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2"
           onClick={handleQuotaClick}
         >
-          {formatMeterValue(balanceMeter.remaining, balanceMeter.unit)}
+          {formatMeterValue(value, meter.unit)}
         </Badge>
       );
     }
 
-    // Allowance pill
-    const allowances = quota.meters.filter((m) => m.kind === 'allowance');
-    const primary = allowances.reduce<(typeof allowances)[0] | undefined>((worst, m) => {
-      if (!worst) return m;
-      const wu = typeof worst.utilizationPercent === 'number' ? worst.utilizationPercent : 0;
-      const mu = typeof m.utilizationPercent === 'number' ? m.utilizationPercent : 0;
-      return mu > wu ? m : worst;
-    }, undefined);
-    if (primary && typeof primary.utilizationPercent === 'number') {
-      const pct = Math.round(primary.utilizationPercent);
-      const status = pct >= 90 ? 'error' : pct >= 70 ? 'warning' : 'connected';
+    // Rolling-window pills — one per allowance with a numeric utilization.
+    for (const meter of quota.meters) {
+      if (meter.kind !== 'allowance') continue;
+      const pct = usagePercent(meter);
+      if (pct === null) continue;
+      const rounded = Math.round(pct);
+      const status = rounded >= 90 ? 'error' : rounded >= 70 ? 'warning' : 'connected';
+      const tag = periodAbbrev(meter)?.replace(' rolling', '');
       badges.push(
         <Badge
-          key="allowance"
+          key={`allowance-${meter.key}`}
           status={status}
+          title={allowanceSubtext(meter) ?? meter.label}
           className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2"
           onClick={handleQuotaClick}
         >
-          {pct}%
+          {tag ? `${tag} · ${rounded}%` : `${rounded}%`}
         </Badge>
       );
     }
 
     if (!badges.length) return null;
     if (badges.length === 1) return badges[0];
-    return <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>{badges}</div>;
+    return <div className="flex flex-wrap items-center gap-1.5">{badges}</div>;
   };
 
   const sortedProviders = [...providers].sort((a, b) => a.id.localeCompare(b.id));

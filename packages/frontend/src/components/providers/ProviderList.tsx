@@ -32,15 +32,20 @@ export function ProviderList({
   const columns: ColumnDef<Provider>[] = [
     {
       id: 'id',
-      header: 'ID / Name',
+      header: 'Name / ID',
       meta: { priority: 'high', mobileTitle: true },
       cell: ({ row }) => {
         const p = row.original;
+        // Provider.name falls back to the id when no display name is set
+        // (api.ts maps `display_name || key`), so only treat it as a display
+        // name when it's actually distinct from the id.
+        const displayName = p.name?.trim();
+        const hasDistinctName = !!displayName && displayName !== p.id;
         return (
           <div className="flex items-center gap-2">
             <Edit2 size={12} className="shrink-0 text-foreground-subtle" />
-            <span className="font-semibold text-foreground">{p.id}</span>
-            <span className="text-xs text-foreground-muted">( {p.name} )</span>
+            <span className="font-semibold text-foreground">{hasDistinctName ? p.name : p.id}</span>
+            {hasDistinctName && <span className="text-xs text-foreground-muted">( {p.id} )</span>}
           </div>
         );
       },
