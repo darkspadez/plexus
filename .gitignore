@@ -44,6 +44,9 @@ config/*.sqlite
 .staging-backups/
 config/*.db*
 
+# Retired populate flow: leftover local files may contain real API keys — keep unstageable
+scripts/user-populate.json
+
 CLIProxyApi/
 llms/
 CAP-UI/
