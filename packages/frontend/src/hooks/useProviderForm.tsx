@@ -668,6 +668,51 @@ export function useProviderForm() {
     });
   };
 
+  const getPrimaryEntry = (): { type: string; url: string } => {
+    const entries = Object.entries(getApiBaseUrlMap());
+    if (entries.length === 0) return { type: 'chat', url: '' };
+    const [type, url] = entries[0];
+    return { type, url: typeof url === 'string' ? url : '' };
+  };
+
+  // Rebuilds the Record so the primary stays at insertion-position 0
+  // even when its type is renamed. updateApiBaseUrlEntry would push the
+  // renamed key to the end, which would steal the primary slot from us.
+  const setPrimaryEntry = (newType: string, newUrl: string) => {
+    if (isOAuthMode) return;
+    const entries = Object.entries(getApiBaseUrlMap());
+    const rest = entries.slice(1).filter(([k]) => k !== newType);
+    const updated: Record<string, string> = { [newType]: newUrl };
+    for (const [k, v] of rest) updated[k] = typeof v === 'string' ? v : '';
+    setEditingProvider({
+      ...editingProvider,
+      apiBaseUrl: updated,
+      type: inferProviderTypes(updated),
+    });
+  };
+
+  // Adds an entry to the "Additional Base URLs" list (Advanced section),
+  // never to the primary slot. Materializes the primary first if the map
+  // is empty, so the new key appends as position 1+, not 0.
+  const addAdditionalBaseUrlEntry = () => {
+    if (isOAuthMode) return;
+    const currentMap = getApiBaseUrlMap();
+    const { type: primaryType, url: primaryUrl } = getPrimaryEntry();
+    const baseMap: Record<string, string> =
+      currentMap[primaryType] !== undefined
+        ? { ...currentMap }
+        : { [primaryType]: primaryUrl, ...currentMap };
+    const nextType = KNOWN_APIS.find((apiType) => !(apiType in baseMap));
+    if (!nextType) return;
+    const updated = { ...baseMap, [nextType]: '' };
+    setEditingProvider({
+      ...editingProvider,
+      apiBaseUrl: updated,
+      type: inferProviderTypes(updated),
+    });
+    setIsApiBaseUrlsOpen(true);
+  };
+
   // Generic KV helpers
   const addKV = (field: 'headers' | 'extraBody') => {
     const current = editingProvider[field] || {};
@@ -1020,6 +1065,9 @@ export function useProviderForm() {
     addApiBaseUrlEntry,
     updateApiBaseUrlEntry,
     removeApiBaseUrlEntry,
+    getPrimaryEntry,
+    setPrimaryEntry,
+    addAdditionalBaseUrlEntry,
     // KV
     addKV,
     updateKV,

@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import { DebouncedInput } from '../ui/DebouncedInput';
+import { Select } from '../ui/Select';
 import { Switch } from '../ui/Switch';
-import { Pill } from '../chips/Pill';
+import { Badge } from '../ui/Badge';
+import { SectionCard } from '../ui/SectionCard';
+import { cn } from '../../lib/cn';
 import { GPU_PROFILE_OPTIONS, resolveGpuParams } from '@plexus/shared';
 import type { Provider, CompactionSettings } from '../../lib/api';
 import { api } from '../../lib/api';
@@ -47,12 +51,131 @@ const WEB_SEARCH_TARGETS = [
   { value: 'google', label: 'Google (googleSearch)' },
 ] as const;
 
+// Mirrors the constant of the same name in useProviderForm — kept local here
+// (same pattern as ProviderApiUrlsEditor) since only the API-type list is needed.
+const KNOWN_APIS = [
+  'chat',
+  'messages',
+  'gemini',
+  'embeddings',
+  'transcriptions',
+  'speech',
+  'images',
+  'responses',
+  'ollama',
+];
+
+const KV_REMOVE_BUTTON_CLASS =
+  'inline-flex items-center justify-center h-8 w-8 flex-shrink-0 rounded-md text-foreground-muted hover:text-danger hover:bg-danger-subtle transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background self-end sm:self-auto';
+
 interface Props {
   editingProvider: Provider;
   setEditingProvider: React.Dispatch<React.SetStateAction<Provider>>;
   addKV: (field: 'headers' | 'extraBody') => void;
   updateKV: (field: 'headers' | 'extraBody', oldKey: string, newKey: string, value: any) => void;
   removeKV: (field: 'headers' | 'extraBody', key: string) => void;
+  isAdvancedOpen: boolean;
+  setIsAdvancedOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isApiBaseUrlsOpen: boolean;
+  setIsApiBaseUrlsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isOAuthMode: boolean;
+  getApiBaseUrlMap: () => Record<string, string>;
+  addAdditionalBaseUrlEntry: () => void;
+  updateApiBaseUrlEntry: (oldType: string, newType: string, url: string) => void;
+  removeApiBaseUrlEntry: (apiType: string) => void;
+}
+
+// Custom Headers / Extra Body Fields — same addKV/updateKV/removeKV semantics (including
+// the '': '' insert on add), restyled to mirror ui/KeyValueEditor's visual only.
+function KVSection({
+  title,
+  field,
+  entries,
+  isOpen,
+  setIsOpen,
+  addKV,
+  updateKV,
+  removeKV,
+  emptyText,
+  keyPlaceholder,
+}: {
+  title: string;
+  field: 'headers' | 'extraBody';
+  entries: Record<string, unknown> | undefined;
+  isOpen: boolean;
+  setIsOpen: (v: boolean) => void;
+  addKV: (field: 'headers' | 'extraBody') => void;
+  updateKV: (field: 'headers' | 'extraBody', oldKey: string, newKey: string, value: any) => void;
+  removeKV: (field: 'headers' | 'extraBody', key: string) => void;
+  emptyText: string;
+  keyPlaceholder: string;
+}) {
+  const entryList = Object.entries(entries || {});
+  return (
+    <SectionCard
+      size="sm"
+      title={title}
+      collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      extra={
+        <>
+          <Badge status="neutral" noDot>
+            {entryList.length}
+          </Badge>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={(e) => {
+              e.stopPropagation();
+              addKV(field);
+              setIsOpen(true);
+            }}
+          >
+            <Plus size={14} />
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-2">
+        {entryList.length === 0 && (
+          <div className="font-sans text-[11px] italic text-foreground-muted">{emptyText}</div>
+        )}
+        {entryList.map(([key, val], idx) => (
+          <div key={idx} className="flex flex-col gap-1.5 sm:flex-row">
+            <div className="min-w-0 flex-1">
+              <DebouncedInput
+                placeholder={keyPlaceholder}
+                value={key}
+                onChange={(newKey: string) => updateKV(field, key, newKey, val)}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <DebouncedInput
+                placeholder="Value"
+                value={typeof val === 'object' ? JSON.stringify(val) : (val as string)}
+                onChange={(v: string) => {
+                  try {
+                    updateKV(field, key, key, JSON.parse(v));
+                  } catch {
+                    updateKV(field, key, key, v);
+                  }
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => removeKV(field, key)}
+              aria-label={`Remove ${key}`}
+              className={KV_REMOVE_BUTTON_CLASS}
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  );
 }
 
 export function ProviderAdvancedEditor({
@@ -61,8 +184,16 @@ export function ProviderAdvancedEditor({
   addKV,
   updateKV,
   removeKV,
+  isAdvancedOpen,
+  setIsAdvancedOpen,
+  isApiBaseUrlsOpen,
+  setIsApiBaseUrlsOpen,
+  isOAuthMode,
+  getApiBaseUrlMap,
+  addAdditionalBaseUrlEntry,
+  updateApiBaseUrlEntry,
+  removeApiBaseUrlEntry,
 }: Props) {
-  const [isOpen, setIsOpen] = useState(false);
   const [isAdaptersOpen, setIsAdaptersOpen] = useState(false);
   const [isHeadersOpen, setIsHeadersOpen] = useState(false);
   const [isExtraBodyOpen, setIsExtraBodyOpen] = useState(false);
@@ -90,34 +221,495 @@ export function ProviderAdvancedEditor({
     }
   }, [editingProvider.pi_ai_provider, piProviders]);
 
-  return (
-    <div className="border border-border rounded-sm overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setIsOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-surface-sunken hover:bg-surface-elevated transition-colors duration-150 text-left"
-      >
-        <span className="font-sans text-[13px] font-medium text-foreground-muted">Advanced</span>
-        {isOpen ? (
-          <ChevronDown size={14} className="text-foreground-subtle" />
-        ) : (
-          <ChevronRight size={14} className="text-foreground-subtle" />
-        )}
-      </button>
-      {isOpen && (
-        <div
-          className="px-3 py-2 border-t border-border"
-          style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
+  const apiBaseUrlMap = getApiBaseUrlMap();
+  const additionalBaseUrlEntries = Object.entries(apiBaseUrlMap).slice(1);
+  const adapterEntriesForCount: any[] = editingProvider.adapter ?? [];
+  const hasCustomStallOverride =
+    editingProvider.stallTtfbMs != null ||
+    editingProvider.stallTtfbBytes != null ||
+    editingProvider.stallMinBps != null ||
+    editingProvider.stallWindowMs != null ||
+    editingProvider.stallGracePeriodMs != null;
+  const hasCustomCompaction =
+    editingProvider.compaction && Object.values(editingProvider.compaction).some((v) => v != null);
+
+  // Cluster 2 (value rows) — extracted so the fields/handlers are defined once
+  // and rendered in the two-column value-row grid below.
+  const gpuProfileSelect = (
+    <Select
+      label="GPU Profile"
+      value={editingProvider.gpu_profile || ''}
+      onChange={(value) => {
+        if (!value) {
+          const resolved = resolveGpuParams('B200');
+          setEditingProvider({
+            ...editingProvider,
+            gpu_profile: undefined,
+            gpu_ram_gb: resolved.ram_gb,
+            gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
+            gpu_flops_tflop: resolved.flops_tflop,
+            gpu_power_draw_watts: resolved.power_draw_watts,
+          });
+        } else if (value === 'custom') {
+          const resolved = resolveGpuParams('custom', {
+            ram_gb: editingProvider.gpu_ram_gb,
+            bandwidth_tb_s: editingProvider.gpu_bandwidth_tb_s,
+            flops_tflop: editingProvider.gpu_flops_tflop,
+            power_draw_watts: editingProvider.gpu_power_draw_watts,
+          });
+          setEditingProvider({
+            ...editingProvider,
+            gpu_profile: 'custom',
+            gpu_ram_gb: resolved.ram_gb,
+            gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
+            gpu_flops_tflop: resolved.flops_tflop,
+            gpu_power_draw_watts: resolved.power_draw_watts,
+          });
+        } else {
+          const resolved = resolveGpuParams(value);
+          setEditingProvider({
+            ...editingProvider,
+            gpu_profile: value,
+            gpu_ram_gb: resolved.ram_gb,
+            gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
+            gpu_flops_tflop: resolved.flops_tflop,
+            gpu_power_draw_watts: resolved.power_draw_watts,
+          });
+        }
+      }}
+      options={[{ value: '', label: 'Default (B200)' }, ...GPU_PROFILE_OPTIONS]}
+    />
+  );
+
+  const gpuCustomFields = editingProvider.gpu_profile === 'custom' && (
+    <div className="grid grid-cols-1 gap-2 rounded-md border border-border bg-surface-sunken p-2 sm:grid-cols-2 sm:col-span-2">
+      <Input
+        label="RAM (GB)"
+        type="number"
+        step="1"
+        min="1"
+        placeholder="e.g. 80"
+        value={editingProvider.gpu_ram_gb || ''}
+        onChange={(e) =>
+          setEditingProvider({
+            ...editingProvider,
+            gpu_ram_gb: parseFloat(e.target.value) || undefined,
+          })
+        }
+      />
+      <Input
+        label="Bandwidth (TB/s)"
+        type="number"
+        step="0.1"
+        min="0.1"
+        placeholder="e.g. 3.35"
+        value={editingProvider.gpu_bandwidth_tb_s || ''}
+        onChange={(e) =>
+          setEditingProvider({
+            ...editingProvider,
+            gpu_bandwidth_tb_s: parseFloat(e.target.value) || undefined,
+          })
+        }
+      />
+      <Input
+        label="FLOPS (TFLOPs)"
+        type="number"
+        step="100"
+        min="1"
+        placeholder="e.g. 4000"
+        value={editingProvider.gpu_flops_tflop || ''}
+        onChange={(e) =>
+          setEditingProvider({
+            ...editingProvider,
+            gpu_flops_tflop: parseFloat(e.target.value) || undefined,
+          })
+        }
+      />
+      <Input
+        label="Power (Watts)"
+        type="number"
+        step="10"
+        min="1"
+        placeholder="e.g. 700"
+        value={editingProvider.gpu_power_draw_watts || ''}
+        onChange={(e) =>
+          setEditingProvider({
+            ...editingProvider,
+            gpu_power_draw_watts: parseInt(e.target.value, 10) || undefined,
+          })
+        }
+      />
+    </div>
+  );
+
+  const discountInput = (
+    <Input
+      label="Discount"
+      hint="e.g. 10 → pays 90%"
+      type="number"
+      step="1"
+      min="0"
+      max="100"
+      value={Math.round((editingProvider.discount ?? 0) * 100)}
+      onChange={(e) => {
+        const clamped = Math.min(100, Math.max(0, Number(e.target.value || '0')));
+        setEditingProvider({ ...editingProvider, discount: clamped / 100 });
+      }}
+      trailingAction={
+        <span className="pointer-events-none text-[11px] text-foreground-subtle">%</span>
+      }
+    />
+  );
+
+  const timeoutInput = (
+    <Input
+      label="Timeout"
+      hint="1–3600s"
+      type="number"
+      step="1"
+      min="1"
+      max="3600"
+      placeholder="Global default"
+      value={editingProvider.timeoutMs != null ? Math.round(editingProvider.timeoutMs / 1000) : ''}
+      onChange={(e) => {
+        const raw = e.target.value;
+        if (raw === '') {
+          setEditingProvider({ ...editingProvider, timeoutMs: undefined });
+        } else {
+          const seconds = Number(raw);
+          if (Number.isFinite(seconds) && seconds >= 1 && seconds <= 3600) {
+            setEditingProvider({ ...editingProvider, timeoutMs: seconds * 1000 });
+          }
+        }
+      }}
+    />
+  );
+
+  const ttfbInput = (
+    // TTFB Timeout — moved up from Stall Detection Overrides; same field & handler
+    <DebouncedInput
+      label="TTFB Timeout (s)"
+      hint="5–120"
+      type="number"
+      placeholder="Global default"
+      value={
+        editingProvider.stallTtfbMs != null
+          ? String(Math.round(editingProvider.stallTtfbMs / 1000))
+          : ''
+      }
+      onChange={(val: string) => {
+        const num = Number(val);
+        if (val === '') {
+          setEditingProvider({ ...editingProvider, stallTtfbMs: undefined });
+        } else if (Number.isFinite(num) && num >= 5 && num <= 120) {
+          setEditingProvider({ ...editingProvider, stallTtfbMs: num * 1000 });
+        }
+      }}
+    />
+  );
+
+  const maxConcurrencyInput = (
+    <Input
+      label="Max Concurrency"
+      hint="across all models"
+      type="number"
+      step="1"
+      min="1"
+      placeholder="No limit"
+      value={editingProvider.maxConcurrency != null ? editingProvider.maxConcurrency : ''}
+      onChange={(e) => {
+        const raw = e.target.value;
+        if (raw === '') {
+          setEditingProvider({ ...editingProvider, maxConcurrency: undefined });
+        } else {
+          const val = Number(raw);
+          if (Number.isFinite(val) && val >= 1) {
+            setEditingProvider({ ...editingProvider, maxConcurrency: val });
+          }
+        }
+      }}
+    />
+  );
+
+  const piAiProviderField = !piProviderCustom ? (
+    <Select
+      label="pi-ai Provider"
+      value={editingProvider.pi_ai_provider ?? ''}
+      onChange={(raw) => {
+        if (raw === '__custom__') {
+          setPiProviderCustom(true);
+          return;
+        }
+        setEditingProvider({
+          ...editingProvider,
+          pi_ai_provider: raw || undefined,
+        });
+      }}
+      options={[
+        { value: '', label: '— none —' },
+        ...piProviders.map((p) => ({ value: p, label: p })),
+        { value: '__custom__', label: 'custom...' },
+      ]}
+    />
+  ) : (
+    <Input
+      label="pi-ai Provider"
+      type="text"
+      placeholder="e.g. anthropic, openai"
+      value={editingProvider.pi_ai_provider ?? ''}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setEditingProvider({
+          ...editingProvider,
+          pi_ai_provider: raw || undefined,
+        });
+      }}
+      autoFocus
+      trailingAction={
+        <button
+          type="button"
+          className="px-1 font-sans text-[11px] text-foreground-subtle hover:text-foreground"
+          title="Back to list"
+          onClick={() => setPiProviderCustom(false)}
         >
+          ↩
+        </button>
+      }
+    />
+  );
+
+  return (
+    <SectionCard
+      title="Advanced"
+      id="section-advanced"
+      collapsible
+      open={isAdvancedOpen}
+      onOpenChange={setIsAdvancedOpen}
+    >
+      <div className="flex flex-col gap-4">
+        {/* Cluster 1: count-disclosures */}
+        <div className="flex flex-col gap-2">
+          {!isOAuthMode && (
+            <SectionCard
+              size="sm"
+              title="Additional Base URLs"
+              collapsible
+              open={isApiBaseUrlsOpen}
+              onOpenChange={setIsApiBaseUrlsOpen}
+              extra={
+                <>
+                  <Badge status="neutral" noDot>
+                    {Math.max(0, additionalBaseUrlEntries.length)}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addAdditionalBaseUrlEntry();
+                    }}
+                    disabled={Object.keys(getApiBaseUrlMap()).length >= KNOWN_APIS.length}
+                  >
+                    <Plus size={14} />
+                  </Button>
+                </>
+              }
+            >
+              <div className="flex flex-col gap-2">
+                {additionalBaseUrlEntries.length === 0 && (
+                  <div className="font-sans text-[11px] italic text-foreground-muted">
+                    No additional base URLs configured.
+                  </div>
+                )}
+                {additionalBaseUrlEntries.map(([apiType, url]) => {
+                  const urlLower = typeof url === 'string' ? url.toLowerCase() : '';
+                  const hasNativeOllamaPath =
+                    urlLower.includes('/api/chat') ||
+                    urlLower.includes('/api/generate') ||
+                    urlLower.includes('/api/embeddings') ||
+                    urlLower.includes('/api/tags');
+                  const hasV1Suffix = urlLower.includes('/v1');
+                  const showOllamaV1Warning = apiType === 'ollama' && hasV1Suffix;
+                  const showChatOllamaWarning =
+                    apiType === 'chat' && hasNativeOllamaPath && !hasV1Suffix;
+                  return (
+                    <div key={apiType} className="flex flex-col gap-1.5">
+                      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start">
+                        <div className="w-full shrink-0 sm:w-36">
+                          <Select
+                            value={apiType}
+                            onChange={(value) =>
+                              updateApiBaseUrlEntry(
+                                apiType,
+                                value,
+                                typeof url === 'string' ? url : ''
+                              )
+                            }
+                            options={KNOWN_APIS.filter(
+                              (t) => t === apiType || !(t in apiBaseUrlMap)
+                            ).map((t) => ({ value: t, label: t }))}
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <Input
+                            placeholder={
+                              apiType === 'ollama'
+                                ? 'http://localhost:11434'
+                                : 'https://api.example.com/v1/...'
+                            }
+                            value={typeof url === 'string' ? url : ''}
+                            onChange={(e) =>
+                              updateApiBaseUrlEntry(apiType, apiType, e.target.value)
+                            }
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeApiBaseUrlEntry(apiType)}
+                          aria-label={`Remove ${apiType}`}
+                          className={KV_REMOVE_BUTTON_CLASS}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      {showOllamaV1Warning && (
+                        <div className="flex items-start gap-2 rounded-sm border border-warning/28 bg-warning-subtle px-2 py-1.5">
+                          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
+                          <span className="text-[11px] text-warning">
+                            <span className="font-semibold">native ollama</span> type expects root
+                            URL. URLs with <code>/v1</code> are OpenAI-compatible — use{' '}
+                            <span className="font-semibold">chat</span> type.
+                          </span>
+                        </div>
+                      )}
+                      {showChatOllamaWarning && (
+                        <div className="flex items-start gap-2 rounded-sm border border-warning/28 bg-warning-subtle px-2 py-1.5">
+                          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
+                          <span className="text-[11px] text-warning">
+                            This URL contains <code>/api/</code> paths typical of native Ollama. Use{' '}
+                            <span className="font-semibold">ollama</span> type if native.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          )}
+
+          <KVSection
+            title="Custom Headers"
+            field="headers"
+            entries={editingProvider.headers}
+            isOpen={isHeadersOpen}
+            setIsOpen={setIsHeadersOpen}
+            addKV={addKV}
+            updateKV={updateKV}
+            removeKV={removeKV}
+            emptyText="No custom headers configured."
+            keyPlaceholder="Header Name"
+          />
+
+          <KVSection
+            title="Extra Body Fields"
+            field="extraBody"
+            entries={editingProvider.extraBody}
+            isOpen={isExtraBodyOpen}
+            setIsOpen={setIsExtraBodyOpen}
+            addKV={addKV}
+            updateKV={updateKV}
+            removeKV={removeKV}
+            emptyText="No extra body fields configured."
+            keyPlaceholder="Field Name"
+          />
+        </div>
+
+        <div className="h-px bg-border" />
+
+        {/* Cluster 2: value rows */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+          {gpuProfileSelect}
+          {gpuCustomFields}
+          {discountInput}
+          {timeoutInput}
+          {ttfbInput}
+          {maxConcurrencyInput}
+          {piAiProviderField}
+        </div>
+
+        <div className="h-px bg-border" />
+
+        {/* Cluster 3: toggle rows */}
+        <div className="flex flex-col divide-y divide-border">
+          {[
+            {
+              key: 'estimateTokens',
+              label: 'Estimate Tokens',
+              description: "Only when provider doesn't return usage data.",
+              warning: 'Use sparingly—this is rarely needed.',
+              checked: editingProvider.estimateTokens || false,
+              onChange: (checked: boolean) =>
+                setEditingProvider({ ...editingProvider, estimateTokens: checked }),
+            },
+            {
+              key: 'disableCooldown',
+              label: 'Disable Cooldowns',
+              description: 'Provider will never be placed on cooldown.',
+              warning: 'Use only for providers with reliable external rate-limit handling.',
+              checked: editingProvider.disableCooldown || false,
+              onChange: (checked: boolean) =>
+                setEditingProvider({ ...editingProvider, disableCooldown: checked }),
+            },
+            {
+              key: 'useClaudeMasking',
+              label: 'Use Claude Masking',
+              description: 'Mask requests as Claude Code CLI sessions. Anthropic only.',
+              warning: 'Only effective for Anthropic providers.',
+              checked: editingProvider.useClaudeMasking || false,
+              onChange: (checked: boolean) =>
+                setEditingProvider({ ...editingProvider, useClaudeMasking: checked }),
+            },
+            {
+              key: 'auto_compat',
+              label: 'Auto Compat',
+              description: 'Use pi-ai registry reasoning and generation compatibility.',
+              warning: '',
+              checked: editingProvider.auto_compat || false,
+              onChange: (checked: boolean) =>
+                setEditingProvider({ ...editingProvider, auto_compat: checked }),
+            },
+          ].map((row) => (
+            <div key={row.key} className="h-10 flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="font-sans text-[12px] font-medium text-foreground truncate">
+                  {row.label}
+                </div>
+                <div
+                  className="font-sans text-[11px] text-foreground-subtle truncate"
+                  title={row.warning ? `${row.description} ${row.warning}` : row.description}
+                >
+                  {row.description}
+                  {row.warning && <span className="ml-1 text-warning">{row.warning}</span>}
+                </div>
+              </div>
+              <Switch aria-label={row.label} checked={row.checked} onChange={row.onChange} />
+            </div>
+          ))}
+        </div>
+
+        <div className="h-px bg-border" />
+
+        {/* Cluster 4: nested sub-disclosures */}
+        <div className="flex flex-col gap-2">
           {/* Model Autosync */}
-          <div className="border border-border rounded-md overflow-hidden">
-            <div className="p-2 px-3 flex flex-wrap items-center gap-3 bg-surface-elevated">
-              <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-[190px]">
-                <input
-                  type="checkbox"
+          <SectionCard size="sm" title="Model Autosync">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch
+                  aria-label="Enable Model Autosync"
                   checked={editingProvider.modelAutosync?.enabled === true}
-                  onChange={(e) => {
-                    const enabled = e.target.checked;
+                  onChange={(enabled) => {
                     setEditingProvider({
                       ...editingProvider,
                       modelAutosync: {
@@ -133,7 +725,7 @@ export function ProviderAdvancedEditor({
                 <span className="font-sans text-[12px] font-medium text-foreground-muted">
                   Enable Model Autosync
                 </span>
-              </label>
+              </div>
               <div className="flex items-center gap-2">
                 <DebouncedInput
                   type="number"
@@ -151,104 +743,80 @@ export function ProviderAdvancedEditor({
                       },
                     });
                   }}
-                  style={{ width: '76px' }}
+                  className="w-20"
                 />
-                <span className="font-sans text-[11px] text-foreground-muted whitespace-nowrap">
+                <span className="font-sans text-[11px] whitespace-nowrap text-foreground-muted">
                   Sync Interval Minutes
                 </span>
               </div>
             </div>
-          </div>
+          </SectionCard>
 
-          {/* Provider Adapters */}
-          <div className="border border-border rounded-md overflow-hidden">
-            <div
-              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface"
-              onClick={() => setIsAdaptersOpen(!isAdaptersOpen)}
-            >
-              {isAdaptersOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <label
-                className="font-sans text-[12px] font-medium text-foreground-muted"
-                style={{ marginBottom: 0, flex: 1 }}
-              >
-                Provider Adapters
-              </label>
-              {(editingProvider.adapter ?? []).length > 0 && (
-                <Pill tone="neutral" size="sm">
-                  {(editingProvider.adapter ?? []).length}
-                </Pill>
-              )}
-            </div>
-            {isAdaptersOpen && (
-              <div
-                style={{
-                  padding: '8px',
-                  borderTop: '1px solid var(--border)',
-                  background: 'var(--surface-sunken)',
-                }}
-              >
-                <div
-                  className="font-sans text-[11px] text-foreground-muted mb-2"
-                  style={{ lineHeight: 1.4 }}
-                >
-                  Adapters rewrite requests and responses to fix provider-specific field-name
-                  incompatibilities. Applied to every model under this provider unless overridden
-                  per-model.
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                  {KNOWN_ADAPTERS.filter(
-                    (a) =>
-                      a.value !== 'model_override' &&
-                      a.value !== 'reasoning_rewrite' &&
-                      a.value !== 'web_search_coercion'
-                  ).map((a) => {
-                    const adapterEntries: any[] = editingProvider.adapter ?? [];
-                    const active = adapterEntries.some(
-                      (e: any) => (typeof e === 'string' ? e : e.name) === a.value
-                    );
-                    return (
-                      <label
-                        key={a.value}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '8px',
-                          cursor: 'pointer',
-                          padding: '4px 8px',
-                          borderRadius: 'var(--radius-sm)',
-                          border: '1px solid var(--border)',
-                          background: active ? 'var(--surface-elevated)' : 'var(--surface)',
+          {/* Provider Adapters — includes Web Search Coercion options */}
+          <SectionCard
+            size="sm"
+            title="Provider Adapters"
+            collapsible
+            open={isAdaptersOpen}
+            onOpenChange={setIsAdaptersOpen}
+            extra={
+              adapterEntriesForCount.length > 0 && (
+                <Badge status="neutral" noDot>
+                  {adapterEntriesForCount.length}
+                </Badge>
+              )
+            }
+          >
+            <div className="flex flex-col gap-2">
+              <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                Adapters rewrite requests and responses to fix provider-specific field-name
+                incompatibilities. Applied to every model under this provider unless overridden
+                per-model.
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {KNOWN_ADAPTERS.filter(
+                  (a) =>
+                    a.value !== 'model_override' &&
+                    a.value !== 'reasoning_rewrite' &&
+                    a.value !== 'web_search_coercion'
+                ).map((a) => {
+                  const adapterEntries: any[] = editingProvider.adapter ?? [];
+                  const active = adapterEntries.some(
+                    (e: any) => (typeof e === 'string' ? e : e.name) === a.value
+                  );
+                  return (
+                    <label
+                      key={a.value}
+                      className={cn(
+                        'flex cursor-pointer items-start gap-2 rounded-sm border border-border px-2 py-1.5',
+                        active ? 'bg-surface-elevated' : 'bg-surface'
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={active}
+                        className="mt-0.5 shrink-0"
+                        onChange={() => {
+                          const current: any[] = editingProvider.adapter ?? [];
+                          const next = active
+                            ? current.filter(
+                                (e: any) => (typeof e === 'string' ? e : e.name) !== a.value
+                              )
+                            : [...current, { name: a.value, options: {} }];
+                          setEditingProvider({ ...editingProvider, adapter: next });
                         }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={active}
-                          style={{ marginTop: '2px', flexShrink: 0 }}
-                          onChange={() => {
-                            const current: any[] = editingProvider.adapter ?? [];
-                            const next = active
-                              ? current.filter(
-                                  (e: any) => (typeof e === 'string' ? e : e.name) !== a.value
-                                )
-                              : [...current, { name: a.value, options: {} }];
-                            setEditingProvider({ ...editingProvider, adapter: next });
-                          }}
-                        />
-                        <div>
-                          <div className="font-sans text-[12px] font-medium text-foreground">
-                            {a.label}
-                          </div>
-                          <div
-                            className="font-sans text-[11px] text-foreground-muted"
-                            style={{ lineHeight: 1.35 }}
-                          >
-                            {a.description}
-                          </div>
+                      />
+                      <div>
+                        <div className="font-sans text-[12px] font-medium text-foreground">
+                          {a.label}
                         </div>
-                      </label>
-                    );
-                  })}
-                </div>
+                        <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                          {a.description}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
 
                 {/* Web Search Coercion — inline options editor */}
                 {(() => {
@@ -289,86 +857,49 @@ export function ProviderAdvancedEditor({
 
                   return (
                     <div
-                      style={{
-                        gridColumn: '1 / -1',
-                        padding: '4px 8px',
-                        borderRadius: 'var(--radius-sm)',
-                        border: '1px solid var(--border)',
-                        background: active ? 'var(--surface-elevated)' : 'var(--surface)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
-                      }}
+                      className={cn(
+                        'flex flex-col gap-2 rounded-sm border border-border px-2 py-1.5 sm:col-span-2',
+                        active ? 'bg-surface-elevated' : 'bg-surface'
+                      )}
                     >
-                      {/* Header row: checkbox + label */}
-                      <label
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '8px',
-                          cursor: 'pointer',
-                        }}
-                      >
+                      <label className="flex cursor-pointer items-start gap-2">
                         <input
                           type="checkbox"
                           checked={active}
-                          style={{ marginTop: '2px', flexShrink: 0 }}
+                          className="mt-0.5 shrink-0"
                           onChange={toggleActive}
                         />
                         <div>
                           <div className="font-sans text-[12px] font-medium text-foreground">
                             Web Search Coercion
                           </div>
-                          <div
-                            className="font-sans text-[11px] text-foreground-muted"
-                            style={{ lineHeight: 1.35 }}
-                          >
+                          <div className="font-sans text-[11px] leading-snug text-foreground-muted">
                             Coerces server-side web search tool entries to the format expected by
                             this provider.
                           </div>
                         </div>
                       </label>
 
-                      {/* Options — only shown when active */}
                       {active && (
-                        <div
-                          style={{
-                            display: 'flex',
-                            gap: '8px',
-                            alignItems: 'flex-end',
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          {/* Target dropdown */}
-                          <div className="flex flex-col gap-0.5" style={{ flex: '1 1 160px' }}>
-                            <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                              Target Format
-                            </label>
-                            <select
-                              className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
+                        <div className="flex flex-wrap items-end gap-2">
+                          <div className="flex-1 basis-40">
+                            <Select
+                              label="Target Format"
                               value={currentTarget}
-                              onChange={(e) => updateOptions({ target: e.target.value })}
-                            >
-                              <option value="">— select —</option>
-                              {WEB_SEARCH_TARGETS.map((t) => (
-                                <option key={t.value} value={t.value}>
-                                  {t.label}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(value) => updateOptions({ target: value })}
+                              options={WEB_SEARCH_TARGETS.map((t) => ({
+                                value: t.value,
+                                label: t.label,
+                              }))}
+                              placeholder="— select —"
+                            />
                           </div>
 
-                          {/* max_uses — only relevant for Anthropic */}
                           {currentTarget === 'anthropic' && (
-                            <div className="flex flex-col gap-0.5" style={{ flex: '0 1 110px' }}>
-                              <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                                Max Uses
-                                <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                                  optional
-                                </span>
-                              </label>
-                              <input
-                                className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
+                            <div className="flex-none basis-28">
+                              <Input
+                                label="Max Uses"
+                                hint="optional"
                                 type="number"
                                 min="1"
                                 step="1"
@@ -402,589 +933,310 @@ export function ProviderAdvancedEditor({
                   );
                 })()}
               </div>
-            )}
-          </div>
-
-          {/* Stall Detection Overrides — with Cooldown on Stall toggle in header */}
-          <div className="border border-border rounded-md overflow-hidden">
-            <div
-              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface"
-              onClick={() => setIsStallOpen(!isStallOpen)}
-            >
-              {isStallOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <label
-                className="font-sans text-[12px] font-medium text-foreground-muted"
-                style={{ marginBottom: 0, flex: 1 }}
-              >
-                Stall Detection Overrides
-              </label>
-              {/* Cooldown on Stall toggle — moved here from its own section */}
-              <div
-                className="flex items-center gap-1.5"
-                onClick={(e) => e.stopPropagation()}
-                title="When enabled, stall detection cancellations will trigger cooldown for this provider."
-              >
-                <Switch
-                  checked={editingProvider.stallCooldown || false}
-                  onChange={(checked) =>
-                    setEditingProvider({ ...editingProvider, stallCooldown: checked })
-                  }
-                />
-                <span className="font-sans text-[11px] text-foreground-muted whitespace-nowrap">
-                  Cooldown on Stall
-                </span>
-              </div>
-              {(editingProvider.stallTtfbMs != null ||
-                editingProvider.stallTtfbBytes != null ||
-                editingProvider.stallMinBps != null ||
-                editingProvider.stallWindowMs != null ||
-                editingProvider.stallGracePeriodMs != null) && (
-                <Pill tone="neutral" size="sm">
-                  Custom
-                </Pill>
-              )}
             </div>
-            {isStallOpen && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                  padding: '8px',
-                  borderTop: '1px solid var(--border)',
-                  background: 'var(--surface-sunken)',
-                }}
-              >
+          </SectionCard>
+
+          {/* Stall Detection Overrides — Cooldown on Stall toggle lives in the header */}
+          <SectionCard
+            size="sm"
+            title="Stall Detection Overrides"
+            collapsible
+            open={isStallOpen}
+            onOpenChange={setIsStallOpen}
+            extra={
+              <>
                 <div
-                  className="font-sans text-[11px] text-foreground-muted"
-                  style={{ lineHeight: 1.35 }}
+                  className="flex items-center gap-1.5"
+                  title="When enabled, stall detection cancellations will trigger cooldown for this provider."
                 >
-                  Override the global stall detection settings for this provider. Leave empty to use
-                  the global setting for each field.
+                  <Switch
+                    aria-label="Cooldown on Stall"
+                    checked={editingProvider.stallCooldown || false}
+                    onChange={(checked) =>
+                      setEditingProvider({ ...editingProvider, stallCooldown: checked })
+                    }
+                  />
+                  <span className="font-sans text-[11px] whitespace-nowrap text-foreground-muted">
+                    Cooldown on Stall
+                  </span>
                 </div>
-                {/* Stall inputs — two-column grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                  {/* TTFB Timeout */}
-                  <div>
-                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
-                      TTFB Timeout (s)
-                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                        5–120
-                      </span>
-                    </label>
-                    <DebouncedInput
-                      type="number"
-                      placeholder="Global default"
-                      value={
-                        editingProvider.stallTtfbMs != null
-                          ? String(Math.round(editingProvider.stallTtfbMs / 1000))
-                          : ''
-                      }
-                      onChange={(val: string) => {
-                        const num = Number(val);
-                        if (val === '') {
-                          setEditingProvider({ ...editingProvider, stallTtfbMs: undefined });
-                        } else if (Number.isFinite(num) && num >= 5 && num <= 120) {
-                          setEditingProvider({ ...editingProvider, stallTtfbMs: num * 1000 });
-                        }
-                      }}
-                    />
-                  </div>
-                  {/* TTFB Byte Threshold */}
-                  <div>
-                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
-                      TTFB Byte Threshold
-                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                        50–10k
-                      </span>
-                    </label>
-                    <DebouncedInput
-                      type="number"
-                      placeholder="Global default"
-                      value={
-                        editingProvider.stallTtfbBytes != null
-                          ? String(editingProvider.stallTtfbBytes)
-                          : ''
-                      }
-                      onChange={(val: string) => {
-                        const num = Number(val);
-                        if (val === '') {
-                          setEditingProvider({ ...editingProvider, stallTtfbBytes: undefined });
-                        } else if (Number.isFinite(num) && num >= 50 && num <= 10000) {
-                          setEditingProvider({ ...editingProvider, stallTtfbBytes: num });
-                        }
-                      }}
-                    />
-                  </div>
-                  {/* Min Bytes/Sec */}
-                  <div>
-                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
-                      Min Bytes/Sec
-                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                        50–5k
-                      </span>
-                    </label>
-                    <DebouncedInput
-                      type="number"
-                      placeholder="Global default"
-                      value={
-                        editingProvider.stallMinBps != null
-                          ? String(editingProvider.stallMinBps)
-                          : ''
-                      }
-                      onChange={(val: string) => {
-                        const num = Number(val);
-                        if (val === '') {
-                          setEditingProvider({ ...editingProvider, stallMinBps: undefined });
-                        } else if (Number.isFinite(num) && num >= 50 && num <= 5000) {
-                          setEditingProvider({ ...editingProvider, stallMinBps: num });
-                        }
-                      }}
-                    />
-                  </div>
-                  {/* Stall Window */}
-                  <div>
-                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
-                      Stall Window (s)
-                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                        3–30
-                      </span>
-                    </label>
-                    <DebouncedInput
-                      type="number"
-                      placeholder="Global default"
-                      value={
-                        editingProvider.stallWindowMs != null
-                          ? String(Math.round(editingProvider.stallWindowMs / 1000))
-                          : ''
-                      }
-                      onChange={(val: string) => {
-                        const num = Number(val);
-                        if (val === '') {
-                          setEditingProvider({ ...editingProvider, stallWindowMs: undefined });
-                        } else if (Number.isFinite(num) && num >= 3 && num <= 30) {
-                          setEditingProvider({ ...editingProvider, stallWindowMs: num * 1000 });
-                        }
-                      }}
-                    />
-                  </div>
-                  {/* Grace Period */}
-                  <div>
-                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
-                      Grace Period (s)
-                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                        0–120
-                      </span>
-                    </label>
-                    <DebouncedInput
-                      type="number"
-                      placeholder="Global default"
-                      value={
-                        editingProvider.stallGracePeriodMs != null
-                          ? String(Math.round(editingProvider.stallGracePeriodMs / 1000))
-                          : ''
-                      }
-                      onChange={(val: string) => {
-                        const num = Number(val);
-                        if (val === '') {
-                          setEditingProvider({
-                            ...editingProvider,
-                            stallGracePeriodMs: undefined,
-                          });
-                        } else if (Number.isFinite(num) && num >= 0 && num <= 120) {
-                          setEditingProvider({
-                            ...editingProvider,
-                            stallGracePeriodMs: num * 1000,
-                          });
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
+                {hasCustomStallOverride && (
+                  <Badge status="neutral" noDot>
+                    Custom
+                  </Badge>
+                )}
+              </>
+            }
+          >
+            <div className="flex flex-col gap-2">
+              <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                Override the global stall detection settings for this provider. Leave empty to use
+                the global setting for each field.
               </div>
-            )}
-          </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <DebouncedInput
+                  label="TTFB Byte Threshold"
+                  hint="50–10k"
+                  type="number"
+                  placeholder="Global default"
+                  value={
+                    editingProvider.stallTtfbBytes != null
+                      ? String(editingProvider.stallTtfbBytes)
+                      : ''
+                  }
+                  onChange={(val: string) => {
+                    const num = Number(val);
+                    if (val === '') {
+                      setEditingProvider({ ...editingProvider, stallTtfbBytes: undefined });
+                    } else if (Number.isFinite(num) && num >= 50 && num <= 10000) {
+                      setEditingProvider({ ...editingProvider, stallTtfbBytes: num });
+                    }
+                  }}
+                />
+                <DebouncedInput
+                  label="Min Bytes/Sec"
+                  hint="50–5k"
+                  type="number"
+                  placeholder="Global default"
+                  value={
+                    editingProvider.stallMinBps != null ? String(editingProvider.stallMinBps) : ''
+                  }
+                  onChange={(val: string) => {
+                    const num = Number(val);
+                    if (val === '') {
+                      setEditingProvider({ ...editingProvider, stallMinBps: undefined });
+                    } else if (Number.isFinite(num) && num >= 50 && num <= 5000) {
+                      setEditingProvider({ ...editingProvider, stallMinBps: num });
+                    }
+                  }}
+                />
+                <DebouncedInput
+                  label="Stall Window (s)"
+                  hint="3–30"
+                  type="number"
+                  placeholder="Global default"
+                  value={
+                    editingProvider.stallWindowMs != null
+                      ? String(Math.round(editingProvider.stallWindowMs / 1000))
+                      : ''
+                  }
+                  onChange={(val: string) => {
+                    const num = Number(val);
+                    if (val === '') {
+                      setEditingProvider({ ...editingProvider, stallWindowMs: undefined });
+                    } else if (Number.isFinite(num) && num >= 3 && num <= 30) {
+                      setEditingProvider({ ...editingProvider, stallWindowMs: num * 1000 });
+                    }
+                  }}
+                />
+                <DebouncedInput
+                  label="Grace Period (s)"
+                  hint="0–120"
+                  type="number"
+                  placeholder="Global default"
+                  value={
+                    editingProvider.stallGracePeriodMs != null
+                      ? String(Math.round(editingProvider.stallGracePeriodMs / 1000))
+                      : ''
+                  }
+                  onChange={(val: string) => {
+                    const num = Number(val);
+                    if (val === '') {
+                      setEditingProvider({
+                        ...editingProvider,
+                        stallGracePeriodMs: undefined,
+                      });
+                    } else if (Number.isFinite(num) && num >= 0 && num <= 120) {
+                      setEditingProvider({
+                        ...editingProvider,
+                        stallGracePeriodMs: num * 1000,
+                      });
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </SectionCard>
 
           {/* Compaction Override */}
-          <div className="border border-border rounded-md overflow-hidden">
-            <button
-              type="button"
-              className="w-full p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface border-0 text-left"
-              onClick={() => setIsCompactionOpen(!isCompactionOpen)}
-              aria-expanded={isCompactionOpen}
-            >
-              {isCompactionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <span
-                className="font-sans text-[12px] font-medium text-foreground-muted"
-                style={{ marginBottom: 0, flex: 1 }}
-              >
-                Compaction Override
-              </span>
-              {editingProvider.compaction &&
-                Object.values(editingProvider.compaction).some((v) => v != null) && (
-                  <Pill tone="neutral" size="sm">
-                    Custom
-                  </Pill>
-                )}
-            </button>
-            {isCompactionOpen && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                  padding: '8px',
-                  borderTop: '1px solid var(--border)',
-                  background: 'var(--surface-sunken)',
-                }}
-              >
-                <div
-                  className="font-sans text-[11px] text-foreground-muted"
-                  style={{ lineHeight: 1.35 }}
-                >
-                  Override global context-compaction for this provider. Empty = inherit. Nested
-                  native/headroom settings are configurable on the global Config page only (v1).
-                </div>
-                {/* enabled tri-state: Inherit | On | Off */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                    Enabled
-                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                      Inherit / On / Off
-                    </span>
-                  </label>
-                  <select
-                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                    value={
-                      editingProvider.compaction?.enabled == null
-                        ? ''
-                        : editingProvider.compaction.enabled
-                          ? 'true'
-                          : 'false'
-                    }
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      const enabled: boolean | undefined = raw === '' ? undefined : raw === 'true';
-                      setEditingProvider({
-                        ...editingProvider,
-                        compaction: {
-                          ...editingProvider.compaction,
-                          enabled,
-                        } as CompactionSettings,
-                      });
-                    }}
-                  >
-                    <option value="">Inherit</option>
-                    <option value="true">On</option>
-                    <option value="false">Off</option>
-                  </select>
-                </div>
-                {/* strategy */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                    Strategy
-                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                      native | headroom
-                    </span>
-                  </label>
-                  <select
-                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                    value={editingProvider.compaction?.strategy ?? ''}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      const strategy = (raw || undefined) as CompactionSettings['strategy'];
-                      setEditingProvider({
-                        ...editingProvider,
-                        compaction: {
-                          ...editingProvider.compaction,
-                          strategy,
-                        } as CompactionSettings,
-                      });
-                    }}
-                  >
-                    <option value="">Inherit</option>
-                    <option value="native">native</option>
-                    <option value="headroom">headroom</option>
-                  </select>
-                </div>
-                {/* numeric fields — two-column grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                  {/* triggerRatio */}
-                  <div>
-                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
-                      Trigger Ratio
-                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                        0–1
-                      </span>
-                    </label>
-                    <DebouncedInput
-                      type="number"
-                      placeholder="Inherit"
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      value={
-                        editingProvider.compaction?.triggerRatio != null
-                          ? String(editingProvider.compaction.triggerRatio)
-                          : ''
-                      }
-                      onChange={(val: string) => {
-                        const num = Number(val);
-                        const triggerRatio = val === '' || !Number.isFinite(num) ? undefined : num;
-                        setEditingProvider({
-                          ...editingProvider,
-                          compaction: {
-                            ...editingProvider.compaction,
-                            triggerRatio,
-                          } as CompactionSettings,
-                        });
-                      }}
-                    />
-                  </div>
-                  {/* absoluteTriggerTokens */}
-                  <div>
-                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
-                      Abs. Trigger Tokens
-                      <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                        optional
-                      </span>
-                    </label>
-                    <DebouncedInput
-                      type="number"
-                      placeholder="Inherit"
-                      min={0}
-                      step={1}
-                      value={
-                        editingProvider.compaction?.absoluteTriggerTokens != null
-                          ? String(editingProvider.compaction.absoluteTriggerTokens)
-                          : ''
-                      }
-                      onChange={(val: string) => {
-                        const num = Number(val);
-                        const absoluteTriggerTokens =
-                          val === '' || !Number.isFinite(num) ? undefined : num;
-                        setEditingProvider({
-                          ...editingProvider,
-                          compaction: {
-                            ...editingProvider.compaction,
-                            absoluteTriggerTokens,
-                          } as CompactionSettings,
-                        });
-                      }}
-                    />
-                  </div>
-                  {/* minTokens */}
-                  <div>
-                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
-                      Min Tokens
-                    </label>
-                    <DebouncedInput
-                      type="number"
-                      placeholder="Inherit"
-                      min={0}
-                      step={1}
-                      value={
-                        editingProvider.compaction?.minTokens != null
-                          ? String(editingProvider.compaction.minTokens)
-                          : ''
-                      }
-                      onChange={(val: string) => {
-                        const num = Number(val);
-                        const minTokens = val === '' || !Number.isFinite(num) ? undefined : num;
-                        setEditingProvider({
-                          ...editingProvider,
-                          compaction: {
-                            ...editingProvider.compaction,
-                            minTokens,
-                          } as CompactionSettings,
-                        });
-                      }}
-                    />
-                  </div>
-                  {/* protectRecent */}
-                  <div>
-                    <label className="font-sans text-[11px] font-medium text-foreground-muted block mb-1">
-                      Protect Recent
-                    </label>
-                    <DebouncedInput
-                      type="number"
-                      placeholder="Inherit"
-                      min={0}
-                      step={1}
-                      value={
-                        editingProvider.compaction?.protectRecent != null
-                          ? String(editingProvider.compaction.protectRecent)
-                          : ''
-                      }
-                      onChange={(val: string) => {
-                        const num = Number(val);
-                        const protectRecent = val === '' || !Number.isFinite(num) ? undefined : num;
-                        setEditingProvider({
-                          ...editingProvider,
-                          compaction: {
-                            ...editingProvider.compaction,
-                            protectRecent,
-                          } as CompactionSettings,
-                        });
-                      }}
-                    />
-                  </div>
-                </div>
+          <SectionCard
+            size="sm"
+            title="Compaction Override"
+            collapsible
+            open={isCompactionOpen}
+            onOpenChange={setIsCompactionOpen}
+            extra={
+              hasCustomCompaction && (
+                <Badge status="neutral" noDot>
+                  Custom
+                </Badge>
+              )
+            }
+          >
+            <div className="flex flex-col gap-2">
+              <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                Override global context-compaction for this provider. Empty = inherit. Nested
+                native/headroom settings are configurable on the global Config page only (v1).
               </div>
-            )}
-          </div>
-
-          {/* Custom Headers */}
-          <div className="border border-border rounded-md overflow-hidden">
-            <div
-              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface"
-              onClick={() => setIsHeadersOpen(!isHeadersOpen)}
-            >
-              {isHeadersOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <label
-                className="font-sans text-[12px] font-medium text-foreground-muted"
-                style={{ marginBottom: 0, flex: 1 }}
-              >
-                Custom Headers
-              </label>
-              <Pill tone="neutral" size="sm">
-                {Object.keys(editingProvider.headers || {}).length}
-              </Pill>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addKV('headers');
-                  setIsHeadersOpen(true);
-                }}
-              >
-                <Plus size={14} />
-              </Button>
+              <div className="flex flex-col gap-1">
+                <Select
+                  label="Enabled"
+                  value={
+                    editingProvider.compaction?.enabled == null
+                      ? ''
+                      : editingProvider.compaction.enabled
+                        ? 'true'
+                        : 'false'
+                  }
+                  onChange={(value) => {
+                    const enabled: boolean | undefined =
+                      value === '' ? undefined : value === 'true';
+                    setEditingProvider({
+                      ...editingProvider,
+                      compaction: {
+                        ...editingProvider.compaction,
+                        enabled,
+                      } as CompactionSettings,
+                    });
+                  }}
+                  options={[
+                    { value: '', label: 'Inherit' },
+                    { value: 'true', label: 'On' },
+                    { value: 'false', label: 'Off' },
+                  ]}
+                />
+                <span className="text-xs text-foreground-subtle">Inherit / On / Off</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Select
+                  label="Strategy"
+                  value={editingProvider.compaction?.strategy ?? ''}
+                  onChange={(value) => {
+                    const strategy = (value || undefined) as CompactionSettings['strategy'];
+                    setEditingProvider({
+                      ...editingProvider,
+                      compaction: {
+                        ...editingProvider.compaction,
+                        strategy,
+                      } as CompactionSettings,
+                    });
+                  }}
+                  options={[
+                    { value: '', label: 'Inherit' },
+                    { value: 'native', label: 'native' },
+                    { value: 'headroom', label: 'headroom' },
+                  ]}
+                />
+                <span className="text-xs text-foreground-subtle">native | headroom</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <DebouncedInput
+                  label="Trigger Ratio"
+                  hint="0–1"
+                  type="number"
+                  placeholder="Inherit"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={
+                    editingProvider.compaction?.triggerRatio != null
+                      ? String(editingProvider.compaction.triggerRatio)
+                      : ''
+                  }
+                  onChange={(val: string) => {
+                    const num = Number(val);
+                    const triggerRatio = val === '' || !Number.isFinite(num) ? undefined : num;
+                    setEditingProvider({
+                      ...editingProvider,
+                      compaction: {
+                        ...editingProvider.compaction,
+                        triggerRatio,
+                      } as CompactionSettings,
+                    });
+                  }}
+                />
+                <DebouncedInput
+                  label="Abs. Trigger Tokens"
+                  hint="optional"
+                  type="number"
+                  placeholder="Inherit"
+                  min={0}
+                  step={1}
+                  value={
+                    editingProvider.compaction?.absoluteTriggerTokens != null
+                      ? String(editingProvider.compaction.absoluteTriggerTokens)
+                      : ''
+                  }
+                  onChange={(val: string) => {
+                    const num = Number(val);
+                    const absoluteTriggerTokens =
+                      val === '' || !Number.isFinite(num) ? undefined : num;
+                    setEditingProvider({
+                      ...editingProvider,
+                      compaction: {
+                        ...editingProvider.compaction,
+                        absoluteTriggerTokens,
+                      } as CompactionSettings,
+                    });
+                  }}
+                />
+                <DebouncedInput
+                  label="Min Tokens"
+                  type="number"
+                  placeholder="Inherit"
+                  min={0}
+                  step={1}
+                  value={
+                    editingProvider.compaction?.minTokens != null
+                      ? String(editingProvider.compaction.minTokens)
+                      : ''
+                  }
+                  onChange={(val: string) => {
+                    const num = Number(val);
+                    const minTokens = val === '' || !Number.isFinite(num) ? undefined : num;
+                    setEditingProvider({
+                      ...editingProvider,
+                      compaction: {
+                        ...editingProvider.compaction,
+                        minTokens,
+                      } as CompactionSettings,
+                    });
+                  }}
+                />
+                <DebouncedInput
+                  label="Protect Recent"
+                  type="number"
+                  placeholder="Inherit"
+                  min={0}
+                  step={1}
+                  value={
+                    editingProvider.compaction?.protectRecent != null
+                      ? String(editingProvider.compaction.protectRecent)
+                      : ''
+                  }
+                  onChange={(val: string) => {
+                    const num = Number(val);
+                    const protectRecent = val === '' || !Number.isFinite(num) ? undefined : num;
+                    setEditingProvider({
+                      ...editingProvider,
+                      compaction: {
+                        ...editingProvider.compaction,
+                        protectRecent,
+                      } as CompactionSettings,
+                    });
+                  }}
+                />
+              </div>
             </div>
-            {isHeadersOpen && (
-              <div className="flex flex-col gap-1 p-2 border-t border-border bg-background">
-                {Object.entries(editingProvider.headers || {}).length === 0 && (
-                  <div className="font-sans text-[11px] text-foreground-muted italic">
-                    No custom headers configured.
-                  </div>
-                )}
-                {Object.entries(editingProvider.headers || {}).map(([key, val], idx) => (
-                  <div key={idx} className="flex flex-col gap-1.5 sm:flex-row">
-                    <div className="min-w-0 flex-1">
-                      <DebouncedInput
-                        placeholder="Header Name"
-                        value={key}
-                        onChange={(newKey: string) => updateKV('headers', key, newKey, val)}
-                        style={{ flex: 1 }}
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <DebouncedInput
-                        placeholder="Value"
-                        value={typeof val === 'object' ? JSON.stringify(val) : val}
-                        onChange={(val: string) => {
-                          try {
-                            updateKV('headers', key, key, JSON.parse(val));
-                          } catch {
-                            updateKV('headers', key, key, val);
-                          }
-                        }}
-                        style={{ flex: 1 }}
-                      />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeKV('headers', key)}
-                      style={{ padding: '4px' }}
-                      className="self-end sm:self-auto shrink-0"
-                    >
-                      <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          </SectionCard>
 
-          {/* Extra Body Fields */}
-          <div className="border border-border rounded-md overflow-hidden">
-            <div
-              className="p-2 px-3 flex items-center gap-2 cursor-pointer bg-surface-elevated hover:bg-surface"
-              onClick={() => setIsExtraBodyOpen(!isExtraBodyOpen)}
-            >
-              {isExtraBodyOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <label
-                className="font-sans text-[12px] font-medium text-foreground-muted"
-                style={{ marginBottom: 0, flex: 1 }}
-              >
-                Extra Body Fields
-              </label>
-              <Pill tone="neutral" size="sm">
-                {Object.keys(editingProvider.extraBody || {}).length}
-              </Pill>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addKV('extraBody');
-                  setIsExtraBodyOpen(true);
-                }}
-              >
-                <Plus size={14} />
-              </Button>
-            </div>
-            {isExtraBodyOpen && (
-              <div className="flex flex-col gap-1 p-2 border-t border-border bg-background">
-                {Object.entries(editingProvider.extraBody || {}).length === 0 && (
-                  <div className="font-sans text-[11px] text-foreground-muted italic">
-                    No extra body fields configured.
-                  </div>
-                )}
-                {Object.entries(editingProvider.extraBody || {}).map(([key, val], idx) => (
-                  <div key={idx} className="flex flex-col gap-1.5 sm:flex-row">
-                    <div className="min-w-0 flex-1">
-                      <DebouncedInput
-                        placeholder="Field Name"
-                        value={key}
-                        onChange={(newKey: string) => updateKV('extraBody', key, newKey, val)}
-                        style={{ flex: 1 }}
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <DebouncedInput
-                        placeholder="Value"
-                        value={typeof val === 'object' ? JSON.stringify(val) : val}
-                        onChange={(val: string) => {
-                          try {
-                            updateKV('extraBody', key, key, JSON.parse(val));
-                          } catch {
-                            updateKV('extraBody', key, key, val);
-                          }
-                        }}
-                        style={{ flex: 1 }}
-                      />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeKV('extraBody', key)}
-                      style={{ padding: '4px' }}
-                      className="self-end sm:self-auto shrink-0"
-                    >
-                      <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="flex items-start gap-2 py-1 cursor-pointer">
+          {/* Raw Passthrough */}
+          <SectionCard
+            size="sm"
+            title="Raw Passthrough"
+            extra={
               <Switch
+                aria-label="Enable Raw Passthrough"
                 checked={editingProvider.rawPassthrough?.enabled === true}
                 onChange={(enabled) =>
                   setEditingProvider({
@@ -997,437 +1249,51 @@ export function ProviderAdvancedEditor({
                   })
                 }
               />
-              <div>
-                <div className="font-body text-[12px] text-text">Enable Raw Passthrough</div>
-                <div className="font-body text-[11px] text-text-muted" style={{ lineHeight: 1.35 }}>
-                  Exposes this provider at <code>/raw/{editingProvider.id || 'provider'}/*</code> to
-                  explicitly authorized keys. Requests bypass routing and all transformations.
-                </div>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <div className="font-sans text-[11px] leading-snug text-foreground-subtle">
+                Exposes this provider at{' '}
+                <code className="font-mono">/raw/{editingProvider.id || 'provider'}/*</code> to
+                explicitly authorized keys. Requests bypass routing and all transformations.
               </div>
-            </label>
-            {editingProvider.rawPassthrough?.enabled && (
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-3 pl-6">
-                <DebouncedInput
-                  label="Raw Upstream Base URL"
-                  value={editingProvider.rawPassthrough.baseUrl}
-                  placeholder="https://openrouter.ai/api"
-                  onChange={(baseUrl) =>
-                    setEditingProvider({
-                      ...editingProvider,
-                      rawPassthrough: { ...editingProvider.rawPassthrough!, baseUrl },
-                    })
-                  }
-                />
-                <div className="flex flex-col gap-1">
-                  <label className="font-body text-[11px] font-medium text-text-secondary">
-                    Provider Authentication
-                  </label>
-                  <select
-                    className="w-full py-2 px-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+              {editingProvider.rawPassthrough?.enabled && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px]">
+                  <DebouncedInput
+                    label="Raw Upstream Base URL"
+                    value={editingProvider.rawPassthrough.baseUrl}
+                    placeholder="https://openrouter.ai/api"
+                    onChange={(baseUrl) =>
+                      setEditingProvider({
+                        ...editingProvider,
+                        rawPassthrough: { ...editingProvider.rawPassthrough!, baseUrl },
+                      })
+                    }
+                  />
+                  <Select
+                    label="Provider Authentication"
                     value={editingProvider.rawPassthrough.auth}
-                    onChange={(e) =>
+                    onChange={(value) =>
                       setEditingProvider({
                         ...editingProvider,
                         rawPassthrough: {
                           ...editingProvider.rawPassthrough!,
-                          auth: e.target.value as 'bearer' | 'x-api-key' | 'x-goog-api-key',
+                          auth: value as 'bearer' | 'x-api-key' | 'x-goog-api-key',
                         },
                       })
                     }
-                  >
-                    <option value="bearer">Authorization: Bearer</option>
-                    <option value="x-api-key">x-api-key</option>
-                    <option value="x-goog-api-key">x-goog-api-key</option>
-                  </select>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Compact settings card — toggles left, value inputs right */}
-          <div className="border border-border rounded-md p-2 bg-surface-sunken">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-              {/* Left: toggles */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <label className="flex items-start gap-2 py-1 cursor-pointer">
-                  <Switch
-                    checked={editingProvider.estimateTokens || false}
-                    onChange={(checked) =>
-                      setEditingProvider({ ...editingProvider, estimateTokens: checked })
-                    }
-                  />
-                  <div>
-                    <div className="font-sans text-[12px] text-foreground">Estimate Tokens</div>
-                    <div
-                      className="font-sans text-[11px] text-foreground-subtle"
-                      style={{ lineHeight: 1.35 }}
-                    >
-                      Only when provider doesn't return usage data. Use sparingly.
-                    </div>
-                  </div>
-                </label>
-                <label className="flex items-start gap-2 py-1 cursor-pointer">
-                  <Switch
-                    checked={editingProvider.disableCooldown || false}
-                    onChange={(checked) =>
-                      setEditingProvider({ ...editingProvider, disableCooldown: checked })
-                    }
-                  />
-                  <div>
-                    <div className="font-sans text-[12px] text-foreground">Disable Cooldowns</div>
-                    <div
-                      className="font-sans text-[11px] text-foreground-subtle"
-                      style={{ lineHeight: 1.35 }}
-                    >
-                      Provider will never be placed on cooldown.
-                    </div>
-                  </div>
-                </label>
-                <label className="flex items-start gap-2 py-1 cursor-pointer">
-                  <Switch
-                    checked={editingProvider.useClaudeMasking || false}
-                    onChange={(checked) =>
-                      setEditingProvider({ ...editingProvider, useClaudeMasking: checked })
-                    }
-                  />
-                  <div>
-                    <div className="font-sans text-[12px] text-foreground">Use Claude Masking</div>
-                    <div
-                      className="font-sans text-[11px] text-foreground-subtle"
-                      style={{ lineHeight: 1.35 }}
-                    >
-                      Mask requests as Claude Code CLI sessions. Anthropic only.
-                    </div>
-                  </div>
-                </label>
-                <label className="flex items-start gap-2 py-1 cursor-pointer">
-                  <Switch
-                    checked={editingProvider.auto_compat || false}
-                    onChange={(checked) =>
-                      setEditingProvider({ ...editingProvider, auto_compat: checked })
-                    }
-                  />
-                  <div>
-                    <div className="font-body text-[12px] text-text">Auto Compat</div>
-                    <div
-                      className="font-body text-[11px] text-text-muted"
-                      style={{ lineHeight: 1.35 }}
-                    >
-                      Use pi-ai registry reasoning and generation compatibility.
-                    </div>
-                  </div>
-                </label>
-              </div>
-
-              {/* Right: inputs */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                  justifyContent: 'center',
-                }}
-              >
-                {/* GPU Profile */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                    GPU Profile
-                  </label>
-                  <select
-                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                    value={editingProvider.gpu_profile || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (!value) {
-                        const resolved = resolveGpuParams('B200');
-                        setEditingProvider({
-                          ...editingProvider,
-                          gpu_profile: undefined,
-                          gpu_ram_gb: resolved.ram_gb,
-                          gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                          gpu_flops_tflop: resolved.flops_tflop,
-                          gpu_power_draw_watts: resolved.power_draw_watts,
-                        });
-                      } else if (value === 'custom') {
-                        const resolved = resolveGpuParams('custom', {
-                          ram_gb: editingProvider.gpu_ram_gb,
-                          bandwidth_tb_s: editingProvider.gpu_bandwidth_tb_s,
-                          flops_tflop: editingProvider.gpu_flops_tflop,
-                          power_draw_watts: editingProvider.gpu_power_draw_watts,
-                        });
-                        setEditingProvider({
-                          ...editingProvider,
-                          gpu_profile: 'custom',
-                          gpu_ram_gb: resolved.ram_gb,
-                          gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                          gpu_flops_tflop: resolved.flops_tflop,
-                          gpu_power_draw_watts: resolved.power_draw_watts,
-                        });
-                      } else {
-                        const resolved = resolveGpuParams(value);
-                        setEditingProvider({
-                          ...editingProvider,
-                          gpu_profile: value,
-                          gpu_ram_gb: resolved.ram_gb,
-                          gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                          gpu_flops_tflop: resolved.flops_tflop,
-                          gpu_power_draw_watts: resolved.power_draw_watts,
-                        });
-                      }
-                    }}
-                  >
-                    <option value="">Default (B200)</option>
-                    {GPU_PROFILE_OPTIONS.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {/* Discount */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                    Discount
-                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                      e.g. 10 → pays 90%
-                    </span>
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      className="w-full py-1 pl-2 pr-5 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                      type="number"
-                      step="1"
-                      min="0"
-                      max="100"
-                      value={Math.round((editingProvider.discount ?? 0) * 100)}
-                      onChange={(e) => {
-                        const clamped = Math.min(100, Math.max(0, Number(e.target.value || '0')));
-                        setEditingProvider({ ...editingProvider, discount: clamped / 100 });
-                      }}
-                    />
-                    <span
-                      className="font-sans text-[11px] text-foreground-subtle"
-                      style={{
-                        position: 'absolute',
-                        right: '6px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        pointerEvents: 'none',
-                      }}
-                    >
-                      %
-                    </span>
-                  </div>
-                </div>
-                {/* Upstream Timeout */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                    Timeout
-                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                      1–3600s
-                    </span>
-                  </label>
-                  <input
-                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                    type="number"
-                    step="1"
-                    min="1"
-                    max="3600"
-                    placeholder="Global default"
-                    value={
-                      editingProvider.timeoutMs != null
-                        ? Math.round(editingProvider.timeoutMs / 1000)
-                        : ''
-                    }
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      if (raw === '') {
-                        setEditingProvider({ ...editingProvider, timeoutMs: undefined });
-                      } else {
-                        const seconds = Number(raw);
-                        if (Number.isFinite(seconds) && seconds >= 1 && seconds <= 3600) {
-                          setEditingProvider({ ...editingProvider, timeoutMs: seconds * 1000 });
-                        }
-                      }
-                    }}
+                    options={[
+                      { value: 'bearer', label: 'Authorization: Bearer' },
+                      { value: 'x-api-key', label: 'x-api-key' },
+                      { value: 'x-goog-api-key', label: 'x-goog-api-key' },
+                    ]}
                   />
                 </div>
-                {/* Max Concurrency */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                    Max Concurrency
-                    <span className="font-normal text-[10px] text-foreground-subtle ml-1">
-                      across all models
-                    </span>
-                  </label>
-                  <input
-                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                    type="number"
-                    step="1"
-                    min="1"
-                    placeholder="No limit"
-                    value={
-                      editingProvider.maxConcurrency != null ? editingProvider.maxConcurrency : ''
-                    }
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      if (raw === '') {
-                        setEditingProvider({ ...editingProvider, maxConcurrency: undefined });
-                      } else {
-                        const val = Number(raw);
-                        if (Number.isFinite(val) && val >= 1) {
-                          setEditingProvider({ ...editingProvider, maxConcurrency: val });
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                {/* pi-ai Provider */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                    pi-ai Provider
-                  </label>
-                  {!piProviderCustom ? (
-                    <select
-                      className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                      value={editingProvider.pi_ai_provider ?? ''}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        if (raw === '__custom__') {
-                          setPiProviderCustom(true);
-                          return;
-                        }
-                        setEditingProvider({
-                          ...editingProvider,
-                          pi_ai_provider: raw || undefined,
-                        });
-                      }}
-                    >
-                      <option value="">— none —</option>
-                      {piProviders.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                      <option value="__custom__">custom...</option>
-                    </select>
-                  ) : (
-                    <div className="flex gap-1">
-                      <input
-                        className="flex-1 py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                        type="text"
-                        placeholder="e.g. anthropic, openai"
-                        value={editingProvider.pi_ai_provider ?? ''}
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          setEditingProvider({
-                            ...editingProvider,
-                            pi_ai_provider: raw || undefined,
-                          });
-                        }}
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        className="font-sans text-[11px] text-foreground-subtle hover:text-foreground px-1"
-                        title="Back to list"
-                        onClick={() => setPiProviderCustom(false)}
-                      >
-                        ↩
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
-          </div>
-
-          {/* Custom GPU fields — only when gpu_profile === 'custom' */}
-          {editingProvider.gpu_profile === 'custom' && (
-            <div
-              className="border border-border rounded-md p-2 bg-surface-sunken"
-              style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}
-            >
-              <div className="flex flex-col gap-0.5">
-                <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                  RAM (GB)
-                </label>
-                <input
-                  className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                  type="number"
-                  step="1"
-                  min="1"
-                  placeholder="e.g. 80"
-                  value={editingProvider.gpu_ram_gb || ''}
-                  onChange={(e) =>
-                    setEditingProvider({
-                      ...editingProvider,
-                      gpu_ram_gb: parseFloat(e.target.value) || undefined,
-                    })
-                  }
-                />
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                  Bandwidth (TB/s)
-                </label>
-                <input
-                  className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                  type="number"
-                  step="0.1"
-                  min="0.1"
-                  placeholder="e.g. 3.35"
-                  value={editingProvider.gpu_bandwidth_tb_s || ''}
-                  onChange={(e) =>
-                    setEditingProvider({
-                      ...editingProvider,
-                      gpu_bandwidth_tb_s: parseFloat(e.target.value) || undefined,
-                    })
-                  }
-                />
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                  FLOPS (TFLOPs)
-                </label>
-                <input
-                  className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                  type="number"
-                  step="100"
-                  min="1"
-                  placeholder="e.g. 4000"
-                  value={editingProvider.gpu_flops_tflop || ''}
-                  onChange={(e) =>
-                    setEditingProvider({
-                      ...editingProvider,
-                      gpu_flops_tflop: parseFloat(e.target.value) || undefined,
-                    })
-                  }
-                />
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <label className="font-sans text-[11px] font-medium text-foreground-muted">
-                  Power (Watts)
-                </label>
-                <input
-                  className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                  type="number"
-                  step="10"
-                  min="1"
-                  placeholder="e.g. 700"
-                  value={editingProvider.gpu_power_draw_watts || ''}
-                  onChange={(e) =>
-                    setEditingProvider({
-                      ...editingProvider,
-                      gpu_power_draw_watts: parseInt(e.target.value, 10) || undefined,
-                    })
-                  }
-                />
-              </div>
-            </div>
-          )}
+          </SectionCard>
         </div>
-      )}
-    </div>
+      </div>
+    </SectionCard>
   );
 }

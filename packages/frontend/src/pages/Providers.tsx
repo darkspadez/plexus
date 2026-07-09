@@ -65,6 +65,48 @@ export const Providers = () => {
             </>
           }
         >
+          <div className="sticky top-0 z-10 -mt-5 -mx-5 mb-3 px-5 py-2 bg-surface-elevated/95 backdrop-blur border-b border-border flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                document
+                  .getElementById('section-connection')
+                  ?.scrollIntoView({ behavior: 'smooth' })
+              }
+            >
+              Connection
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                document.getElementById('section-quota')?.scrollIntoView({ behavior: 'smooth' })
+              }
+            >
+              Quota
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                f.setIsAdvancedOpen(true);
+                document.getElementById('section-advanced')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
+              Advanced
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                f.setIsModelsOpen(true);
+                document.getElementById('section-models')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
+              Models
+            </Button>
+          </div>
           <div className="flex flex-col gap-2.5 -mt-2">
             {/* Basic fields */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_auto] xl:items-end">
@@ -114,15 +156,35 @@ export const Providers = () => {
               {/* Left: APIs & Base URLs */}
               <ProviderApiUrlsEditor
                 isOAuthMode={f.isOAuthMode}
-                getApiBaseUrlMap={f.getApiBaseUrlMap}
-                addApiBaseUrlEntry={f.addApiBaseUrlEntry}
-                updateApiBaseUrlEntry={f.updateApiBaseUrlEntry}
-                removeApiBaseUrlEntry={f.removeApiBaseUrlEntry}
+                getPrimaryEntry={f.getPrimaryEntry}
+                setPrimaryEntry={f.setPrimaryEntry}
                 editingProvider={f.editingProvider}
                 setEditingProvider={f.setEditingProvider}
                 OAUTH_PROVIDERS={f.OAUTH_PROVIDERS}
-                isApiBaseUrlsOpen={f.isApiBaseUrlsOpen}
-                setIsApiBaseUrlsOpen={f.setIsApiBaseUrlsOpen}
+                oauthSlot={
+                  f.isOAuthMode && (
+                    <ProviderOAuthEditor
+                      editingProvider={f.editingProvider}
+                      oauthSession={f.oauthSession}
+                      oauthSessionId={f.oauthSessionId}
+                      oauthPromptValue={f.oauthPromptValue}
+                      setOauthPromptValue={f.setOauthPromptValue}
+                      oauthManualCode={f.oauthManualCode}
+                      setOauthManualCode={f.setOauthManualCode}
+                      oauthError={f.oauthError}
+                      oauthBusy={f.oauthBusy}
+                      oauthCredentialReady={f.oauthCredentialReady}
+                      oauthCredentialChecking={f.oauthCredentialChecking}
+                      oauthStatus={f.oauthStatus}
+                      oauthIsTerminal={f.oauthIsTerminal}
+                      oauthStatusLabel={f.oauthStatusLabel}
+                      onStart={f.handleStartOAuth}
+                      onSubmitPrompt={f.handleSubmitPrompt}
+                      onSubmitManualCode={f.handleSubmitManualCode}
+                      onCancel={f.handleCancelOAuth}
+                    />
+                  )
+                }
               />
 
               {/* Right: Quota Checker */}
@@ -137,30 +199,6 @@ export const Providers = () => {
               />
             </div>
 
-            {/* OAuth Authentication (shown inside API URLs editor when OAuth mode) */}
-            {f.isOAuthMode && (
-              <ProviderOAuthEditor
-                editingProvider={f.editingProvider}
-                oauthSession={f.oauthSession}
-                oauthSessionId={f.oauthSessionId}
-                oauthPromptValue={f.oauthPromptValue}
-                setOauthPromptValue={f.setOauthPromptValue}
-                oauthManualCode={f.oauthManualCode}
-                setOauthManualCode={f.setOauthManualCode}
-                oauthError={f.oauthError}
-                oauthBusy={f.oauthBusy}
-                oauthCredentialReady={f.oauthCredentialReady}
-                oauthCredentialChecking={f.oauthCredentialChecking}
-                oauthStatus={f.oauthStatus}
-                oauthIsTerminal={f.oauthIsTerminal}
-                oauthStatusLabel={f.oauthStatusLabel}
-                onStart={f.handleStartOAuth}
-                onSubmitPrompt={f.handleSubmitPrompt}
-                onSubmitManualCode={f.handleSubmitManualCode}
-                onCancel={f.handleCancelOAuth}
-              />
-            )}
-
             {/* Advanced */}
             <ProviderAdvancedEditor
               editingProvider={f.editingProvider}
@@ -168,6 +206,15 @@ export const Providers = () => {
               addKV={f.addKV}
               updateKV={f.updateKV}
               removeKV={f.removeKV}
+              isAdvancedOpen={f.isAdvancedOpen}
+              setIsAdvancedOpen={f.setIsAdvancedOpen}
+              isApiBaseUrlsOpen={f.isApiBaseUrlsOpen}
+              setIsApiBaseUrlsOpen={f.setIsApiBaseUrlsOpen}
+              isOAuthMode={f.isOAuthMode}
+              getApiBaseUrlMap={f.getApiBaseUrlMap}
+              addAdditionalBaseUrlEntry={f.addAdditionalBaseUrlEntry}
+              updateApiBaseUrlEntry={f.updateApiBaseUrlEntry}
+              removeApiBaseUrlEntry={f.removeApiBaseUrlEntry}
             />
 
             {/* Models */}

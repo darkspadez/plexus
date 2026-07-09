@@ -1,4 +1,8 @@
 import { Provider } from '../../lib/api';
+import { Badge } from '../ui/Badge';
+import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
+import { SectionCard } from '../ui/SectionCard';
 import { NagaQuotaConfig } from '../quota/NagaQuotaConfig';
 import { SyntheticQuotaConfig } from '../quota/SyntheticQuotaConfig';
 import { NanoGPTQuotaConfig } from '../quota/NanoGPTQuotaConfig';
@@ -123,33 +127,31 @@ export function ProviderQuotaEditor({
     ? QUOTA_CONFIG_MAP[selectedQuotaCheckerType]
     : null;
 
+  const quotaTypeOptions = [
+    { value: '', label: '<none>' },
+    ...selectableQuotaCheckerTypes.map((type) => ({ value: type, label: type })),
+  ];
+
   return (
-    <div className="flex flex-col gap-1 border border-border rounded-md p-3 bg-surface-sunken">
-      <label className="font-sans text-[13px] font-medium text-foreground-muted">
-        Quota Checker
-      </label>
-      <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_120px] sm:items-end">
-        <div className="flex flex-col gap-1">
-          <label className="font-sans text-[11px] font-medium text-foreground-muted">Type</label>
-          <select
-            className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
+    <SectionCard
+      title="Quota Checker"
+      id="section-quota"
+      extra={
+        <Badge status={selectedQuotaCheckerType ? 'success' : 'neutral'}>
+          {selectedQuotaCheckerType ? 'Active' : 'Disabled'}
+        </Badge>
+      }
+    >
+      <div className="flex flex-col gap-1">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_120px] sm:items-end">
+          <Select
+            label="Type"
             value={selectedQuotaCheckerType}
-            onChange={(e) => setQuotaType(e.target.value)}
-          >
-            <option value="">&lt;none&gt;</option>
-            {selectableQuotaCheckerTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="font-sans text-[11px] font-medium text-foreground-muted">
-            Interval (min)
-          </label>
-          <input
-            className="w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
+            onChange={(value) => setQuotaType(value)}
+            options={quotaTypeOptions}
+          />
+          <Input
+            label="Interval (min)"
             type="number"
             min={1}
             step={1}
@@ -158,38 +160,31 @@ export function ProviderQuotaEditor({
             onChange={(e) => setQuotaInterval(Math.max(1, parseInt(e.target.value, 10) || 30))}
           />
         </div>
-      </div>
-      <div
-        style={{
-          fontSize: '11px',
-          color: 'var(--foreground-muted)',
-          marginTop: '4px',
-          fontStyle: 'italic',
-        }}
-      >
-        {isOAuthMode && oauthCheckerType
-          ? `Only the '${oauthCheckerType}' checker is available for this OAuth provider.`
-          : isOAuthMode
-            ? 'No quota checker is available for this OAuth provider type.'
-            : selectedQuotaCheckerType
-              ? 'Quota checker is active for this provider.'
-              : 'Select <none> to disable provider quota checks.'}
-      </div>
-
-      {QuotaConfigComponent && (
-        <div className="mt-3 p-3 border border-border rounded-md bg-surface-sunken">
-          <QuotaConfigComponent
-            options={editingProvider.quotaChecker?.options || {}}
-            onChange={setQuotaOptions}
-          />
+        <div className="mt-1 font-sans text-[11px] italic text-foreground-muted">
+          {isOAuthMode && oauthCheckerType
+            ? `Only the '${oauthCheckerType}' checker is available for this OAuth provider.`
+            : isOAuthMode
+              ? 'No quota checker is available for this OAuth provider type.'
+              : selectedQuotaCheckerType
+                ? 'Quota checker is active for this provider.'
+                : 'Select <none> to disable provider quota checks.'}
         </div>
-      )}
 
-      {quotaValidationError && (
-        <div className="mt-2 text-xs text-danger bg-danger/10 border border-danger/20 rounded px-3 py-2">
-          {quotaValidationError}
-        </div>
-      )}
-    </div>
+        {QuotaConfigComponent && (
+          <div className="mt-3 rounded-md border border-border bg-surface-sunken p-3">
+            <QuotaConfigComponent
+              options={editingProvider.quotaChecker?.options || {}}
+              onChange={setQuotaOptions}
+            />
+          </div>
+        )}
+
+        {quotaValidationError && (
+          <div className="mt-2 rounded-md border border-danger/30 bg-danger-subtle px-3 py-2 text-xs text-danger">
+            {quotaValidationError}
+          </div>
+        )}
+      </div>
+    </SectionCard>
   );
 }
