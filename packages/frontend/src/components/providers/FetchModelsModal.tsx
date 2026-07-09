@@ -3,6 +3,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Pill } from '../chips/Pill';
 import { Download } from 'lucide-react';
+import { cn } from '../../lib/cn';
 import type { FetchedModel } from '../../hooks/useProviderForm';
 
 interface Props {
@@ -45,7 +46,7 @@ export function FetchModelsModal({
       title="Fetch Models from Provider"
       size="md"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+        <div className="flex justify-end gap-3">
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -55,7 +56,7 @@ export function FetchModelsModal({
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1">
             <Input
@@ -80,26 +81,17 @@ export function FetchModelsModal({
           </Button>
         </div>
         {fetchError && (
-          <div
-            style={{
-              padding: '12px',
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--color-danger)',
-              fontSize: '13px',
-            }}
-          >
+          <div className="rounded-sm border border-danger/30 bg-danger/10 p-3 text-[13px] text-danger">
             {fetchError}
           </div>
         )}
         {fetchedModels.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
               <label className="font-sans text-[13px] font-medium text-foreground-muted">
                 Available Models ({fetchedModels.length})
               </label>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="flex gap-2">
                 <Button size="sm" variant="ghost" onClick={onSelectAll}>
                   Select All
                 </Button>
@@ -108,15 +100,7 @@ export function FetchModelsModal({
                 </Button>
               </div>
             </div>
-            <div
-              style={{
-                maxHeight: '400px',
-                overflowY: 'auto',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--background)',
-              }}
-            >
+            <div className="max-h-[400px] overflow-y-auto rounded-sm border border-border bg-background">
               {fetchedModels.map((model) => {
                 const contextLengthK = model.context_length
                   ? `${(model.context_length / 1000).toFixed(0)}K`
@@ -124,42 +108,23 @@ export function FetchModelsModal({
                 return (
                   <div
                     key={model.id}
-                    style={{
-                      padding: '12px',
-                      borderBottom: '1px solid var(--border)',
-                      cursor: 'pointer',
-                      background: selectedModelIds.has(model.id)
-                        ? 'var(--surface-elevated)'
-                        : 'transparent',
-                      transition: 'background 0.2s',
-                    }}
                     onClick={() => onToggleSelection(model.id)}
-                    className="hover:bg-surface-elevated"
+                    className={cn(
+                      'cursor-pointer border-b border-border p-3 transition-colors duration-150 hover:bg-surface-elevated',
+                      selectedModelIds.has(model.id) ? 'bg-surface-elevated' : 'bg-transparent'
+                    )}
                   >
-                    <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
+                    <div className="flex items-start gap-3">
                       <input
                         type="checkbox"
                         checked={selectedModelIds.has(model.id)}
                         onChange={() => onToggleSelection(model.id)}
-                        style={{ marginTop: '2px', cursor: 'pointer' }}
+                        className="mt-0.5 cursor-pointer"
                         onClick={(e) => e.stopPropagation()}
                       />
-                      <div style={{ flex: 1 }}>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontWeight: 600,
-                              fontSize: '13px',
-                              color: 'var(--foreground)',
-                            }}
-                          >
+                      <div className="flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <span className="text-[13px] font-semibold text-foreground">
                             {model.id}
                           </span>
                           {contextLengthK && (
@@ -169,25 +134,12 @@ export function FetchModelsModal({
                           )}
                         </div>
                         {model.name && model.name !== model.id && (
-                          <div
-                            style={{
-                              fontSize: '12px',
-                              color: 'var(--foreground-muted)',
-                              marginBottom: '2px',
-                            }}
-                          >
+                          <div className="mb-0.5 text-[12px] text-foreground-muted">
                             {model.name}
                           </div>
                         )}
                         {model.description && (
-                          <div
-                            style={{
-                              fontSize: '11px',
-                              color: 'var(--foreground-subtle)',
-                              marginTop: '4px',
-                              lineHeight: '1.4',
-                            }}
-                          >
+                          <div className="mt-1 text-[11px] leading-snug text-foreground-subtle">
                             {model.description.length > 150
                               ? `${model.description.substring(0, 150)}...`
                               : model.description}
@@ -202,15 +154,7 @@ export function FetchModelsModal({
           </div>
         )}
         {!isFetchingModels && fetchedModels.length === 0 && !fetchError && (
-          <div
-            style={{
-              padding: '32px',
-              textAlign: 'center',
-              color: 'var(--foreground-muted)',
-              fontSize: '13px',
-              fontStyle: 'italic',
-            }}
-          >
+          <div className="p-8 text-center text-[13px] italic text-foreground-muted">
             {isOAuthMode
               ? 'Click Fetch to load known OAuth models'
               : 'Enter a URL and click Fetch to load available models'}
