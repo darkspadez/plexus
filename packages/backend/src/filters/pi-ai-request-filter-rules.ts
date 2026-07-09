@@ -79,4 +79,22 @@ export const PI_AI_REQUEST_FILTERS: PiAiRequestFilterRule[] = [
     strippedParameters: ['temperature'],
     comment: 'Codex OAuth rejects temperature for this model.',
   },
+  {
+    provider: 'openai-codex',
+    model: 'gpt-5.6-sol',
+    strippedParameters: ['temperature'],
+    comment: 'Codex OAuth rejects temperature for this model.',
+  },
+  {
+    provider: 'openai-codex',
+    model: 'gpt-5.6-tera',
+    strippedParameters: ['temperature'],
+    comment: 'Codex OAuth rejects temperature for this model.',
+  },
+  {
+    provider: 'openai-codex',
+    model: 'gpt-5.6-luna',
+    strippedParameters: ['temperature'],
+    comment: 'Codex OAuth rejects temperature for this model.',
+  },
 ];
