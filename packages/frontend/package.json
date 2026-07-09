@@ -28,11 +28,11 @@
     "deep-chat-react": "^2.4.2",
     "fuse.js": "^7.4.2",
     "human-format": "^1.2.1",
-    "lucide-react": "^1.23.0",
+    "lucide-react": "^1.24.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
-    "recharts": "^3.9.1",
+    "recharts": "^3.9.2",
     "yaml": "^2.8.4"
   },
   "peerDependencies": {
