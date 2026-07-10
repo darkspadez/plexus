@@ -88,7 +88,10 @@ properties:
     type: array
     description: >
       Advertised in /v1/models to inform clients of the recommended API
-      surface for this alias.
+      surface for this alias. For text aliases, when omitted, Plexus infers
+      `messages` for Anthropic/Claude models, `responses` for GPT models,
+      `gemini` for Gemini models, and `chat_completions` for everything else.
+      Non-text aliases do not receive an inferred value.
     items:
       type: string
       enum:
@@ -131,11 +134,30 @@ properties:
       hit rates.
   metadata:
     description: >
-      Optional reference to an external model catalog entry. When configured,
-      Plexus fetches metadata at startup and includes enriched model
-      information in `GET /v1/models`. All sources support an `overrides`
-      object that wins over catalog values for the specified fields.
+      Model metadata strategy. When omitted or set to `auto`, Plexus derives a
+      canonical identity from the alias targets, looks for an exact catalog
+      entry, and falls back to conservative name and modality heuristics.
+      Catalog sources pin a specific entry, `custom` supplies all fields, and
+      `disabled` suppresses enrichment. Overrides win over resolved values.
     oneOf:
+      - type: object
+        required:
+          - source
+        properties:
+          source:
+            type: string
+            enum: [auto]
+          overrides:
+            $ref: ./MetadataOverrides.yaml
+        additionalProperties: false
+      - type: object
+        required:
+          - source
+        properties:
+          source:
+            type: string
+            enum: [disabled]
+        additionalProperties: false
       - type: object
         required:
           - source

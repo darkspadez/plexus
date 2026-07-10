@@ -338,7 +338,8 @@ export interface StripAdaptiveThinkingBehavior {
 
 export type AliasBehavior = StripAdaptiveThinkingBehavior; // | NextBehavior | ...
 
-export type MetadataSource = 'openrouter' | 'models.dev' | 'catwalk' | 'custom';
+export type CatalogMetadataSource = 'openrouter' | 'models.dev' | 'catwalk';
+export type MetadataSource = CatalogMetadataSource | 'auto' | 'disabled' | 'custom';
 
 export interface MetadataOverrides {
   name?: string;
@@ -391,7 +392,7 @@ export interface NormalizedModelMetadata {
 }
 
 export interface ModelMetadataRefreshSourceSummary {
-  source: Exclude<MetadataSource, 'custom'>;
+  source: CatalogMetadataSource;
   initialized: boolean;
   count: number;
   error?: string;
@@ -417,9 +418,16 @@ export interface ModelMetadataRefreshResult {
 // an overrides blob with a non-empty `name` (there is no catalog fallback).
 export type AliasMetadata =
   | {
-      source: Exclude<MetadataSource, 'custom'>;
+      source: CatalogMetadataSource;
       source_path: string;
       overrides?: MetadataOverrides;
+    }
+  | {
+      source: 'auto';
+      overrides?: MetadataOverrides;
+    }
+  | {
+      source: 'disabled';
     }
   | {
       source: 'custom';
@@ -1092,6 +1100,49 @@ export interface CompactionSettings {
   protectRecent?: number;
   native?: { maxArrayItems?: number; maxStringChars?: number };
   headroom?: { baseUrl?: string; apiKey?: string; targetRatio?: number | null; timeoutMs?: number };
+}
+
+export interface ModelResolutionPreview {
+  canonical_model: {
+    provider?: string;
+    model: string;
+    basis: 'pi_model' | 'target' | 'alias';
+  };
+  pi_model: { provider: string; model_id: string; name: string } | null;
+  metadata: {
+    source: CatalogMetadataSource | 'heuristic';
+    source_path?: string;
+    name: string;
+  } | null;
+  preferred_api: PreferredApiValue[] | null;
+}
+
+function aliasToConfigPayload(alias: Alias): Record<string, unknown> {
+  return {
+    priority: alias.priority || 'selector',
+    additional_aliases: alias.aliases,
+    use_image_fallthrough: alias.use_image_fallthrough || false,
+    enforce_limits: alias.enforce_limits || false,
+    sticky_session: alias.sticky_session ?? true,
+    ...(alias.preferred_api?.length ? { preferred_api: alias.preferred_api } : {}),
+    ...(alias.type && { type: alias.type }),
+    ...(alias.advanced?.length ? { advanced: alias.advanced } : {}),
+    ...(alias.metadata && { metadata: alias.metadata }),
+    ...(alias.pi_model && { pi_model: alias.pi_model }),
+    ...(alias.model_architecture && { model_architecture: alias.model_architecture }),
+    ...(alias.extraBody && Object.keys(alias.extraBody).length > 0
+      ? { extraBody: alias.extraBody }
+      : {}),
+    target_groups: alias.target_groups.map((group) => ({
+      name: group.name,
+      selector: group.selector,
+      targets: group.targets.map((target) => ({
+        provider: target.provider,
+        model: target.model,
+        ...(target.enabled === false && { enabled: false }),
+      })),
+    })),
+  };
 }
 
 export const api = {
@@ -1992,34 +2043,7 @@ export const api = {
   },
 
   saveAlias: async (alias: Alias, oldId?: string): Promise<void> => {
-    const body: any = {
-      priority: alias.priority || 'selector',
-      additional_aliases: alias.aliases,
-      use_image_fallthrough: alias.use_image_fallthrough || false,
-      enforce_limits: alias.enforce_limits || false,
-      sticky_session: alias.sticky_session ?? true,
-      ...(alias.preferred_api &&
-        alias.preferred_api.length > 0 && {
-          preferred_api: alias.preferred_api,
-        }),
-      ...(alias.type && { type: alias.type }),
-      ...(alias.advanced && alias.advanced.length > 0 && { advanced: alias.advanced }),
-      ...(alias.metadata && { metadata: alias.metadata }),
-      ...(alias.pi_model && { pi_model: alias.pi_model }),
-      // Model architecture override for inference energy calculation
-      ...(alias.model_architecture && { model_architecture: alias.model_architecture }),
-      ...(alias.extraBody &&
-        Object.keys(alias.extraBody).length > 0 && { extraBody: alias.extraBody }),
-      target_groups: alias.target_groups.map((g) => ({
-        name: g.name,
-        selector: g.selector,
-        targets: g.targets.map((t) => ({
-          provider: t.provider,
-          model: t.model,
-          ...(t.enabled === false && { enabled: false }),
-        })),
-      })),
-    };
+    const body = aliasToConfigPayload(alias);
 
     const res = await fetchWithAuth(
       `${API_BASE}/v0/management/aliases/${encodeURIComponent(alias.id)}`,
@@ -2038,6 +2062,16 @@ export const api = {
     if (oldId && oldId !== alias.id) {
       await api.deleteAlias(oldId);
     }
+  },
+
+  previewModelResolution: async (alias: Alias): Promise<ModelResolutionPreview> => {
+    const res = await fetchWithAuth(`${API_BASE}/v0/management/models/metadata/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alias_id: alias.id, model: aliasToConfigPayload(alias) }),
+    });
+    if (!res.ok) throw new Error('Failed to resolve automatic model selections');
+    return res.json();
   },
 
   getModels: async (): Promise<Model[]> => {
@@ -2662,7 +2696,7 @@ export const api = {
    * @param limit  - max results (default 50)
    */
   searchModelMetadata: async (
-    source: Exclude<MetadataSource, 'custom'>,
+    source: CatalogMetadataSource,
     query?: string,
     limit?: number
   ): Promise<{ data: { id: string; name: string }[]; count: number }> => {
@@ -2684,7 +2718,7 @@ export const api = {
    * can gracefully fall back to leaving the form blank.
    */
   getModelMetadata: async (
-    source: Exclude<MetadataSource, 'custom'>,
+    source: CatalogMetadataSource,
     sourcePath: string
   ): Promise<NormalizedModelMetadata | null> => {
     const params = new URLSearchParams({ source, source_path: sourcePath });

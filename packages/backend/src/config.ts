@@ -809,6 +809,13 @@ const MetadataOverridesSchema = z.object({
 
 const ModelMetadataSchema = z.discriminatedUnion('source', [
   z.object({
+    source: z.literal('auto'),
+    overrides: MetadataOverridesSchema.optional(),
+  }),
+  z.object({
+    source: z.literal('disabled'),
+  }),
+  z.object({
     source: z.literal('openrouter'),
     // Path within the source catalog (e.g., "openai/gpt-4.1-nano")
     source_path: z.string().min(1),
@@ -855,8 +862,8 @@ export const ModelConfigSchema = z
     // in the alias targets). Tracked in-memory only; see
     // services/sticky-session-manager.ts.
     sticky_session: z.boolean().default(true),
-    // Advertised in GET /v1/models to inform clients of the preferred API surface(s)
-    // for this alias, even if plexus can translate between them.
+    // Advertised in GET /v1/models to inform clients of the preferred API surface(s).
+    // When omitted for text aliases, the model family determines the default.
     preferred_api: z
       .array(z.enum(['chat_completions', 'messages', 'gemini', 'responses']))
       .optional(),

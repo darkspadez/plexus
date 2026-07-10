@@ -1,0 +1,73 @@
+post:
+  operationId: postV0ManagementModelsMetadataResolve
+  tags:
+    - Management — Models
+  summary: Preview automatic model selections (admin only)
+  description: >
+    Resolves an unsaved alias configuration using the same canonical-model,
+    metadata catalog, Pi registry, and preferred API heuristics used by
+    `GET /v1/models`.
+  security:
+    - AdminKey: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [alias_id, model]
+          properties:
+            alias_id:
+              type: string
+            model:
+              $ref: ../components/schemas/AliasConfig.yaml
+  responses:
+    '200':
+      description: Resolved automatic selections.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [canonical_model, pi_model, metadata, preferred_api]
+            properties:
+              canonical_model:
+                type: object
+                required: [model, basis]
+                properties:
+                  provider:
+                    type: string
+                  model:
+                    type: string
+                  basis:
+                    type: string
+                    enum: [pi_model, target, alias]
+              pi_model:
+                type: [object, 'null']
+                required: [provider, model_id, name]
+                properties:
+                  provider:
+                    type: string
+                  model_id:
+                    type: string
+                  name:
+                    type: string
+              metadata:
+                type: [object, 'null']
+                required: [source, name]
+                properties:
+                  source:
+                    type: string
+                    enum: [openrouter, models.dev, catwalk, heuristic]
+                  source_path:
+                    type: string
+                  name:
+                    type: string
+              preferred_api:
+                type: [array, 'null']
+                items:
+                  type: string
+                  enum: [chat_completions, messages, gemini, responses]
+    '400':
+      description: Invalid alias configuration.
+    '403':
+      description: Admin access required.

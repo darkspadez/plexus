@@ -3,6 +3,7 @@ import {
   api,
   Alias,
   AliasMetadata,
+  CatalogMetadataSource,
   MetadataOverrides,
   MetadataSource,
   NormalizedModelMetadata,
@@ -70,7 +71,9 @@ export function useMetadataEditor(
     const out: MetadataOverrides = {};
     if (meta.name) out.name = meta.name;
     if (meta.description !== undefined) out.description = meta.description;
-    if (meta.context_length !== undefined) out.context_length = meta.context_length;
+    if (meta.context_length !== undefined && meta.context_length > 0) {
+      out.context_length = meta.context_length;
+    }
     if (meta.pricing) {
       const p: NonNullable<MetadataOverrides['pricing']> = {};
       if (meta.pricing.prompt !== undefined) p.prompt = meta.pricing.prompt;
@@ -94,9 +97,12 @@ export function useMetadataEditor(
       out.supported_parameters = [...meta.supported_parameters];
     if (meta.top_provider) {
       const tp: NonNullable<MetadataOverrides['top_provider']> = {};
-      if (meta.top_provider.context_length !== undefined)
+      if (meta.top_provider.context_length !== undefined && meta.top_provider.context_length > 0)
         tp.context_length = meta.top_provider.context_length;
-      if (meta.top_provider.max_completion_tokens !== undefined)
+      if (
+        meta.top_provider.max_completion_tokens !== undefined &&
+        meta.top_provider.max_completion_tokens > 0
+      )
         tp.max_completion_tokens = meta.top_provider.max_completion_tokens;
       if (Object.keys(tp).length > 0) out.top_provider = tp;
     }
@@ -106,6 +112,7 @@ export function useMetadataEditor(
   /** Return `current` with overrides replaced, preserving custom's name invariant. */
   const withOverrides = useCallback(
     (current: AliasMetadata, overrides: MetadataOverrides): AliasMetadata => {
+      if (current.source === 'disabled') return current;
       if (current.source === 'custom') {
         return {
           ...current,
@@ -161,7 +168,7 @@ export function useMetadataEditor(
    * user-typed overrides (user values win on conflict).
    */
   const populateOverridesFromCatalog = useCallback(
-    async (source: Exclude<MetadataSource, 'custom'>, sourcePath: string) => {
+    async (source: CatalogMetadataSource, sourcePath: string) => {
       if (!sourcePath) return;
       const priorCatalog = catalogReference ?? null;
       try {
@@ -210,7 +217,7 @@ export function useMetadataEditor(
 
   const handleMetadataSearch = useCallback(
     (query: string, source: MetadataSource) => {
-      if (source === 'custom') {
+      if (source === 'auto' || source === 'disabled' || source === 'custom') {
         cancelMetadataDebounce();
         setMetadataQuery(query);
         setMetadataResults([]);
@@ -246,14 +253,18 @@ export function useMetadataEditor(
     (result: { id: string; name: string }) => {
       const current = aliasRef.current;
       const meta = current.metadata;
-      const source: Exclude<MetadataSource, 'custom'> =
-        meta?.source && meta.source !== 'custom' ? meta.source : 'openrouter';
+      const source: CatalogMetadataSource =
+        meta?.source === 'openrouter' || meta?.source === 'models.dev' || meta?.source === 'catwalk'
+          ? meta.source
+          : 'openrouter';
       setEditingAlias({
         ...current,
         metadata: {
           source,
           source_path: result.id,
-          ...(meta?.overrides ? { overrides: meta.overrides } : {}),
+          ...(meta && meta.source !== 'disabled' && meta.overrides
+            ? { overrides: meta.overrides }
+            : {}),
         },
       });
       setMetadataQuery(result.name);
@@ -283,7 +294,7 @@ export function useMetadataEditor(
   const setOverrideField = useCallback(
     <K extends keyof MetadataOverrides>(key: K, value: MetadataOverrides[K] | undefined) => {
       const current = aliasRef.current.metadata;
-      if (!current) return;
+      if (!current || current.source === 'disabled') return;
       const nextOverrides: MetadataOverrides = { ...(current.overrides ?? {}) };
       if (value === undefined) {
         if (current.source === 'custom' && key === 'name') {
@@ -302,7 +313,7 @@ export function useMetadataEditor(
   const setPricingField = useCallback(
     (key: keyof NonNullable<MetadataOverrides['pricing']>, value: string | undefined) => {
       const current = aliasRef.current.metadata;
-      if (!current) return;
+      if (!current || current.source === 'disabled') return;
       const pricing = { ...(current.overrides?.pricing ?? {}) };
       if (value === undefined || value === '') delete pricing[key];
       else pricing[key] = value;
@@ -320,7 +331,7 @@ export function useMetadataEditor(
       value: string | string[] | undefined
     ) => {
       const current = aliasRef.current.metadata;
-      if (!current) return;
+      if (!current || current.source === 'disabled') return;
       const arch = { ...(current.overrides?.architecture ?? {}) };
       if (value === undefined || (Array.isArray(value) && value.length === 0) || value === '')
         delete arch[key];
@@ -336,7 +347,7 @@ export function useMetadataEditor(
   const setTopProviderField = useCallback(
     (key: keyof NonNullable<MetadataOverrides['top_provider']>, value: number | undefined) => {
       const current = aliasRef.current.metadata;
-      if (!current) return;
+      if (!current || current.source === 'disabled') return;
       const tp = { ...(current.overrides?.top_provider ?? {}) };
       if (value === undefined) delete tp[key];
       else tp[key] = value;
@@ -350,11 +361,13 @@ export function useMetadataEditor(
 
   const countOverrides = useCallback(
     (metadata?: AliasMetadata): number => {
-      if (!metadata?.overrides) return 0;
+      if (!metadata || metadata.source === 'disabled' || !metadata.overrides) return 0;
       const o = metadata.overrides;
       let ref: MetadataOverrides;
       if (metadata.source === 'custom') {
         ref = buildCustomDefaults(aliasRef.current.id);
+      } else if (metadata.source === 'auto') {
+        ref = {};
       } else if (catalogReference === undefined) {
         return 0;
       } else {
@@ -429,8 +442,10 @@ export function useMetadataEditor(
     if (!isModalOpen) return;
     cancelMetadataDebounce();
     const meta = editingAlias.metadata;
-    setIsOverrideOpen(!!meta && (meta.source === 'custom' || !!meta.overrides));
-    setMetadataQuery(meta?.source_path ?? '');
+    setIsOverrideOpen(
+      !!meta && meta.source !== 'disabled' && (meta.source === 'custom' || !!meta.overrides)
+    );
+    setMetadataQuery(meta && 'source_path' in meta ? (meta.source_path ?? '') : '');
     setShowMetadataDropdown(false);
     setMetadataResults([]);
     setIsMetadataSearching(false);
@@ -440,7 +455,13 @@ export function useMetadataEditor(
   // Keep catalogReference in sync with the selected catalog (source, source_path).
   useEffect(() => {
     const meta = editingAlias.metadata;
-    if (!meta || meta.source === 'custom' || !meta.source_path) {
+    if (
+      !meta ||
+      meta.source === 'auto' ||
+      meta.source === 'disabled' ||
+      meta.source === 'custom' ||
+      !meta.source_path
+    ) {
       setCatalogReference(undefined);
       return;
     }
@@ -459,7 +480,12 @@ export function useMetadataEditor(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingAlias.metadata?.source, editingAlias.metadata?.source_path]);
+  }, [
+    editingAlias.metadata?.source,
+    editingAlias.metadata && 'source_path' in editingAlias.metadata
+      ? editingAlias.metadata.source_path
+      : undefined,
+  ]);
 
   return {
     // State

@@ -1,9 +1,9 @@
 import type { Context } from '@earendil-works/pi-ai';
-import type { ModelConfig } from '../config';
+import { getConfig, type ModelConfig } from '../config';
 import type { UnifiedChatRequest } from '../types/unified';
 import { estimateContextTokens, estimateInputTokens } from '../utils/estimate-tokens';
 import { logger } from '../utils/logger';
-import { ModelMetadataManager, mergeOverrides } from './model-metadata-manager';
+import { resolveModelMetadata } from './model-metadata-manager';
 
 // Heuristic estimator has ±20–30% variance; inflate the estimate by 10% so we
 // err on the side of rejecting a borderline-oversized request rather than
@@ -13,6 +13,18 @@ const ESTIMATE_SAFETY_MULTIPLIER = 1.1;
 // Fallback reservation when we have no metadata max_completion_tokens and the
 // caller didn't specify max_tokens. Matches a common default completion budget.
 const DEFAULT_OUTPUT_RESERVATION = 4096;
+
+function resolveMetadata(aliasConfig: ModelConfig, aliasSlug = '') {
+  let providers = {};
+  if (!aliasConfig.metadata || aliasConfig.metadata.source === 'auto') {
+    try {
+      providers = getConfig().providers;
+    } catch {
+      // Provider hints improve automatic matching but are not required for safe fallback.
+    }
+  }
+  return resolveModelMetadata(aliasSlug, aliasConfig, providers)?.metadata;
+}
 
 export interface ContextLengthExceededDetails {
   statusCode: 400;
@@ -43,17 +55,6 @@ export class ContextLengthExceededError extends Error {
  * overrides on top of the catalog entry. Returns undefined when no context
  * length is known from either source — callers should fail open.
  */
-function resolveMetadata(aliasConfig: ModelConfig) {
-  const metadata = aliasConfig.metadata;
-  if (!metadata) return undefined;
-
-  let base;
-  if (metadata.source !== 'custom') {
-    base = ModelMetadataManager.getInstance().getMetadata(metadata.source, metadata.source_path);
-  }
-  return mergeOverrides(base, metadata.overrides);
-}
-
 /**
  * Enforces the incoming-context-size limit for an alias that has
  * `enforce_limits` enabled. Fast path: one JSON.stringify + one linear
@@ -69,7 +70,7 @@ export function enforceContextLimit(
   aliasConfig: ModelConfig,
   aliasSlug: string
 ): void {
-  const merged = resolveMetadata(aliasConfig);
+  const merged = resolveMetadata(aliasConfig, aliasSlug);
 
   // Prefer top_provider.context_length (per-deployment) over the model-wide
   // context_length when both are present.
@@ -126,8 +127,8 @@ export function enforceContextLimit(
  * Returns undefined when no context_length is known — callers should fail open.
  * The executor (Task 3) uses this to resolve the per-candidate context window.
  */
-export function resolveContextLength(aliasConfig: ModelConfig): number | undefined {
-  const merged = resolveMetadata(aliasConfig);
+export function resolveContextLength(aliasConfig: ModelConfig, aliasSlug = ''): number | undefined {
+  const merged = resolveMetadata(aliasConfig, aliasSlug);
   const ctx = merged?.top_provider?.context_length ?? merged?.context_length;
   return ctx && ctx > 0 ? ctx : undefined;
 }
@@ -162,7 +163,9 @@ export function enforceContextLimitForRoute(
 ): void {
   if (!aliasConfig?.enforce_limits || !route.canonicalModel) return;
   enforceContextLimitForContext(context, aliasConfig, route.canonicalModel, {
-    contextLength: route.modelArchitecture?.context_length ?? resolveContextLength(aliasConfig),
+    contextLength:
+      route.modelArchitecture?.context_length ??
+      resolveContextLength(aliasConfig, route.canonicalModel),
     maxTokens,
     apiType,
   });
@@ -179,7 +182,7 @@ export function enforceContextLimitForContext(
   aliasSlug: string,
   opts: ContextLimitOptions = {}
 ): void {
-  const merged = resolveMetadata(aliasConfig);
+  const merged = resolveMetadata(aliasConfig, aliasSlug);
   const contextLength =
     opts.contextLength ?? merged?.top_provider?.context_length ?? merged?.context_length;
   if (!contextLength || contextLength <= 0) {

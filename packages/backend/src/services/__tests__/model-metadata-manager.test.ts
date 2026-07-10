@@ -1,8 +1,12 @@
 import { describe, expect, test, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import path from 'path';
-import { ModelMetadataManager, mergeOverrides } from '../model-metadata-manager';
+import {
+  ModelMetadataManager,
+  mergeOverrides,
+  resolveModelMetadata,
+} from '../model-metadata-manager';
 import type { NormalizedModelMetadata } from '../model-metadata-manager';
-import type { MetadataOverrides } from '../../config';
+import type { MetadataOverrides, ModelConfig, ProviderConfig } from '../../config';
 
 const FIXTURES = path.join(__dirname, '../../utils/__tests__/fixtures');
 
@@ -383,6 +387,44 @@ describe('ModelMetadataManager – Catwalk source', () => {
   });
 });
 
+describe('ModelMetadataManager – limit normalization', () => {
+  test('omits non-positive catalog limits instead of producing invalid overrides', async () => {
+    ModelMetadataManager.resetForTesting();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              openai: {
+                id: 'openai',
+                models: {
+                  'gpt-4o-mini-tts': {
+                    id: 'gpt-4o-mini-tts',
+                    name: 'GPT-4o Mini TTS',
+                    limit: { context: 0, output: 0 },
+                  },
+                },
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+      )
+    );
+    const manager = ModelMetadataManager.getInstance();
+
+    await manager.loadAll({
+      openrouter: '/dev/null-nonexistent',
+      modelsDev: 'https://example.com/models.json',
+      catwalk: '/dev/null-nonexistent',
+    });
+
+    const metadata = manager.getMetadata('models.dev', 'openai.gpt-4o-mini-tts');
+    expect(metadata?.context_length).toBeUndefined();
+    expect(metadata?.top_provider).toBeUndefined();
+  });
+});
+
 // ─── Error handling ─────────────────────────────────────────
 
 describe('ModelMetadataManager – error handling', () => {
@@ -670,5 +712,110 @@ describe('mergeOverrides', () => {
       architecture: { tokenizer: 'custom' },
     });
     expect(base).toEqual(snapshot);
+  });
+});
+
+describe('resolveModelMetadata', () => {
+  test('automatically resolves an exact catalog entry from provider canonical hints', async () => {
+    ModelMetadataManager.resetForTesting();
+    const manager = ModelMetadataManager.getInstance();
+    await manager.loadAll({
+      openrouter: '/dev/null-nonexistent',
+      modelsDev: modelsDevFixture,
+      catwalk: '/dev/null-nonexistent',
+    });
+
+    const modelConfig = {
+      target_groups: [
+        {
+          name: 'default',
+          selector: 'random',
+          targets: [{ provider: 'company-proxy', model: 'sonnet' }],
+        },
+      ],
+    } as unknown as ModelConfig;
+    const providers = {
+      'company-proxy': {
+        pi_ai_provider: 'anthropic',
+        models: {
+          sonnet: {
+            pi_ai_model_id: 'claude-3-5-haiku-20241022',
+            pricing: { source: 'simple', input: 0, output: 0 },
+          },
+        },
+      },
+    } as unknown as Record<string, ProviderConfig>;
+
+    const resolved = resolveModelMetadata('claude', modelConfig, providers, manager);
+
+    expect(resolved?.source).toBe('models.dev');
+    expect(resolved?.sourcePath).toBe('anthropic.claude-3-5-haiku-20241022');
+    expect(resolved?.metadata.context_length).toBe(200000);
+  });
+
+  test('falls back to conservative name and modality heuristics', () => {
+    ModelMetadataManager.resetForTesting();
+    const modelConfig = {
+      target_groups: [
+        {
+          name: 'default',
+          selector: 'random',
+          targets: [{ provider: 'openai', model: 'text-embedding-3-small' }],
+        },
+      ],
+    } as unknown as ModelConfig;
+
+    const resolved = resolveModelMetadata('embeddings', modelConfig);
+
+    expect(resolved?.source).toBe('heuristic');
+    expect(resolved?.metadata.name).toBe('Text Embedding 3 Small');
+    expect(resolved?.metadata.architecture?.input_modalities).toEqual(['text']);
+    expect(resolved?.metadata.architecture?.output_modalities).toEqual(['embeddings']);
+    expect(resolved?.metadata.context_length).toBeUndefined();
+    expect(resolved?.metadata.pricing).toBeUndefined();
+  });
+
+  test('normalizes Pi provider IDs to catalog vendors', async () => {
+    ModelMetadataManager.resetForTesting();
+    const manager = ModelMetadataManager.getInstance();
+    await manager.loadAll({
+      openrouter: '/dev/null-nonexistent',
+      modelsDev: modelsDevFixture,
+      catwalk: '/dev/null-nonexistent',
+    });
+    const modelConfig = {
+      target_groups: [],
+      pi_model: { provider: 'openai-codex', model_id: 'gpt-4.1-nano' },
+    } as unknown as ModelConfig;
+
+    const resolved = resolveModelMetadata('codex', modelConfig, {}, manager);
+
+    expect(resolved?.source).toBe('models.dev');
+    expect(resolved?.sourcePath).toBe('openai.gpt-4.1-nano');
+  });
+
+  test('applies auto overrides after inferred defaults', () => {
+    const modelConfig = {
+      target_groups: [],
+      metadata: {
+        source: 'auto',
+        overrides: { name: 'Internal Model', context_length: 32000 },
+      },
+    } as unknown as ModelConfig;
+
+    const resolved = resolveModelMetadata('internal-chat', modelConfig);
+
+    expect(resolved?.metadata.name).toBe('Internal Model');
+    expect(resolved?.metadata.context_length).toBe(32000);
+    expect(resolved?.metadata.architecture?.output_modalities).toEqual(['text']);
+  });
+
+  test('returns no metadata when automatic enrichment is disabled', () => {
+    const modelConfig = {
+      target_groups: [],
+      metadata: { source: 'disabled' },
+    } as unknown as ModelConfig;
+
+    expect(resolveModelMetadata('internal-chat', modelConfig)).toBeUndefined();
   });
 });

@@ -75,7 +75,33 @@ describe('GET /v1/models', () => {
     expect(modelIds).toEqual(['simple-model']);
   });
 
-  it('should return base fields for aliases without metadata config', async () => {
+  it('should infer preferred APIs from model families while preserving explicit values', async () => {
+    const fastify = Fastify();
+    await registerModelsRoute(fastify);
+
+    setConfigForTesting({
+      models: {
+        'claude-sonnet-4-5': { targets: [] },
+        'gpt-5.2': { targets: [] },
+        'gemini-2.5-pro': { targets: [] },
+        'gemini-embedding-001': { targets: [], type: 'embeddings' },
+        'mistral-large': { targets: [] },
+        'gpt-explicit': { targets: [], preferred_api: ['chat_completions'] },
+      },
+    } as unknown as PlexusConfig);
+
+    const response = await fastify.inject({ method: 'GET', url: '/v1/models' });
+    const models = new Map(response.json().data.map((model: any) => [model.id, model]));
+
+    expect((models.get('claude-sonnet-4-5') as any).preferred_api).toEqual(['messages']);
+    expect((models.get('gpt-5.2') as any).preferred_api).toEqual(['responses']);
+    expect((models.get('gemini-2.5-pro') as any).preferred_api).toEqual(['gemini']);
+    expect((models.get('gemini-embedding-001') as any).preferred_api).toBeUndefined();
+    expect((models.get('mistral-large') as any).preferred_api).toEqual(['chat_completions']);
+    expect((models.get('gpt-explicit') as any).preferred_api).toEqual(['chat_completions']);
+  });
+
+  it('should infer safe metadata defaults for aliases without metadata config', async () => {
     const fastify = Fastify();
     await registerModelsRoute(fastify);
 
@@ -93,10 +119,28 @@ describe('GET /v1/models', () => {
     expect(model.object).toBe('model');
     expect(model.owned_by).toBe('plexus');
     expect(typeof model.created).toBe('number');
-    // Should NOT have enriched fields
-    expect(model.name).toBeUndefined();
+    expect(model.name).toBe('Plain Model');
+    expect(model.architecture.input_modalities).toEqual(['text']);
+    expect(model.architecture.output_modalities).toEqual(['text']);
     expect(model.context_length).toBeUndefined();
     expect(model.pricing).toBeUndefined();
+  });
+
+  it('should return only base fields when metadata enrichment is disabled', async () => {
+    const fastify = Fastify();
+    await registerModelsRoute(fastify);
+
+    setConfigForTesting({
+      models: {
+        'plain-model': { targets: [], metadata: { source: 'disabled' } },
+      },
+    } as unknown as PlexusConfig);
+
+    const response = await fastify.inject({ method: 'GET', url: '/v1/models' });
+    const model = response.json().data[0];
+    expect(model.id).toBe('plain-model');
+    expect(model.name).toBeUndefined();
+    expect(model.architecture).toBeUndefined();
   });
 });
 
@@ -124,7 +168,8 @@ describe('GET /v1/models – vision fallthrough modalities', () => {
 
     expect(vfModel.architecture.input_modalities).toEqual(['text', 'image']);
     expect(vfModel.architecture.output_modalities).toEqual(['text']);
-    expect(noVfModel.architecture).toBeUndefined();
+    expect(noVfModel.architecture.input_modalities).toEqual(['text']);
+    expect(noVfModel.architecture.output_modalities).toEqual(['text']);
   });
 
   it('should not add image when vision_fallthrough is not configured globally', async () => {
@@ -141,7 +186,8 @@ describe('GET /v1/models – vision fallthrough modalities', () => {
     expect(response.statusCode).toBe(200);
 
     const model = response.json().data[0];
-    expect(model.architecture).toBeUndefined();
+    expect(model.architecture.input_modalities).toEqual(['text']);
+    expect(model.architecture.output_modalities).toEqual(['text']);
   });
 
   it('should inject image into existing modalities when metadata is present', async () => {

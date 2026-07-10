@@ -837,6 +837,8 @@ export class ConfigRepository {
   async saveAlias(slug: string, config: ModelConfig): Promise<void> {
     const schema = this.schema();
     const timestamp = now();
+    const metadataSourcePath =
+      config.metadata && 'source_path' in config.metadata ? config.metadata.source_path : undefined;
 
     const aliasData = {
       slug,
@@ -846,7 +848,7 @@ export class ConfigRepository {
       additionalAliases: config.additional_aliases ? toJson(config.additional_aliases) : null,
       advanced: config.advanced ? toJson(config.advanced) : null,
       metadataSource: config.metadata?.source ?? null,
-      metadataSourcePath: config.metadata?.source_path ?? null,
+      metadataSourcePath: metadataSourcePath ?? null,
       useImageFallthrough: fromBool(config.use_image_fallthrough === true),
       // Model architecture override for inference energy calculation
       modelArchitecture: config.model_architecture ? toJson(config.model_architecture) : null,
@@ -919,7 +921,8 @@ export class ConfigRepository {
         .delete(schema.aliasMetadataOverrides)
         .where(eq(schema.aliasMetadataOverrides.aliasId, aliasId));
 
-      const overrides = config.metadata?.overrides;
+      const overrides =
+        config.metadata && 'overrides' in config.metadata ? config.metadata.overrides : undefined;
       if (overrides && hasAnyOverrideField(overrides)) {
         await tx.insert(schema.aliasMetadataOverrides).values({
           aliasId,
@@ -1004,7 +1007,14 @@ export class ConfigRepository {
 
     if (row.metadataSource) {
       const overrides = overrideRow ? overrideRowToOverrides(overrideRow) : undefined;
-      if (row.metadataSource === 'custom') {
+      if (row.metadataSource === 'disabled') {
+        result.metadata = { source: 'disabled' };
+      } else if (row.metadataSource === 'auto') {
+        result.metadata = {
+          source: 'auto',
+          ...(overrides && Object.keys(overrides).length > 0 ? { overrides } : {}),
+        };
+      } else if (row.metadataSource === 'custom') {
         // Custom sources always carry overrides (possibly empty if no row found).
         result.metadata = {
           source: 'custom',

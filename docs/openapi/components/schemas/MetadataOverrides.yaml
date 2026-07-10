@@ -1,8 +1,8 @@
 type: object
 description: >
   Override fields for model metadata. Used within alias `metadata` to
-  override individual fields sourced from an external catalog, or to
-  provide all fields when `source` is `custom`.
+  override individual fields resolved automatically or sourced from an
+  external catalog, or to provide all fields when `source` is `custom`.
 properties:
   name:
     type: string

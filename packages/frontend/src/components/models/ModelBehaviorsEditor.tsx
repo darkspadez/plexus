@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Switch } from '../ui/Switch';
 import { Badge } from '../ui/Badge';
 import { DebouncedInput } from '../ui/DebouncedInput';
@@ -98,18 +98,6 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
                   of max_tokens and the model&apos;s max completion for the response. Requires a
                   known context_length in metadata (override or catalog).
                 </p>
-                {editingAlias.enforce_limits &&
-                  !editingAlias.metadata?.overrides?.context_length &&
-                  !editingAlias.metadata?.overrides?.top_provider?.context_length && (
-                    <p
-                      className="font-body text-[11px] mt-1 flex items-center gap-1"
-                      style={{ color: 'var(--color-warning)' }}
-                    >
-                      <AlertTriangle size={12} />
-                      No context_length found in metadata - this toggle will have no effect until a
-                      metadata source with a known context_length is configured.
-                    </p>
-                  )}
               </div>
               <Switch
                 checked={editingAlias.enforce_limits || false}

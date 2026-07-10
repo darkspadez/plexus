@@ -1,5 +1,10 @@
 import { logger } from '../utils/logger';
-import type { MetadataOverrides } from '../config';
+import type {
+  MetadataOverrides,
+  ModelConfig,
+  ModelProviderConfig,
+  ProviderConfig,
+} from '../config';
 
 type MetadataSourceId = 'openrouter' | 'models.dev' | 'catwalk';
 
@@ -75,6 +80,12 @@ export interface NormalizedModelMetadata {
     context_length?: number;
     max_completion_tokens?: number;
   };
+}
+
+export interface ResolvedModelMetadata {
+  metadata: NormalizedModelMetadata;
+  source: MetadataSourceId | 'heuristic';
+  sourcePath?: string;
 }
 
 // ─── Source-specific raw shapes ──────────────────────────
@@ -179,6 +190,23 @@ interface CatwalkProvider {
 }
 
 // ─── Normalizers ───────────────────────────────────────
+function positiveNumber(value?: number): number | undefined {
+  return value !== undefined && value > 0 ? value : undefined;
+}
+
+function normalizeTopProvider(
+  contextLength?: number,
+  maxCompletionTokens?: number
+): NormalizedModelMetadata['top_provider'] {
+  const normalized = {
+    context_length: positiveNumber(contextLength),
+    max_completion_tokens: positiveNumber(maxCompletionTokens),
+  };
+  return normalized.context_length !== undefined || normalized.max_completion_tokens !== undefined
+    ? normalized
+    : undefined;
+}
+
 function inferOpenRouterArchitecture(
   raw: OpenRouterRawModel,
   kind: OpenRouterCatalogKind
@@ -208,7 +236,7 @@ function normalizeOpenRouterModel(
     id: raw.id,
     name: raw.name ?? raw.id,
     description: raw.description,
-    context_length: raw.context_length,
+    context_length: positiveNumber(raw.context_length),
     architecture,
     pricing: raw.pricing
       ? {
@@ -220,7 +248,10 @@ function normalizeOpenRouterModel(
         }
       : undefined,
     supported_parameters: raw.supported_parameters,
-    top_provider: raw.top_provider,
+    top_provider: normalizeTopProvider(
+      raw.top_provider?.context_length,
+      raw.top_provider?.max_completion_tokens
+    ),
   };
 }
 
@@ -248,7 +279,7 @@ function normalizeModelsDevModel(
   return {
     id: `${providerId}.${modelId}`,
     name: raw.name ?? raw.id ?? modelId,
-    context_length: raw.limit?.context,
+    context_length: positiveNumber(raw.limit?.context),
     architecture: {
       modality:
         inputModalities?.length || outputModalities?.length
@@ -267,13 +298,7 @@ function normalizeModelsDevModel(
           }
         : undefined,
     supported_parameters: params.length > 0 ? params : undefined,
-    top_provider:
-      raw.limit?.output != null
-        ? {
-            max_completion_tokens: raw.limit.output,
-            context_length: raw.limit.context,
-          }
-        : undefined,
+    top_provider: normalizeTopProvider(raw.limit?.context, raw.limit?.output),
   };
 }
 
@@ -294,7 +319,7 @@ function normalizeCatwalkModel(providerId: string, raw: CatwalkModel): Normalize
   return {
     id: `${providerId}.${raw.id}`,
     name: raw.name ?? raw.id,
-    context_length: raw.context_window,
+    context_length: positiveNumber(raw.context_window),
     architecture: {
       modality: `${inputModalities.join('+')}->${outputModalities.join('+')}`,
       input_modalities: inputModalities,
@@ -309,10 +334,7 @@ function normalizeCatwalkModel(providerId: string, raw: CatwalkModel): Normalize
           }
         : undefined,
     supported_parameters: params,
-    top_provider: {
-      context_length: raw.context_window,
-      max_completion_tokens: raw.default_max_tokens,
-    },
+    top_provider: normalizeTopProvider(raw.context_window, raw.default_max_tokens),
   };
 }
 
@@ -669,6 +691,21 @@ export class ModelMetadataManager {
     return this.getMap(source).get(sourcePath);
   }
 
+  public findExactMetadata(provider: string, model: string): ResolvedModelMetadata | undefined {
+    const candidates: Array<{ source: MetadataSourceId; sourcePath: string }> = [
+      { source: 'models.dev', sourcePath: `${provider}.${model}` },
+      { source: 'openrouter', sourcePath: `${provider}/${model}` },
+      { source: 'catwalk', sourcePath: `${provider}.${model}` },
+    ];
+
+    for (const candidate of candidates) {
+      const metadata = this.getMap(candidate.source).get(candidate.sourcePath);
+      if (metadata) return { ...candidate, metadata };
+    }
+
+    return undefined;
+  }
+
   /**
    * Search models within a source by substring match on id or name.
    * Returns lightweight { id, name } objects suitable for autocomplete.
@@ -803,4 +840,212 @@ export function mergeOverrides(
   }
 
   return merged;
+}
+
+const DISPLAY_TOKEN_OVERRIDES: Record<string, string> = {
+  ai: 'AI',
+  api: 'API',
+  gpt: 'GPT',
+  llm: 'LLM',
+  tts: 'TTS',
+};
+
+function humanizeModelName(model: string): string {
+  const modelId = model.split('/').at(-1) ?? model;
+  return modelId
+    .split(/[-_.]+/)
+    .filter(Boolean)
+    .map(
+      (token) =>
+        DISPLAY_TOKEN_OVERRIDES[token.toLowerCase()] ??
+        `${token[0]?.toUpperCase()}${token.slice(1)}`
+    )
+    .join(' ');
+}
+
+function inferModelType(model: string, configuredType?: ModelConfig['type']): ModelConfig['type'] {
+  if (configuredType) return configuredType;
+  const normalized = model.toLowerCase();
+  if (/embed|embedding/.test(normalized)) return 'embeddings';
+  if (/whisper|transcri|speech[-_.]?to[-_.]?text|(?:^|[-_.])stt(?:$|[-_.])/.test(normalized)) {
+    return 'transcriptions';
+  }
+  if (/(?:^|[-_.])tts(?:$|[-_.])|text[-_.]?to[-_.]?speech/.test(normalized)) return 'speech';
+  if (/dall[-_.]?e|(?:^|[/_.-])(flux|imagen)(?:$|[/_.-])/.test(normalized)) return 'image';
+  return 'text';
+}
+
+function inferArchitecture(
+  model: string,
+  configuredType?: ModelConfig['type']
+): NonNullable<NormalizedModelMetadata['architecture']> {
+  switch (inferModelType(model, configuredType)) {
+    case 'embeddings':
+      return {
+        modality: 'text->embeddings',
+        input_modalities: ['text'],
+        output_modalities: ['embeddings'],
+      };
+    case 'transcriptions':
+      return {
+        modality: 'audio->text',
+        input_modalities: ['audio'],
+        output_modalities: ['text'],
+      };
+    case 'speech':
+      return {
+        modality: 'text->audio',
+        input_modalities: ['text'],
+        output_modalities: ['audio'],
+      };
+    case 'image':
+      return {
+        modality: 'text->image',
+        input_modalities: ['text'],
+        output_modalities: ['image'],
+      };
+    default:
+      return {
+        modality: 'text->text',
+        input_modalities: ['text'],
+        output_modalities: ['text'],
+      };
+  }
+}
+
+function getProviderModelConfig(
+  provider: ProviderConfig | undefined,
+  model: string
+): ModelProviderConfig | undefined {
+  if (!provider?.models || Array.isArray(provider.models)) return undefined;
+  return provider.models[model];
+}
+
+function inferProviderFromModel(model: string): string | undefined {
+  const normalized = (model.split('/').at(-1) ?? model).toLowerCase();
+  if (normalized.includes('claude')) return 'anthropic';
+  if (/^(gpt|o[134](?:-|$)|text-embedding|dall-e)/.test(normalized)) return 'openai';
+  if (normalized.includes('gemini') || normalized.includes('imagen')) return 'google';
+  if (normalized.includes('mistral') || normalized.includes('codestral')) return 'mistralai';
+  return undefined;
+}
+
+function normalizeCatalogProvider(provider: string, model: string): string {
+  switch (provider) {
+    case 'openai-codex':
+      return 'openai';
+    case 'google-antigravity':
+    case 'google-gemini-cli':
+      return 'google';
+    case 'github-copilot':
+      return inferProviderFromModel(model) ?? provider;
+    default:
+      return provider;
+  }
+}
+
+export interface AutomaticModelIdentity {
+  provider?: string;
+  model: string;
+  basis: 'pi_model' | 'target' | 'alias';
+}
+
+export function resolveAutomaticModelIdentity(
+  aliasId: string,
+  modelConfig: ModelConfig,
+  providers: Record<string, ProviderConfig>
+): AutomaticModelIdentity {
+  if (modelConfig.pi_model) {
+    return {
+      provider: normalizeCatalogProvider(
+        modelConfig.pi_model.provider,
+        modelConfig.pi_model.model_id
+      ),
+      model: modelConfig.pi_model.model_id,
+      basis: 'pi_model',
+    };
+  }
+
+  const targets = (modelConfig.target_groups ?? [])
+    .flatMap((group) => group.targets)
+    .filter((target) => target.enabled !== false);
+  const identities = targets.map((target) => {
+    const provider = providers[target.provider];
+    const providerModel = getProviderModelConfig(provider, target.model);
+    const model = providerModel?.pi_ai_model_id ?? target.model;
+    const providerId = provider?.pi_ai_provider ?? inferProviderFromModel(model) ?? target.provider;
+    return { provider: normalizeCatalogProvider(providerId, model), model };
+  });
+
+  const unique = new Map(
+    identities.map((identity) => [
+      `${identity.provider.toLowerCase()}\0${identity.model.toLowerCase()}`,
+      identity,
+    ])
+  );
+  if (unique.size === 1) return { ...[...unique.values()][0]!, basis: 'target' };
+
+  return { provider: inferProviderFromModel(aliasId), model: aliasId, basis: 'alias' };
+}
+
+export function resolveModelMetadata(
+  aliasId: string,
+  modelConfig: ModelConfig,
+  providers: Record<string, ProviderConfig> = {},
+  manager = ModelMetadataManager.getInstance()
+): ResolvedModelMetadata | undefined {
+  const configured = modelConfig.metadata;
+  if (configured?.source === 'disabled') return undefined;
+
+  if (configured?.source === 'custom') {
+    const metadata = mergeOverrides(undefined, configured.overrides);
+    return metadata ? { metadata, source: 'heuristic' } : undefined;
+  }
+
+  if (
+    configured?.source === 'openrouter' ||
+    configured?.source === 'models.dev' ||
+    configured?.source === 'catwalk'
+  ) {
+    const catalog = manager.getMetadata(configured.source, configured.source_path);
+    const metadata = catalog ? mergeOverrides(catalog, configured.overrides) : undefined;
+    return metadata
+      ? { metadata, source: configured.source, sourcePath: configured.source_path }
+      : undefined;
+  }
+
+  const identity = resolveAutomaticModelIdentity(aliasId, modelConfig, providers);
+  const exact = identity.provider
+    ? manager.findExactMetadata(identity.provider, identity.model)
+    : undefined;
+  if (exact) {
+    const metadata = mergeOverrides(exact.metadata, configured?.overrides);
+    return metadata ? { ...exact, metadata } : undefined;
+  }
+
+  const heuristic: NormalizedModelMetadata = {
+    id: identity.model,
+    name: humanizeModelName(identity.model),
+    architecture: inferArchitecture(identity.model, modelConfig.type),
+  };
+  const metadata = mergeOverrides(heuristic, configured?.overrides);
+  return metadata ? { metadata, source: 'heuristic' } : undefined;
+}
+
+export function resolvePreferredApi(
+  aliasId: string,
+  modelConfig: ModelConfig,
+  providers: Record<string, ProviderConfig> = {}
+): ModelConfig['preferred_api'] {
+  if (modelConfig.preferred_api !== undefined) return modelConfig.preferred_api;
+  if (modelConfig.type !== undefined && modelConfig.type !== 'text') return undefined;
+
+  const identity = resolveAutomaticModelIdentity(aliasId, modelConfig, providers);
+  const provider = identity.provider?.toLowerCase() ?? '';
+  const model = (identity.model.split('/').at(-1) ?? identity.model).toLowerCase();
+
+  if (provider.includes('anthropic') || model.includes('claude')) return ['messages'];
+  if (/^(gpt|o[134])(?:-|$)/.test(model)) return ['responses'];
+  if (/^gemini(?:-|$)/.test(model)) return ['gemini'];
+  return ['chat_completions'];
 }

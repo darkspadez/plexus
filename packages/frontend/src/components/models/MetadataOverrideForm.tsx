@@ -85,7 +85,7 @@ export function MetadataOverrideForm({
 }: Props) {
   const helperText = isCustom
     ? 'All fields below come from your manual entry — no catalog is consulted.'
-    : 'Fields left blank fall back to the catalog value.';
+    : 'Fields left blank use the automatically resolved or catalog value.';
 
   return (
     <div

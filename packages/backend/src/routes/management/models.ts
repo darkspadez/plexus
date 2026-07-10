@@ -1,8 +1,18 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { logger } from '../../utils/logger';
 import { HuggingFaceModelFetcher } from '../../services/huggingface-model-fetcher';
-import { ModelMetadataManager } from '../../services/model-metadata-manager';
-import { getBuiltinModels, getBuiltinProviders } from '@earendil-works/pi-ai/providers/all';
+import {
+  ModelMetadataManager,
+  resolveAutomaticModelIdentity,
+  resolveModelMetadata,
+  resolvePreferredApi,
+} from '../../services/model-metadata-manager';
+import { getConfig, ModelConfigSchema } from '../../config';
+import {
+  getBuiltinModel,
+  getBuiltinModels,
+  getBuiltinProviders,
+} from '@earendil-works/pi-ai/providers/all';
 
 interface FetchModelRequest {
   Params: {
@@ -14,6 +24,51 @@ export async function registerModelRoutes(fastify: FastifyInstance) {
   fastify.post('/v0/management/models/metadata/refresh', async (_request, reply) => {
     const result = await ModelMetadataManager.getInstance().refreshAll(undefined, 'manual');
     return reply.send(result);
+  });
+
+  fastify.post('/v0/management/models/metadata/resolve', async (request, reply) => {
+    const body = request.body as { alias_id?: unknown; model?: unknown } | null;
+    if (!body || typeof body.alias_id !== 'string') {
+      return reply.code(400).send({ error: 'alias_id is required' });
+    }
+
+    const parsed = ModelConfigSchema.safeParse(body.model);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'Validation failed', details: parsed.error.issues });
+    }
+
+    const providers = getConfig().providers;
+    const identity = resolveAutomaticModelIdentity(body.alias_id, parsed.data, providers);
+    const resolved = resolveModelMetadata(
+      body.alias_id,
+      parsed.data,
+      providers,
+      ModelMetadataManager.getInstance()
+    );
+    let piModel: { provider: string; model_id: string; name: string } | null = null;
+    if (identity.provider) {
+      try {
+        const match = getBuiltinModel(identity.provider as any, identity.model as any);
+        if (match) {
+          piModel = { provider: identity.provider, model_id: identity.model, name: match.name };
+        }
+      } catch {
+        // A catalog match can exist without a corresponding Pi registry entry.
+      }
+    }
+
+    return reply.send({
+      canonical_model: identity,
+      pi_model: piModel,
+      metadata: resolved
+        ? {
+            source: resolved.source,
+            source_path: resolved.sourcePath,
+            name: resolved.metadata.name,
+          }
+        : null,
+      preferred_api: resolvePreferredApi(body.alias_id, parsed.data, providers) ?? null,
+    });
   });
 
   // Fetch model architecture from Hugging Face

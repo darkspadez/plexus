@@ -501,6 +501,19 @@ The inline `performanceExplorationRate` / `latencyExplorationRate` / `e2ePerform
 - **`selector` (default)**: Selector picks a provider within each group first, then matches API format.
 - **`api_match`**: Filter targets to those whose provider supports the incoming API format first, then apply the group's selector. Best for tools requiring specific API features (e.g., Claude Code with Anthropic messages).
 
+### Preferred API
+
+For text aliases, when `preferred_api` is omitted, Plexus advertises a recommended API in
+`GET /v1/models` using the canonical target model:
+
+- Anthropic/Claude models: `messages`
+- GPT models: `responses`
+- Gemini models: `gemini`
+- Everything else: `chat_completions`
+
+An explicitly configured `preferred_api` always takes precedence.
+Non-text aliases do not receive an inferred preferred API.
+
 ### Targets
 
 Each target specifies:
@@ -510,7 +523,55 @@ Each target specifies:
 
 ### External Metadata
 
-Link an alias to an external model catalog to return enriched metadata in `GET /v1/models`:
+Model metadata is resolved automatically for every alias and returned by `GET /v1/models`.
+Plexus derives a canonical model identity from, in order:
+
+1. The alias `pi_model` hint.
+2. The target provider's `pi_ai_provider` and model's `pi_ai_model_id` hints.
+3. The enabled target's provider and model names.
+
+It then looks for an exact entry in the configured catalogs. If no exact entry exists,
+Plexus only infers a display name and input/output modalities from the model name. Context
+windows, pricing, and supported parameters are never guessed.
+
+For example, this alias needs no metadata configuration:
+
+```yaml
+models:
+  claude-sonnet:
+    target_groups:
+      - name: default
+        selector: random
+        targets:
+          - provider: anthropic
+            model: claude-sonnet-4-5
+```
+
+Automatic matching is the default. Use `source: auto` only when adding overrides:
+
+```yaml
+metadata:
+  source: auto
+  overrides:
+    context_length: 180000
+```
+
+To pin an alias to a specific catalog entry instead:
+
+```yaml
+metadata:
+  source: models.dev
+  source_path: anthropic.claude-sonnet-4-5
+```
+
+To suppress enriched metadata entirely:
+
+```yaml
+metadata:
+  source: disabled
+```
+
+Available external catalogs:
 
 | Source | URL | Format |
 |--------|-----|--------|
@@ -518,7 +579,8 @@ Link an alias to an external model catalog to return enriched metadata in `GET /
 | `models.dev` | models.dev | `providerid.modelid` |
 | `catwalk` | catwalk.charm.sh | `providerid.modelid` |
 
-Metadata loads at startup. Failures are non-fatal — Plexus operates without enriched data if a source is unavailable.
+Metadata loads at startup. Failures are non-fatal; automatic resolution falls back to the
+safe name-based defaults when no exact catalog entry is available.
 
 ### Direct Model Routing
 
