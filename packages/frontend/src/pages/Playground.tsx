@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DeepChat } from 'deep-chat-react';
 import {
   CheckCircle2,
@@ -22,16 +22,6 @@ import { Badge } from '../components/ui/Badge';
 
 type ModelListResponse = {
   data?: Array<{ id?: string }>;
-};
-
-type DeepChatRequestDetails = {
-  body: unknown;
-  headers?: Record<string, string>;
-};
-
-type OpenAiMessage = {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
 };
 
 type RetryAttempt = {
@@ -63,8 +53,6 @@ type PlaygroundRouting = {
   allAttemptedProviders?: string;
   retryHistory?: string;
 };
-
-const CHAT_COMPLETIONS_ENDPOINT = '/v1/chat/completions';
 
 const deepChatAuxiliaryStyle = `
   :host {
@@ -130,92 +118,6 @@ const deepChatAuxiliaryStyle = `
 const formatList = (items?: string[], emptyLabel = 'All') =>
   items && items.length > 0 ? items.join(', ') : emptyLabel;
 
-const deepChatRoleToOpenAiRole = (role?: string): OpenAiMessage['role'] => {
-  if (role === 'ai' || role === 'assistant') return 'assistant';
-  if (role === 'system' || role === 'tool') return role;
-  return 'user';
-};
-
-const stringifyContent = (content: unknown): string => {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => {
-        if (typeof item === 'string') return item;
-        if (item && typeof item === 'object' && 'text' in item) {
-          return String((item as { text?: unknown }).text ?? '');
-        }
-        return '';
-      })
-      .filter(Boolean)
-      .join('\n');
-  }
-  return '';
-};
-
-const extractMessages = (body: unknown): OpenAiMessage[] => {
-  if (!body || typeof body !== 'object' || !('messages' in body)) return [];
-  const messages = (body as { messages?: unknown }).messages;
-  if (!Array.isArray(messages)) return [];
-
-  return messages
-    .map((message): OpenAiMessage | null => {
-      if (!message || typeof message !== 'object') return null;
-      const record = message as { role?: string; text?: unknown; content?: unknown };
-      const content = stringifyContent(record.content ?? record.text);
-      if (!content.trim()) return null;
-      return {
-        role: deepChatRoleToOpenAiRole(record.role),
-        content,
-      };
-    })
-    .filter((message): message is OpenAiMessage => message !== null);
-};
-
-const extractResponseText = (content: unknown): string => {
-  const directText = stringifyContent(content);
-  if (directText) return directText;
-
-  if (content && typeof content === 'object' && 'message' in content) {
-    const message = (content as { message?: { content?: unknown } }).message;
-    return stringifyContent(message?.content);
-  }
-
-  return '';
-};
-
-const responseToMessage = (response: unknown) => {
-  if (response && typeof response === 'object' && 'error' in response) {
-    const error = (response as { error?: string | { message?: string } }).error;
-    return { error: typeof error === 'string' ? error : error?.message || 'Request failed' };
-  }
-
-  const choices =
-    response && typeof response === 'object' && 'choices' in response
-      ? (response as { choices?: unknown[] }).choices
-      : undefined;
-  const firstChoice = Array.isArray(choices) ? choices[0] : undefined;
-  if (firstChoice && typeof firstChoice === 'object') {
-    const choice = firstChoice as {
-      message?: { content?: unknown };
-      delta?: { content?: unknown };
-      text?: unknown;
-    };
-    const text =
-      extractResponseText(choice.message?.content) ||
-      extractResponseText(choice.delta?.content) ||
-      extractResponseText(choice.text);
-    if (text) return { text };
-  }
-
-  if (response && typeof response === 'object' && 'text' in response) {
-    const text = extractResponseText((response as { text?: unknown }).text);
-    if (text) return { text };
-  }
-
-  return { error: 'Plexus returned an unsupported response shape.' };
-};
-
 const parseRetryHistory = (value?: string | null): RetryAttempt[] => {
   if (!value) return [];
   try {
@@ -244,61 +146,39 @@ const formatRoute = (provider?: string | null, model?: string | null) =>
 type ChatSimulationProps = {
   selectedKey: KeyConfig;
   selectedModel: string;
-  adminKey: string;
-  onRoutingPending: () => void;
-  onRoutingResponse: (routing: PlaygroundRouting | null, error?: string) => void;
+  onRoutingPending: (clientRequestId: string) => void;
 };
 
 const ChatSimulation = memo(
-  ({
-    selectedKey,
-    selectedModel,
-    adminKey,
-    onRoutingPending,
-    onRoutingResponse,
-  }: ChatSimulationProps) => {
-    const requestInterceptor = (details: DeepChatRequestDetails) => {
-      window.setTimeout(onRoutingPending, 0);
-      const body = details.body && typeof details.body === 'object' ? details.body : {};
+  ({ selectedKey, selectedModel, onRoutingPending }: ChatSimulationProps) => {
+    const requestInterceptor = (details: { body: unknown; headers?: Record<string, string> }) => {
+      const clientRequestId = crypto.randomUUID();
+      window.setTimeout(() => onRoutingPending(clientRequestId), 0);
       return {
         ...details,
-        body: {
-          ...body,
-          model: selectedModel,
-          stream: false,
-          messages: extractMessages(body),
+        headers: {
+          ...details.headers,
+          'x-client-request-id': clientRequestId,
         },
       };
-    };
-
-    const responseInterceptor = (response: unknown) => {
-      const routing =
-        response && typeof response === 'object' && 'plexus' in response
-          ? ((response as { plexus?: PlaygroundRouting }).plexus ?? null)
-          : null;
-      const message = responseToMessage(response);
-      window.setTimeout(() => onRoutingResponse(routing, message.error), 0);
-      return message;
     };
 
     return (
       <DeepChat
         key={`${selectedKey.key}:${selectedModel}`}
+        // Deep Chat's OpenAI Completions adapter natively builds and parses
+        // the Plexus-compatible Chat Completions streaming protocol.
         connect={{
-          url: CHAT_COMPLETIONS_ENDPOINT,
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${selectedKey.secret}`,
-            'x-plexus-playground': 'true',
-            'x-admin-key': adminKey,
-          },
-          additionalBodyProps: {
-            model: selectedModel,
-            stream: false,
+          url: `${window.location.origin}/v1/chat/completions`,
+          stream: true,
+        }}
+        directConnection={{
+          openAI: {
+            key: selectedKey.secret,
+            completions: { model: selectedModel },
           },
         }}
         requestInterceptor={requestInterceptor}
-        responseInterceptor={responseInterceptor}
         introMessage={{
           text: `Simulation active using key "${selectedKey.key}" and model "${selectedModel}".`,
         }}
@@ -420,7 +300,7 @@ export const Playground = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [routingInfo, setRoutingInfo] = useState<RoutingInfo>({ status: 'idle' });
-  const adminKey = useMemo(() => localStorage.getItem('plexus_admin_key') ?? '', []);
+  const routingRequestRef = useRef(0);
 
   const selectedKey = useMemo(
     () => keys.find((key) => key.key === selectedKeyName) ?? null,
@@ -478,26 +358,62 @@ export const Playground = () => {
     loadData();
   };
 
-  const handleRoutingPending = useCallback(() => {
+  const handleRoutingPending = useCallback((clientRequestId: string) => {
+    const requestNumber = ++routingRequestRef.current;
     setRoutingInfo({ status: 'pending' });
-  }, []);
 
-  const handleRoutingResponse = useCallback((routing: PlaygroundRouting | null, error?: string) => {
-    if (routing) {
-      setRoutingInfo({
-        status: error ? 'error' : 'complete',
-        routing,
-        error,
-      });
-    } else if (error) {
-      setRoutingInfo({ status: 'error', error });
-    } else {
-      setRoutingInfo({
-        status: 'error',
-        error:
-          'Routing metadata was not returned. Verify admin access and use a unary JSON request.',
-      });
-    }
+    // Streaming responses do not have a JSON body to carry Playground metadata.
+    // The inference route persists its routing decision before it starts SSE,
+    // allowing this authenticated management request to retrieve it separately.
+    const pollRouting = async (attempt = 0): Promise<void> => {
+      try {
+        const result = await api.getLogs(1, 0, { clientRequestId });
+        const record = result.data[0];
+        if (routingRequestRef.current !== requestNumber) return;
+
+        if (record?.provider || record?.selectedModelName) {
+          const isComplete = record.responseStatus !== 'pending';
+          setRoutingInfo({
+            // The initial record contains the selected provider/model, but the
+            // API type and retry trail are written when the stream finishes.
+            status: isComplete
+              ? record.responseStatus === 'error'
+                ? 'error'
+                : 'complete'
+              : 'pending',
+            error: record.responseStatus === 'error' ? 'The request failed.' : undefined,
+            routing: {
+              requestId: record.requestId,
+              provider: record.provider ?? undefined,
+              model: record.selectedModelName ?? undefined,
+              apiType: record.outgoingApiType ?? undefined,
+              canonicalModel: record.canonicalModelName ?? undefined,
+              attemptCount: record.attemptCount ?? undefined,
+              finalAttemptProvider: record.finalAttemptProvider ?? record.provider ?? undefined,
+              finalAttemptModel: record.finalAttemptModel ?? record.selectedModelName ?? undefined,
+              allAttemptedProviders: record.allAttemptedProviders ?? undefined,
+              retryHistory: record.retryHistory ?? undefined,
+            },
+          });
+          if (isComplete) return;
+        }
+      } catch {
+        // The pending record is inserted asynchronously; retry below.
+      }
+
+      if (attempt >= 20) {
+        if (routingRequestRef.current === requestNumber) {
+          setRoutingInfo({
+            status: 'error',
+            error: 'Routing metadata was not available for this request.',
+          });
+        }
+        return;
+      }
+      window.setTimeout(() => void pollRouting(attempt + 1), 250);
+    };
+
+    void pollRouting();
   }, []);
 
   const retryHistory = parseRetryHistory(routingInfo.routing?.retryHistory);
@@ -703,9 +619,7 @@ export const Playground = () => {
                 <ChatSimulation
                   selectedKey={selectedKey}
                   selectedModel={selectedModel}
-                  adminKey={adminKey}
                   onRoutingPending={handleRoutingPending}
-                  onRoutingResponse={handleRoutingResponse}
                 />
               </div>
             ) : (
@@ -839,7 +753,7 @@ export const Playground = () => {
                   </ol>
                 ) : (
                   <div className="text-[11px] text-text-muted">
-                    Routing details appear after the next unary playground request.
+                    Routing details appear once the next playground request is routed.
                   </div>
                 )}
               </div>

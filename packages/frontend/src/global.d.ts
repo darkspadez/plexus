@@ -46,13 +46,20 @@ declare module 'deep-chat-react' {
       additionalBodyProps?: Record<string, unknown>;
       stream?: unknown;
     };
+    directConnection?: {
+      openAI?: {
+        key?: string;
+        completions?: {
+          model?: string;
+        };
+      };
+    };
     requestInterceptor?: (
       details: DeepChatRequestDetails
     ) =>
       | DeepChatRequestDetails
       | { error: string }
       | Promise<DeepChatRequestDetails | { error: string }>;
-    responseInterceptor?: (response: unknown) => DeepChatResponse | Promise<DeepChatResponse>;
     introMessage?: { text: string } | { html: string } | Array<{ text: string } | { html: string }>;
     auxiliaryStyle?: string;
     history?: DeepChatMessage[];
