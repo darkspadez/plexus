@@ -1045,7 +1045,7 @@ export function resolvePreferredApi(
   const model = (identity.model.split('/').at(-1) ?? identity.model).toLowerCase();
 
   if (provider.includes('anthropic') || model.includes('claude')) return ['messages'];
-  if (/^gpt(?:-|$)/.test(model)) return ['responses'];
+  if (/^(gpt|o[134])(?:-|$)/.test(model)) return ['responses'];
   if (/^gemini(?:-|$)/.test(model)) return ['gemini'];
   return ['chat_completions'];
 }
