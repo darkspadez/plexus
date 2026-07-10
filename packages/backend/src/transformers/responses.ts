@@ -702,6 +702,7 @@ export class ResponsesTransformer implements Transformer {
     const decoder = new TextDecoder();
     let responseModel = '';
     let responseId = '';
+    let hasFunctionCall = false;
 
     return new ReadableStream({
       async start(controller) {
@@ -743,6 +744,7 @@ export class ResponsesTransformer implements Transformer {
                 });
               } else if (data.type === 'response.function_call_arguments.delta') {
                 // Tool call arguments delta
+                hasFunctionCall = true;
                 controller.enqueue({
                   id: responseId,
                   model: responseModel,
@@ -764,6 +766,7 @@ export class ResponsesTransformer implements Transformer {
                 data.item?.type === 'function_call'
               ) {
                 // Tool call start
+                hasFunctionCall = true;
                 controller.enqueue({
                   id: responseId,
                   model: responseModel,
@@ -784,15 +787,21 @@ export class ResponsesTransformer implements Transformer {
                   finish_reason: null,
                 });
               } else if (data.type === 'response.completed') {
-                // Final chunk with usage data and finish reason
+                // Final chunk with usage data and an OpenAI-compatible finish reason.
+                // `response.completed` includes the full output as a fallback because some
+                // Responses-compatible providers omit intermediate function-call events.
                 const usage = data.response?.usage;
                 const normalizedUsage = usage ? normalizeOpenAIResponsesUsage(usage) : undefined;
+                const completedResponseHasFunctionCall = data.response?.output?.some(
+                  (item: any) => item?.type === 'function_call'
+                );
                 controller.enqueue({
                   id: responseId,
                   model: responseModel,
                   created: Math.floor(Date.now() / 1000),
                   delta: {},
-                  finish_reason: 'stop',
+                  finish_reason:
+                    hasFunctionCall || completedResponseHasFunctionCall ? 'tool_calls' : 'stop',
                   usage: normalizedUsage,
                 });
               }
