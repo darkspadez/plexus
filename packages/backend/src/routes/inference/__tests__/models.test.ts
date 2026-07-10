@@ -266,6 +266,15 @@ describe('GET /v1/models – with metadata', () => {
     expect(model.context_length).toBe(200000);
     expect(model.pricing.prompt).toBe('0.000003');
     expect(model.pricing.completion).toBe('0.000015');
+    expect(model.pricing.tiers).toEqual([
+      {
+        input_tokens_above: 272000,
+        prompt: '0.000010',
+        completion: '0.000045',
+        input_cache_read: '0.000001',
+        input_cache_write: '0.0000125',
+      },
+    ]);
     expect(model.architecture.input_modalities).toContain('text');
     expect(model.supported_parameters).toContain('temperature');
     expect(model.top_provider.max_completion_tokens).toBe(8192);

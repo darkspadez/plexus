@@ -764,12 +764,21 @@ const ModelBehaviorSchema = z.discriminatedUnion('type', [StripAdaptiveThinkingB
 // `overrides` lets users override individual fields per alias. Overridden
 // fields win over catalog values; untouched fields still track the catalog.
 // When `source === 'custom'`, all data comes from overrides (no catalog lookup).
+const MetadataPricingTierSchema = z.object({
+  input_tokens_above: z.number().int().nonnegative(),
+  prompt: z.string().optional(),
+  completion: z.string().optional(),
+  input_cache_read: z.string().optional(),
+  input_cache_write: z.string().optional(),
+});
+
 const MetadataPricingOverridesSchema = z
   .object({
     prompt: z.string().optional(),
     completion: z.string().optional(),
     input_cache_read: z.string().optional(),
     input_cache_write: z.string().optional(),
+    tiers: z.array(MetadataPricingTierSchema).optional(),
   })
   .partial();
 

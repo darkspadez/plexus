@@ -62,6 +62,13 @@ export interface NormalizedModelMetadata {
     completion?: string;
     input_cache_read?: string;
     input_cache_write?: string;
+    tiers?: Array<{
+      input_tokens_above: number;
+      prompt?: string;
+      completion?: string;
+      input_cache_read?: string;
+      input_cache_write?: string;
+    }>;
   };
   supported_parameters?: string[];
   top_provider?: {
@@ -89,7 +96,23 @@ interface OpenRouterRawModel {
     completion?: string;
     input_cache_read?: string;
     input_cache_write?: string;
-    [key: string]: string | undefined;
+    tiers?: Array<{
+      input_tokens_above: number;
+      prompt?: string;
+      completion?: string;
+      input_cache_read?: string;
+      input_cache_write?: string;
+    }>;
+    [key: string]:
+      | string
+      | Array<{
+          input_tokens_above: number;
+          prompt?: string;
+          completion?: string;
+          input_cache_read?: string;
+          input_cache_write?: string;
+        }>
+      | undefined;
   };
   supported_parameters?: string[];
   top_provider?: {
@@ -193,6 +216,7 @@ function normalizeOpenRouterModel(
           completion: raw.pricing.completion,
           input_cache_read: raw.pricing.input_cache_read,
           input_cache_write: raw.pricing.input_cache_write,
+          tiers: raw.pricing.tiers,
         }
       : undefined,
     supported_parameters: raw.supported_parameters,
