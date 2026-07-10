@@ -49,9 +49,25 @@ declare module 'deep-chat-react' {
     directConnection?: {
       openAI?: {
         key?: string;
-        completions?: {
+        completions?: true;
+        chat?: {
           model?: string;
+          tools?: unknown;
+          function_handler?: (calls: Array<{ name: string; arguments: string }>) => unknown;
+          parallel_tool_calls?: boolean;
         };
+      };
+      claude?: {
+        key?: string;
+        model?: string;
+        tools?: unknown;
+        function_handler?: (calls: Array<{ name: string; arguments: string }>) => unknown;
+      };
+      gemini?: {
+        key?: string;
+        model?: string;
+        tools?: unknown;
+        function_handler?: (calls: Array<{ name: string; arguments: string }>) => unknown;
       };
     };
     requestInterceptor?: (
@@ -60,9 +76,11 @@ declare module 'deep-chat-react' {
       | DeepChatRequestDetails
       | { error: string }
       | Promise<DeepChatRequestDetails | { error: string }>;
+    responseInterceptor?: (response: unknown) => unknown | Promise<unknown>;
     introMessage?: { text: string } | { html: string } | Array<{ text: string } | { html: string }>;
     auxiliaryStyle?: string;
     history?: DeepChatMessage[];
+    images?: boolean;
     chatStyle?: Record<string, string>;
     inputAreaStyle?: Record<string, string>;
     textInput?: Record<string, unknown>;

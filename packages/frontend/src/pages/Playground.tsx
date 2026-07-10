@@ -24,6 +24,77 @@ type ModelListResponse = {
   data?: Array<{ id?: string }>;
 };
 
+type PlaygroundApi = 'openai-completions' | 'openai-responses' | 'anthropic-messages' | 'gemini';
+type ToolMode = 'off' | 'sample-tools';
+type BrowserToolCall = { name: string; arguments: string };
+
+const playgroundApiOptions: Array<{ value: PlaygroundApi; label: string }> = [
+  { value: 'openai-completions', label: 'OpenAI Chat Completions' },
+  { value: 'openai-responses', label: 'OpenAI Responses' },
+  { value: 'anthropic-messages', label: 'Anthropic Messages' },
+  { value: 'gemini', label: 'Gemini Generate Content' },
+];
+
+const playgroundApiLabel = (apiType: PlaygroundApi) =>
+  playgroundApiOptions.find((option) => option.value === apiType)?.label ?? apiType;
+
+const toolModeOptions: Array<{ value: ToolMode; label: string }> = [
+  { value: 'off', label: 'No tools' },
+  { value: 'sample-tools', label: 'Sample browser tools' },
+];
+
+const toolParameters = {
+  get_date: {
+    type: 'object',
+    properties: {
+      timezone: {
+        type: 'string',
+        description: 'Optional IANA timezone, such as America/Los_Angeles',
+      },
+    },
+  },
+  add_task: {
+    type: 'object',
+    properties: { title: { type: 'string', description: 'The task to add' } },
+    required: ['title'],
+  },
+  list_tasks: {
+    type: 'object',
+    properties: {},
+  },
+};
+
+const toolDescriptions = {
+  get_date: 'Get the current date and time in an optional timezone.',
+  add_task: 'Add a task to this browser-only test task list.',
+  list_tasks: 'List tasks added during this current Playground chat session.',
+};
+
+const openAiTools = Object.entries(toolParameters).map(([name, parameters]) => ({
+  type: 'function',
+  function: {
+    name,
+    description: toolDescriptions[name as keyof typeof toolDescriptions],
+    parameters,
+  },
+}));
+
+const claudeTools = Object.entries(toolParameters).map(([name, input_schema]) => ({
+  name,
+  description: toolDescriptions[name as keyof typeof toolDescriptions],
+  input_schema,
+}));
+
+const geminiTools = [
+  {
+    functionDeclarations: Object.entries(toolParameters).map(([name, parameters]) => ({
+      name,
+      description: toolDescriptions[name as keyof typeof toolDescriptions],
+      parameters,
+    })),
+  },
+];
+
 type RetryAttempt = {
   index?: number;
   provider?: string;
@@ -101,6 +172,44 @@ const deepChatAuxiliaryStyle = `
     color: #64748b !important;
   }
 
+  #file-attachment-container {
+    box-sizing: border-box !important;
+    width: calc(100% - 2px) !important;
+    height: 3.6em !important;
+    top: -3.6em !important;
+    left: 1px !important;
+    padding: 4px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    background: #0b1324 !important;
+    border: 1px solid #334155 !important;
+    border-bottom: 0 !important;
+    border-radius: 0.625rem 0.625rem 0 0 !important;
+  }
+
+  .file-attachment {
+    margin: 0 0.5em 0 0 !important;
+    background: #020617 !important;
+    border: 1px solid #334155 !important;
+    border-radius: 0.375rem !important;
+  }
+
+  .border-bound-attachment {
+    width: 100% !important;
+    height: 100% !important;
+    border: 0 !important;
+    border-radius: 0.3125rem !important;
+  }
+
+  .image-attachment {
+    border-radius: 0.3125rem !important;
+  }
+
+  .remove-file-attachment-button {
+    border-color: #64748b !important;
+    background: #0f172a !important;
+  }
+
   #messages::-webkit-scrollbar {
     width: 8px;
   }
@@ -146,11 +255,59 @@ const formatRoute = (provider?: string | null, model?: string | null) =>
 type ChatSimulationProps = {
   selectedKey: KeyConfig;
   selectedModel: string;
+  selectedApi: PlaygroundApi;
+  toolMode: ToolMode;
   onRoutingPending: (clientRequestId: string) => void;
 };
 
 const ChatSimulation = memo(
-  ({ selectedKey, selectedModel, onRoutingPending }: ChatSimulationProps) => {
+  ({
+    selectedKey,
+    selectedModel,
+    selectedApi,
+    toolMode,
+    onRoutingPending,
+  }: ChatSimulationProps) => {
+    const tasksRef = useRef<string[]>([]);
+    const pendingOpenAiToolCallsRef = useRef(false);
+    const runBrowserTools = (calls: BrowserToolCall[]) =>
+      calls.map((call) => {
+        let args: Record<string, unknown> = {};
+        try {
+          args = JSON.parse(call.arguments) as Record<string, unknown>;
+        } catch {
+          // The adapter validates tool calls; this is a final defensive fallback.
+        }
+
+        switch (call.name) {
+          case 'get_date': {
+            const timezone = typeof args.timezone === 'string' ? args.timezone : undefined;
+            try {
+              return {
+                response: JSON.stringify({
+                  datetime: new Date().toLocaleString('en-US', { timeZone: timezone }),
+                  timezone: timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+                }),
+              };
+            } catch {
+              return { response: JSON.stringify({ error: `Invalid timezone: ${timezone}` }) };
+            }
+          }
+          case 'add_task': {
+            const title = typeof args.title === 'string' ? args.title.trim() : '';
+            if (!title) return { response: JSON.stringify({ error: 'A task title is required.' }) };
+            tasksRef.current.push(title);
+            return {
+              response: JSON.stringify({ added: title, taskCount: tasksRef.current.length }),
+            };
+          }
+          case 'list_tasks':
+            return { response: JSON.stringify({ tasks: tasksRef.current }) };
+          default:
+            return { response: JSON.stringify({ error: `Unknown browser tool: ${call.name}` }) };
+        }
+      });
+
     const requestInterceptor = (details: { body: unknown; headers?: Record<string, string> }) => {
       const clientRequestId = crypto.randomUUID();
       window.setTimeout(() => onRoutingPending(clientRequestId), 0);
@@ -159,26 +316,122 @@ const ChatSimulation = memo(
         headers: {
           ...details.headers,
           'x-client-request-id': clientRequestId,
+          ...(selectedApi === 'gemini' ? { 'x-goog-api-key': selectedKey.secret } : {}),
         },
       };
     };
 
+    const responseInterceptor = (response: unknown) => {
+      // Deep Chat 2.4.x starts its browser-side tool continuation only when the
+      // terminal OpenAI chunk says `tool_calls`. Plexus-compatible streams may
+      // validly finish with `stop` after emitting tool deltas, so normalize that
+      // one compatibility detail locally without changing the gateway response.
+      if (selectedApi !== 'openai-completions' || toolMode !== 'sample-tools') return response;
+      if (!response || typeof response !== 'object' || !('choices' in response)) return response;
+
+      const choice = (response as { choices?: Array<Record<string, unknown>> }).choices?.[0];
+      if (!choice) return response;
+      const delta = choice.delta as { tool_calls?: unknown[] } | undefined;
+      if (delta?.tool_calls?.length) {
+        pendingOpenAiToolCallsRef.current = true;
+        return response;
+      }
+      if (pendingOpenAiToolCallsRef.current && choice.finish_reason === 'stop') {
+        pendingOpenAiToolCallsRef.current = false;
+        return {
+          ...(response as Record<string, unknown>),
+          choices: [{ ...choice, finish_reason: 'tool_calls' }],
+        };
+      }
+      return response;
+    };
+
+    const connection = (() => {
+      const baseUrl = window.location.origin;
+      const enableTools = toolMode === 'sample-tools';
+      switch (selectedApi) {
+        case 'openai-responses':
+          return {
+            connect: { url: `${baseUrl}/v1/responses`, stream: true },
+            directConnection: {
+              openAI: {
+                key: selectedKey.secret,
+                chat: {
+                  model: selectedModel,
+                  ...(enableTools
+                    ? {
+                        tools: openAiTools,
+                        function_handler: runBrowserTools,
+                        // Keep browser-only sample tools sequential until parallel
+                        // Responses-to-Chat-Completions translation is fixed.
+                        parallel_tool_calls: false,
+                      }
+                    : {}),
+                },
+              },
+            },
+          };
+        case 'anthropic-messages':
+          return {
+            connect: { url: `${baseUrl}/v1/messages`, stream: true },
+            directConnection: {
+              claude: {
+                key: selectedKey.secret,
+                model: selectedModel,
+                ...(enableTools ? { tools: claudeTools, function_handler: runBrowserTools } : {}),
+              },
+            },
+          };
+        case 'gemini':
+          return {
+            connect: {
+              url: `${baseUrl}/v1beta/models/${encodeURIComponent(selectedModel)}:streamGenerateContent?alt=sse`,
+              stream: true,
+            },
+            directConnection: {
+              gemini: {
+                key: selectedKey.secret,
+                model: selectedModel,
+                ...(enableTools ? { tools: geminiTools, function_handler: runBrowserTools } : {}),
+              },
+            },
+          };
+        case 'openai-completions':
+        default:
+          return {
+            connect: { url: `${baseUrl}/v1/chat/completions`, stream: true },
+            directConnection: {
+              openAI: {
+                key: selectedKey.secret,
+                // Deep Chat 2.4.x selects its Chat Completions service from
+                // `completions`, but reads its model configuration from `chat`.
+                completions: true as const,
+                chat: {
+                  model: selectedModel,
+                  ...(enableTools
+                    ? {
+                        tools: openAiTools,
+                        function_handler: runBrowserTools,
+                        // Keep browser-only sample tools sequential until parallel
+                        // Responses-to-Chat-Completions translation is fixed.
+                        parallel_tool_calls: false,
+                      }
+                    : {}),
+                },
+              },
+            },
+          };
+      }
+    })();
+
     return (
       <DeepChat
-        key={`${selectedKey.key}:${selectedModel}`}
-        // Deep Chat's OpenAI Completions adapter natively builds and parses
-        // the Plexus-compatible Chat Completions streaming protocol.
-        connect={{
-          url: `${window.location.origin}/v1/chat/completions`,
-          stream: true,
-        }}
-        directConnection={{
-          openAI: {
-            key: selectedKey.secret,
-            completions: { model: selectedModel },
-          },
-        }}
+        key={`${selectedKey.key}:${selectedModel}:${selectedApi}:${toolMode}`}
+        connect={connection.connect}
+        directConnection={connection.directConnection}
         requestInterceptor={requestInterceptor}
+        responseInterceptor={responseInterceptor}
+        images={true}
         introMessage={{
           text: `Simulation active using key "${selectedKey.key}" and model "${selectedModel}".`,
         }}
@@ -296,6 +549,8 @@ export const Playground = () => {
   const [selectedKeyName, setSelectedKeyName] = useState('');
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState('');
+  const [selectedApi, setSelectedApi] = useState<PlaygroundApi>('openai-completions');
+  const [toolMode, setToolMode] = useState<ToolMode>('off');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -499,6 +754,22 @@ export const Playground = () => {
               className="h-9 truncate text-xs sm:text-sm"
             />
 
+            <Select
+              label="Request API"
+              value={selectedApi}
+              onChange={(value) => setSelectedApi(value as PlaygroundApi)}
+              options={playgroundApiOptions}
+              className="h-9 truncate text-xs sm:text-sm"
+            />
+
+            <Select
+              label="Tool Mode"
+              value={toolMode}
+              onChange={(value) => setToolMode(value as ToolMode)}
+              options={toolModeOptions}
+              className="h-9 truncate text-xs sm:text-sm"
+            />
+
             <div className="min-w-0 rounded-md border border-border bg-bg-subtle/60 p-2">
               <div className="mb-1 flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-text-muted sm:text-[10px]">
                 <Key className="h-3 w-3" />
@@ -609,7 +880,9 @@ export const Playground = () => {
             extra={
               <div className="flex items-center gap-2 text-xs text-text-muted">
                 <SlidersHorizontal className="h-3.5 w-3.5" />
-                {selectedModel || 'No model selected'}
+                {selectedModel
+                  ? `${playgroundApiLabel(selectedApi)} · ${toolMode === 'sample-tools' ? 'tools on · ' : ''}${selectedModel}`
+                  : 'No model selected'}
               </div>
             }
             flush
@@ -619,6 +892,8 @@ export const Playground = () => {
                 <ChatSimulation
                   selectedKey={selectedKey}
                   selectedModel={selectedModel}
+                  selectedApi={selectedApi}
+                  toolMode={toolMode}
                   onRoutingPending={handleRoutingPending}
                 />
               </div>
