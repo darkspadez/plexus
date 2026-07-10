@@ -272,6 +272,80 @@ const deepChatAuxiliaryStyle = `
     background: #0f172a !important;
   }
 
+  .playground-tool-call {
+    min-width: 15rem;
+    overflow: hidden;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    border-radius: 0.5rem;
+    background: #111827;
+    color: #e2e8f0;
+  }
+
+  .playground-tool-call__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.625rem;
+    border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+    background: rgba(245, 158, 11, 0.08);
+  }
+
+  .playground-tool-call__eyebrow {
+    color: #fbbf24;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .playground-tool-call__name {
+    color: #f8fafc;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .playground-tool-call__body {
+    display: grid;
+    gap: 0.625rem;
+    padding: 0.625rem;
+  }
+
+  .playground-tool-call__section-label {
+    margin-bottom: 0.25rem;
+    color: #94a3b8;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .playground-tool-call__rows {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .playground-tool-call__row {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 0.5rem;
+    padding: 0.3rem 0.4rem;
+    border-radius: 0.25rem;
+    background: rgba(2, 6, 23, 0.6);
+    font-size: 0.7rem;
+  }
+
+  .playground-tool-call__key {
+    color: #94a3b8;
+    font-family: var(--font-mono, monospace);
+  }
+
+  .playground-tool-call__value {
+    overflow-wrap: anywhere;
+    color: #e2e8f0;
+  }
+
   #messages::-webkit-scrollbar {
     width: 8px;
   }
@@ -314,11 +388,51 @@ const parseAttemptedProviders = (value?: string | null): string[] => {
 const formatRoute = (provider?: string | null, model?: string | null) =>
   provider && model ? `${provider}/${model}` : provider || model || 'Pending';
 
-const formatToolCallMessage = (toolCall: PlaygroundToolCall) =>
-  `Browser tool call · ${toolCall.name}\nArguments\n${toolCall.arguments}\nResult\n${toolCall.result}`;
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
+
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+
+const formatToolValue = (value: unknown): string => {
+  if (Array.isArray(value))
+    return value.length > 0 ? value.map(formatToolValue).join(', ') : 'None';
+  if (isRecord(value)) {
+    return Object.entries(value)
+      .map(([key, entry]) => `${key}: ${formatToolValue(entry)}`)
+      .join(', ');
+  }
+  if (value === null || value === undefined || value === '') return 'None';
+  return String(value);
+};
+
+const formatToolRows = (serialized: string) => {
+  try {
+    const parsed = JSON.parse(serialized);
+    if (isRecord(parsed)) {
+      const entries = Object.entries(parsed);
+      if (entries.length > 0) {
+        return entries
+          .map(
+            ([key, value]) =>
+              `<div class="playground-tool-call__row"><span class="playground-tool-call__key">${escapeHtml(key)}</span><span class="playground-tool-call__value">${escapeHtml(formatToolValue(value))}</span></div>`
+          )
+          .join('');
+      }
+    }
+  } catch {
+    // Tool adapters normally return JSON. Preserve a non-JSON value safely if they do not.
+  }
+
+  return `<div class="playground-tool-call__row"><span class="playground-tool-call__key">Value</span><span class="playground-tool-call__value">${escapeHtml(serialized || 'None')}</span></div>`;
+};
+
+const formatToolCallHtml = (toolCall: PlaygroundToolCall) =>
+  `<div class="playground-tool-call"><div class="playground-tool-call__header"><span class="playground-tool-call__eyebrow">TOOL CALL</span><span class="playground-tool-call__name">${escapeHtml(toolCall.name)}</span></div><div class="playground-tool-call__body"><section><div class="playground-tool-call__section-label">Arguments</div><div class="playground-tool-call__rows">${formatToolRows(toolCall.arguments)}</div></section><section><div class="playground-tool-call__section-label">Result</div><div class="playground-tool-call__rows">${formatToolRows(toolCall.result)}</div></section></div></div>`;
 
 // Deep Chat follows a browser tool call with another request containing its tool
 // result. That follow-up must not reset the routing panel (or its tool details).
@@ -441,7 +555,7 @@ const ChatSimulation = memo(
       for (const toolCall of completedCalls) {
         chatRef.current?.addMessage({
           role: 'ai',
-          text: formatToolCallMessage(toolCall),
+          html: formatToolCallHtml(toolCall),
         });
       }
       window.setTimeout(() => onToolCalls(completedCalls), 0);
