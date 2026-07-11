@@ -54,10 +54,74 @@ const USAGE_FIELDS = new Set([
   'hasError',
 ]);
 
+type UsageStreamEventName = 'started' | 'updated' | 'completed' | 'created';
+
+type UsageStreamClient = {
+  scopeKey: string | null;
+  send: (eventType: UsageStreamEventName, record: any) => void;
+};
+
+export class UsageEventsBroadcaster {
+  private readonly clients = new Set<UsageStreamClient>();
+  private readonly startedListener = (record: any) => this.broadcast('started', record);
+  private readonly updatedListener = (record: any) => this.broadcast('updated', record);
+  private readonly completedListener = (record: any) => this.broadcast('completed', record);
+  private readonly createdListener = (record: any) => this.broadcast('completed', record);
+
+  constructor(readonly usageStorage: UsageStorageService) {
+    this.usageStorage.on('started', this.startedListener);
+    this.usageStorage.on('updated', this.updatedListener);
+    this.usageStorage.on('completed', this.completedListener);
+    // Also listen for 'created' for backward compatibility
+    this.usageStorage.on('created', this.createdListener);
+  }
+
+  subscribe(client: UsageStreamClient): () => void {
+    this.clients.add(client);
+
+    return () => {
+      this.clients.delete(client);
+    };
+  }
+
+  dispose(): void {
+    this.usageStorage.off('started', this.startedListener);
+    this.usageStorage.off('updated', this.updatedListener);
+    this.usageStorage.off('completed', this.completedListener);
+    this.usageStorage.off('created', this.createdListener);
+    this.clients.clear();
+  }
+
+  private broadcast(eventType: UsageStreamEventName, record: any): void {
+    for (const client of this.clients) {
+      if (client.scopeKey && record?.apiKey !== client.scopeKey) continue;
+      client.send(eventType, record);
+    }
+  }
+}
+
+let usageEventsBroadcaster: UsageEventsBroadcaster | null = null;
+
+function getUsageEventsBroadcaster(usageStorage: UsageStorageService): UsageEventsBroadcaster {
+  if (!usageEventsBroadcaster || usageEventsBroadcaster.usageStorage !== usageStorage) {
+    usageEventsBroadcaster?.dispose();
+    usageEventsBroadcaster = new UsageEventsBroadcaster(usageStorage);
+  }
+
+  return usageEventsBroadcaster;
+}
+
 export async function registerUsageRoutes(
   fastify: FastifyInstance,
   usageStorage: UsageStorageService
 ) {
+  fastify.addHook('onClose', async () => {
+    if (usageEventsBroadcaster?.usageStorage === usageStorage) {
+      usageEventsBroadcaster.dispose();
+      usageEventsBroadcaster = null;
+    }
+  });
+
   const sortableFields = new Set<UsageSortField>([
     'date',
     'apiKey',
@@ -424,33 +488,28 @@ export async function registerUsageRoutes(
       'Access-Control-Allow-Origin': '*',
     });
 
+    const broadcaster = getUsageEventsBroadcaster(usageStorage);
+
     // Limited users must only observe activity for their own key. Admins
     // (scopeKey === null) continue to receive every event.
     const scopeKey = scopedKeyName(request);
 
     // Helper to send events to the client
-    const sendEvent = (eventType: string, record: any) => {
+    const sendEvent = (eventType: UsageStreamEventName, record: any) => {
       if (reply.raw.destroyed) return;
       if (scopeKey && record?.apiKey !== scopeKey) return;
-      reply.raw.write(
-        encode({
-          data: JSON.stringify(record),
-          event: eventType,
-          id: String(Date.now()),
-        })
-      );
+      try {
+        reply.raw.write(
+          encode({
+            data: JSON.stringify(record),
+            event: eventType,
+            id: String(Date.now()),
+          })
+        );
+      } catch {
+        // Fire-and-forget: ignore write errors
+      }
     };
-
-    // Listen for all event types: started, updated, and completed
-    const startedListener = (record: any) => sendEvent('started', record);
-    const updatedListener = (record: any) => sendEvent('updated', record);
-    const completedListener = (record: any) => sendEvent('completed', record);
-
-    usageStorage.on('started', startedListener);
-    usageStorage.on('updated', updatedListener);
-    usageStorage.on('completed', completedListener);
-    // Also listen for 'created' for backward compatibility
-    usageStorage.on('created', completedListener);
 
     // Periodic progress updates for in-flight requests (every 1s, fire-and-forget)
     const progressInterval = setInterval(() => {
@@ -476,33 +535,37 @@ export async function registerUsageRoutes(
     // Cleanup on server shutdown (closeAllConnections destroys sockets → 'close' fires)
     // and as a fallback for other disconnect scenarios.
     let cleanedUp = false;
+    const unsubscribe = broadcaster.subscribe({
+      scopeKey,
+      send: sendEvent,
+    });
     const cleanup = () => {
       if (cleanedUp) return;
       cleanedUp = true;
       clearInterval(progressInterval);
-      usageStorage.off('started', startedListener);
-      usageStorage.off('updated', updatedListener);
-      usageStorage.off('completed', completedListener);
-      usageStorage.off('created', completedListener);
+      unsubscribe();
     };
 
-    reply.raw.on('close', cleanup);
+    reply.raw.once('close', cleanup);
+    reply.raw.once('error', cleanup);
 
-    // Keep connection alive with periodic pings
-    while (!reply.raw.destroyed) {
-      await new Promise((resolve) => setTimeout(resolve, 10000));
-      if (!reply.raw.destroyed) {
-        reply.raw.write(
-          encode({
-            event: 'ping',
-            data: 'pong',
-            id: String(Date.now()),
-          })
-        );
+    try {
+      // Keep connection alive with periodic pings
+      while (!reply.raw.destroyed) {
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        if (!reply.raw.destroyed) {
+          reply.raw.write(
+            encode({
+              event: 'ping',
+              data: 'pong',
+              id: String(Date.now()),
+            })
+          );
+        }
       }
+    } finally {
+      // Cleanup: socket destroyed (client disconnect or server shutdown)
+      cleanup();
     }
-
-    // Cleanup: socket destroyed (client disconnect or server shutdown)
-    cleanup();
   });
 }
