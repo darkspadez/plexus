@@ -398,10 +398,9 @@ export function ProviderModelsEditor({
                                     content={
                                       <div className="w-64 whitespace-normal font-sans leading-relaxed">
                                         Passes Codex-specific Responses input through unchanged,
-                                        including additional tools. Enable only for targets known
-                                        to support Responses Lite—usually direct OpenAI or Codex
-                                        endpoints. Most OpenAI-compatible proxies do not support
-                                        it.
+                                        including additional tools. Enable only for targets known to
+                                        support Responses Lite—usually direct OpenAI or Codex
+                                        endpoints. Most OpenAI-compatible proxies do not support it.
                                       </div>
                                     }
                                   >

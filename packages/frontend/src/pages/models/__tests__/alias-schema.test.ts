@@ -39,6 +39,16 @@ function base(overrides: Partial<AliasFormValues> = {}): AliasFormValues {
   };
 }
 
+/**
+ * Narrowing accessor for metadata overrides — `AliasMetadata` is a
+ * discriminated union upstream, and its `{ source: 'disabled' }` member has
+ * no `overrides` field, so direct `.overrides` access doesn't typecheck.
+ */
+function overridesOf(metadata: { source: string; overrides?: unknown } | undefined) {
+  if (!metadata || metadata.source === 'disabled') return undefined;
+  return metadata.overrides as Record<string, any> | undefined;
+}
+
 // ---------------------------------------------------------------------------
 // 1. Catalog-backed alias (openrouter source)
 // ---------------------------------------------------------------------------
@@ -133,14 +143,14 @@ describe('toAliasPayload — custom metadata source', () => {
 
     const a = result.alias;
     expect(a.metadata?.source).toBe('custom');
-    expect(a.metadata?.overrides?.name).toBe('My Local Model');
-    expect(a.metadata?.overrides?.context_length).toBe(8192);
-    expect(a.metadata?.overrides?.pricing).toEqual({ prompt: '0', completion: '0' });
-    expect(a.metadata?.overrides?.architecture).toEqual({
+    expect(overridesOf(a.metadata)?.name).toBe('My Local Model');
+    expect(overridesOf(a.metadata)?.context_length).toBe(8192);
+    expect(overridesOf(a.metadata)?.pricing).toEqual({ prompt: '0', completion: '0' });
+    expect(overridesOf(a.metadata)?.architecture).toEqual({
       input_modalities: ['text'],
       output_modalities: ['text'],
     });
-    expect(a.metadata?.overrides?.supported_parameters).toEqual(['temperature', 'top_p']);
+    expect(overridesOf(a.metadata)?.supported_parameters).toEqual(['temperature', 'top_p']);
   });
 
   test('rejects custom metadata with empty name', () => {
@@ -319,7 +329,7 @@ describe('toAliasPayload — metadata overrides detail', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('Expected ok');
 
-    expect(result.alias.metadata?.overrides?.pricing).toEqual({
+    expect(overridesOf(result.alias.metadata)?.pricing).toEqual({
       prompt: '0.0025',
       completion: '0.01',
       input_cache_read: '0.00125',
@@ -346,7 +356,7 @@ describe('toAliasPayload — metadata overrides detail', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('Expected ok');
 
-    expect(result.alias.metadata?.overrides?.top_provider).toEqual({
+    expect(overridesOf(result.alias.metadata)?.top_provider).toEqual({
       context_length: 200_000,
       max_completion_tokens: 8192,
     });

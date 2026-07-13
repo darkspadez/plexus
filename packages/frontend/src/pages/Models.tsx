@@ -336,9 +336,7 @@ export const Models = () => {
               size="sm"
               onClick={() => handleSort(sortField)}
               aria-label={`Sort direction: ${getSortAriaLabel(sortField)}`}
-              leftIcon={
-                sortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
-              }
+              leftIcon={sortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
             >
               {sortDirection === 'asc' ? 'Asc' : 'Desc'}
             </Button>

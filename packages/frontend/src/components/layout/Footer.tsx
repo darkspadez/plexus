@@ -9,7 +9,6 @@
 import React from 'react';
 
 export const Footer: React.FC = () => {
-  // @ts-expect-error — replaced at build time by build.ts
   const appVersion: string = process.env.APP_VERSION || 'dev';
 
   return (
