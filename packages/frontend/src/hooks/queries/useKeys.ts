@@ -111,6 +111,23 @@ export const useDeleteKey = () => {
   });
 };
 
+/** Disable a single API key by name — immediate, irreversible via the UI
+ * (mirrors the confirm copy in Keys.tsx). Distinct from expiry: a disabled
+ * key stops working right away, regardless of any `expiresAt`. */
+export const useDisableKey = () => {
+  const qc = useQueryClient();
+  const { success: toastSuccess, error: toastError } = useToast();
+
+  return useMutation({
+    mutationFn: (keyName: string) => api.disableKey(keyName),
+    onSuccess: (_data, keyName) => {
+      qc.invalidateQueries({ queryKey: KEYS_KEY });
+      toastSuccess(`Key '${keyName}' disabled`);
+    },
+    onError: (err: Error) => toastError(`Failed to disable key: ${err.message}`),
+  });
+};
+
 /** Delete a user quota by name. */
 export const useDeleteKeysUserQuota = () => {
   const qc = useQueryClient();

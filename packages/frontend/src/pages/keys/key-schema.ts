@@ -8,6 +8,16 @@
 import * as z from 'zod';
 import type { KeyConfig } from '../../lib/api';
 
+/** Units offered by the create-only expiry input — mirrors upstream's
+ * amount + unit pair, converted to `expiresInMinutes` on save. */
+export type ExpiryUnit = 'minutes' | 'hours' | 'days';
+
+export const EXPIRY_MINUTES_PER_UNIT: Record<ExpiryUnit, number> = {
+  minutes: 1,
+  hours: 60,
+  days: 1_440,
+};
+
 export const keyFormSchema = z.object({
   key: z.string().trim().min(1, 'Key name is required.'),
   secret: z.string().trim().min(1, 'Secret is required.'),
@@ -21,6 +31,17 @@ export const keyFormSchema = z.object({
   excludedModels: z.array(z.string()),
   excludedProviders: z.array(z.string()),
   allowedIps: z.array(z.string()),
+  // Create-only expiry input (hidden/ignored by the sheet when editing).
+  // Empty string == "never expires"; otherwise must be a positive whole
+  // number — mirrors upstream's `!Number.isInteger(amount) || amount <= 0`
+  // check on `handleSaveKey`.
+  expiryAmount: z
+    .string()
+    .optional()
+    .refine((v) => !v || (/^\d+$/.test(v) && Number(v) > 0), {
+      message: 'Expiry must be a positive whole number.',
+    }),
+  expiryUnit: z.enum(['minutes', 'hours', 'days']).optional(),
 });
 
 export type KeyFormValues = z.infer<typeof keyFormSchema>;
@@ -38,8 +59,13 @@ export type KeyFormValues = z.infer<typeof keyFormSchema>;
  * - all array fields: always include (even if empty); omit undefined/empty only
  *   if the old code omitted them — but old code passed the full editingKey which
  *   always had arrays once set. We replicate: pass non-empty arrays, omit empties.
+ * - expiresInMinutes: only attached when `expiryAmount` is non-empty. The
+ *   sheet only ever populates `expiryAmount` for a brand-new key (the field
+ *   is hidden/reset to '' when editing), so this naturally stays create-only
+ *   without toKeyConfig needing to know whether it's editing.
  */
 export function toKeyConfig(values: KeyFormValues): KeyConfig {
+  const amount = values.expiryAmount ? Number(values.expiryAmount) : undefined;
   return {
     key: values.key,
     secret: values.secret,
@@ -50,6 +76,9 @@ export function toKeyConfig(values: KeyFormValues): KeyConfig {
     excludedModels: values.excludedModels,
     excludedProviders: values.excludedProviders,
     allowedIps: values.allowedIps,
+    ...(amount
+      ? { expiresInMinutes: amount * EXPIRY_MINUTES_PER_UNIT[values.expiryUnit ?? 'days'] }
+      : {}),
   };
 }
 
@@ -63,4 +92,6 @@ export const KEY_FORM_DEFAULTS: KeyFormValues = {
   excludedModels: [],
   excludedProviders: [],
   allowedIps: [],
+  expiryAmount: '',
+  expiryUnit: 'days',
 };
