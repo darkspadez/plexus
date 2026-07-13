@@ -94,6 +94,7 @@ jobs:
       - name: Review pull request
         id: review
         uses: anomalyco/opencode/github@latest
+        timeout-minutes: 10
         env:
           GITHUB_TOKEN: ${{ github.token }}
           LLM_API_HOST: ${{ secrets.LLM_API_HOST }}
