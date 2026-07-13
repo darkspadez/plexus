@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import Fastify from 'fastify';
 import type { OAuthProviderInterface } from '@earendil-works/pi-ai/oauth';
 import { registerOAuthRoutes } from '../oauth';
-import { OAuthLoginSessionManager } from '../../../services/oauth-login-session';
-import { OAuthAuthManager } from '../../../services/oauth-auth-manager';
+import { OAuthLoginSessionManager } from '../../../services/oauth/oauth-login-session';
+import { OAuthAuthManager } from '../../../services/oauth/oauth-auth-manager';
 
 // @earendil-works/pi-ai is mocked globally in vitest.setup.ts — do not add a
 // per-file vi.mock() call here.  With isolate: false all files share one

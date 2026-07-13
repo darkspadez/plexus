@@ -1,7 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { logger } from '../../utils/logger';
-import { fetchModelsFromUrl, validateUrlSafety } from '../../services/provider-model-discovery';
+import {
+  fetchModelsFromUrl,
+  validateUrlSafety,
+} from '../../services/providers/provider-model-discovery';
 
 const fetchModelsSchema = z.object({
   url: z.string().url(),

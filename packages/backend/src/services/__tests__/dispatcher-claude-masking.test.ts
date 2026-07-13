@@ -5,7 +5,7 @@ import type { UnifiedChatRequest } from '../../types/unified';
 // @earendil-works/pi-ai is mocked globally in vitest.setup.ts — do not add a
 // per-file vi.mock() call here.  With isolate: false all files share one
 // module registry and competing registrations create last-writer-wins races.
-const { Dispatcher } = await import('../dispatcher');
+const { Dispatcher } = await import('../dispatch/dispatcher');
 import * as piAi from '@earendil-works/pi-ai/compat';
 
 const fetchMock: any = vi.fn(async (): Promise<any> => {

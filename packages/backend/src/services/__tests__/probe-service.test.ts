@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, vi } from 'vitest';
-import { ProbeService } from '../probe-service';
-import { Dispatcher } from '../dispatcher';
-import { UsageStorageService } from '../usage-storage';
+import { ProbeService } from '../probes/probe-service';
+import { Dispatcher } from '../dispatch/dispatcher';
+import { UsageStorageService } from '../observability/usage-storage';
 import { setConfigForTesting } from '../../config';
 
 function makeMocks() {

@@ -1,12 +1,12 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { logger } from '../../utils/logger';
-import { HuggingFaceModelFetcher } from '../../services/huggingface-model-fetcher';
+import { HuggingFaceModelFetcher } from '../../services/models/huggingface-model-fetcher';
 import {
   ModelMetadataManager,
   resolveAutomaticModelIdentity,
   resolveModelMetadata,
   resolvePreferredApi,
-} from '../../services/model-metadata-manager';
+} from '../../services/models/model-metadata-manager';
 import { getConfig, ModelConfigSchema } from '../../config';
 import {
   getBuiltinModel,

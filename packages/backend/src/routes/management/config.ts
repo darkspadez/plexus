@@ -8,15 +8,15 @@ import {
   CompactionConfigSchema,
   normalizeKeyConfig,
 } from '../../config';
-import { validateRawProviderSlug } from '../../services/raw-passthrough';
-import { ConfigService } from '../../services/config-service';
-import { DebugManager } from '../../services/debug-manager';
+import { validateRawProviderSlug } from '../../services/dispatch/raw-passthrough';
+import { ConfigService } from '../../services/configuration/config-service';
+import { DebugManager } from '../../services/observability/debug-manager';
 import { isValidIpRule } from '../../utils/ip-match';
 import { getCheckerDefinitions } from '../../services/quota/checker-registry';
-import { UsageStorageService } from '../../services/usage-storage';
+import { UsageStorageService } from '../../services/observability/usage-storage';
 import { validateServerName } from '../../services/mcp-proxy/mcp-proxy-service';
 import { mcpProcessManager } from '../../services/mcp-local/mcp-process-manager';
-import { VisionDescriptorService } from '../../services/vision-descriptor-service';
+import { VisionDescriptorService } from '../../services/vision/vision-descriptor-service';
 import type { GpuParams, ModelArchitecture } from '@plexus/shared';
 import { DEFAULT_GPU_PARAMS } from '@plexus/shared';
 

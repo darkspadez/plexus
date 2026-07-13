@@ -10,13 +10,13 @@
 import { clampThinkingLevel, getSupportedThinkingLevels } from '@earendil-works/pi-ai';
 import { getBuiltinModel, builtinModels } from '@earendil-works/pi-ai/providers/all';
 import type { Model as PiAiModel, ModelThinkingLevel } from '@earendil-works/pi-ai';
-import { PricingManager } from '../pricing-manager';
+import { PricingManager } from '../observability/pricing-manager';
 
 export const piAiModels = builtinModels();
 
 import type { ProviderConfig } from '../../config';
-import type { RouteResult } from '../router';
-import { estimateKwhUsed } from '../inference-energy';
+import type { RouteResult } from '../routing/router';
+import { estimateKwhUsed } from '../observability/inference-energy';
 import { resolveModelParams, DEFAULT_GPU_PARAMS } from '@plexus/shared';
 import type { ReasoningEffort, ReasoningIntent } from './reasoning';
 import { effortToBudget, intentToEffort } from './reasoning';

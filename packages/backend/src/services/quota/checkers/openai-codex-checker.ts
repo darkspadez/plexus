@@ -1,7 +1,7 @@
 import { defineChecker } from '../checker-registry';
 import { z } from 'zod';
-import { OAuthAuthManager } from '../../oauth-auth-manager';
-import { CodexVersionService } from '../../codex-version-service';
+import { OAuthAuthManager } from '../../oauth/oauth-auth-manager';
+import { CodexVersionService } from '../../oauth/codex-version-service';
 import type { OAuthProvider } from '@earendil-works/pi-ai/oauth';
 import { logger } from '../../../utils/logger';
 import type { Meter } from '../../../types/meter';

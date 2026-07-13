@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
-import { BackgroundExplorer } from '../background-explorer';
-import { ProbeService } from '../probe-service';
-import { CooldownManager } from '../cooldown-manager';
+import { BackgroundExplorer } from '../routing/background-explorer';
+import { ProbeService } from '../probes/probe-service';
+import { CooldownManager } from '../runtime/cooldown-manager';
 import { setConfigForTesting, ModelTargetGroup } from '../../config';
 
 function makeGroup(

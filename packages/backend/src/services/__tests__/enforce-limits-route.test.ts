@@ -9,12 +9,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import type { Context } from '@earendil-works/pi-ai';
 import type { ModelConfig } from '../../config';
-import { ModelMetadataManager } from '../model-metadata-manager';
+import { ModelMetadataManager } from '../models/model-metadata-manager';
 import {
   ContextLengthExceededError,
   enforceContextLimitForRoute,
   type EnforceRouteInfo,
-} from '../enforce-limits';
+} from '../models/enforce-limits';
 
 // ---------------------------------------------------------------------------
 // Helpers

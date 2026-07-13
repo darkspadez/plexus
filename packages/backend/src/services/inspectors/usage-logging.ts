@@ -1,10 +1,10 @@
 import type { ModelParams, GpuParams } from '@plexus/shared';
 import { logger } from '../../utils/logger';
 import { PassThrough } from 'stream';
-import { UsageStorageService } from '../usage-storage';
+import { UsageStorageService } from '../observability/usage-storage';
 import { UsageRecord } from '../../types/usage';
 import { calculateCosts } from '../../utils/calculate-costs';
-import { DebugManager } from '../debug-manager';
+import { DebugManager } from '../observability/debug-manager';
 import { estimateTokensFromReconstructed, estimateInputTokens } from '../../utils/estimate-tokens';
 import {
   normalizeAnthropicUsage,
@@ -13,7 +13,7 @@ import {
   normalizeOpenAIResponsesUsage,
   extractUsageCostDetails,
 } from '../../utils/usage-normalizer';
-import { estimateKwhUsed } from '../inference-energy';
+import { estimateKwhUsed } from '../observability/inference-energy';
 import { applyProviderReportedCost, applyUsageCostDetails } from '../../utils/provider-cost';
 import { DEFAULT_MODEL, DEFAULT_GPU_PARAMS } from '@plexus/shared';
 import { recordQuotaUsage } from '../quota/quota-middleware';

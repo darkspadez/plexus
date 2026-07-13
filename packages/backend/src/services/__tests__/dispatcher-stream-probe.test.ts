@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { Dispatcher } from '../dispatcher';
+import { Dispatcher } from '../dispatch/dispatcher';
 
 // Mock fetch to prevent actual network calls
 global.fetch = vi.fn(async () => new Response('', { status: 200 })) as any;

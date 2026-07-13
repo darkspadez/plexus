@@ -1,8 +1,8 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
-import { Dispatcher } from '../dispatcher';
+import { Dispatcher } from '../dispatch/dispatcher';
 import { setConfigForTesting } from '../../config';
-import { ConcurrencyTracker } from '../concurrency-tracker';
-import { CooldownManager } from '../cooldown-manager';
+import { ConcurrencyTracker } from '../runtime/concurrency-tracker';
+import { CooldownManager } from '../runtime/cooldown-manager';
 import type { UnifiedChatRequest } from '../../types/unified';
 
 const fetchMock: any = vi.fn(async (): Promise<any> => {

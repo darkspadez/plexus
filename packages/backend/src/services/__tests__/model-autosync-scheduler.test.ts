@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ProviderConfig } from '../../config';
 import { registerSpy } from '../../../test/test-utils';
-import { ModelAutosyncScheduler } from '../model-autosync-scheduler';
+import { ModelAutosyncScheduler } from '../models/model-autosync-scheduler';
 
 const makeProvider = (intervalMinutes: number): ProviderConfig => ({
   api_base_url: 'https://api.example.com/v1',

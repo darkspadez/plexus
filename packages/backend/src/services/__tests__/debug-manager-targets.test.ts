@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { DebugManager } from '../debug-manager';
-import { runInRequestContext } from '../request-context';
-import type { UsageStorageService } from '../usage-storage';
+import { DebugManager } from '../observability/debug-manager';
+import { runInRequestContext } from '../observability/request-context';
+import type { UsageStorageService } from '../observability/usage-storage';
 
 describe('DebugManager target capture', () => {
   let debugManager: DebugManager;

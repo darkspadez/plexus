@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach } from 'vitest';
-import { Router } from '../router';
-import { ConcurrencyTracker } from '../concurrency-tracker';
-import { CooldownManager } from '../cooldown-manager';
+import { Router } from '../routing/router';
+import { ConcurrencyTracker } from '../runtime/concurrency-tracker';
+import { CooldownManager } from '../runtime/cooldown-manager';
 import { setConfigForTesting } from '../../config';
 
 // We use resolveCandidates (plural) because it returns the full ordered

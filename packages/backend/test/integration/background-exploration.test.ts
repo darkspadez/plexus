@@ -1,11 +1,11 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
-import { Router } from '../../src/services/router';
-import { BackgroundExplorer } from '../../src/services/background-explorer';
-import { ProbeService } from '../../src/services/probe-service';
-import { CooldownManager } from '../../src/services/cooldown-manager';
-import { SelectorFactory } from '../../src/services/selectors/factory';
-import { UsageStorageService } from '../../src/services/usage-storage';
-import { Dispatcher } from '../../src/services/dispatcher';
+import { Router } from '../../src/services/routing/router';
+import { BackgroundExplorer } from '../../src/services/routing/background-explorer';
+import { ProbeService } from '../../src/services/probes/probe-service';
+import { CooldownManager } from '../../src/services/runtime/cooldown-manager';
+import { SelectorFactory } from '../../src/services/routing/selectors/factory';
+import { UsageStorageService } from '../../src/services/observability/usage-storage';
+import { Dispatcher } from '../../src/services/dispatch/dispatcher';
 import { setConfigForTesting, PlexusConfig } from '../../src/config';
 
 /**

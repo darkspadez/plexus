@@ -5,8 +5,8 @@ import {
   ContextLengthExceededError,
   enforceContextLimitForContext,
   resolveContextLength,
-} from '../enforce-limits';
-import { ModelMetadataManager } from '../model-metadata-manager';
+} from '../models/enforce-limits';
+import { ModelMetadataManager } from '../models/model-metadata-manager';
 
 // ---------------------------------------------------------------------------
 // Helpers

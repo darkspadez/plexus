@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach } from 'vitest';
-import { StickySessionManager } from '../sticky-session-manager';
+import { StickySessionManager } from '../routing/sticky-session-manager';
 import type { UnifiedChatRequest } from '../../types/unified';
 
 function mgr() {

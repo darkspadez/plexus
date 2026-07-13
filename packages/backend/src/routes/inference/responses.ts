@@ -1,17 +1,17 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { logger } from '../../utils/logger';
-import { Dispatcher } from '../../services/dispatcher';
+import { Dispatcher } from '../../services/dispatch/dispatcher';
 import {
   ResponsesTransformer,
   normalizeCompositeResponsesCallIds,
   normalizeResponsesReasoningContent,
 } from '../../transformers/responses';
-import { UsageStorageService } from '../../services/usage-storage';
-import { ResponsesStorageService } from '../../services/responses-storage';
+import { UsageStorageService } from '../../services/observability/usage-storage';
+import { ResponsesStorageService } from '../../services/responses/responses-storage';
 import { UsageRecord } from '../../types/usage';
-import { handleResponse } from '../../services/response-handler';
+import { handleResponse } from '../../services/responses/response-handler';
 import { getClientIp } from '../../utils/ip';
-import { DebugManager } from '../../services/debug-manager';
+import { DebugManager } from '../../services/observability/debug-manager';
 import { QuotaEnforcer } from '../../services/quota/quota-enforcer';
 import { checkQuotaMiddleware, attachQuotaContext } from '../../services/quota/quota-middleware';
 import { saveQuotaBlockedUsage, saveQuotaExceededUsage } from './_quota-error';

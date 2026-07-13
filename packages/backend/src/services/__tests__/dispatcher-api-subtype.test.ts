@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { Dispatcher } from '../dispatcher';
-import { TransformerFactory } from '../transformer-factory';
+import { Dispatcher } from '../dispatch/dispatcher';
+import { TransformerFactory } from '../dispatch/transformer-factory';
 import { ResponsesTransformer } from '../../transformers/responses';
 
 function makeRoute(

@@ -5,7 +5,7 @@ import { logger } from '../../utils/logger';
 import { getConfig, PlexusConfig, QuotaDefinition, KeyConfig } from '../../config';
 import { getDatabase, getSchema, getCurrentDialect } from '../../db/client';
 import { toDbTimestampMs } from '../../utils/normalize';
-import { ScopeLists, scopeMatches, isGlobalScope } from '../scope-match';
+import { ScopeLists, scopeMatches, isGlobalScope } from '../routing/scope-match';
 
 /** Sentinel `key_name` used for `shared: true` quota definitions — a single
  * pooled bucket accrued across every key that references the quota, instead

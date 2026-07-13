@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { FastifyInstance } from 'fastify';
 import { registerImagesRoute } from '../images';
-import { Dispatcher } from '../../../services/dispatcher';
-import { UsageStorageService } from '../../../services/usage-storage';
+import { Dispatcher } from '../../../services/dispatch/dispatcher';
+import { UsageStorageService } from '../../../services/observability/usage-storage';
 
 type MultipartFilePart = {
   type: 'file';

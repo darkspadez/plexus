@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CodexVersionService } from '../codex-version-service';
+import { CodexVersionService } from '../oauth/codex-version-service';
 
 describe('CodexVersionService', () => {
   beforeEach(() => {

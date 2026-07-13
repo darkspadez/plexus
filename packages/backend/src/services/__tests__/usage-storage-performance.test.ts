@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { sql, eq, and } from 'drizzle-orm';
 import { registerSpy } from '../../../test/test-utils';
-import { UsageStorageService } from '../usage-storage';
+import { UsageStorageService } from '../observability/usage-storage';
 import { closeDatabase, getDatabase, getSchema, initializeDatabase } from '../../db/client';
 import { runMigrations } from '../../db/migrate';
 import { UsageRecord } from '../../types/usage';

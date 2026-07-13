@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { UsageStorageService } from '../usage-storage';
+import { UsageStorageService } from '../observability/usage-storage';
 import { closeDatabase, getDatabase, getSchema, initializeDatabase } from '../../db/client';
 import { runMigrations } from '../../db/migrate';
 

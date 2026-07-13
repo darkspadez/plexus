@@ -2,7 +2,7 @@ import { once } from 'node:events';
 import { describe, expect, test, beforeEach } from 'vitest';
 import { registerSpy } from '../../../test/test-utils';
 import { DebugLoggingInspector } from '../inspectors/debug-logging';
-import { DebugManager } from '../debug-manager';
+import { DebugManager } from '../observability/debug-manager';
 import { logger } from '../../utils/logger';
 
 describe('DebugLoggingInspector Reconstruction', () => {

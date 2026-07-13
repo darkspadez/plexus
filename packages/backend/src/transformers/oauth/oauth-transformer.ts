@@ -12,7 +12,7 @@ import {
   filterPiAiRequestOptions,
   proxyClaudeCodeToolName,
 } from '../../filters/pi-ai-request-filters';
-import { OAuthAuthManager } from '../../services/oauth-auth-manager';
+import { OAuthAuthManager } from '../../services/oauth/oauth-auth-manager';
 import {
   unifiedToContext,
   piAiMessageToUnified,
@@ -27,7 +27,7 @@ import {
   restoreOriginalOAuthToolName,
   type ClaudeOAuthContext,
 } from './oauth-claude';
-import { CodexVersionService } from '../../services/codex-version-service';
+import { CodexVersionService } from '../../services/oauth/codex-version-service';
 import { buildThinkingOptions } from '../../services/pi-ai/registry';
 import {
   applyClaudeCodeMasking,

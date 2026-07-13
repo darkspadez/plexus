@@ -1,6 +1,6 @@
 import { expect, test, describe, beforeEach, vi } from 'vitest';
-import { VisionDescriptorService } from '../../src/services/vision-descriptor-service';
-import { Dispatcher } from '../../src/services/dispatcher';
+import { VisionDescriptorService } from '../../src/services/vision/vision-descriptor-service';
+import { Dispatcher } from '../../src/services/dispatch/dispatcher';
 import { UnifiedChatRequest } from '../../src/types/unified';
 import * as configModule from '../../src/config';
 import { DEFAULT_VISION_DESCRIPTION_PROMPT } from '../../src/utils/constants';

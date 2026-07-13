@@ -4,7 +4,7 @@ import {
   buildRawUpstreamHeaders,
   buildRawUpstreamUrl,
   filterRawResponseHeaders,
-} from '../raw-passthrough';
+} from '../dispatch/raw-passthrough';
 
 const provider: ProviderConfig = {
   api_base_url: 'https://provider.example/v1',

@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from 'vitest';
-import { CooldownManager } from '../cooldown-manager';
+import { CooldownManager } from '../runtime/cooldown-manager';
 import { setConfigForTesting } from '../../config';
 
 describe('CooldownManager', () => {

@@ -16,8 +16,8 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { registerSpy } from '../test-utils';
-import { Dispatcher } from '../../src/services/dispatcher';
-import { Router } from '../../src/services/router';
+import { Dispatcher } from '../../src/services/dispatch/dispatcher';
+import { Router } from '../../src/services/routing/router';
 import * as configModule from '../../src/config';
 
 // ── Config ───────────────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import bearerAuth from '@fastify/bearer-auth';
 import { createAuthHook } from '../../utils/auth';
-import { Dispatcher } from '../../services/dispatcher';
-import { UsageStorageService } from '../../services/usage-storage';
+import { Dispatcher } from '../../services/dispatch/dispatcher';
+import { UsageStorageService } from '../../services/observability/usage-storage';
 import { QuotaEnforcer } from '../../services/quota/quota-enforcer';
 import { registerModelsRoute } from './models';
 import { registerChatRoute } from './chat';

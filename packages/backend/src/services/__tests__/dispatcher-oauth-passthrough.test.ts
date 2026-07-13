@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
 import { setConfigForTesting } from '../../config';
-import { OAuthAuthManager } from '../oauth-auth-manager';
+import { OAuthAuthManager } from '../oauth/oauth-auth-manager';
 import { registerSpy } from '../../../test/test-utils';
 import type { UnifiedChatRequest } from '../../types/unified';
 
@@ -26,7 +26,7 @@ import type { UnifiedChatRequest } from '../../types/unified';
 // regression: the request must succeed, not throw.
 
 // @earendil-works/pi-ai is mocked globally in vitest.setup.ts.
-const { Dispatcher } = await import('../dispatcher');
+const { Dispatcher } = await import('../dispatch/dispatcher');
 
 function oauthConfigWithChatAccessVia() {
   return {

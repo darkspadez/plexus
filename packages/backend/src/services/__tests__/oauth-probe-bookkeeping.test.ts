@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach } from 'vitest';
-import { Dispatcher } from '../dispatcher';
+import { Dispatcher } from '../dispatch/dispatcher';
 import { setConfigForTesting } from '../../config';
-import { CooldownManager } from '../cooldown-manager';
+import { CooldownManager } from '../runtime/cooldown-manager';
 
 /**
  * Helper to create a ReadableStream from an array of events

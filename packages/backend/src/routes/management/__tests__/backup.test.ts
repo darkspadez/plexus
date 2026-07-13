@@ -16,7 +16,7 @@ vi.mock('../../../db/client', () => ({
   getCurrentDialect: vi.fn(() => 'sqlite'),
 }));
 
-vi.mock('../../../services/config-service', () => ({
+vi.mock('../../../services/configuration/config-service', () => ({
   ConfigService: {
     getInstance: vi.fn(() => ({
       exportConfig: vi.fn(async () => ({

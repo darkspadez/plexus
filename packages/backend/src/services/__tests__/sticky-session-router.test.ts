@@ -1,9 +1,9 @@
 import { describe, expect, test, beforeEach } from 'vitest';
 import { registerSpy } from '../../../test/test-utils';
-import { Router } from '../router';
+import { Router } from '../routing/router';
 import { setConfigForTesting } from '../../config';
-import { CooldownManager } from '../cooldown-manager';
-import { StickySessionManager } from '../sticky-session-manager';
+import { CooldownManager } from '../runtime/cooldown-manager';
+import { StickySessionManager } from '../routing/sticky-session-manager';
 
 function configWithThreeTargets(): any {
   return {

@@ -21,9 +21,9 @@
 import { FastifyInstance } from 'fastify';
 import { and, gte, lte, isNull, isNotNull, sql } from 'drizzle-orm';
 import { getSchema } from '../../db/client';
-import { UsageStorageService } from '../../services/usage-storage';
-import { CooldownManager } from '../../services/cooldown-manager';
-import { ConcurrencyTracker } from '../../services/concurrency-tracker';
+import { UsageStorageService } from '../../services/observability/usage-storage';
+import { CooldownManager } from '../../services/runtime/cooldown-manager';
+import { ConcurrencyTracker } from '../../services/runtime/concurrency-tracker';
 
 // ---------------------------------------------------------------------------
 // Prometheus text-format helpers

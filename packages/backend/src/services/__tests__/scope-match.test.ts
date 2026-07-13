@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { isGlobalScope, listAllows, scopeMatches, type ScopeLists } from '../scope-match';
+import { isGlobalScope, listAllows, scopeMatches, type ScopeLists } from '../routing/scope-match';
 
 describe('listAllows', () => {
   test('empty/absent allowed list allows everything', () => {

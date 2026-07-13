@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { QuotaEnforcer } from '../../services/quota/quota-enforcer';
-import { ConfigService } from '../../services/config-service';
+import { ConfigService } from '../../services/configuration/config-service';
 import { logger } from '../../utils/logger';
 import { mostConstrained } from '@plexus/shared';
 import { resolveAttachedQuotaNames, serializeQuotaSnapshot } from './_quota-response';

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import type { ModelConfig } from '../../config';
 import type { UnifiedChatRequest } from '../../types/unified';
-import { ContextLengthExceededError, enforceContextLimit } from '../enforce-limits';
-import { ModelMetadataManager } from '../model-metadata-manager';
+import { ContextLengthExceededError, enforceContextLimit } from '../models/enforce-limits';
+import { ModelMetadataManager } from '../models/model-metadata-manager';
 
 function makeRequest(overrides: Partial<UnifiedChatRequest> = {}): UnifiedChatRequest {
   const messages = overrides.messages ?? [{ role: 'user' as const, content: 'hi there' }];

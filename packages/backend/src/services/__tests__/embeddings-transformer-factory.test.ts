@@ -1,5 +1,5 @@
 import { test, expect, describe } from 'vitest';
-import { EmbeddingsTransformerFactory } from '../../services/embeddings-transformer-factory';
+import { EmbeddingsTransformerFactory } from '../dispatch/embeddings-transformer-factory';
 
 describe('EmbeddingsTransformerFactory', () => {
   test('should return GeminiEmbeddingsTransformer for gemini type', () => {

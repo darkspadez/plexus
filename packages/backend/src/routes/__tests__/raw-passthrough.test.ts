@@ -3,9 +3,9 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { setConfigForTesting } from '../../config';
 import { registerRawPassthroughRoutes } from '../raw-passthrough';
-import type { UsageStorageService } from '../../services/usage-storage';
-import { ConcurrencyTracker } from '../../services/concurrency-tracker';
-import { DebugManager } from '../../services/debug-manager';
+import type { UsageStorageService } from '../../services/observability/usage-storage';
+import { ConcurrencyTracker } from '../../services/runtime/concurrency-tracker';
+import { DebugManager } from '../../services/observability/debug-manager';
 import type { QuotaEnforcer } from '../../services/quota/quota-enforcer';
 
 interface CapturedRequest {

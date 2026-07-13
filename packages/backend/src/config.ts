@@ -1403,7 +1403,7 @@ function buildProviderQuotaConfigs(config: z.infer<typeof RawPlexusConfigSchema>
 export function getConfig(): PlexusConfig {
   // Try ConfigService first (database-backed config)
   try {
-    const { ConfigService } = require('./services/config-service');
+    const { ConfigService } = require('./services/configuration/config-service');
     const instance = ConfigService.getInstance();
     return instance.getConfig();
   } catch (e: any) {
@@ -1456,7 +1456,7 @@ export function setConfigForTesting(config: PlexusConfig) {
 
   currentConfig = normalised;
   try {
-    const { ConfigService } = require('./services/config-service');
+    const { ConfigService } = require('./services/configuration/config-service');
     ConfigService.setInstanceForTesting(normalised);
   } catch {
     // ConfigService may not be available in all test environments

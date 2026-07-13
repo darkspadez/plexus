@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAdapters } from '../../services/adapter-resolver';
-import type { RouteResult } from '../../services/router';
+import { resolveAdapters } from '../../services/dispatch/adapter-resolver';
+import type { RouteResult } from '../../services/routing/router';
 
 // Minimal RouteResult factory
 function makeRoute(providerAdapter?: any[], modelAdapter?: any[]): RouteResult {

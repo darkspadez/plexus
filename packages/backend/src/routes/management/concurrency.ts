@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { ConcurrencyTracker } from '../../services/concurrency-tracker';
-import { UsageStorageService } from '../../services/usage-storage';
+import { ConcurrencyTracker } from '../../services/runtime/concurrency-tracker';
+import { UsageStorageService } from '../../services/observability/usage-storage';
 import { getCurrentDialect, getSchema } from '../../db/client';
 import { and, isNotNull, gte, lte, sql } from 'drizzle-orm';
 

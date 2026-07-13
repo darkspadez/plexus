@@ -1,11 +1,11 @@
 import { describe, expect, test, vi, beforeAll } from 'vitest';
-import { handleResponse } from '../../services/response-handler';
+import { handleResponse } from '../../services/responses/response-handler';
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { UsageStorageService } from '../../services/usage-storage';
+import { UsageStorageService } from '../../services/observability/usage-storage';
 import { Transformer } from '../../types/transformer';
 import { UnifiedChatResponse } from '../../types/unified';
 import { UsageRecord } from '../../types/usage';
-import { PricingManager } from '../../services/pricing-manager';
+import { PricingManager } from '../../services/observability/pricing-manager';
 import path from 'path';
 
 describe('handleResponse - OpenRouter Pricing', () => {

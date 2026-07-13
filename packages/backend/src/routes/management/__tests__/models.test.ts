@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { registerSpy } from '../../../../test/test-utils';
 import { registerModelRoutes } from '../models';
-import { ModelMetadataManager } from '../../../services/model-metadata-manager';
+import { ModelMetadataManager } from '../../../services/models/model-metadata-manager';
 import { setConfigForTesting, type PlexusConfig } from '../../../config';
 
 describe('management model routes', () => {

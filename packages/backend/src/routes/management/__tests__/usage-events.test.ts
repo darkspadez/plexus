@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { UsageStorageService } from '../../../services/usage-storage';
+import { UsageStorageService } from '../../../services/observability/usage-storage';
 import { UsageEventsBroadcaster } from '../usage';
 
 describe('UsageEventsBroadcaster', () => {

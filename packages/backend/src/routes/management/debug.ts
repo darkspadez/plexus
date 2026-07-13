@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { DebugManager } from '../../services/debug-manager';
-import { UsageStorageService } from '../../services/usage-storage';
+import { DebugManager } from '../../services/observability/debug-manager';
+import { UsageStorageService } from '../../services/observability/usage-storage';
 import { isLimited, scopedKeyName } from './_principal';
 
 const patchDebugSchema = z.object({

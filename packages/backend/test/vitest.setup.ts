@@ -232,7 +232,7 @@ vi.mock('../src/utils/logger', () => ({
   },
 }));
 
-const { DebugManager } = await import('../src/services/debug-manager');
+const { DebugManager } = await import('../src/services/observability/debug-manager');
 
 DebugManager.getInstance().setStorage({
   saveRequest: vi.fn(),

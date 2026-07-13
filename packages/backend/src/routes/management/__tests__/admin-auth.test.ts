@@ -3,11 +3,11 @@ import Fastify, { FastifyInstance } from 'fastify';
 import { setConfigForTesting } from '../../../config';
 import { registerManagementRoutes } from '../../management';
 import { registerInferenceRoutes } from '../../inference';
-import { Dispatcher } from '../../../services/dispatcher';
-import { UsageStorageService } from '../../../services/usage-storage';
-import { ProbeService } from '../../../services/probe-service';
-import { DebugManager } from '../../../services/debug-manager';
-import { SelectorFactory } from '../../../services/selectors/factory';
+import { Dispatcher } from '../../../services/dispatch/dispatcher';
+import { UsageStorageService } from '../../../services/observability/usage-storage';
+import { ProbeService } from '../../../services/probes/probe-service';
+import { DebugManager } from '../../../services/observability/debug-manager';
+import { SelectorFactory } from '../../../services/routing/selectors/factory';
 
 // Helper to close Fastify instances after tests
 const closeFastify = async (fastify: FastifyInstance | undefined) => {

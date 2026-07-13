@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ImageTransformer } from '../../../transformers/image';
-import { DebugManager } from '../../../services/debug-manager';
+import { DebugManager } from '../../../services/observability/debug-manager';
 
 describe('Images Route Handler', () => {
   describe('ImageTransformer integration', () => {

@@ -5,9 +5,9 @@ import { expect, test, describe, beforeEach, afterEach, vi } from 'vitest';
  * 2. The child descriptor request never being saved to usage storage
  */
 import { registerSpy } from '../test-utils';
-import { VisionDescriptorService } from '../../src/services/vision-descriptor-service';
-import { Dispatcher } from '../../src/services/dispatcher';
-import { UsageStorageService } from '../../src/services/usage-storage';
+import { VisionDescriptorService } from '../../src/services/vision/vision-descriptor-service';
+import { Dispatcher } from '../../src/services/dispatch/dispatcher';
+import { UsageStorageService } from '../../src/services/observability/usage-storage';
 import { setConfigForTesting } from '../../src/config';
 
 // ---------------------------------------------------------------------------

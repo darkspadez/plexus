@@ -1,12 +1,12 @@
 import { FastifyInstance } from 'fastify';
 import { logger } from '../../utils/logger';
-import { Dispatcher } from '../../services/dispatcher';
+import { Dispatcher } from '../../services/dispatch/dispatcher';
 import { TranscriptionsTransformer } from '../../transformers';
-import { UsageStorageService } from '../../services/usage-storage';
+import { UsageStorageService } from '../../services/observability/usage-storage';
 import { UsageRecord } from '../../types/usage';
 import { getClientIp } from '../../utils/ip';
 import { calculateCosts } from '../../utils/calculate-costs';
-import { DebugManager } from '../../services/debug-manager';
+import { DebugManager } from '../../services/observability/debug-manager';
 import { UnifiedTranscriptionRequest } from '../../types/unified';
 import { attachKeyAccessPolicy } from '../../utils/auth';
 import { sanitizeHeaders } from '../../utils/sanitize-headers';

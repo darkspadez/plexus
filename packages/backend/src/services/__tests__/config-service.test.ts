@@ -13,7 +13,7 @@ vi.mock('../quota/quota-scheduler', () => ({
   },
 }));
 
-import { ConfigService } from '../config-service';
+import { ConfigService } from '../configuration/config-service';
 
 function createMockRepo() {
   return {

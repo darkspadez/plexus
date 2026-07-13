@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { logger } from '../../utils/logger';
-import { BackupService } from '../../services/backup-service';
-import type { UsageStorageService } from '../../services/usage-storage';
+import { BackupService } from '../../services/configuration/backup-service';
+import type { UsageStorageService } from '../../services/observability/usage-storage';
 import type { McpUsageStorageService } from '../../services/mcp-proxy/mcp-usage-storage';
 
 export async function registerBackupRoutes(

@@ -9,7 +9,7 @@ const mockConfigService = vi.hoisted(() => ({
 const mockGetConfig = vi.hoisted(() => vi.fn());
 const mockSaveKey = vi.hoisted(() => vi.fn());
 
-vi.mock('../../../services/config-service', () => ({
+vi.mock('../../../services/configuration/config-service', () => ({
   ConfigService: {
     getInstance: vi.fn(() => ({
       getConfig: mockGetConfig,

@@ -17,7 +17,7 @@
 
 import { describe, expect, test, vi, beforeEach } from 'vitest';
 import type { Context, ToolResultMessage, UserMessage } from '@earendil-works/pi-ai';
-import type { RouteResult } from '../../router';
+import type { RouteResult } from '../../routing/router';
 
 // ---------------------------------------------------------------------------
 // Mock getConfig BEFORE importing the module under test so that both the
@@ -34,7 +34,7 @@ vi.mock('../../../config', () => ({
 // Also mock enforce-limits (resolveContextLength uses ModelMetadataManager which
 // requires a database / file on disk; we short-circuit by returning undefined, which
 // causes compactContextForSend to fall back to route.modelArchitecture?.context_length).
-vi.mock('../../enforce-limits', () => ({
+vi.mock('../../models/enforce-limits', () => ({
   resolveContextLength: (aliasConfig: unknown) => mockResolveContextLength(aliasConfig),
   enforceContextLimitForRoute: () => {},
 }));

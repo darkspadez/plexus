@@ -13,7 +13,7 @@ const serviceState = vi.hoisted(() => {
   return state;
 });
 
-vi.mock('../../../services/config-service', () => ({
+vi.mock('../../../services/configuration/config-service', () => ({
   ConfigService: {
     getInstance: vi.fn(() => ({
       deleteUserQuota: serviceState.deleteUserQuota,

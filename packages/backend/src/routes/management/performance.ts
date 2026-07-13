@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { UsageStorageService } from '../../services/usage-storage';
+import { UsageStorageService } from '../../services/observability/usage-storage';
 import { logger } from '../../utils/logger';
 
 export async function registerPerformanceRoutes(

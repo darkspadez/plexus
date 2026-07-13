@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from 'vitest';
-import { DebugManager } from '../debug-manager';
-import { UsageStorageService } from '../usage-storage';
+import { DebugManager } from '../observability/debug-manager';
+import { UsageStorageService } from '../observability/usage-storage';
 
 describe('DebugManager startup with DEBUG env var', () => {
   let originalEnv: NodeJS.ProcessEnv;

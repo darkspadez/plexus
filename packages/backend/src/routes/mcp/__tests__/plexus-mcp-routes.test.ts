@@ -4,12 +4,12 @@ import { registerSpy } from '../../../../test/test-utils';
 import { getConfig, setConfigForTesting } from '../../../config';
 import { registerMcpRoutes } from '../index';
 import { McpUsageStorageService } from '../../../services/mcp-proxy/mcp-usage-storage';
-import { UsageStorageService } from '../../../services/usage-storage';
+import { UsageStorageService } from '../../../services/observability/usage-storage';
 import * as mcpProxyService from '../../../services/mcp-proxy/mcp-proxy-service';
-import { DebugManager } from '../../../services/debug-manager';
-import { CooldownManager } from '../../../services/cooldown-manager';
-import { BackupService } from '../../../services/backup-service';
-import { ModelMetadataManager } from '../../../services/model-metadata-manager';
+import { DebugManager } from '../../../services/observability/debug-manager';
+import { CooldownManager } from '../../../services/runtime/cooldown-manager';
+import { BackupService } from '../../../services/configuration/backup-service';
+import { ModelMetadataManager } from '../../../services/models/model-metadata-manager';
 
 describe('Plexus management MCP routes', () => {
   let fastify: FastifyInstance;

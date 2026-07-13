@@ -1,9 +1,9 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
-import { Dispatcher } from '../dispatcher';
+import { Dispatcher } from '../dispatch/dispatcher';
 import { setConfigForTesting } from '../../config';
 import { UnifiedChatRequest } from '../../types/unified';
 import { logger } from '../../utils/logger';
-import { CooldownManager } from '../cooldown-manager';
+import { CooldownManager } from '../runtime/cooldown-manager';
 
 // Mock fetch to prevent actual network calls
 const fetchMock = vi.fn(async (url: string, options: any) => {

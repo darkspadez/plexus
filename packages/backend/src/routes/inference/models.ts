@@ -1,12 +1,12 @@
 import { FastifyInstance } from 'fastify';
 import { getConfig } from '../../config';
-import { PricingManager } from '../../services/pricing-manager';
+import { PricingManager } from '../../services/observability/pricing-manager';
 import {
   ModelMetadataManager,
   resolveAutomaticModelIdentity,
   resolveModelMetadata,
   resolvePreferredApi,
-} from '../../services/model-metadata-manager';
+} from '../../services/models/model-metadata-manager';
 import { getBuiltinModel } from '@earendil-works/pi-ai/providers/all';
 
 export async function registerModelsRoute(fastify: FastifyInstance) {

@@ -1,8 +1,8 @@
 import { describe, expect, test, beforeEach, afterEach } from 'vitest';
 import { registerSpy } from '../../../test/test-utils';
-import { Router } from '../router';
+import { Router } from '../routing/router';
 import { setConfigForTesting } from '../../config';
-import { CooldownManager } from '../cooldown-manager';
+import { CooldownManager } from '../runtime/cooldown-manager';
 
 describe('Router Aliases', () => {
   const mockConfig = {

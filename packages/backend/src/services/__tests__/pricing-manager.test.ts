@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll } from 'vitest';
-import { PricingManager } from '../pricing-manager';
+import { PricingManager } from '../observability/pricing-manager';
 import path from 'path';
 
 describe('PricingManager - Model Search', () => {

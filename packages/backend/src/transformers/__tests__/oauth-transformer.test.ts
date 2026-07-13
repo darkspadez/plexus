@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, vi, test } from 'vitest';
 import { registerSpy } from '../../../test/test-utils';
-import { OAuthAuthManager } from '../../services/oauth-auth-manager';
+import { OAuthAuthManager } from '../../services/oauth/oauth-auth-manager';
 import { piAiModels } from '../../services/pi-ai/registry';
 import { REQUIRED_BETAS } from '../oauth/masking';
 

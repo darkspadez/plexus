@@ -5,7 +5,7 @@ import { loadAllCheckers, getCheckerDefinition, createMeterContext } from './che
 import type { MeterCheckResult, Meter } from '../../types/meter';
 import { toDbTimestampMs } from '../../utils/normalize';
 import { eq, desc, gte, and } from 'drizzle-orm';
-import { CooldownManager } from '../cooldown-manager';
+import { CooldownManager } from '../runtime/cooldown-manager';
 
 const DEFAULT_EXHAUSTION_THRESHOLD = 99;
 

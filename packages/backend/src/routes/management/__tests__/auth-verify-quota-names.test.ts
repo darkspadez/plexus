@@ -2,9 +2,9 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
 import { setConfigForTesting } from '../../../config';
 import { registerManagementRoutes } from '../../management';
-import { Dispatcher } from '../../../services/dispatcher';
-import { UsageStorageService } from '../../../services/usage-storage';
-import { ProbeService } from '../../../services/probe-service';
+import { Dispatcher } from '../../../services/dispatch/dispatcher';
+import { UsageStorageService } from '../../../services/observability/usage-storage';
+import { ProbeService } from '../../../services/probes/probe-service';
 
 const closeFastify = async (fastify: FastifyInstance | undefined) => {
   if (fastify) await fastify.close();

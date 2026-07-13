@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
-import { handleResponse } from '../../services/response-handler';
+import { handleResponse } from '../../services/responses/response-handler';
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { UsageStorageService } from '../../services/usage-storage';
+import { UsageStorageService } from '../../services/observability/usage-storage';
 import { Transformer } from '../../types/transformer';
 import { UnifiedChatResponse } from '../../types/unified';
 import { UsageRecord } from '../../types/usage';

@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, vi } from 'vitest';
 import { registerSpy } from '../../../test/test-utils';
-import { Dispatcher } from '../dispatcher';
-import { DebugManager } from '../debug-manager';
+import { Dispatcher } from '../dispatch/dispatcher';
+import { DebugManager } from '../observability/debug-manager';
 import { setConfigForTesting } from '../../config';
 import { UnifiedChatRequest } from '../../types/unified';
 

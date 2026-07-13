@@ -1,5 +1,5 @@
 import { UsageRecord } from '../types/usage';
-import { PricingManager } from '../services/pricing-manager';
+import { PricingManager } from '../services/observability/pricing-manager';
 
 export function calculateCosts(
   usageRecord: Partial<UsageRecord>,

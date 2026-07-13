@@ -9,7 +9,7 @@ import {
 } from '../../../db/client';
 import { runMigrations } from '../../../db/migrate';
 import { QuotaScheduler } from '../quota-scheduler';
-import { CooldownManager } from '../../cooldown-manager';
+import { CooldownManager } from '../../runtime/cooldown-manager';
 import type { MeterCheckResult, Meter } from '../../../types/meter';
 import type { QuotaConfig } from '../../../config';
 import { registerSpy } from '../../../../test/test-utils';

@@ -1,13 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { logger } from '../../utils/logger';
-import { Dispatcher } from '../../services/dispatcher';
+import { Dispatcher } from '../../services/dispatch/dispatcher';
 import { OpenAIEmbeddingsTransformer } from '../../transformers/embeddings';
 import { UnifiedEmbeddingsRequest } from '../../types/unified';
-import { UsageStorageService } from '../../services/usage-storage';
+import { UsageStorageService } from '../../services/observability/usage-storage';
 import { UsageRecord } from '../../types/usage';
 import { getClientIp } from '../../utils/ip';
 import { calculateCosts } from '../../utils/calculate-costs';
-import { DebugManager } from '../../services/debug-manager';
+import { DebugManager } from '../../services/observability/debug-manager';
 import { attachKeyAccessPolicy } from '../../utils/auth';
 import { sanitizeHeaders } from '../../utils/sanitize-headers';
 import { CLIENT_REQUEST_ID_HEADER, getClientRequestId } from '../../utils/client-request-id';

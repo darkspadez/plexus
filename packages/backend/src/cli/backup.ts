@@ -20,7 +20,7 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { writeFileSync } from 'node:fs';
 import { logger } from '../utils/logger';
-import { BackupService } from '../services/backup-service';
+import { BackupService } from '../services/configuration/backup-service';
 import { initializeDatabase, getCurrentDialect } from '../db/client';
 
 const DEFAULT_BACKUP_DIR = './backups';

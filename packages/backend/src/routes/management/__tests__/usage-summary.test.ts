@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import Fastify from 'fastify';
 import { registerUsageRoutes } from '../usage';
-import { UsageStorageService } from '../../../services/usage-storage';
+import { UsageStorageService } from '../../../services/observability/usage-storage';
 import { closeDatabase, getDatabase, getSchema, initializeDatabase } from '../../../db/client';
 import { runMigrations } from '../../../db/migrate';
 

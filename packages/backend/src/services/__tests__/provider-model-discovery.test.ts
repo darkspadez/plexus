@@ -4,7 +4,7 @@ import {
   discoverProviderModels,
   normalizeModelsResponse,
   validateUrlSafety,
-} from '../provider-model-discovery';
+} from '../providers/provider-model-discovery';
 import type { ProviderConfig } from '../../config';
 
 describe('provider model discovery', () => {

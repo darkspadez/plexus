@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { registerSpy } from '../../../test/test-utils';
-import { Dispatcher } from '../dispatcher';
+import { Dispatcher } from '../dispatch/dispatcher';
 import * as piAiRegistry from '../pi-ai/registry';
-import type { RouteResult } from '../router';
+import type { RouteResult } from '../routing/router';
 import type { UnifiedChatRequest } from '../../types/unified';
 
 function route(overrides: Partial<RouteResult> = {}): RouteResult {

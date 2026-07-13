@@ -1,7 +1,7 @@
 import { PassThrough } from 'stream';
 import { logger } from '../../utils/logger';
 import { BaseInspector } from './base';
-import { DebugManager } from '../debug-manager';
+import { DebugManager } from '../observability/debug-manager';
 
 const MAX_DEBUG_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
 

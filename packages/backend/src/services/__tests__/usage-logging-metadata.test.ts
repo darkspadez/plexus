@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { registerSpy } from '../../../test/test-utils';
 import { PassThrough } from 'stream';
 import { UsageInspector } from '../inspectors/usage-logging';
-import { DebugManager } from '../debug-manager';
+import { DebugManager } from '../observability/debug-manager';
 import type { UsageRecord } from '../../types/usage';
 import { DEFAULT_GPU_PARAMS, DEFAULT_MODEL } from '@plexus/shared';
 

@@ -4,8 +4,8 @@ import {
   ModelMetadataManager,
   mergeOverrides,
   resolveModelMetadata,
-} from '../model-metadata-manager';
-import type { NormalizedModelMetadata } from '../model-metadata-manager';
+} from '../models/model-metadata-manager';
+import type { NormalizedModelMetadata } from '../models/model-metadata-manager';
 import type { MetadataOverrides, ModelConfig, ProviderConfig } from '../../config';
 
 const FIXTURES = path.join(__dirname, '../../utils/__tests__/fixtures');

@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { UsageStorageService } from '../services/usage-storage';
+import { UsageStorageService } from '../services/observability/usage-storage';
 import { registerConfigRoutes } from './management/config';
 import { registerUsageRoutes } from './management/usage';
 import { registerCooldownRoutes } from './management/cooldowns';
@@ -22,8 +22,8 @@ import { authenticate, requireAdmin, ManagementAuthError } from './management/_p
 import { registerModelRoutes } from './management/models';
 import { registerBackupRoutes } from './management/backup';
 import { registerConcurrencyRoutes } from './management/concurrency';
-import { Dispatcher } from '../services/dispatcher';
-import { ProbeService } from '../services/probe-service';
+import { Dispatcher } from '../services/dispatch/dispatcher';
+import { ProbeService } from '../services/probes/probe-service';
 import { QuotaScheduler } from '../services/quota/quota-scheduler';
 import { QuotaEnforcer } from '../services/quota/quota-enforcer';
 import { McpUsageStorageService } from '../services/mcp-proxy/mcp-usage-storage';

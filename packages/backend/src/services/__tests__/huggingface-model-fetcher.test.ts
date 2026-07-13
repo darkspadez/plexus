@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { HuggingFaceModelFetcher } from '../huggingface-model-fetcher';
+import { HuggingFaceModelFetcher } from '../models/huggingface-model-fetcher';
 import { PROPRIETARY_MODEL_HEURISTICS, resolveDtypeSize } from '@plexus/shared';
 
 // ─── 7. matchHeuristic ──────────────────────────────────────

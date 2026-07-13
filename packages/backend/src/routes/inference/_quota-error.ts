@@ -1,6 +1,6 @@
 import { UsageRecord } from '../../types/usage';
-import { UsageStorageService } from '../../services/usage-storage';
-import { DebugManager } from '../../services/debug-manager';
+import { UsageStorageService } from '../../services/observability/usage-storage';
+import { DebugManager } from '../../services/observability/debug-manager';
 
 /**
  * Shared bookkeeping for a terminal quota_exceeded error thrown out of

@@ -1,10 +1,10 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
-import { Dispatcher } from '../dispatcher';
+import { Dispatcher } from '../dispatch/dispatcher';
 import { setConfigForTesting } from '../../config';
 import type { UnifiedChatRequest } from '../../types/unified';
-import { CooldownManager } from '../cooldown-manager';
-import { StickySessionManager } from '../sticky-session-manager';
-import { OAuthAuthManager } from '../oauth-auth-manager';
+import { CooldownManager } from '../runtime/cooldown-manager';
+import { StickySessionManager } from '../routing/sticky-session-manager';
+import { OAuthAuthManager } from '../oauth/oauth-auth-manager';
 import { registerSpy } from '../../../test/test-utils';
 
 const fetchMock: any = vi.fn(async (): Promise<any> => {

@@ -7,10 +7,10 @@ import { getClientIp } from '../utils/ip';
 import { sanitizeHeaders } from '../utils/sanitize-headers';
 import { getClientRequestId } from '../utils/client-request-id';
 import { logger } from '../utils/logger';
-import { listAllows } from '../services/scope-match';
-import { UsageStorageService } from '../services/usage-storage';
+import { listAllows } from '../services/routing/scope-match';
+import { UsageStorageService } from '../services/observability/usage-storage';
 import type { UsageRecord } from '../types/usage';
-import { DebugManager } from '../services/debug-manager';
+import { DebugManager } from '../services/observability/debug-manager';
 import { QuotaEnforcer } from '../services/quota/quota-enforcer';
 import {
   buildQuotaExceededBody,
@@ -18,7 +18,7 @@ import {
   checkQuotaMiddleware,
   recordQuotaUsage,
 } from '../services/quota/quota-middleware';
-import { ConcurrencyTracker } from '../services/concurrency-tracker';
+import { ConcurrencyTracker } from '../services/runtime/concurrency-tracker';
 import { wireEarlyDisconnectDetection } from '../utils/timeout';
 import { DebugLoggingInspector, extractUsageFromReconstructed } from '../services/inspectors';
 import { calculateCosts } from '../utils/calculate-costs';
@@ -30,7 +30,7 @@ import {
   executeRawUpstreamRequest,
   filterRawResponseHeaders,
   validateRawProviderSlug,
-} from '../services/raw-passthrough';
+} from '../services/dispatch/raw-passthrough';
 
 const RAW_METHODS = ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'] as const;
 

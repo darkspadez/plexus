@@ -1,11 +1,11 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
-import { Dispatcher } from '../dispatcher';
+import { Dispatcher } from '../dispatch/dispatcher';
 import { setConfigForTesting } from '../../config';
 import type { UnifiedChatRequest } from '../../types/unified';
-import { CooldownManager } from '../cooldown-manager';
+import { CooldownManager } from '../runtime/cooldown-manager';
 import { QUOTA_ERROR_PATTERNS } from '../../utils/constants';
-import { Router } from '../router';
-import { TransformerFactory } from '../transformer-factory';
+import { Router } from '../routing/router';
+import { TransformerFactory } from '../dispatch/transformer-factory';
 
 // @earendil-works/pi-ai is mocked globally in vitest.setup.ts — do not add a
 // per-file vi.mock() call here.  With isolate: false all files share one

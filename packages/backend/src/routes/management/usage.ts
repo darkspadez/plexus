@@ -6,7 +6,7 @@ import {
   UsageStorageService,
   type UsageSortDirection,
   type UsageSortField,
-} from '../../services/usage-storage';
+} from '../../services/observability/usage-storage';
 import { isLimited, scopedKeyName } from './_principal';
 
 const USAGE_FIELDS = new Set([
