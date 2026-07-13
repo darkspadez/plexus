@@ -236,6 +236,14 @@ function parseTimestamp(timestamp: string): Date | null {
 }
 
 /**
+ * Format an epoch-millisecond timestamp (e.g. a key's `expiresAt` /
+ * `disabledAt`) as a locale-formatted date-time string.
+ */
+export function formatExpiry(timestamp: number): string {
+  return new Date(timestamp).toLocaleString();
+}
+
+/**
  * Convert string to Title Case (e.g., "hello-world" -> "Hello World")
  */
 export function toTitleCase(str: string): string {

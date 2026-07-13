@@ -14,14 +14,22 @@ import { RefreshCw } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { Select } from '../../components/ui/Select';
 import { TagSelect } from '../../components/ui/TagSelect';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
+import { formatExpiry } from '../../lib/format';
 import { useQueryClient } from '@tanstack/react-query';
 import { KEYS_KEY } from '../../hooks/queries/useKeys';
 import { generateUUID } from '../../lib/clipboard';
 import { keyFormSchema, toKeyConfig, KEY_FORM_DEFAULTS, type KeyFormValues } from './key-schema';
 import type { KeyConfig, UserQuota } from '../../lib/api';
+
+const EXPIRY_UNIT_OPTIONS = [
+  { value: 'minutes' as const, label: 'Minutes' },
+  { value: 'hours' as const, label: 'Hours' },
+  { value: 'days' as const, label: 'Days' },
+];
 
 interface Props {
   open: boolean;
@@ -74,6 +82,9 @@ export const KeySheet: React.FC<Props> = ({
         excludedModels: initial.excludedModels ?? [],
         excludedProviders: initial.excludedProviders ?? [],
         allowedIps: initial.allowedIps ?? [],
+        // Expiry is create-only — never re-submitted on edit (see toKeyConfig).
+        expiryAmount: '',
+        expiryUnit: 'days',
       });
     } else {
       reset({
@@ -183,6 +194,55 @@ export const KeySheet: React.FC<Props> = ({
           placeholder="Optional description..."
           error={errors.comment?.message}
         />
+
+        {/* Expiry — create-only. Editing shows a read-only notice instead
+            (upstream: "Expiry cannot be changed after creation."). */}
+        {isEditing ? (
+          initial?.expiresAt !== undefined && (
+            <div className="rounded-md border border-border bg-surface-elevated p-3 text-sm text-foreground-muted">
+              <div>Expires: {formatExpiry(initial.expiresAt)}</div>
+              <p className="mt-1 text-xs text-foreground-muted">
+                Expiry cannot be changed after creation.
+              </p>
+            </div>
+          )
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <span className="font-sans text-[13px] font-medium text-foreground-muted">
+              Expiry (optional)
+            </span>
+            <div className="flex gap-2">
+              <div className="min-w-0 flex-1">
+                <Input
+                  {...register('expiryAmount')}
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Never expires"
+                  error={errors.expiryAmount?.message}
+                  aria-label="Expiry amount"
+                />
+              </div>
+              <div className="w-32 shrink-0">
+                <Controller
+                  control={control}
+                  name="expiryUnit"
+                  render={({ field }) => (
+                    <Select
+                      value={field.value ?? 'days'}
+                      onChange={field.onChange}
+                      options={EXPIRY_UNIT_OPTIONS}
+                      aria-label="Expiry unit"
+                    />
+                  )}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-foreground-muted">
+              Once set, a time-bound key cannot be extended.
+            </p>
+          </div>
+        )}
 
         {/* Excluded Model Aliases */}
         <Controller

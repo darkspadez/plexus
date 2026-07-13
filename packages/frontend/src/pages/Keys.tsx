@@ -8,6 +8,8 @@ import { PageContainer } from '../components/layout/PageContainer';
 import { useToast } from '../contexts/ToastContext';
 import { DataTable } from '../components/ui/DataTable';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Badge } from '../components/ui/Badge';
+import { Disclosure } from '../components/ui/Disclosure';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   Key,
@@ -23,16 +25,19 @@ import {
   Wrench,
   Users,
   Info,
+  Ban,
 } from 'lucide-react';
 import { SECTION_NAMES } from '../lib/nav';
 import { isClipboardAvailable, copyToClipboard } from '../lib/clipboard';
 import { statusForPercent, formatQuotaValue, sortMostConstrainedFirst } from '../lib/quota';
+import { formatExpiry } from '../lib/format';
 import { QuotaProgressBar } from '../components/quota/QuotaProgressBar';
 import {
   useApiKeys,
   useKeysProviderIds,
   useKeysAliasIds,
   useDeleteKey,
+  useDisableKey,
   useClearQuota,
   useRecomputeQuota,
   useDefaultQuotaNames,
@@ -87,6 +92,7 @@ export const Keys = () => {
   const { data: aliasIds = [] } = useKeysAliasIds();
   const { data: defaultQuotaNames = [] } = useDefaultQuotaNames();
   const deleteKeyMutation = useDeleteKey();
+  const disableKeyMutation = useDisableKey();
   const clearQuotaMutation = useClearQuota();
   const recomputeQuotaMutation = useRecomputeQuota();
 
@@ -169,13 +175,7 @@ export const Keys = () => {
       variant: 'danger',
     });
     if (!confirmed) return;
-    try {
-      await api.disableKey(key.key);
-      await loadData();
-      toast.success(`Key '${key.key}' disabled`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to disable key');
-    }
+    disableKeyMutation.mutate(key.key);
   };
 
   const handleDeleteKey = async (keyName: string) => {
@@ -265,7 +265,6 @@ export const Keys = () => {
     key.disabledAt !== undefined || (key.expiresAt !== undefined && key.expiresAt <= Date.now());
   const activeKeys = filteredKeys.filter((key) => !isDisabled(key));
   const disabledKeys = filteredKeys.filter(isDisabled);
-  const formatExpiry = (timestamp: number) => new Date(timestamp).toLocaleString();
 
   const getQuotaStatusColor = (percent: number) => {
     if (percent >= 90) return 'var(--color-danger)';
@@ -352,6 +351,20 @@ export const Keys = () => {
             );
           }
           return <span className="text-foreground-muted text-xs">-</span>;
+        },
+      },
+      {
+        id: 'expiry',
+        header: 'Expiry',
+        meta: { priority: 'medium', mobileLabel: 'Expiry' },
+        cell: ({ row }) => {
+          const { expiresAt } = row.original;
+          if (expiresAt === undefined) {
+            return <span className="text-foreground-muted text-xs">-</span>;
+          }
+          return (
+            <span className="text-xs text-foreground-muted">Expires {formatExpiry(expiresAt)}</span>
+          );
         },
       },
       {
@@ -452,6 +465,19 @@ export const Keys = () => {
                 variant="ghost"
                 size="icon"
                 className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+                aria-label={`Disable ${row.original.key}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDisableKey(row.original);
+                }}
+                title="Disable key"
+              >
+                <Ban size={14} strokeWidth={1.75} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
                 aria-label={`Delete ${row.original.key}`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -467,6 +493,60 @@ export const Keys = () => {
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [quotaStatuses, copiedKey, defaultQuotaNames]
+  );
+
+  // ---------------------------------------------------------------------------
+  // Disabled Keys — TanStack column definitions (read-only; revealed via the
+  // "Show disabled" disclosure below the active-keys table)
+  // ---------------------------------------------------------------------------
+  const disabledKeysColumns = React.useMemo<ColumnDef<KeyConfig>[]>(
+    () => [
+      {
+        id: 'name',
+        header: 'Key Name',
+        accessorKey: 'key',
+        enableSorting: false,
+        meta: { mobileTitle: true, priority: 'high' },
+        cell: ({ row }) => (
+          <span className="font-medium text-foreground-muted">{row.original.key}</span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        meta: { priority: 'high', mobileLabel: 'Status' },
+        cell: ({ row }) => {
+          const expired = row.original.disabledAt === undefined;
+          return (
+            <Badge status={expired ? 'danger' : 'neutral'} noDot>
+              {expired ? 'Expired' : 'Disabled'}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: 'since',
+        header: 'Since',
+        meta: { priority: 'medium', mobileLabel: 'Since' },
+        cell: ({ row }) => {
+          const timestamp = row.original.disabledAt ?? row.original.expiresAt;
+          return (
+            <span className="text-xs text-foreground-muted">
+              {timestamp !== undefined ? formatExpiry(timestamp) : '-'}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'comment',
+        header: 'Comment',
+        meta: { priority: 'low', mobileLabel: 'Comment' },
+        cell: ({ row }) => (
+          <span className="text-xs text-foreground-muted">{row.original.comment || '-'}</span>
+        ),
+      },
+    ],
+    []
   );
 
   return (
@@ -489,9 +569,9 @@ export const Keys = () => {
       <PageContainer>
         <DataTable<KeyConfig>
           className="mb-6"
-          title="Active Keys"
+          title={`Active Keys (${activeKeys.length})`}
           columns={keysColumns}
-          data={filteredKeys}
+          data={activeKeys}
           getRowKey={(row) => row.key}
           emptyTitle={search ? 'No keys found' : 'No keys yet'}
           emptyDescription={
@@ -535,6 +615,16 @@ export const Keys = () => {
                   variant="ghost"
                   size="icon"
                   className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+                  aria-label={`Disable ${row.key}`}
+                  onClick={() => handleDisableKey(row)}
+                  title="Disable key"
+                >
+                  <Ban size={14} strokeWidth={1.75} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
                   aria-label={`Delete ${row.key}`}
                   onClick={() => handleDeleteKey(row.key)}
                 >
@@ -544,6 +634,22 @@ export const Keys = () => {
             );
           }}
         />
+
+        {/* Disabled / expired keys — collapsed by default, dimmed rows. */}
+        <Disclosure
+          title={`Show disabled (${disabledKeys.length})`}
+          defaultOpen={false}
+          className="mb-6"
+        >
+          <DataTable<KeyConfig>
+            columns={disabledKeysColumns}
+            data={disabledKeys}
+            getRowKey={(row) => row.key}
+            rowClassName={() => 'opacity-60'}
+            emptyTitle="No disabled keys"
+            emptyDescription="Disabled or expired keys will appear here."
+          />
+        </Disclosure>
 
         {/* Key Sheet */}
         <KeySheet

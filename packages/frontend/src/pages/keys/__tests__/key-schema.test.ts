@@ -85,6 +85,74 @@ describe('keyFormSchema validation', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Expiry validation — mirrors upstream's
+// `!Number.isInteger(amount) || amount <= 0` check on save.
+// ---------------------------------------------------------------------------
+
+describe('keyFormSchema expiry validation', () => {
+  test('accepts an empty expiryAmount (never expires)', () => {
+    const result = keyFormSchema.safeParse({
+      ...KEY_FORM_DEFAULTS,
+      key: 'k',
+      secret: 'sk-x',
+      expiryAmount: '',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  test('accepts a positive whole number', () => {
+    const result = keyFormSchema.safeParse({
+      ...KEY_FORM_DEFAULTS,
+      key: 'k',
+      secret: 'sk-x',
+      expiryAmount: '30',
+      expiryUnit: 'minutes',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  test('rejects zero', () => {
+    const result = keyFormSchema.safeParse({
+      ...KEY_FORM_DEFAULTS,
+      key: 'k',
+      secret: 'sk-x',
+      expiryAmount: '0',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test('rejects a negative number', () => {
+    const result = keyFormSchema.safeParse({
+      ...KEY_FORM_DEFAULTS,
+      key: 'k',
+      secret: 'sk-x',
+      expiryAmount: '-5',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test('rejects a non-integer', () => {
+    const result = keyFormSchema.safeParse({
+      ...KEY_FORM_DEFAULTS,
+      key: 'k',
+      secret: 'sk-x',
+      expiryAmount: '1.5',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test('rejects non-numeric input', () => {
+    const result = keyFormSchema.safeParse({
+      ...KEY_FORM_DEFAULTS,
+      key: 'k',
+      secret: 'sk-x',
+      expiryAmount: 'abc',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Payload serialization — toKeyConfig()
 // ---------------------------------------------------------------------------
 
@@ -191,5 +259,65 @@ describe('toKeyConfig payload serialization', () => {
       excludedProviders: [],
       allowedIps: [],
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Payload serialization — expiresInMinutes
+// ---------------------------------------------------------------------------
+
+describe('toKeyConfig expiresInMinutes serialization', () => {
+  test('omits expiresInMinutes when expiryAmount is empty', () => {
+    const payload = toKeyConfig({
+      ...KEY_FORM_DEFAULTS,
+      key: 'k',
+      secret: 'sk-x',
+      expiryAmount: '',
+    });
+    expect('expiresInMinutes' in payload).toBe(false);
+  });
+
+  test('converts minutes 1:1', () => {
+    const payload = toKeyConfig({
+      ...KEY_FORM_DEFAULTS,
+      key: 'k',
+      secret: 'sk-x',
+      expiryAmount: '30',
+      expiryUnit: 'minutes',
+    });
+    expect(payload.expiresInMinutes).toBe(30);
+  });
+
+  test('converts hours to minutes', () => {
+    const payload = toKeyConfig({
+      ...KEY_FORM_DEFAULTS,
+      key: 'k',
+      secret: 'sk-x',
+      expiryAmount: '2',
+      expiryUnit: 'hours',
+    });
+    expect(payload.expiresInMinutes).toBe(120);
+  });
+
+  test('converts days to minutes', () => {
+    const payload = toKeyConfig({
+      ...KEY_FORM_DEFAULTS,
+      key: 'k',
+      secret: 'sk-x',
+      expiryAmount: '3',
+      expiryUnit: 'days',
+    });
+    expect(payload.expiresInMinutes).toBe(3 * 1_440);
+  });
+
+  test('defaults to days when expiryUnit is omitted', () => {
+    const payload = toKeyConfig({
+      ...KEY_FORM_DEFAULTS,
+      key: 'k',
+      secret: 'sk-x',
+      expiryAmount: '1',
+      expiryUnit: undefined,
+    });
+    expect(payload.expiresInMinutes).toBe(1_440);
   });
 });
