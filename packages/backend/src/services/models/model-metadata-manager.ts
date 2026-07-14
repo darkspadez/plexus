@@ -952,9 +952,6 @@ function normalizeCatalogProvider(provider: string, model: string): string {
   switch (provider) {
     case 'openai-codex':
       return 'openai';
-    case 'google-antigravity':
-    case 'google-gemini-cli':
-      return 'google';
     case 'github-copilot':
       return inferProviderFromModel(model) ?? provider;
     default:

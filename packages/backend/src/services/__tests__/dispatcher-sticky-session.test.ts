@@ -239,10 +239,26 @@ describe('Dispatcher sticky_session write-back', () => {
     });
   });
 
-  test('records successful OAuth/pi-ai dispatches for sticky_session aliases', async () => {
+  test('records successful OAuth dispatches for sticky_session aliases', async () => {
     setConfigForTesting(oauthConfigForSticky());
     registerSpy(OAuthAuthManager.getInstance(), 'getApiKey').mockResolvedValue(
       'sk-ant-oat-fake-token-for-test'
+    );
+    // Native OAuth (NOMOV3 M1) runs through the standard fetch path; return a
+    // minimal Anthropic Messages response.
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: 'msg_test',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-test',
+          content: [{ type: 'text', text: 'ok' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     );
 
     const req = multiTurnRequest();

@@ -46,7 +46,9 @@ properties:
     description: >
       OAuth provider identifier. Required when `api_base_url` uses an
       `oauth://` URI. Determines which OAuth flow is used to obtain
-      credentials.
+      credentials. Note: `google-gemini-cli` and `google-antigravity` are
+      deprecated and no longer supported — they remain accepted for
+      backward compatibility but are rejected at request routing.
   oauth_account:
     type: string
     description: >

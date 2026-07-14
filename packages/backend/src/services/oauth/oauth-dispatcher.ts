@@ -9,6 +9,10 @@ import {
   resolveCooldownProviderType,
 } from '../providers/provider-cooldown';
 
+// OAuth providers that were dropped but whose config-enum values remain
+// parseable so existing deployments don't fail-load (see docs/NOMOV3.md M3).
+const DROPPED_OAUTH_PROVIDERS = new Set(['google-gemini-cli', 'google-antigravity']);
+
 export interface OAuthDispatcherHost {
   buildCancelledError(signal: AbortSignal): Error;
   enrichResponseWithMetadata(
@@ -753,6 +757,16 @@ export class OAuthDispatcher {
   }
 
   private assertOAuthModelSupported(oauthProvider: string, modelId: string) {
+    // Gemini CLI / Antigravity OAuth were dropped (see docs/NOMOV3.md M3). The
+    // config enum still accepts these values so existing configs load, but they
+    // are inert at routing. Reject with a clear, actionable error.
+    if (DROPPED_OAUTH_PROVIDERS.has(oauthProvider)) {
+      throw new Error(
+        `OAuth provider '${oauthProvider}' is no longer supported. ` +
+          `Gemini CLI and Antigravity OAuth were removed; configure a different provider.`
+      );
+    }
+
     const supportedModels = getBuiltinModels(oauthProvider as any);
     if (!supportedModels || supportedModels.length === 0) {
       throw new Error(`OAuth provider '${oauthProvider}' has no known models.`);

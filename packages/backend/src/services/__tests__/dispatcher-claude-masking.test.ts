@@ -90,19 +90,47 @@ describe('Dispatcher Claude Masking routing', () => {
     vi.restoreAllMocks();
   });
 
-  test('useClaudeMasking:true routes through pi-ai (apiType oauth, fetch not called)', async () => {
+  test('useClaudeMasking:true routes through the NATIVE path (real fetch, x-api-key, masked body, no pi-ai)', async () => {
+    // NOMOV3: the Claude-masking API-key route no longer uses the pi-ai
+    // executor. It builds the native Anthropic body, applies CC masking, and
+    // POSTs with x-api-key (the real Anthropic key) — same as OAuth, minus the
+    // Bearer token.
     setConfigForTesting(maskedAnthropicConfig());
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: 'msg-1',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'text', text: 'ok' }],
+            model: 'claude-test',
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+    );
     const dispatcher = new Dispatcher();
 
     const response = await dispatcher.dispatch(makeRequest());
 
     expect(response).toBeDefined();
-    // apiType 'oauth' means the OAuth/pi-ai code path was taken.
-    expect(response.plexus?.apiType).toBe('oauth');
-    // native fetch must NOT have been called — pi-ai handles the request.
-    expect(fetchMock).not.toHaveBeenCalled();
-    // Response content must come back correctly.
-    expect(response.content).toBe('ok');
+    // pi-ai executor must NOT have been used.
+    expect(vi.mocked(piAi.complete)).not.toHaveBeenCalled();
+    // Went native to the real Anthropic endpoint.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://api.anthropic.com/v1/messages');
+    const headers = init.headers as Record<string, string>;
+    // Masking API-key auth: x-api-key with the real key, NOT Bearer.
+    expect(headers['x-api-key']).toBe('sk-ant-api03-masked-test-key');
+    expect(headers.Authorization).toBeUndefined();
+    // CC masking applied (fingerprint headers + rebuilt system identity).
+    expect(headers['anthropic-beta']).toBeTruthy();
+    const body = JSON.parse(init.body as string);
+    expect(Array.isArray(body.system)).toBe(true);
+    expect(body.system[0].text).toContain('x-anthropic-billing-header');
   });
 
   test('useClaudeMasking:false routes through native HTTP fetch', async () => {

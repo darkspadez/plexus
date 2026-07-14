@@ -13,6 +13,8 @@ import { preprocessVisionRequest } from '../vision/vision-request-preprocessor';
 import { resolveRouteCandidates } from '../routing/route-candidates';
 import { executeOAuthAttempt } from '../oauth/oauth-attempt-request';
 import { executeStandardAttempt } from './standard-attempt-request';
+import { isNativeOAuthRoute } from './request-payload-builder';
+import { nativeOAuthApiType } from '../oauth/oauth-native-request';
 import type { RetryAttemptRecord } from './dispatcher-types';
 import type { ResolveTimeoutMs } from './upstream-execution';
 
@@ -146,7 +148,21 @@ export class RequestManager {
         );
 
         // 2. Get Transformer
-        const transformerType = host.isPiAiRoute(route, targetApiType) ? 'oauth' : targetApiType;
+        // Native OAuth routes (NOMOV3 M1) use the provider-native transformer
+        // (e.g. Anthropic 'messages') and flow through the standard execution
+        // path — NOT pi-ai's 'oauth' transformer/executor.
+        const nativeOAuth = isNativeOAuthRoute(route, targetApiType);
+        const usePiAiExecutor = host.isPiAiRoute(route, targetApiType) && !nativeOAuth;
+        // Native OAuth (Anthropic today) runs through the STANDARD path. Its wire
+        // API is the provider-native type (Anthropic 'messages'), NOT the
+        // synthetic 'oauth' type getProviderTypes() reports for an `oauth://`
+        // URL. Using the native type selects the correct transformer AND lets
+        // same-format requests use pass-through; CC masking is layered on in
+        // buildRequestPayload. Codex/Copilot still use the pi-ai executor ('oauth').
+        const effectiveApiType = nativeOAuth
+          ? (nativeOAuthApiType(route.config.oauth_provider || route.provider) ?? 'messages')
+          : targetApiType;
+        const transformerType = usePiAiExecutor ? 'oauth' : effectiveApiType;
         const transformer = TransformerFactory.getTransformer(transformerType);
 
         // 3. Transform Request
@@ -160,7 +176,7 @@ export class RequestManager {
             requestWithTargetModel,
             route,
             transformer,
-            targetApiType,
+            effectiveApiType,
             adapters
           );
 
@@ -213,7 +229,7 @@ export class RequestManager {
             `route.config.stallTtfbMs=${route.config.stallTtfbMs}, route.config.stallMinBps=${route.config.stallMinBps}`
         );
 
-        if (host.isPiAiRoute(route, targetApiType)) {
+        if (usePiAiExecutor) {
           const result = await executeOAuthAttempt({
             host,
             providerPayload,
@@ -244,7 +260,7 @@ export class RequestManager {
           request: currentRequest,
           requestWithTargetModel,
           route,
-          targetApiType,
+          targetApiType: effectiveApiType,
           transformer,
           bypassTransformation,
           adapters,

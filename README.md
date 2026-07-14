@@ -14,7 +14,7 @@ Plexus sits in front of your LLM providers and exposes one consistent API surfac
 
 - **Unified API surface** for OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Gemini, embeddings, audio, and images.
 - **Provider routing and load balancing** across OpenAI, Anthropic, Google Gemini, DeepSeek, Groq, OpenRouter, and any OpenAI-compatible backend.
-- **OAuth-backed providers** for GitHub Copilot, Anthropic Claude, OpenAI Codex, Gemini CLI, and Antigravity through the Admin UI.
+- **OAuth-backed providers** for GitHub Copilot, Anthropic Claude, and OpenAI Codex through the Admin UI.
 - **Model aliases** that map virtual model names to one or more real provider targets using `random`, `in_order`, `cost`, `performance`, `latency`, or `e2e_performance` selectors.
 - **Vision fallthrough** that describes images with a vision-capable descriptor model before routing to non-vision models.
 - **Automatic failover** with exponential provider cooldowns and optional stall detection for slow or stuck streams.

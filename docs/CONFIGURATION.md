@@ -141,8 +141,6 @@ Plexus supports OAuth-backed providers via the [pi-ai](https://www.npmjs.com/pac
 - Anthropic Claude
 - GitHub Copilot
 - OpenAI Codex
-- Gemini CLI
-- Antigravity
 - OpenAI o1-pro
 
 **Configuration:**

@@ -86,10 +86,29 @@ function multiTurnChatRequest(): UnifiedChatRequest {
 }
 
 describe('Dispatcher OAuth pass-through regression (issue #162)', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     OAuthAuthManager.resetForTesting();
     registerSpy(OAuthAuthManager.getInstance(), 'getApiKey').mockResolvedValue(
       'sk-ant-oat-fake-token-for-test'
+    );
+    // Native OAuth (NOMOV3 M1) runs through the standard fetch path — mock the
+    // upstream so no real network call is made. A minimal Anthropic Messages
+    // non-streaming response body is enough to exercise the native path.
+    fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'msg_test',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-test',
+          content: [{ type: 'text', text: 'because' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 5, output_tokens: 1 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     );
   });
 
@@ -98,12 +117,22 @@ describe('Dispatcher OAuth pass-through regression (issue #162)', () => {
     OAuthAuthManager.resetForTesting();
   });
 
-  test('multi-turn request with string assistant content does not throw', async () => {
-    // Before the fix this threw: "assistantMsg.content.flatMap is not a function"
-    // Simply completing without error proves the regression is fixed.
+  test('multi-turn request with string assistant content dispatches via the native path', async () => {
+    // Native OAuth builds the Anthropic body via the native transformer (no
+    // pi-ai Context IR / executor) and runs through the standard fetch path.
     setConfigForTesting(oauthConfigWithChatAccessVia());
     const dispatcher = new Dispatcher();
 
     await expect(dispatcher.dispatch(multiTurnChatRequest())).resolves.toBeDefined();
+
+    // Confirm we actually hit the native Anthropic endpoint with the OAuth
+    // Bearer token + CC fingerprint headers (not pi-ai's executor).
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://api.anthropic.com/v1/messages');
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer sk-ant-oat-fake-token-for-test');
+    expect(headers['anthropic-beta']).toBeTruthy();
+    expect(headers['x-app']).toBe('cli');
   });
 });

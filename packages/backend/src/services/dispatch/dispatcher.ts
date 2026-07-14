@@ -38,7 +38,7 @@ import {
   isRetryableOAuthError,
   isRetryableStatus,
 } from './failover-policy';
-import { buildRequestPayload } from './request-payload-builder';
+import { buildRequestPayload, NATIVE_OAUTH_STASH } from './request-payload-builder';
 import {
   createAttemptTimeout,
   executeUpstreamRequest,
@@ -543,6 +543,12 @@ export class Dispatcher {
     apiType: string,
     request: UnifiedChatRequest
   ): Record<string, string> {
+    // Native OAuth routes carry fully-built wire headers (Bearer token + CC
+    // fingerprint headers) stashed during payload preparation. See NOMOV3 M1.
+    const nativeOAuth = (route as any)[NATIVE_OAUTH_STASH];
+    if (nativeOAuth?.headers) {
+      return { ...nativeOAuth.headers };
+    }
     return setupProviderHeaders(route, apiType, request);
   }
 
@@ -660,6 +666,12 @@ export class Dispatcher {
     request: UnifiedChatRequest,
     targetApiType: string
   ): string {
+    // Native OAuth routes carry a fully-resolved upstream URL stashed during
+    // payload preparation (real provider endpoint, not oauth://). See NOMOV3 M1.
+    const nativeOAuth = (route as any)[NATIVE_OAUTH_STASH];
+    if (nativeOAuth?.url) {
+      return nativeOAuth.url;
+    }
     const baseUrl = this.resolveBaseUrl(route, targetApiType);
     const endpoint = transformer.getEndpoint
       ? transformer.getEndpoint(request)
@@ -854,6 +866,16 @@ export class Dispatcher {
 
     let rawStream: ReadableStream = response.body!;
 
+    // Native OAuth: reverse request-side tool-name renames on the raw upstream
+    // SSE bytes (no IR, no event translation) before they reach the client.
+    // See NOMOV3 M1.
+    const nativeOAuth = (route as any)[NATIVE_OAUTH_STASH];
+    if (nativeOAuth?.reverseResponseFrame) {
+      rawStream = rawStream.pipeThrough(
+        this.buildSseFrameRewriteTransform(nativeOAuth.reverseResponseFrame)
+      );
+    }
+
     // If any adapter defines preDispatchStreamChunk, pipe the raw SSE stream
     // through a rewrite transform before it reaches transformStream().
     const streamAdapters = adapters.filter((a) => a.adapter.preDispatchStreamChunk);
@@ -917,6 +939,35 @@ export class Dispatcher {
   }
 
   /**
+   * Builds a TransformStream that rewrites each raw SSE line through a single
+   * frame-rewriter function (used by the native OAuth path to reverse tool-name
+   * renames on upstream bytes). Line-buffered to handle chunk-split frames.
+   */
+  private buildSseFrameRewriteTransform(
+    rewrite: (frame: string) => string
+  ): TransformStream<Uint8Array, Uint8Array> {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    return new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        buffer += decoder.decode(chunk, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          controller.enqueue(encoder.encode(rewrite(line) + '\n'));
+        }
+      },
+      flush(controller) {
+        if (buffer.length > 0) {
+          controller.enqueue(encoder.encode(rewrite(buffer)));
+        }
+      },
+    });
+  }
+
+  /**
    * Handles non-streaming responses
    */
   private async handleNonStreamingResponse(
@@ -944,6 +995,17 @@ export class Dispatcher {
       targetApiType
     );
     logger.silly('Upstream Response Payload', responseBody);
+
+    // Native OAuth: reverse request-side tool-name renames on the raw response
+    // body (JSON string round-trip mirrors the streaming frame reversal).
+    const nativeOAuth = (route as any)[NATIVE_OAUTH_STASH];
+    if (nativeOAuth?.reverseResponseFrame && responseBody && typeof responseBody === 'object') {
+      try {
+        responseBody = JSON.parse(nativeOAuth.reverseResponseFrame(JSON.stringify(responseBody)));
+      } catch {
+        // Leave body untouched if the round-trip fails.
+      }
+    }
 
     // Apply provider/model adapters (postDispatch) in reverse order
     if (adapters.length > 0) {

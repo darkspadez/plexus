@@ -7,7 +7,37 @@ import type { RouteResult } from '../routing/router';
 import type { ResolvedAdapter } from '../../types/provider-adapter';
 import { applyGeminiThinkingConfig, getApiMetadata } from '../providers/provider-api-selection';
 import { isClaudeMaskingApiKeyRoute, isPiAiRoute } from '../oauth/oauth-dispatcher';
+import {
+  isNativeOAuthProvider,
+  prepareNativeOAuthDispatch,
+  type PreparedOAuthRequest,
+} from '../oauth/oauth-native-request';
 import { applyRegistryAutoCompat, hasCodexResponsesExtensions } from './dispatcher-auto-compat';
+
+/** Symbol stash for the native OAuth prep, read by the standard dispatch seams. */
+export const NATIVE_OAUTH_STASH = Symbol('nativeOAuthPrep');
+
+/**
+ * Is this a Claude/Anthropic route served by the native (non-pi-ai) path?
+ * Covers BOTH Anthropic paths so NO Claude traffic touches the pi-ai executor:
+ *   - Anthropic OAuth (`oauth://`, provider anthropic)
+ *   - Claude-masking API-key route (`useClaudeMasking`, provider-name-agnostic)
+ */
+export function isNativeOAuthRoute(route: RouteResult, targetApiType: string): boolean {
+  if (isClaudeMaskingApiKeyRoute(route, targetApiType)) return true;
+  if (!isOAuthRouteForNative(route, targetApiType)) return false;
+  const provider = route.config.oauth_provider || route.provider;
+  return isNativeOAuthProvider(provider);
+}
+
+function isOAuthRouteForNative(route: RouteResult, targetApiType: string): boolean {
+  if (targetApiType.toLowerCase() === 'oauth') return true;
+  if (typeof route.config.api_base_url === 'string') {
+    return route.config.api_base_url.startsWith('oauth://');
+  }
+  const urlMap = route.config.api_base_url as Record<string, string>;
+  return Object.values(urlMap).some((value) => value.startsWith('oauth://'));
+}
 
 export interface RequestPayload {
   payload: any;
@@ -19,7 +49,14 @@ function shouldUsePassThrough(
   targetApiType: string,
   route: RouteResult
 ): boolean {
-  if ((request as any)._hasVisionFallthrough || isPiAiRoute(route, targetApiType)) {
+  // Native OAuth (Anthropic) runs through the standard path and IS eligible for
+  // same-format pass-through — only the pi-ai executor routes (Codex/Copilot)
+  // need the IR and must skip pass-through.
+  const nativeOAuth = isNativeOAuthRoute(route, targetApiType);
+  if (
+    (request as any)._hasVisionFallthrough ||
+    (isPiAiRoute(route, targetApiType) && !nativeOAuth)
+  ) {
     return false;
   }
 
@@ -45,6 +82,7 @@ export async function buildRequestPayload(
   targetApiType: string,
   adapters: ResolvedAdapter[] = []
 ): Promise<RequestPayload> {
+  const nativeOAuth = isNativeOAuthRoute(route, targetApiType);
   const bypassTransformation = shouldUsePassThrough(request, targetApiType, route);
   let payload: any;
 
@@ -105,6 +143,33 @@ export async function buildRequestPayload(
       `Adapters applied (preDispatch): [${adapters.map((entry) => entry.adapter.name).join(', ')}] ` +
         `for ${route.provider}/${route.model}`
     );
+  }
+
+  // Native OAuth (currently Anthropic): the payload above is already the correct
+  // provider-native wire body (pass-through of the client's Messages body, or a
+  // cross-format transform to it). Layer the CC masking/fingerprint + OAuth
+  // token resolution on top, and stash the resolved URL/headers/reverse-frame
+  // for the standard dispatch seams. No pi-ai Context IR, no piAiModels.stream.
+  // See NOMOV3 M1. This is the ONLY OAuth-specific step — one path, masking
+  // applied when the selected target is an OAuth target.
+  if (nativeOAuth) {
+    const maskingApiKeyRoute = isClaudeMaskingApiKeyRoute(route, targetApiType);
+    const provider = (
+      maskingApiKeyRoute ? 'anthropic' : route.config.oauth_provider || route.provider
+    ) as string;
+    const prepared: PreparedOAuthRequest = await prepareNativeOAuthDispatch({
+      provider: provider as any,
+      modelId: route.model,
+      nativeBody: payload,
+      streaming: !!request.stream,
+      oauthAccountId: route.config.oauth_account?.trim(),
+      maskingApiKey: maskingApiKeyRoute ? (route.config.api_key ?? '') : null,
+    });
+    (route as any)[NATIVE_OAUTH_STASH] = prepared;
+    logger.debug(
+      `Native OAuth payload prepared for ${provider}/${route.model} (url=${prepared.url})`
+    );
+    return { payload: prepared.body, bypassTransformation: true };
   }
 
   return { payload, bypassTransformation };

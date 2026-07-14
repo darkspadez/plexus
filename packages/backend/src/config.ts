@@ -214,6 +214,9 @@ const OAuthProviderSchema = z.enum([
   'anthropic',
   'openai-codex',
   'github-copilot',
+  // Retained-but-inert (see docs/NOMOV3.md M3): Gemini CLI / Antigravity OAuth were
+  // dropped, but these enum values stay accepted so existing configs still load.
+  // They are rejected at routing (oauth-dispatcher: DROPPED_OAUTH_PROVIDERS).
   'google-gemini-cli',
   'google-antigravity',
 ]);

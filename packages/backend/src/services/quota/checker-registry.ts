@@ -201,8 +201,6 @@ export async function loadAllCheckers(): Promise<void> {
   await import('./checkers/apertis-checker');
   await import('./checkers/poe-checker');
   await import('./checkers/routing-run-checker');
-  await import('./checkers/gemini-cli-checker');
-  await import('./checkers/antigravity-checker');
   await import('./checkers/ollama-checker');
   await import('./checkers/neuralwatt-checker');
   await import('./checkers/zenmux-checker');
