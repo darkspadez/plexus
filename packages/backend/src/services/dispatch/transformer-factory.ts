@@ -3,7 +3,6 @@ import {
   AnthropicTransformer,
   OpenAITransformer,
   GeminiTransformer,
-  OAuthTransformer,
 } from '../../transformers/index';
 import { ResponsesTransformer } from '../../transformers/responses';
 import { OllamaTransformer } from '../../transformers/ollama';
@@ -13,7 +12,11 @@ import { getApiBaseType } from '../../utils/api-format';
  * TransformerFactory
  *
  * Factory for retrieving the correct transformer based on the provider's API type.
- * Supports 'messages' (Anthropic), 'gemini' (Google), 'chat' (OpenAI), 'responses' (OpenAI Responses API), 'ollama' (Native Ollama), and 'oauth'.
+ * Supports 'messages' (Anthropic), 'gemini' (Google), 'chat' (OpenAI), 'responses' (OpenAI Responses API), and 'ollama' (Native Ollama).
+ *
+ * The synthetic 'oauth' type is gone: all OAuth providers now resolve to their
+ * real wire API type (messages/responses/chat) via nativeOAuthApiType and run
+ * through the standard path (NOMOV3 M4 — pi-ai OAuth executor removed).
  */
 export class TransformerFactory {
   static getTransformer(providerType: string): Transformer {
@@ -28,11 +31,9 @@ export class TransformerFactory {
         return new ResponsesTransformer();
       case 'ollama':
         return new OllamaTransformer();
-      case 'oauth':
-        return new OAuthTransformer();
       default:
         throw new Error(
-          `Unsupported provider type: ${providerType}. Only 'messages', 'gemini', 'chat', 'responses', 'ollama', and 'oauth' are allowed.`
+          `Unsupported provider type: ${providerType}. Only 'messages', 'gemini', 'chat', 'responses', and 'ollama' are allowed.`
         );
     }
   }

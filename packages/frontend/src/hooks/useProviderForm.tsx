@@ -33,8 +33,6 @@ const getOAuthCheckerType = (oauthProvider?: string): string | null => {
     anthropic: 'claude-code',
     'claude-code': 'claude-code',
     'github-copilot': 'copilot',
-    'google-gemini-cli': 'gemini-cli',
-    'google-antigravity': 'antigravity',
   };
   return map[oauthProvider] ?? null;
 };

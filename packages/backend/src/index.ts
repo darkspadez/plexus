@@ -189,6 +189,10 @@ try {
   // One-time migration: rewrite legacy model_type 'chat'/'responses' → 'text'.
   await configService.migrateModelTypes();
 
+  // One-time cleanup: drop any persisted Gemini CLI / Antigravity OAuth
+  // providers + credentials (those providers were removed; see NOMOV3 M3/M4).
+  await configService.dropRetiredOAuthProviders();
+
   // Eagerly initialize OAuth auth manager so auth.json schema migration
   // runs during startup (instead of waiting for first OAuth request).
   await OAuthAuthManager.getInstance().initialize();

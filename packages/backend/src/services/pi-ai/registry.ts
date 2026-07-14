@@ -1,109 +1,27 @@
 /**
- * Shared pi-ai utilities used by the v1 OAuth path and registry-aware adapter work.
+ * Shared pi-ai registry helpers used by the standard dispatch path and
+ * registry-aware adapter work.
  *
  * This module owns:
- *  - buildThinkingOptions: per-provider reasoning option construction (moved from oauth-transformer.ts)
- *  - resolveBaseUrl: resolve api_base_url union and apply SDK-specific stripping rules
- *  - buildReasoningOptions: wrap buildThinkingOptions with explicit-disable defaults
+ *  - resolveBaseUrl: resolve the api_base_url union and apply SDK-specific
+ *    base-URL stripping rules, keyed off the upstream pi-ai API.
+ *  - buildReasoningOptionsForModel / buildGenerationOptions: capability-aware
+ *    egress reasoning + generation options from the pi-ai Model record.
+ *  - resolvePiAiModel: resolve a builtin pi-ai Model for a (provider, model) pair.
+ *  - isPlaceholderThinkingSignature: guard against pi-ai's field-name placeholder
+ *    thinking signatures.
  */
 
 import { clampThinkingLevel, getSupportedThinkingLevels } from '@earendil-works/pi-ai';
 import { getBuiltinModel, builtinModels } from '@earendil-works/pi-ai/providers/all';
 import type { Model as PiAiModel, ModelThinkingLevel } from '@earendil-works/pi-ai';
-import { PricingManager } from '../observability/pricing-manager';
 
 export const piAiModels = builtinModels();
 
-import type { ProviderConfig } from '../../config';
 import type { RouteResult } from '../routing/router';
-import { estimateKwhUsed } from '../observability/inference-energy';
-import { resolveModelParams, DEFAULT_GPU_PARAMS } from '@plexus/shared';
 import type { ReasoningEffort, ReasoningIntent } from './reasoning';
 import { effortToBudget, intentToEffort } from './reasoning';
 import type { GenerationIntent } from './generation';
-
-// ─── buildThinkingOptions ─────────────────────────────────────────────────────
-//
-// Returns the pi-ai request options needed to enable thinking/reasoning for a
-// given model API and effort level. Each pi-ai stream implementation uses
-// different field names:
-//
-//  - anthropic-messages          → thinkingEnabled + (effort | thinkingBudgetTokens)
-//  - openai-responses /
-//    openai-codex-responses       → reasoningEffort
-//  - google-gemini-cli Gemini 3  → thinking.level
-//  - everything else (Gemini 2.x)→ thinking.budgetTokens
-//
-// `reasoning` is always included for streamSimple* compatibility.
-
-export function buildThinkingOptions(
-  modelApi: string | undefined,
-  modelId: string | undefined,
-  effort: string,
-  maxTokens?: number,
-  summary?: string,
-  textVerbosity?: string
-): Record<string, any> {
-  const BUDGET: Record<string, number> = {
-    minimal: 1024,
-    low: 2048,
-    medium: 8192,
-    high: 16384,
-  };
-
-  // streamSimple compatibility — always included regardless of API type
-  const base: Record<string, any> = { reasoning: effort };
-
-  if (
-    modelApi === 'openai-responses' ||
-    modelApi === 'openai-codex-responses' ||
-    modelApi === 'openai-completions'
-  ) {
-    base.reasoningEffort = effort;
-    if (summary) base.reasoningSummary = summary;
-    if (textVerbosity) base.textVerbosity = textVerbosity;
-    return base;
-  }
-
-  if (modelApi === 'anthropic-messages') {
-    const isAdaptive =
-      modelId?.includes('opus-4-6') ||
-      modelId?.includes('opus-4.6') ||
-      modelId?.includes('sonnet-4-6') ||
-      modelId?.includes('sonnet-4.6') ||
-      modelId?.includes('sonnet-5');
-
-    base.thinkingEnabled = true;
-    if (isAdaptive) {
-      const effortMap: Record<string, string> = {
-        minimal: 'low',
-        low: 'low',
-        medium: 'medium',
-        high: 'high',
-        xhigh: modelId?.includes('opus-4-6') || modelId?.includes('opus-4.6') ? 'max' : 'high',
-      };
-      base.effort = effortMap[effort] ?? 'high';
-    } else {
-      base.thinkingBudgetTokens = maxTokens ?? BUDGET[effort] ?? 16384;
-    }
-    return base;
-  }
-
-  // Gemini providers use `options.thinking` object
-  const isGemini3 = modelId?.includes('3-pro') || modelId?.includes('3-flash');
-  if (isGemini3) {
-    const levelMap: Record<string, string> = {
-      minimal: 'MINIMAL',
-      low: 'LOW',
-      medium: 'MEDIUM',
-      high: 'HIGH',
-    };
-    base.thinking = { enabled: true, level: levelMap[effort] ?? 'HIGH' };
-  } else {
-    base.thinking = { enabled: true, budgetTokens: maxTokens ?? BUDGET[effort] ?? 16384 };
-  }
-  return base;
-}
 
 // ─── resolveBaseUrl ───────────────────────────────────────────────────────────
 //
@@ -174,42 +92,10 @@ export function resolveBaseUrl(
   return rawUrl;
 }
 
-// ─── buildReasoningOptions ────────────────────────────────────────────────────
-//
-// When `effort` is present, delegates to buildThinkingOptions to enable
-// thinking/reasoning.
-//
-// When `effort` is absent, explicitly disables thinking per provider to prevent
-// silent thinking-token consumption (mirrors what streamSimple does internally):
-//  - anthropic-messages     → { thinkingEnabled: false }
-//  - google-generative-ai   → { thinking: { enabled: false } }
-//  - OpenAI family          → {} (no thinking field needed)
-
-export function buildReasoningOptions(
-  piApi: string | undefined,
-  piModelId: string | undefined,
-  effort?: string
-): Record<string, any> {
-  if (effort) {
-    return buildThinkingOptions(piApi, piModelId, effort);
-  }
-
-  // Explicitly disable thinking
-  if (piApi === 'anthropic-messages') {
-    return { thinkingEnabled: false };
-  }
-  if (piApi === 'google-generative-ai' || piApi === 'google-generative-ai-vertex') {
-    return { thinking: { enabled: false } };
-  }
-  // OpenAI family: no thinking field needed
-  return {};
-}
-
 // ─── Capability-aware reasoning (Layer 2 + Layer 3) ───────────────────────────
 //
-// `buildReasoningOptionsForModel` is the capability-aware replacement for
-// `buildReasoningOptions`. Instead of matching model-ID substrings, it consults
-// the authoritative pi-ai `Model` record:
+// `buildReasoningOptionsForModel` builds egress reasoning options from the
+// authoritative pi-ai `Model` record instead of matching model-ID substrings:
 //
 //   - `model.reasoning`                  → does this model reason at all?
 //   - `model.thinkingLevelMap`           → which effort levels are supported,
@@ -454,205 +340,12 @@ function safeGetModel(provider: string, modelId: string): PiAiModel<any> | null 
   }
 }
 
-const API_TO_BUILTIN_PROVIDER: Record<string, string> = {
-  'anthropic-messages': 'anthropic',
-  'google-generative-ai': 'google',
-  'google-generative-ai-vertex': 'google',
-  'azure-openai-responses': 'azure',
-  'openai-completions': 'openai',
-  'openai-responses': 'openai',
-  'openai-codex-responses': 'openai',
-};
-
 /**
  * Resolve a builtin pi-ai Model for a (provider, modelId) pair.
  * Returns null when unresolved.
  */
 export function resolvePiAiModel(piAiProvider: string, piAiModelId: string): PiAiModel<any> | null {
   return safeGetModel(piAiProvider, piAiModelId);
-}
-
-/**
- * Prepare a resolved pi-ai Model for dispatch via `piAiModels.stream()` /
- * `piAiModels.complete()`.
- *
- * `builtinModels()` routes by `model.provider` via a provider map that only
- * contains the builtin provider ids (`openai`, `anthropic`, `google`, …).
- * Custom providers (e.g. `neuralwatt`, `wafer`) are not registered in that
- * map, so dispatching with `provider: "neuralwatt"` throws
- * `"Unknown provider: neuralwatt"`.
- *
- * The pre-0.80 compat `stream()` free function dispatched by `model.api`
- * instead, transparently handling custom providers. This helper restores that
- * behaviour: when `model.provider` is not a registered builtin, remap it to
- * the canonical builtin that implements the same wire API so that
- * `piAiModels.stream()` can route to the correct provider.
- */
-export function toDispatchModel(model: PiAiModel<any>): PiAiModel<any> {
-  if (piAiModels.getProvider(model.provider)) {
-    // Already a known builtin — no remapping needed.
-    return model;
-  }
-  const builtinProvider = API_TO_BUILTIN_PROVIDER[model.api];
-  if (!builtinProvider) {
-    // Unknown api — return as-is and let piAiModels surface the error.
-    return model;
-  }
-  return { ...model, provider: builtinProvider };
-}
-
-// ─── buildPiAiModel ───────────────────────────────────────────────────────────
-//
-// Resolves a builtin pi-ai Model and applies the baseUrl override
-// from the Plexus provider config. Returns null when the model cannot be
-// resolved (caller fails the candidate). Base URL resolution keys off the
-// *upstream* pi-ai API (piModel.api), not the client-facing route type.
-
-export function resolveModelCost(
-  baseCost: PiAiModel<any>['cost'],
-  routeConfig: RouteResult['config'],
-  modelConfig?: RouteResult['modelConfig']
-): PiAiModel<any>['cost'] {
-  let cost = { ...baseCost };
-
-  if (modelConfig?.pricing) {
-    const pricing = modelConfig.pricing;
-    const pricingDiscount = 'discount' in pricing ? (pricing as any).discount : undefined;
-    const effectiveDiscount = pricingDiscount ?? routeConfig.discount;
-
-    if (pricing.source === 'simple') {
-      cost = {
-        input: pricing.input || 0,
-        output: pricing.output || 0,
-        cacheRead: pricing.cached || 0,
-        cacheWrite: pricing.cache_write || 0,
-      };
-
-      if (effectiveDiscount) {
-        const multiplier = 1 - effectiveDiscount;
-        cost.input *= multiplier;
-        cost.output *= multiplier;
-        cost.cacheRead *= multiplier;
-        cost.cacheWrite *= multiplier;
-      }
-    } else if (pricing.source === 'openrouter' && pricing.slug) {
-      const openRouterPricing = PricingManager.getInstance().getPricing(pricing.slug);
-      if (openRouterPricing) {
-        cost = {
-          // OpenRouter pricing is per-token floats, pi-ai expects per-million
-          input: (parseFloat(openRouterPricing.prompt) || 0) * 1_000_000,
-          output: (parseFloat(openRouterPricing.completion) || 0) * 1_000_000,
-          cacheRead: (parseFloat(openRouterPricing.input_cache_read || '0') || 0) * 1_000_000,
-          cacheWrite: (parseFloat(openRouterPricing.input_cache_write || '0') || 0) * 1_000_000,
-        };
-
-        if (effectiveDiscount) {
-          const multiplier = 1 - effectiveDiscount;
-          cost.input *= multiplier;
-          cost.output *= multiplier;
-          cost.cacheRead *= multiplier;
-          cost.cacheWrite *= multiplier;
-        }
-      } else if (effectiveDiscount) {
-        // Fall back to discounting the base cost if openrouter pricing hasn't loaded yet
-        const multiplier = 1 - effectiveDiscount;
-        cost.input = (cost.input ?? 0) * multiplier;
-        cost.output = (cost.output ?? 0) * multiplier;
-        cost.cacheRead = (cost.cacheRead ?? 0) * multiplier;
-        cost.cacheWrite = (cost.cacheWrite ?? 0) * multiplier;
-      }
-    } else if (effectiveDiscount) {
-      // For any other pricing source that didn't get explicit cost mapping here,
-      // still apply the discount to the base cost as a fallback
-      const multiplier = 1 - effectiveDiscount;
-      cost.input = (cost.input ?? 0) * multiplier;
-      cost.output = (cost.output ?? 0) * multiplier;
-      cost.cacheRead = (cost.cacheRead ?? 0) * multiplier;
-      cost.cacheWrite = (cost.cacheWrite ?? 0) * multiplier;
-    }
-  } else if (routeConfig.discount) {
-    const multiplier = 1 - routeConfig.discount;
-    cost.input = (cost.input ?? 0) * multiplier;
-    cost.output = (cost.output ?? 0) * multiplier;
-    cost.cacheRead = (cost.cacheRead ?? 0) * multiplier;
-    cost.cacheWrite = (cost.cacheWrite ?? 0) * multiplier;
-  }
-
-  return cost;
-}
-
-export function buildPiAiModel(
-  routeConfig: RouteResult['config'],
-  piAiProvider: string,
-  piAiModelId: string,
-  incomingApiType?: string,
-  modelConfig?: RouteResult['modelConfig']
-): PiAiModel<any> | null {
-  const piModel = resolvePiAiModel(piAiProvider, piAiModelId);
-  if (!piModel) return null;
-
-  const baseUrl = resolveBaseUrl(routeConfig.api_base_url, piModel.api, incomingApiType);
-  const cost = resolveModelCost(piModel.cost, routeConfig, modelConfig);
-
-  return { ...piModel, baseUrl, cost };
-}
-
-// ─── Energy helpers ───────────────────────────────────────────────────────────
-
-/**
- * Build GPU params from a route's provider config, falling back to defaults.
- * Mirrors the same logic used in the Dispatcher and management config routes.
- */
-export function buildGpuParams(routeConfig: RouteResult['config']) {
-  return {
-    ram_gb: (routeConfig as any).gpu_ram_gb ?? DEFAULT_GPU_PARAMS.ram_gb,
-    bandwidth_tb_s: (routeConfig as any).gpu_bandwidth_tb_s ?? DEFAULT_GPU_PARAMS.bandwidth_tb_s,
-    flops_tflop: (routeConfig as any).gpu_flops_tflop ?? DEFAULT_GPU_PARAMS.flops_tflop,
-    power_draw_watts:
-      (routeConfig as any).gpu_power_draw_watts ?? DEFAULT_GPU_PARAMS.power_draw_watts,
-  };
-}
-
-/**
- * Estimate kWh used for a request given token counts and route metadata.
- * Returns null when no model architecture is configured for the route.
- */
-export function computeKwhUsed(
-  tokensInput: number,
-  tokensOutput: number,
-  route: RouteResult
-): number | null {
-  if (!route.modelArchitecture) return null;
-  const gpuParams = buildGpuParams(route.config);
-  const modelParams = resolveModelParams(route.modelArchitecture);
-  const kwh = estimateKwhUsed(tokensInput, tokensOutput, modelParams, gpuParams);
-  return kwh > 0 ? kwh : null;
-}
-
-export function isOAuthRoute(route: RouteResult, targetApiType: string): boolean {
-  if (targetApiType.toLowerCase() === 'oauth') return true;
-  const baseUrl = route.config.api_base_url;
-  if (typeof baseUrl === 'string') {
-    return baseUrl.startsWith('oauth://');
-  }
-  if (baseUrl && typeof baseUrl === 'object') {
-    return Object.values(baseUrl as Record<string, string>).some((value) =>
-      value.startsWith('oauth://')
-    );
-  }
-  return false;
-}
-
-export function isClaudeMaskingApiKeyRoute(route: RouteResult, targetApiType: string): boolean {
-  if (isOAuthRoute(route, targetApiType)) {
-    return false;
-  }
-
-  if (targetApiType.toLowerCase() !== 'messages') {
-    return false;
-  }
-
-  return route.config.useClaudeMasking === true;
 }
 
 // ─── Thinking signature validation ───────────────────────────────────────────

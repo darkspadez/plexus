@@ -210,16 +210,12 @@ const ModelProviderConfigSchema = z.object({
   pi_ai_model_id: z.string().optional(),
 });
 
-const OAuthProviderSchema = z.enum([
-  'anthropic',
-  'openai-codex',
-  'github-copilot',
-  // Retained-but-inert (see docs/NOMOV3.md M3): Gemini CLI / Antigravity OAuth were
-  // dropped, but these enum values stay accepted so existing configs still load.
-  // They are rejected at routing (oauth-dispatcher: DROPPED_OAUTH_PROVIDERS).
-  'google-gemini-cli',
-  'google-antigravity',
-]);
+// Gemini CLI / Antigravity OAuth were removed (docs/NOMOV3.md M3/M4). Their enum
+// values are gone, so new configs referencing them are rejected on write; any
+// persisted rows are purged at startup by
+// ConfigService.dropRetiredOAuthProviders() (which loads from DB columns, not
+// this schema, so old rows never fail to load before they are dropped).
+const OAuthProviderSchema = z.enum(['anthropic', 'openai-codex', 'github-copilot']);
 
 const NagaQuotaCheckerOptionsSchema = z.object({
   apiKey: z.string().min(1, 'Naga provisioning key is required'),

@@ -11,7 +11,6 @@ import { enforceContextLimit } from '../models/enforce-limits';
 import { getGlobalStallConfig, resolveStallConfig } from '../../utils/stall';
 import { preprocessVisionRequest } from '../vision/vision-request-preprocessor';
 import { resolveRouteCandidates } from '../routing/route-candidates';
-import { executeOAuthAttempt } from '../oauth/oauth-attempt-request';
 import { executeStandardAttempt } from './standard-attempt-request';
 import { isNativeOAuthRoute } from './request-payload-builder';
 import { nativeOAuthApiType } from '../oauth/oauth-native-request';
@@ -37,7 +36,6 @@ export interface RequestManagerHost {
   buildRequestUrl(...args: any[]): string;
   buildTimeoutError(...args: any[]): Error;
   createAttemptTimeout(...args: any[]): any;
-  dispatchOAuthRequest(...args: any[]): Promise<UnifiedChatResponse>;
   emitRoutingUpdate(...args: any[]): void;
   executeProviderRequest(...args: any[]): Promise<Response>;
   formatFailureReason(...args: any[]): string;
@@ -47,9 +45,7 @@ export interface RequestManagerHost {
   handleStreamingResponse(...args: any[]): UnifiedChatResponse;
   isPiAiRoute(...args: any[]): boolean;
   isRetryableNetworkError(...args: any[]): boolean;
-  isRetryableOAuthError(...args: any[]): boolean;
   isRetryableStatus(...args: any[]): boolean;
-  markOAuthProviderFailure(...args: any[]): Promise<void>;
   probeStreamingStart(...args: any[]): Promise<any>;
   recordAttemptMetric(...args: any[]): Promise<void>;
   recordStickySession(...args: any[]): void;
@@ -148,23 +144,30 @@ export class RequestManager {
         );
 
         // 2. Get Transformer
-        // Native OAuth routes (NOMOV3 M1) use the provider-native transformer
-        // (e.g. Anthropic 'messages') and flow through the standard execution
-        // path — NOT pi-ai's 'oauth' transformer/executor.
-        const nativeOAuth = isNativeOAuthRoute(route, targetApiType);
-        const usePiAiExecutor = host.isPiAiRoute(route, targetApiType) && !nativeOAuth;
-        // Native OAuth (Anthropic today) runs through the STANDARD path. Its wire
-        // API is the provider-native type (Anthropic 'messages'), NOT the
-        // synthetic 'oauth' type getProviderTypes() reports for an `oauth://`
+        // ALL OAuth routes now run through the STANDARD path via the native
+        // OAuth builders (NOMOV3 M1/M2/M2b) — there is no pi-ai `oauth` executor
+        // anymore. A native OAuth route's wire API is its real upstream protocol
+        // (e.g. Anthropic 'messages', Codex 'responses', Copilot per-model), NOT
+        // the synthetic 'oauth' type getProviderTypes() reports for an `oauth://`
         // URL. Using the native type selects the correct transformer AND lets
-        // same-format requests use pass-through; CC masking is layered on in
-        // buildRequestPayload. Codex/Copilot still use the pi-ai executor ('oauth').
+        // same-format requests use pass-through; masking/fingerprint is layered
+        // on in buildRequestPayload.
+        const nativeOAuth = isNativeOAuthRoute(route, targetApiType);
+        // Any `oauth://` route whose provider isn't natively supported is dead
+        // config (Gemini CLI / Antigravity were removed; persisted rows are
+        // purged at startup). Fail fast with an actionable error rather than
+        // silently mis-routing.
+        if (host.isPiAiRoute(route, targetApiType) && !nativeOAuth) {
+          throw new Error(
+            `OAuth provider '${route.config.oauth_provider || route.provider}' is not supported. ` +
+              `Supported OAuth providers: anthropic, openai-codex, github-copilot.`
+          );
+        }
         const effectiveApiType = nativeOAuth
           ? (nativeOAuthApiType(route.config.oauth_provider || route.provider, route.model) ??
             'messages')
           : targetApiType;
-        const transformerType = usePiAiExecutor ? 'oauth' : effectiveApiType;
-        const transformer = TransformerFactory.getTransformer(transformerType);
+        const transformer = TransformerFactory.getTransformer(effectiveApiType);
 
         // 3. Transform Request
         const requestWithTargetModel = { ...currentRequest, model: route.model };
@@ -229,31 +232,6 @@ export class RequestManager {
           `Dispatcher: effectiveStallConfig for ${route.provider}: ${JSON.stringify(effectiveStallConfig)}, ` +
             `route.config.stallTtfbMs=${route.config.stallTtfbMs}, route.config.stallMinBps=${route.config.stallMinBps}`
         );
-
-        if (usePiAiExecutor) {
-          const result = await executeOAuthAttempt({
-            host,
-            providerPayload,
-            request: currentRequest,
-            route,
-            targetApiType,
-            transformer,
-            signal,
-            stallConfig: effectiveStallConfig,
-            attemptTimeout,
-            failoverEnabled,
-            hasNextTarget: i < targets.length - 1,
-            retryHistory,
-            attemptedProviders,
-            sessionKey,
-            release: doRelease,
-          });
-          if (result.outcome === 'retry') {
-            lastError = result.error;
-            continue;
-          }
-          return result.response;
-        }
 
         const result = await executeStandardAttempt({
           host,

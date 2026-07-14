@@ -1,6 +1,9 @@
 # NOMOV3 — Retire the pi-ai IR from the OAuth path; keep pi-ai for auth + registry only
 
-Status: proposed. Author-driven; solo project ("I", not "we").
+Status: **COMPLETE.** M1 (Anthropic), M2 (Codex), M2b (Copilot), M3 (drop
+Gemini/Antigravity), and M4 (collapse the IR) all landed. The pi-ai IR/executor is gone;
+pi-ai in the OAuth path is now only `/oauth` (token) + `/providers/all` (registry).
+Author-driven; solo project ("I", not "we").
 
 Follows on from `NOMOV2.md`, which retired the v2 (`inference-v2`) inference path and
 kept `@earendil-works/pi-ai` as a **library** for three things: the model registry, OAuth
@@ -640,35 +643,77 @@ the Gemini IR branches.
 ### Tests
 - Assert Gemini/Antigravity routes are rejected at dispatch with the "no longer supported"
   error (M3a).
-- Assert a persisted config containing a Gemini provider / `gemini-cli` checker still
-  **loads** without a validation error (guards the non-destructive requirement).
-- Remove Gemini/Antigravity OAuth execution suites with M3b (M4).
+- `dropped-oauth-providers.test.ts` rewritten (M4): schema now REJECTS the retired provider
+  ids on write, and `dropRetiredOAuthProviders()` (DB-backed) purges persisted
+  provider/credential rows while keeping native providers.
+- Removed Gemini/Antigravity + OAuth-executor suites (type-mappers, oauth-transformer,
+  golden-translation, gemini/anthropic stream regressions, pi-ai-request-filters,
+  oauth-probe-bookkeeping, the executor quota/failover tests).
 
 ---
 
 ## Milestone 4 — Collapse the IR translation surface
 
-Status: proposed. Runs after M1–M3 (gated on M3's keep/drop decision).
+Status: **LANDED.** The pi-ai `Context` IR + OAuth executor are gone. All OAuth providers
+run natively; the pi-ai dependency in the OAuth path is now only `/oauth` (token) and
+`/providers/all` (registry).
 
 ### Goal
-Once no OAuth provider routes through the pi-ai `Context` IR, delete the conduit code.
+Once no OAuth provider routes through the pi-ai `Context` IR, delete the conduit code. M3
+resolved to DROP (A), so this is the full deletion (not the trim variant).
 
-### Changes
-- **If M3 = drop (A):** delete `transformers/oauth/type-mappers.ts` entirely; delete
-  `OAuthTransformer.transformRequest/transformResponse/transformStream/executeRequest` +
-  the `onPayload`/`piAiModels.stream|complete` machinery from `oauth-transformer.ts`,
-  leaving only whatever thin glue the new per-provider builders need (or delete the file if
-  the builders own their own transport).
-- **If M3 = keep (B):** trim `type-mappers.ts` to the Gemini branches only; keep the
-  Gemini executor path; delete the Anthropic/Codex branches.
-- Remove the pi-ai-event assumptions from `oauth-dispatcher.ts`
-  (`probeOAuthStreamStart` `BOOKKEEPING_TYPES`, `buildOAuthStreamEventError`) once the SSE
-  probe fully replaces them — again gated on whether any IR provider remains.
-- `filters/pi-ai-request-filters.ts` / `pi-ai-request-filter-rules.ts`: re-target the
-  parameter-strip rules to run against the native request builders (the rules are
-  provider+model keyed and still valid; only their input shape changes from pi-ai options
-  to native body fields). Keep the Claude-Code tool-proxy logic — it operates on the
-  Anthropic body and moves into M1's builder.
+### Deleted
+- `transformers/oauth/type-mappers.ts` (the whole IR conduit: `unifiedToContext`,
+  `piAiMessageToUnified`, `piAiEventToChunk`, `extractPiAiErrorMessage`, `jsonSchemaToTypeBox`
+  — the last was IR-only, used solely by `unifiedToContext`).
+- `transformers/oauth/oauth-transformer.ts` (`OAuthTransformer` + `onPayload` /
+  `piAiModels.stream|complete` machinery).
+- `services/oauth/oauth-attempt-request.ts` (`executeOAuthAttempt`).
+- `filters/pi-ai-request-filters.ts` + `pi-ai-request-filter-rules.ts` (only the executor
+  imported them; the Claude-Code tool-proxy + param-strip logic the native path needs
+  already lives in `transformers/oauth/masking/` + `oauth-native-request.ts`, not here).
+- The entire `OAuthDispatcher` class in `oauth-dispatcher.ts` (stream probe, bookkeeping,
+  `wrapOAuthError`, `markOAuthProviderFailure`, `assertOAuthModelSupported`,
+  `DROPPED_OAUTH_PROVIDERS`, instructions). Only the pure route predicates
+  (`isOAuthRoute`, `isClaudeMaskingApiKeyRoute`, `isPiAiRoute`) remain.
+- `TransformerFactory` `case 'oauth'`; the `usePiAiExecutor` branch + host bindings
+  (`dispatchOAuthRequest`, `markOAuthProviderFailure`, `isRetryableOAuthError`) in
+  `request-manager.ts` / `dispatcher.ts`.
+
+### Dead-code sweep (follow-up prune)
+With the executor gone, its now-orphaned helpers were removed too:
+- `services/pi-ai/registry.ts`: deleted `buildThinkingOptions`, `buildReasoningOptions`,
+  `toDispatchModel`, `resolveModelCost`, `buildPiAiModel`, `buildGpuParams`, `computeKwhUsed`,
+  `API_TO_BUILTIN_PROVIDER`, and the duplicate `isOAuthRoute`/`isClaudeMaskingApiKeyRoute`
+  (canonical copies live in `oauth-dispatcher.ts`). Energy accounting is unaffected — it runs
+  via `estimateKwhUsed` inline in usage-storage/response-handler, not these dead duplicates.
+  Freed the `PricingManager` / `estimateKwhUsed` / `@plexus/shared` GPU-param imports.
+- `transformers/oauth/oauth-claude.ts`: deleted `restoreOriginalOAuthToolName`,
+  `reverseClaudeOAuthTransform`, `reverseClaudeOAuthTransformForStreamLine` (the native path
+  uses `reverseRemapOAuthToolNames*` directly).
+- `dispatcher.ts`: removed the now-uncalled `isOAuthRoute`/`isClaudeMaskingApiKeyRoute` private
+  wrappers (only `isPiAiRoute` is still wired). Empty `src/filters/` directory removed.
+
+### Rewired
+- `request-manager.ts`: a non-native `oauth://` route now fails fast with a clear
+  "OAuth provider not supported" error (replacing the deleted `assertOAuthModelSupported`
+  dropped-provider guard). All native OAuth routes select their real wire transformer via
+  `nativeOAuthApiType` and run the standard path.
+- OAuth quota/cooldown on errors is handled by the standard path
+  (`dispatcher.ts` `parseCooldownDurationForProvider` on HTTP 429/quota) — the executor's
+  `wrapOAuthError` duplicate was removed with no loss.
+
+### Gemini/Antigravity full removal (was M3b, done here + config-drop)
+- Enum values `google-gemini-cli` / `google-antigravity` removed from `OAuthProviderSchema`
+  (rejected on write). **Reversed the earlier "retained-but-inert" decision** — inert
+  values shouldn't linger.
+- New startup hook `ConfigService.dropRetiredOAuthProviders()` (called in `index.ts`
+  alongside the other `migrate*` steps) purges any persisted provider rows + OAuth
+  credentials referencing the retired providers. `getAllProviders` builds from DB columns
+  (not the schema), so old rows load fine and are then dropped — no fail-to-load, and the
+  dead config is actively cleaned rather than left dormant.
+- The `'delta'` identity channel / Gemini `piAiEventToChunk` branches died with
+  `type-mappers.ts`; the Gemini stream regression suites were removed.
 
 ### Definition of done for M4
 - No OAuth request constructs a pi-ai `Context` or calls `piAiModels.stream/complete`

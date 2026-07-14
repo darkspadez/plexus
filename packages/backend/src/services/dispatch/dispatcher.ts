@@ -33,23 +33,14 @@ import {
   attachAttemptMetadata,
   buildAllTargetsFailedError,
 } from './attempt-history';
-import {
-  isRetryableNetworkError,
-  isRetryableOAuthError,
-  isRetryableStatus,
-} from './failover-policy';
+import { isRetryableNetworkError, isRetryableStatus } from './failover-policy';
 import { buildRequestPayload, NATIVE_OAUTH_STASH } from './request-payload-builder';
 import {
   createAttemptTimeout,
   executeUpstreamRequest,
   probeStreamingStart,
 } from './upstream-execution';
-import {
-  isClaudeMaskingApiKeyRoute,
-  isOAuthRoute,
-  isPiAiRoute,
-  OAuthDispatcher,
-} from '../oauth/oauth-dispatcher';
+import { isPiAiRoute } from '../oauth/oauth-dispatcher';
 import { setupProviderHeaders } from '../providers/provider-request-headers';
 import {
   applyGeminiThinkingConfig,
@@ -78,7 +69,6 @@ const PROVIDER_ERROR_SUMMARY_LIMIT = 500;
 export class Dispatcher {
   private usageStorage?: UsageStorageService;
   private mediaDispatcher?: MediaDispatcher;
-  private oauthDispatcher?: OAuthDispatcher;
   private requestManager?: RequestManager;
 
   private getRequestManager(): RequestManager {
@@ -93,7 +83,6 @@ export class Dispatcher {
         buildRequestUrl: this.buildRequestUrl.bind(this),
         buildTimeoutError: this.buildTimeoutError.bind(this),
         createAttemptTimeout: this.createAttemptTimeout.bind(this),
-        dispatchOAuthRequest: this.dispatchOAuthRequest.bind(this),
         emitRoutingUpdate: this.emitRoutingUpdate.bind(this),
         executeProviderRequest: this.executeProviderRequest.bind(this),
         formatFailureReason: this.formatFailureReason.bind(this),
@@ -103,9 +92,7 @@ export class Dispatcher {
         handleStreamingResponse: this.handleStreamingResponse.bind(this),
         isPiAiRoute: this.isPiAiRoute.bind(this),
         isRetryableNetworkError: this.isRetryableNetworkError.bind(this),
-        isRetryableOAuthError: this.isRetryableOAuthError.bind(this),
         isRetryableStatus: this.isRetryableStatus.bind(this),
-        markOAuthProviderFailure: this.markOAuthProviderFailure.bind(this),
         probeStreamingStart: this.probeStreamingStart.bind(this),
         recordAttemptMetric: this.recordAttemptMetric.bind(this),
         recordStickySession: this.recordStickySession.bind(this),
@@ -118,20 +105,6 @@ export class Dispatcher {
     }
 
     return this.requestManager;
-  }
-
-  private getOAuthDispatcher(): OAuthDispatcher {
-    if (!this.oauthDispatcher) {
-      this.oauthDispatcher = new OAuthDispatcher({
-        buildCancelledError: this.buildCancelledError.bind(this),
-        enrichResponseWithMetadata: this.enrichResponseWithMetadata.bind(this),
-        extractFailureReason: this.extractFailureReason.bind(this),
-        formatFailureReason: this.formatFailureReason.bind(this),
-        isQuotaExhaustedError: this.isQuotaExhaustedError.bind(this),
-      });
-    }
-
-    return this.oauthDispatcher;
   }
 
   private getMediaDispatcher(): MediaDispatcher {
@@ -373,10 +346,6 @@ export class Dispatcher {
     return isRetryableStatus(statusCode, retryableStatusCodes);
   }
 
-  private isRetryableOAuthError(error: any): boolean {
-    return isRetryableOAuthError(error);
-  }
-
   private isRetryableNetworkError(error: any, retryableErrors: string[]): boolean {
     return isRetryableNetworkError(error, retryableErrors);
   }
@@ -571,53 +540,8 @@ export class Dispatcher {
     return applyGeminiThinkingConfig(route, targetApiType, payload);
   }
 
-  private isOAuthRoute(route: RouteResult, targetApiType: string): boolean {
-    return isOAuthRoute(route, targetApiType);
-  }
-
-  private isClaudeMaskingApiKeyRoute(route: RouteResult, targetApiType: string): boolean {
-    return isClaudeMaskingApiKeyRoute(route, targetApiType);
-  }
-
   private isPiAiRoute(route: RouteResult, targetApiType: string): boolean {
     return isPiAiRoute(route, targetApiType);
-  }
-
-  private async probeOAuthStreamStart(
-    stream: ReadableStream<any>,
-    stallConfig?: StallConfig | null
-  ): Promise<
-    { ok: true; stream: ReadableStream<any> } | { ok: false; error: Error; streamStarted: boolean }
-  > {
-    return this.getOAuthDispatcher().probeOAuthStreamStart(stream, stallConfig);
-  }
-
-  private async dispatchOAuthRequest(
-    context: any,
-    request: UnifiedChatRequest,
-    route: RouteResult,
-    targetApiType: string,
-    transformer: any,
-    signal?: AbortSignal,
-    effectiveStallConfig?: StallConfig | null
-  ): Promise<UnifiedChatResponse> {
-    return this.getOAuthDispatcher().dispatchOAuthRequest(
-      context,
-      request,
-      route,
-      targetApiType,
-      transformer,
-      signal,
-      effectiveStallConfig
-    );
-  }
-
-  private wrapOAuthError(error: Error, route: RouteResult, targetApiType: string): Error {
-    return this.getOAuthDispatcher().wrapOAuthError(error, route, targetApiType);
-  }
-
-  private async markOAuthProviderFailure(route: RouteResult, oauthError: any): Promise<void> {
-    return this.getOAuthDispatcher().markOAuthProviderFailure(route, oauthError);
   }
 
   private createAttemptTimeout(

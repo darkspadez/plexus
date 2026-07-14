@@ -173,19 +173,3 @@ describe('hydrateConfig: startup registry validation', () => {
     warnSpy.mockRestore();
   });
 });
-
-describe('jsonSchemaToTypeBox export smoke test', () => {
-  it('jsonSchemaToTypeBox is exported from type-mappers', async () => {
-    const { jsonSchemaToTypeBox } = await import('../transformers/oauth/type-mappers');
-    expect(typeof jsonSchemaToTypeBox).toBe('function');
-
-    // Basic sanity: converts a simple object schema
-    const result = jsonSchemaToTypeBox({
-      type: 'object',
-      properties: { name: { type: 'string' } },
-      required: ['name'],
-    });
-    expect(result).toBeDefined();
-    expect(result.type).toBe('object');
-  });
-});

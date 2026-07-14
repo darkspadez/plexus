@@ -4,26 +4,15 @@ import { OAuthAuthManager } from '../oauth/oauth-auth-manager';
 import { registerSpy } from '../../../test/test-utils';
 import type { UnifiedChatRequest } from '../../types/unified';
 
-// Regression test for issue #162:
-//   "assistantMsg.content.flatMap is not a function" on the second turn of a
-//   multi-turn conversation routed to Claude Code OAuth.
+// Regression test for issue #162 (dispatcher-level):
+//   a multi-turn conversation routed to Claude Code OAuth must succeed, not
+//   throw, on the second turn.
 //
-// Root cause: when the incoming request type matched the target's access_via
-// (e.g. 'chat' → 'chat'), shouldUsePassThrough() returned true and bypassed
-// OAuthTransformer.transformRequest(). The raw OpenAI body (with string
-// assistant content) was then handed to pi-ai's stream()/complete(), and its
-// internal transformMessages() crashed calling .flatMap on the string.
-//
-// Fix: pass-through must be disabled for pi-ai routes so the OAuth transformer's
-// unifiedToContext() runs and normalizes string content to array blocks.
-//
-// NOTE: We do not assert on piAi.complete call counts or call args here.
-// With isolate: false + setupFiles re-running per file, the dispatcher holds a
-// cached spy instance that differs from the one in this file's module namespace
-// (vitest.setup.ts creates a new vi.fn() on each file's setup execution).
-// The content-normalization behaviour is covered by a direct transformer unit
-// test in oauth-transformer.test.ts.  This file covers the dispatcher-level
-// regression: the request must succeed, not throw.
+// Original root cause was in the (now removed) pi-ai OAuth executor's IR
+// conversion. Post-NOMOV3 M1/M4 there is no executor: Anthropic OAuth runs
+// natively through the standard path (native masked Messages body + raw-byte
+// response). This test guards that the native path handles a multi-turn OAuth
+// request end-to-end without error.
 
 // @earendil-works/pi-ai is mocked globally in vitest.setup.ts.
 const { Dispatcher } = await import('../dispatch/dispatcher');

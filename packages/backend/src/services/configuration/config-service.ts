@@ -18,6 +18,13 @@ import { QuotaScheduler } from '../quota/quota-scheduler';
 import { ModelAutosyncScheduler } from '../models/model-autosync-scheduler';
 
 /**
+ * OAuth provider ids that were removed from Plexus (Gemini CLI / Antigravity,
+ * see docs/NOMOV3.md M3/M4). `dropRetiredOAuthProviders()` purges any persisted
+ * provider/credential rows that still reference them on startup.
+ */
+const RETIRED_OAUTH_PROVIDERS = ['google-gemini-cli', 'google-antigravity'] as const;
+
+/**
  * ConfigService — In-memory cache + DB sync.
  *
  * Replaces the old YAML-file-based `getConfig()` as the single source of truth.
@@ -113,6 +120,44 @@ export class ConfigService {
       );
       await this.executeRebuild();
     }
+  }
+
+  /**
+   * One-time startup cleanup: Gemini CLI / Antigravity OAuth were removed
+   * (docs/NOMOV3.md M3/M4). Any persisted provider that still references them is
+   * dead, unroutable config. Drop those provider records (cascade) and delete
+   * their stored OAuth credentials so the runtime never carries a provider the
+   * codebase can no longer serve. Idempotent and non-fatal — on a clean install
+   * it finds nothing and does no work.
+   */
+  async dropRetiredOAuthProviders(): Promise<string[]> {
+    const retired = new Set<string>(RETIRED_OAUTH_PROVIDERS);
+    const providers = await this.repo.getAllProviders();
+    const droppedSlugs = Object.entries(providers)
+      .filter(([, cfg]) => !!cfg.oauth_provider && retired.has(cfg.oauth_provider))
+      .map(([slug]) => slug);
+
+    for (const slug of droppedSlugs) {
+      await this.repo.deleteProvider(slug, true);
+    }
+
+    const creds = await this.repo.getAllOAuthProviders();
+    const droppedCreds = creds.filter((c) => retired.has(c.providerType));
+    for (const c of droppedCreds) {
+      await this.repo.deleteOAuthCredentials(c.providerType, c.accountId);
+    }
+
+    if (droppedSlugs.length > 0 || droppedCreds.length > 0) {
+      logger.info(
+        `Dropped retired OAuth config: ${droppedSlugs.length} provider(s) ` +
+          `[${droppedSlugs.join(', ') || 'none'}] and ${droppedCreds.length} credential record(s) ` +
+          `(Gemini CLI / Antigravity OAuth were removed)`
+      );
+      this.pendingWrites++;
+      await this.executeRebuild();
+    }
+
+    return droppedSlugs;
   }
 
   /**

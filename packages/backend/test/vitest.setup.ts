@@ -241,7 +241,7 @@ const mockModels = {
   getModels: mockGetModels,
   getProviders: mockGetProviders,
   // Returns a truthy stub for known builtin provider ids, undefined otherwise.
-  // Mirrors the real piAiModels.getProvider() used by toDispatchModel().
+  // Mirrors the real piAiModels.getProvider() (used internally by pi-ai routing).
   getProvider: (id: string) => (MOCK_BUILTIN_PROVIDER_IDS.has(id) ? { id } : undefined),
 };
 

@@ -647,10 +647,6 @@ export interface ClaudeOAuthContext {
   originalToolNames?: ReadonlyMap<string, string>;
 }
 
-export function restoreOriginalOAuthToolName(name: string, context: ClaudeOAuthContext): string {
-  return context.originalToolNames?.get(name) ?? name;
-}
-
 /**
  * Check if an API key is a Claude OAuth token.
  */
@@ -710,37 +706,4 @@ export function applyClaudeOAuthTransform(
       toolNamesRemapped,
     },
   };
-}
-
-/**
- * Reverse Claude OAuth transformations on an incoming response.
- *
- * @param response - The response to transform
- * @param context - The OAuth context from the request
- * @returns Transformed response
- */
-export function reverseClaudeOAuthTransform(response: any, context: ClaudeOAuthContext): any {
-  if (!context.isOAuth || !context.toolNamesRemapped) {
-    return response;
-  }
-
-  return reverseRemapOAuthToolNames(response);
-}
-
-/**
- * Reverse Claude OAuth transformations on an SSE stream line.
- *
- * @param line - The SSE line to transform
- * @param context - The OAuth context from the request
- * @returns Transformed line
- */
-export function reverseClaudeOAuthTransformForStreamLine(
-  line: string,
-  context: ClaudeOAuthContext
-): string {
-  if (!context.isOAuth || !context.toolNamesRemapped) {
-    return line;
-  }
-
-  return reverseRemapOAuthToolNamesFromStreamLine(line);
 }
