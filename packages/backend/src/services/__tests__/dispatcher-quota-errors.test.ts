@@ -332,7 +332,11 @@ describe('Dispatcher Quota Error Detection', () => {
     expect(cooldowns[0]?.lastError).not.toContain('"retryHistory"');
   });
 
-  test('streaming oauth codex usage limit triggers cooldown and failover', async () => {
+  // NOMOV3 M2: Codex is now native (no pi-ai executor), so this guards the
+  // pi-ai OAuth executor's stream-error -> cooldown mechanism via a provider
+  // that STILL uses it (github-copilot). Native Codex quota is covered by the
+  // native path + staging.
+  test('streaming pi-ai oauth executor usage limit triggers cooldown and failover', async () => {
     const piAiStreamError = {
       type: 'error',
       reason: 'error',
@@ -409,8 +413,8 @@ describe('Dispatcher Quota Error Detection', () => {
         provider: 'p1',
         model: 'gpt-5.4',
         config: {
-          api_base_url: 'oauth://openai-codex',
-          oauth_provider: 'openai-codex',
+          api_base_url: 'oauth://github-copilot',
+          oauth_provider: 'github-copilot',
           oauth_account: 'acct-1',
         },
         modelConfig: {},
@@ -432,8 +436,8 @@ describe('Dispatcher Quota Error Detection', () => {
       provider: 'p1',
       model: 'gpt-5.4',
       config: {
-        api_base_url: 'oauth://openai-codex',
-        oauth_provider: 'openai-codex',
+        api_base_url: 'oauth://github-copilot',
+        oauth_provider: 'github-copilot',
         oauth_account: 'acct-1',
       },
       modelConfig: {},

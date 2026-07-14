@@ -39,6 +39,7 @@ import {
   reverseToolRenames,
 } from '../../transformers/oauth/masking';
 import type { RenamePair } from '../../transformers/oauth/masking/types';
+import { CodexVersionService } from './codex-version-service';
 
 /**
  * Auth for a native Anthropic request. Two modes, mirroring the old executor:
@@ -70,6 +71,7 @@ export interface PreparedOAuthRequest {
 /** Provider-level fallback base URLs for models not present in the registry. */
 const OAUTH_PROVIDER_BASE_URLS: Record<string, string> = {
   anthropic: 'https://api.anthropic.com',
+  'openai-codex': 'https://chatgpt.com/backend-api',
 };
 
 /**
@@ -196,26 +198,215 @@ function buildFrameReverser(
   return (frame) => reverseToolRenames(frame, reversePairs);
 }
 
+// ─── Codex (OpenAI Responses via the ChatGPT backend) ───────────────────────
+//
+// Codex is NOT Anthropic: no masking / identity spoof. The ChatGPT backend wants
+// a specific Responses body (store:false, encrypted-content include, instructions,
+// etc.) and Codex fingerprint headers. Two paths (see docs/NOMOV3.md M2):
+//   - CLI-shaped body  → send verbatim (auth only). Codex CLI produced it and the
+//     backend always accepts the Codex request shape.
+//   - Not CLI-shaped   → adorn a normalized Responses body with the required
+//     backend fields (reproducing pi-ai's buildRequestBody forcings).
+
+/**
+ * Detect a genuine Codex CLI Responses request by body shape. The strongest
+ * signal is the CLI turn metadata (`client_metadata`); Codex-native tool
+ * extensions (`custom`/`namespace` tools, `additional_tools`/`custom_tool_call`
+ * input items) are also CLI-only. Used to choose pass-through vs. adorn AND to
+ * override the `hasCodexResponsesExtensions` flattening (which is for routing to
+ * NON-Codex providers — the Codex backend understands these natively).
+ */
+export function isCodexCliShapedBody(body: any): boolean {
+  if (!body || typeof body !== 'object') return false;
+
+  const cm = body.client_metadata;
+  if (cm && typeof cm === 'object') {
+    if (
+      cm['x-codex-turn-metadata'] != null ||
+      cm['x-codex-installation-id'] != null ||
+      cm['x-codex-window-id'] != null ||
+      cm.turn_id != null ||
+      cm.thread_id != null
+    ) {
+      return true;
+    }
+  }
+
+  if (
+    Array.isArray(body.tools) &&
+    body.tools.some((t: any) => t?.type === 'custom' || t?.type === 'namespace')
+  ) {
+    return true;
+  }
+
+  if (
+    Array.isArray(body.input) &&
+    body.input.some(
+      (it: any) =>
+        it &&
+        typeof it === 'object' &&
+        (it.type === 'additional_tools' ||
+          it.type === 'custom_tool_call' ||
+          it.type === 'custom_tool_call_output')
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/** Extract the ChatGPT account id from the Codex OAuth token's JWT claim. */
+function extractChatgptAccountId(token: string): string | undefined {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return undefined;
+    const payload = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString('utf8'));
+    const accountId = payload?.['https://api.openai.com/auth']?.chatgpt_account_id;
+    return typeof accountId === 'string' && accountId.length > 0 ? accountId : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Parameters that NO Codex model supports — the ChatGPT Codex backend rejects
+ * them (e.g. `400 Unsupported parameter: temperature` /
+ * `Unsupported parameter: max_completion_tokens`). Stripped on BOTH paths
+ * (verbatim CLI and adorned): even a passed-through body must not carry them,
+ * and `ResponsesTransformer` in particular defaults `temperature` to `1.0` and
+ * emits `max_output_tokens`. The backend accepts NO max-tokens field, so both
+ * the Responses (`max_output_tokens`) and Chat (`max_completion_tokens`) names
+ * are stripped (pi-ai likewise never forwards a token cap).
+ */
+const CODEX_UNSUPPORTED_PARAMS = [
+  'temperature',
+  'top_p',
+  'logprobs',
+  'top_logprobs',
+  'frequency_penalty',
+  'presence_penalty',
+  'logit_bias',
+  'max_output_tokens',
+  'max_completion_tokens',
+] as const;
+
+function stripUnsupportedCodexParams(body: any): any {
+  if (!body || typeof body !== 'object') return body;
+  const next: any = { ...body };
+  for (const key of CODEX_UNSUPPORTED_PARAMS) delete next[key];
+  return next;
+}
+
+/**
+ * Adorn a normalized (non-CLI) Responses body with the fields the ChatGPT Codex
+ * backend requires, reproducing pi-ai's `buildRequestBody` forcings: `store:false`,
+ * `stream:true`, encrypted-content `include`, an `instructions` fallback, a
+ * `text.verbosity` fallback, and `tool_choice`/`parallel_tool_calls` defaults.
+ * Client-provided values are preserved where present; the always-unsupported
+ * sampling params are removed separately by `stripUnsupportedCodexParams`.
+ */
+function adornCodexResponsesBody(body: any): any {
+  const next: any = { ...(body ?? {}) };
+  next.store = false;
+  next.stream = true; // the Codex backend is stream-only
+  if (typeof next.instructions !== 'string' || next.instructions.length === 0) {
+    next.instructions = 'You are a helpful assistant.';
+  }
+  const include = Array.isArray(next.include) ? next.include : [];
+  next.include = Array.from(new Set([...include, 'reasoning.encrypted_content']));
+  next.text = { ...(next.text ?? {}), verbosity: next.text?.verbosity ?? 'low' };
+  if (next.tool_choice == null) next.tool_choice = 'auto';
+  if (next.parallel_tool_calls == null) next.parallel_tool_calls = true;
+  // Token-cap fields are removed by stripUnsupportedCodexParams (the backend
+  // accepts none).
+  return next;
+}
+
+/**
+ * Prepare a native Codex OAuth request. `passthrough` sends the body verbatim
+ * (CLI-shaped); otherwise the body is adorned for the backend.
+ */
+function prepareCodexOAuthRequest(
+  modelId: string,
+  token: string,
+  nativeBody: any,
+  streaming: boolean,
+  passthrough: boolean
+): PreparedOAuthRequest {
+  // Strip the always-unsupported sampling params on BOTH paths (even verbatim
+  // CLI), then adorn only the non-CLI path.
+  const body = stripUnsupportedCodexParams(
+    passthrough ? nativeBody : adornCodexResponsesBody(nativeBody)
+  );
+
+  const baseUrl = resolveOAuthBaseUrl('openai-codex' as OAuthProvider, modelId);
+  const url = `${baseUrl}/codex/responses`;
+
+  const accountId = extractChatgptAccountId(token);
+  const codex = CodexVersionService.getInstance();
+  const sessionId =
+    typeof body?.prompt_cache_key === 'string' && body.prompt_cache_key.length > 0
+      ? body.prompt_cache_key
+      : undefined;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    accept: streaming ? 'text/event-stream' : 'application/json',
+    Authorization: `Bearer ${token}`,
+    ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
+    // Authentic Codex fingerprint (the native path can finally send the real UA
+    // + originator; pi-ai clobbered the UA to "pi (...)").
+    originator: 'codex_cli_rs',
+    'OpenAI-Beta': 'responses=experimental',
+    Version: codex.getVersion(),
+    'User-Agent': codex.getUserAgent(),
+    ...(sessionId ? { 'session-id': sessionId, 'x-client-request-id': sessionId } : {}),
+  };
+
+  return {
+    url,
+    headers,
+    body,
+    // Codex applies no request-side tool renames, so nothing to reverse.
+    reverseResponseFrame: (frame) => frame,
+  };
+}
+
 /**
  * Prepare a native OAuth request for the standard dispatch path.
  *
- * @param provider  OAuth provider id (currently `anthropic`).
+ * @param provider  OAuth provider id (`anthropic` or `openai-codex`).
  * @param modelId   Upstream model id.
- * @param apiKey    Resolved OAuth access token (from `OAuthAuthManager`).
+ * @param auth      Resolved OAuth access token / masking API key.
  * @param nativeBody The provider-native wire body from the entry transformer.
  * @param streaming Whether the client asked for a stream.
+ * @param options.codexPassthrough  Codex only: send the body verbatim (CLI-shaped).
  */
 export function prepareOAuthNativeRequest(
   provider: OAuthProvider,
   modelId: string,
   auth: NativeAnthropicAuth,
   nativeBody: any,
-  streaming: boolean
+  streaming: boolean,
+  options?: { codexPassthrough?: boolean }
 ): PreparedOAuthRequest {
   if (provider === 'anthropic') {
     return prepareAnthropicOAuthRequest(modelId, auth, nativeBody, streaming);
   }
-  // Other providers (Codex, Copilot) are not yet ported to the native path.
+  if (provider === 'openai-codex') {
+    if (auth.mode !== 'oauth') {
+      throw new Error('Codex native OAuth requires an OAuth token (apiKey mode unsupported).');
+    }
+    return prepareCodexOAuthRequest(
+      modelId,
+      auth.token,
+      nativeBody,
+      streaming,
+      options?.codexPassthrough === true
+    );
+  }
+  // Other providers (Copilot, …) are not yet ported to the native path.
   // The caller gates on this; reaching here is a programming error.
   logger.error(`OAuth native path not implemented for provider '${provider}'`);
   throw new Error(`OAuth native request preparation not implemented for provider '${provider}'`);
@@ -227,7 +418,7 @@ export function prepareOAuthNativeRequest(
  * until ported (per-provider rollout, see docs/NOMOV3.md).
  */
 export function isNativeOAuthProvider(provider: string | undefined): boolean {
-  return provider === 'anthropic';
+  return provider === 'anthropic' || provider === 'openai-codex';
 }
 
 /**
@@ -240,6 +431,7 @@ export function isNativeOAuthProvider(provider: string | undefined): boolean {
  */
 const NATIVE_OAUTH_API_TYPES: Record<string, string> = {
   anthropic: 'messages',
+  'openai-codex': 'responses',
 };
 
 export function nativeOAuthApiType(provider: string | undefined): string | undefined {
@@ -260,6 +452,8 @@ export async function prepareNativeOAuthDispatch(params: {
   oauthAccountId?: string | null;
   /** When set, use the Claude-masking API-key mode instead of OAuth. */
   maskingApiKey?: string | null;
+  /** Codex only: send the body verbatim (CLI-shaped request). */
+  codexPassthrough?: boolean;
 }): Promise<PreparedOAuthRequest> {
   const { provider, modelId, nativeBody, streaming, oauthAccountId, maskingApiKey } = params;
 
@@ -278,5 +472,7 @@ export async function prepareNativeOAuthDispatch(params: {
     auth = { mode: 'oauth', token };
   }
 
-  return prepareOAuthNativeRequest(provider, modelId, auth, nativeBody, streaming);
+  return prepareOAuthNativeRequest(provider, modelId, auth, nativeBody, streaming, {
+    codexPassthrough: params.codexPassthrough === true,
+  });
 }

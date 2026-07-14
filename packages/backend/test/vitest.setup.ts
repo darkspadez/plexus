@@ -118,6 +118,26 @@ const mockGetModels = (provider: string) => {
       },
     ];
   }
+  if (provider === 'github-copilot') {
+    // Copilot really does serve GPT-5.x alongside Claude models (matches the
+    // bundled pi-ai registry); list both so model-support checks are accurate.
+    return [
+      {
+        id: 'gpt-5.4',
+        name: 'GPT-5.4',
+        contextWindow: 128000,
+        provider: 'github-copilot',
+        api: 'openai-responses',
+      },
+      {
+        id: 'claude-sonnet-4',
+        name: 'Claude Sonnet 4',
+        contextWindow: 200000,
+        provider: 'github-copilot',
+        api: 'anthropic-messages',
+      },
+    ];
+  }
   return [
     {
       id: 'claude-opus-4',

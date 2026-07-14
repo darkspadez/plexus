@@ -8,6 +8,7 @@ import type { ResolvedAdapter } from '../../types/provider-adapter';
 import { applyGeminiThinkingConfig, getApiMetadata } from '../providers/provider-api-selection';
 import { isClaudeMaskingApiKeyRoute, isPiAiRoute } from '../oauth/oauth-dispatcher';
 import {
+  isCodexCliShapedBody,
   isNativeOAuthProvider,
   prepareNativeOAuthDispatch,
   type PreparedOAuthRequest,
@@ -83,7 +84,26 @@ export async function buildRequestPayload(
   adapters: ResolvedAdapter[] = []
 ): Promise<RequestPayload> {
   const nativeOAuth = isNativeOAuthRoute(route, targetApiType);
-  const bypassTransformation = shouldUsePassThrough(request, targetApiType, route);
+
+  // Codex two-path decision (see docs/NOMOV3.md M2). A genuine Codex CLI body
+  // is sent to the ChatGPT backend VERBATIM (pass-through), including its native
+  // custom/namespace tool extensions — so we override the
+  // `hasCodexResponsesExtensions` flattening that `shouldUsePassThrough` applies
+  // (that flattening is for routing to NON-Codex providers). Any other Responses
+  // request is forced through the transformer + adorned for the backend, even
+  // though incoming == target == responses.
+  const oauthProviderForNative = isClaudeMaskingApiKeyRoute(route, targetApiType)
+    ? 'anthropic'
+    : route.config.oauth_provider || route.provider;
+  const codexNative = nativeOAuth && oauthProviderForNative === 'openai-codex';
+  const codexCliPassthrough = codexNative && isCodexCliShapedBody(request.originalBody);
+
+  let bypassTransformation: boolean;
+  if (codexNative) {
+    bypassTransformation = codexCliPassthrough;
+  } else {
+    bypassTransformation = shouldUsePassThrough(request, targetApiType, route);
+  }
   let payload: any;
 
   if (bypassTransformation) {
@@ -164,6 +184,7 @@ export async function buildRequestPayload(
       streaming: !!request.stream,
       oauthAccountId: route.config.oauth_account?.trim(),
       maskingApiKey: maskingApiKeyRoute ? (route.config.api_key ?? '') : null,
+      codexPassthrough: codexCliPassthrough,
     });
     (route as any)[NATIVE_OAUTH_STASH] = prepared;
     logger.debug(

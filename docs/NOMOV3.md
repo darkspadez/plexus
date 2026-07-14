@@ -382,50 +382,109 @@ part (`type-mappers.ts` `toolCallIdentityChannel`, the `#719` Codex fix, the Ant
 
 ## Milestone 2 — Codex OAuth pass-through
 
-Status: proposed. Second priority. Depends on M1's dispatcher SSE-probe primitive.
+Status: **in progress.** Reuses the M1 single-path scaffolding
+(`isNativeOAuthProvider`, `nativeOAuthApiType`, `NATIVE_OAUTH_STASH`, raw-byte response
+pass-through). Codex is NOT Anthropic — deep research (below) reframed the design.
 
-### Goal
-For `provider === 'openai-codex'`, replace the IR conduit with a native OpenAI Responses
-(`openai-codex-responses`) pass-through: build the Responses body, POST with the
-Codex OAuth token + the version/User-Agent headers `CodexVersionService` already supplies,
-stream raw with SSE parsing for usage + tool-call identity.
+### Research findings (ground truth — read before editing)
 
-### Why second
-- No masking pipeline — Codex doesn't get the Anthropic fingerprint surgery — so the
-  request side is simpler than Anthropic (no `applyClaudeCodeMasking`). But the
-  **streaming tool-call semantics are the ones the `#719` fix targeted** (emit tool name
-  once; Codex rejects re-accumulated over-length names), so the SSE parser must reproduce
-  the `'start'`-channel identity behavior exactly.
-- Codex needs the `Version` header + `User-Agent` from `CodexVersionService` (already in
-  `executeRequest`) and reasoning-effort/verbosity egress from
-  `buildGenerationOptions` — both already exist and are reused verbatim.
+**Codex is not masking.** There is no client-identity spoof / fingerprint surgery. Instead
+pi-ai's `openai-codex-responses` provider builds a *specific* ChatGPT-backend Responses
+request. Exact wire contract (from the pi-ai dist `api/openai-codex-responses.js`):
+- **URL:** `https://chatgpt.com/backend-api/codex/responses` (registry model `baseUrl` is
+  `https://chatgpt.com/backend-api`; `resolveCodexUrl` appends `/codex/responses`).
+- **Body (`buildRequestBody`)** forces: `store:false`, `stream:true`,
+  `instructions: context.systemPrompt || "You are a helpful assistant."`, `input`,
+  `text.verbosity` (default `"low"`), `include:["reasoning.encrypted_content"]`,
+  `prompt_cache_key` (from sessionId), and **hardcodes `tool_choice:"auto"` +
+  `parallel_tool_calls:true`** (ignores client), plus optional `temperature`/`service_tier`/
+  `tools`/`reasoning{effort,summary}`. Notably it does NOT forward `max_output_tokens`.
+- **Headers:** `Authorization: Bearer`, `chatgpt-account-id` (parsed from the token JWT
+  claim `https://api.openai.com/auth.chatgpt_account_id`), `originator`,
+  `OpenAI-Beta: responses=experimental`, `session-id`/`x-client-request-id`,
+  `accept: text/event-stream`, `content-type: application/json`. pi-ai sets
+  `originator:"pi"` and OVERWRITES `User-Agent` to `"pi (...)"` LAST — so plexus's
+  `CodexVersionService` UA is currently clobbered on the wire; only its `Version` header
+  survives. Going native lets us finally send the authentic Codex fingerprint
+  (`originator: codex_cli_rs`, real `User-Agent`, `Version`).
+
+**The client-shape problem (load-bearing).** A genuine Codex CLI body carries
+`client_metadata` (`x-codex-*`, session/turn/thread ids), `additional_tools` input items,
+and `custom`/`namespace` tools (`exec` freeform w/ lark grammar, `apply_patch`). But **not
+all Responses requests look like that** — e.g. a plain OpenAI-JS-SDK Responses client
+(`user-agent: OpenAI/JS`, `x-stainless-*`) sends plain `function` tools, no
+`client_metadata`, no `instructions`, no `text`. `hasCodexResponsesExtensions` currently
+forces the transform path to *flatten* namespace/custom tools — but that's for routing to
+*non-Codex* providers; the Codex OAuth backend understands them natively and they must NOT
+be flattened.
+
+### Design — TWO paths (decided with project owner)
+
+Detect Codex-CLI shape from the request body; route accordingly.
+
+1. **Codex CLI detected → pure pass-through (auth only).** When the body matches the CLI
+   fingerprint (has `client_metadata` codex keys, or `additional_tools`/`custom`/`namespace`
+   tools), send it to the backend **unchanged except the auth**. We are confident Codex CLI
+   produced it and the Codex provider always accepts the Codex request shape, so no
+   adornment. `bypassTransformation` (request) = true.
+2. **Not Codex CLI → normalize + adorn.** For any other Responses request (or a
+   cross-format request), run it through `ResponsesTransformer` and then build the Codex
+   backend body as a **WHITELIST** mirroring pi-ai's `buildRequestBody` (`store:false`,
+   `stream:true`, `include` encrypted-content, `instructions` fallback, `text.verbosity`
+   fallback, `tool_choice`/`parallel_tool_calls`, plus `input`/`tools`/`reasoning`/
+   `prompt_cache_key`/`service_tier`). This is the "we HAVE to go through the Transformers
+   path even on the same API type" case: responses-in → responses-out but the body is not
+   Codex-shaped, so it must be transformed.
+   - **Empirical (staging) + owner rule:** NO Codex model supports the sampling/logprob
+     params, so they are **always stripped on BOTH paths** (verbatim CLI and adorned):
+     `temperature, top_p, logprobs, top_logprobs, frequency_penalty, presence_penalty,
+     logit_bias` (`CODEX_UNSUPPORTED_PARAMS`). `ResponsesTransformer.parseRequest` defaults
+     `temperature` to `1.0`, which the backend rejects with `400 Unsupported parameter:
+     temperature`. The backend also accepts NO max-tokens field, so BOTH `max_output_tokens`
+     and `max_completion_tokens` are in the strip list (an earlier rename attempt failed:
+     `400 Unsupported parameter: max_completion_tokens`). pi-ai likewise never forwards a
+     token cap. Other supported fields are preserved.
+
+Both paths return **raw backend Responses SSE** to the client (responses-in / responses-out),
+so `bypassTransformation` (response) = true and NO IR re-serialization (higher fidelity
+than today, which mints `oauth-<epoch>` ids via `formatStream`). No tool-name reversal is
+needed for Codex (no renames), so `reverseResponseFrame` is identity.
 
 ### Changes
-1. Request builder `transformers/oauth/codex/build-request.ts`: unified → raw
-   `openai-responses` body (input items, tools, reasoning effort, text verbosity,
-   service tier, max output tokens), using `services/pi-ai/registry.ts` for the
-   effort/verbosity mapping. Replaces the Codex half of `unifiedToContext`.
-2. Transport: POST with Codex token + `Version`/`User-Agent` headers, v1 HTTP primitives.
-3. Response: native OpenAI Responses SSE parse → `UnifiedChatStreamChunk`, `'start'`-channel
-   tool-call identity, **`custom_tool_call` aggregation with raw-string `input` (no
-   `function_call_arguments.delta`)**, usage from the Responses `response.completed`/usage
-   frames. Replaces the Codex branches of `piAiEventToChunk`/`piAiMessageToUnified`. The
-   custom-tool set must be threaded from the request explicitly (see the golden gate
-   finding #2 — the current stateful `ResponsesTransformer` instance sharing is the
-   behavior to preserve, not inherit accidentally).
-4. Dispatcher: reuse M1's SSE probe.
+- `services/oauth/oauth-native-request.ts`: `isNativeOAuthProvider` += `openai-codex`;
+  `nativeOAuthApiType('openai-codex') = 'responses'`; base URL map += codex; new
+  `prepareCodexOAuthRequest` (JWT account-id extraction, CLI-shape detection, adornment,
+  header build via `CodexVersionService`); route it from `prepareOAuthNativeRequest`.
+- `services/dispatch/request-payload-builder.ts`: for a native Codex route, force
+  `bypassTransformation=false` when the body is NOT CLI-shaped (path 2), so
+  `ResponsesTransformer` normalizes it; leave pass-through for path 1.
+- `services/dispatch/request-manager.ts`: `effectiveApiType` already generalizes via
+  `nativeOAuthApiType` — Codex resolves to `responses` (ResponsesTransformer + pass-through).
+
+### Non-streaming caveat
+The Codex backend is stream-only (`buildRequestBody` hardcodes `stream:true`). Streaming
+clients are the primary case (CLI always streams). Non-streaming Codex client support
+(aggregating the backend SSE into a single Responses object) is a follow-up if needed.
 
 ### Tests
-- **The golden gate is already landed** (`oauth-golden-translation.test.ts`,
-  `golden-codex-{1,2}.json`) and is the primary equivalence check: retarget the response
-  assertion at the new native Codex parser and keep the captured client SSE as the "want"
-  side unchanged. Byte-identical `custom_tool_call` output is the gate.
-- Port `oauth-type-mappers` Codex cases + the `#719` regression intent to SSE-parse tests.
-- `bun run test`, `bun run typecheck`, `bun run format:check`.
+- **The Codex golden gate stays** (`oauth-golden-translation.test.ts`,
+  `golden-codex-{1,2}.json`) — it still guards the pi-ai IR path used by OTHER responses
+  routing until M4; do not retarget it at the native path (the native path emits RAW
+  backend SSE, a different "want").
+- New native tests: (a) CLI-shape detection true/false on the golden vs the OpenAI-JS-SDK
+  sample; (b) path-1 sends the body verbatim (+ resolved model, auth headers) to
+  `.../codex/responses`; (c) path-2 adorns a plain Responses body (store:false, include
+  encrypted-content, instructions fallback) and does NOT flatten function tools; (d) raw
+  backend Responses SSE reaches the client byte-preserved.
+- `bun run test`, `bun run typecheck`, `bun run format:check`; live staging via a Codex
+  OAuth provider (CLI-shaped and non-CLI-shaped requests).
 
 ### Risk
-- The `#719` failure mode (over-length accumulated tool name) is the thing to guard;
-  identity-once must be covered before/after.
+- Header fingerprint: today's proven wire is `originator:"pi"` + pi-ai UA. Native sends the
+  authentic Codex fingerprint; if the backend rejects it, fall back to `originator:"pi"`.
+  Staging is the gate.
+- Path-2 adornment must reproduce enough of `buildRequestBody` for the backend to accept a
+  non-CLI body; verify on staging with the OpenAI-JS-SDK shape.
 
 ---
 
