@@ -13,7 +13,8 @@
       "!!packages/backend/drizzle/migrations/**",
       "!!packages/backend/drizzle/migrations_pg/**",
       "!!packages/backend/src/transformers/oauth/__tests__/golden-fixtures/**",
-      "!!.claude/**"
+      "!!.claude/**",
+      "!!.git.nosync/**"
     ]
   },
   "formatter": {
