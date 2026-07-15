@@ -24,8 +24,8 @@
 
 import { sql } from 'drizzle-orm';
 import { getDatabase, getSchema, getCurrentDialect } from '../src/db/client';
-import { UsageStorageService } from '../src/services/usage-storage';
-import type { DebugLogRecord } from '../src/services/debug-manager';
+import { UsageStorageService } from '../src/services/observability/usage-storage';
+import type { DebugLogRecord } from '../src/services/observability/debug-manager';
 import { McpUsageStorageService } from '../src/services/mcp-proxy/mcp-usage-storage';
 import { SHARED_OWNER } from '../src/services/quota/quota-enforcer';
 import { toDbTimestampMs } from '../src/utils/normalize';
