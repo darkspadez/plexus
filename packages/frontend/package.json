@@ -9,11 +9,11 @@
     "dev": "bun run build.ts --watch"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "^4.3.2",
+    "@tailwindcss/cli": "^4.3.3",
     "@types/bun": "latest",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "postcss": "^8.5.16",
+    "postcss": "^8.5.19",
     "tailwindcss": "^4.3.0",
     "typescript": "^7.0.2"
   },
@@ -26,9 +26,9 @@
     "@types/human-format": "^1.0.3",
     "clsx": "^2.1.1",
     "deep-chat-react": "^2.4.2",
-    "fuse.js": "^7.4.2",
+    "fuse.js": "^7.5.0",
     "human-format": "^1.2.1",
-    "lucide-react": "^1.23.0",
+    "lucide-react": "^1.24.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
