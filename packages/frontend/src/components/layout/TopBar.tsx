@@ -161,7 +161,7 @@ const AccentPicker: React.FC = () => {
           aria-label="Accent color options"
           className={cn(
             'absolute right-0 top-full z-[100] mt-1 min-w-[160px] rounded-lg border border-border',
-            'bg-surface py-1 shadow-[var(--shadow-md)]'
+            'bg-surface p-1 shadow-[var(--shadow-md)]'
           )}
         >
           <div className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wider text-foreground-subtle">
@@ -177,7 +177,7 @@ const AccentPicker: React.FC = () => {
                 setOpen(false);
               }}
               className={cn(
-                'flex w-full items-center gap-2 px-2 py-1.5 text-sm capitalize transition-colors',
+                'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm capitalize transition-colors',
                 'text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
               )}
             >
@@ -243,7 +243,7 @@ const UserMenu: React.FC = () => {
           aria-label="User options"
           className={cn(
             'absolute right-0 top-full z-[100] mt-1 min-w-[180px] rounded-lg border border-border',
-            'bg-surface py-1 shadow-[var(--shadow-md)]'
+            'bg-surface p-1 shadow-[var(--shadow-md)]'
           )}
         >
           <div className="px-2 pb-1.5 pt-0.5">
@@ -257,14 +257,14 @@ const UserMenu: React.FC = () => {
               </span>
             </div>
           </div>
-          <div className="my-1 border-t border-border" />
+          <div className="-mx-1 my-1 border-t border-border" />
           <button
             type="button"
             role="menuitem"
             onClick={handleLogout}
             className={cn(
-              'flex w-full items-center gap-2 px-2 py-1.5 text-sm transition-colors',
-              'text-danger hover:bg-danger-subtle hover:text-danger'
+              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+              'text-danger hover:bg-danger-subtle'
             )}
           >
             <LogOut className="size-3.5" strokeWidth={1.75} />
