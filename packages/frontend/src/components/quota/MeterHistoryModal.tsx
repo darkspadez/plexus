@@ -168,37 +168,27 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={meter.label}
+      title={`${displayName} — ${meter.label}`}
+      headerMeta={[quota.oauthAccountId, checkedLabel].filter(Boolean).join(' · ') || undefined}
       size="md"
       footer={
-        <Button variant="secondary" size="sm" onClick={onClose}>
+        <Button variant="secondary" size="sm" className="border-border-strong" onClick={onClose}>
           Close
         </Button>
       }
     >
-      {/* Subtitle */}
-      <div className="mb-4">
-        <p className="text-xs text-foreground-muted">
-          {displayName}
-          {quota.oauthAccountId && ` · ${quota.oauthAccountId}`}
-        </p>
-        {checkedLabel && <p className="text-xs text-foreground-subtle mt-0.5">{checkedLabel}</p>}
-      </div>
-
       {/* Time-range selector */}
-      <div className="flex items-center gap-1 overflow-x-auto mb-4">
+      <div className="flex items-center gap-1.5 overflow-x-auto mb-4">
         {TIME_RANGES.map((r) => (
-          <button
+          <Button
             key={r.key}
+            size="sm"
+            variant={range === r.key ? 'primary' : 'secondary'}
+            className={range === r.key ? undefined : 'border-border-strong'}
             onClick={() => setRange(r.key)}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-              range === r.key
-                ? 'bg-accent/20 text-accent border border-accent/40'
-                : 'text-foreground-muted hover:bg-surface-elevated'
-            }`}
           >
             {r.label}
-          </button>
+          </Button>
         ))}
         {loading && <RefreshCw size={14} className="animate-spin text-foreground-subtle ml-auto" />}
       </div>
@@ -223,13 +213,13 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
           ].map(({ label, value, title }) => (
             <div
               key={label}
-              className="rounded-lg border border-border bg-surface-elevated px-3 py-2"
+              className="rounded-lg border border-border-strong bg-surface-elevated px-3 py-2.5"
               title={title}
             >
-              <div className="text-[10px] text-foreground-subtle uppercase tracking-wider">
+              <div className="text-[10px] font-semibold text-foreground-subtle uppercase tracking-wider">
                 {label}
               </div>
-              <div className="text-sm font-semibold text-foreground tabular-nums mt-0.5">
+              <div className="text-base font-semibold text-foreground tabular-nums mt-0.5">
                 {value}
               </div>
             </div>
@@ -237,74 +227,82 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
         </div>
       )}
 
-      {/* Chart */}
-      <div className="h-52 w-full">
-        {error ? (
-          <div className="h-full flex items-center justify-center text-sm text-danger">{error}</div>
-        ) : loading && chartData.length === 0 ? (
-          <div className="h-full flex items-center justify-center gap-2 text-sm text-foreground-muted">
-            <RefreshCw size={16} className="animate-spin" />
-            Loading…
-          </div>
-        ) : chartData.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-sm text-foreground-subtle">
-            No data for this period
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={areaColor} stopOpacity={0.25} />
-                  <stop offset="95%" stopColor={areaColor} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid {...GRID_PROPS} />
-              <XAxis
-                dataKey="label"
-                tick={AXIS_TICK_STYLE}
-                tickLine={false}
-                axisLine={false}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                tickFormatter={formatY}
-                tick={AXIS_TICK_STYLE}
-                tickLine={false}
-                axisLine={false}
-                width={60}
-                label={
-                  yLabel && yLabel !== '%'
-                    ? undefined
-                    : {
-                        value: '%',
-                        position: 'insideTopRight',
-                        fontSize: 10,
-                        fill: 'var(--foreground-subtle)',
-                      }
-                }
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                labelStyle={{ color: 'var(--foreground-muted)', marginBottom: 2 }}
-                itemStyle={{ color: areaColor }}
-                formatter={(value: unknown) =>
-                  [formatTooltip(value as number), meter.label] as [string, string]
-                }
-              />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke={areaColor}
-                strokeWidth={2}
-                fill={`url(#${gradientId})`}
-                dot={false}
-                activeDot={{ r: 4, fill: areaColor }}
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
+      {/* Chart — recessed, titled panel so the plot reads as its own layer,
+          distinct from the raised stat tiles and the modal surface. */}
+      <div className="w-full rounded-lg border border-border-strong bg-surface-elevated p-3">
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-foreground-subtle">
+          {isBalance ? 'Balance history' : 'Utilization history'}
+        </div>
+        <div className="h-52 w-full">
+          {error ? (
+            <div className="h-full flex items-center justify-center text-sm text-danger">
+              {error}
+            </div>
+          ) : loading && chartData.length === 0 ? (
+            <div className="h-full flex items-center justify-center gap-2 text-sm text-foreground-muted">
+              <RefreshCw size={16} className="animate-spin" />
+              Loading…
+            </div>
+          ) : chartData.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-sm text-foreground-subtle">
+              No data for this period
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={areaColor} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={areaColor} stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid {...GRID_PROPS} />
+                <XAxis
+                  dataKey="label"
+                  tick={AXIS_TICK_STYLE}
+                  tickLine={false}
+                  axisLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tickFormatter={formatY}
+                  tick={AXIS_TICK_STYLE}
+                  tickLine={false}
+                  axisLine={false}
+                  width={60}
+                  label={
+                    yLabel && yLabel !== '%'
+                      ? undefined
+                      : {
+                          value: '%',
+                          position: 'insideTopRight',
+                          fontSize: 10,
+                          fill: 'var(--foreground-subtle)',
+                        }
+                  }
+                />
+                <Tooltip
+                  contentStyle={TOOLTIP_STYLE}
+                  labelStyle={{ color: 'var(--foreground-muted)', marginBottom: 2 }}
+                  itemStyle={{ color: areaColor }}
+                  formatter={(value: unknown) =>
+                    [formatTooltip(value as number), meter.label] as [string, string]
+                  }
+                />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke={areaColor}
+                  strokeWidth={2}
+                  fill={`url(#${gradientId})`}
+                  dot={false}
+                  activeDot={{ r: 4, fill: areaColor }}
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
       </div>
     </Modal>
   );

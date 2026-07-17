@@ -239,7 +239,7 @@ export const Quotas = () => {
                 <div className="flex items-center gap-2">
                   <div
                     className={cn(
-                      'h-1.5 w-12 shrink-0 overflow-hidden rounded-full',
+                      'h-1.5 w-24 shrink-0 overflow-hidden rounded-full',
                       SEVERITY_TRACK_CLASS[r.severity]
                     )}
                   >
