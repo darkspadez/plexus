@@ -588,17 +588,30 @@ interface UsageSummarySeriesPoint {
   errors: number;
 }
 
+/**
+ * Aggregated totals for one time window: the selected range (`stats`) or the
+ * equal-length window immediately preceding it (`prevStats`).
+ */
+export interface UsageSummaryWindowStats {
+  totalRequests: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens: number;
+  cacheWriteTokens: number;
+  totalCost: number;
+  totalKwhUsed: number;
+  avgDurationMs: number;
+  totalDurationMs: number;
+  totalErrors: number;
+}
+
 export interface UsageSummaryResponse {
   range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all';
   series: UsageSummarySeriesPoint[];
-  stats: {
-    totalRequests: number;
-    totalTokens: number;
-    totalKwhUsed: number;
-    avgDurationMs: number;
-    totalDurationMs: number;
-    totalErrors: number;
-  };
+  stats: UsageSummaryWindowStats;
+  /** `null` when `range` is `all` — there is no prior window to compare against. */
+  prevStats: UsageSummaryWindowStats | null;
   today: TodayMetrics;
 }
 
@@ -1286,8 +1299,9 @@ export const api = {
   /**
    * Fetch the raw usage-summary response for the current principal.
    *
-   * Returns the untransformed backend payload including `stats` (7-day
-   * window) and `today` roll-ups. Used by the Overall dashboard tab to
+   * Returns the untransformed backend payload including `stats` (selected
+   * range window), `prevStats` (preceding equal-length window, `null` for
+   * `range=all`) and `today` roll-ups. Used by the Overall dashboard tab to
    * compute range-scoped totals without having to duplicate the endpoint
    * definition.
    *

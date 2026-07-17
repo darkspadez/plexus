@@ -355,26 +355,54 @@ export async function registerUsageRoutes(
         .groupBy(bucketStartMs)
         .orderBy(bucketStartMs);
 
-      const statsRows = await db
-        .select({
-          requests: sql<number>`COUNT(*)`,
-          inputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensInput}), 0)`,
-          outputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensOutput}), 0)`,
-          cachedTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCached}), 0)`,
-          cacheWriteTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCacheWrite}), 0)`,
-          kwhUsed: sql<number>`COALESCE(SUM(${schema.requestUsage.kwhUsed}), 0)`,
-          avgDurationMs: sql<number>`COALESCE(AVG(${schema.requestUsage.durationMs}), 0)`,
-          totalDurationMs: sql<number>`COALESCE(SUM(${schema.requestUsage.durationMs}), 0)`,
-          errors: sql<number>`COALESCE(SUM(CASE WHEN ${schema.requestUsage.responseStatus} != 'success' THEN 1 ELSE 0 END), 0)`,
-        })
-        .from(schema.requestUsage)
-        .where(
-          and(
-            gte(schema.requestUsage.startTime, rangeStartMs),
-            lte(schema.requestUsage.startTime, rangeEndMs),
-            ...(keyFilter ? [keyFilter] : [])
-          )
-        );
+      const emptyWindowStats = {
+        requests: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cachedTokens: 0,
+        cacheWriteTokens: 0,
+        kwhUsed: 0,
+        totalCost: 0,
+        avgDurationMs: 0,
+        totalDurationMs: 0,
+        errors: 0,
+      };
+
+      const fetchWindowStats = async (startMs: number, endMs: number) => {
+        const rows = await db
+          .select({
+            requests: sql<number>`COUNT(*)`,
+            inputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensInput}), 0)`,
+            outputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensOutput}), 0)`,
+            cachedTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCached}), 0)`,
+            cacheWriteTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCacheWrite}), 0)`,
+            kwhUsed: sql<number>`COALESCE(SUM(${schema.requestUsage.kwhUsed}), 0)`,
+            totalCost: sql<number>`COALESCE(SUM(${schema.requestUsage.costTotal}), 0)`,
+            avgDurationMs: sql<number>`COALESCE(AVG(${schema.requestUsage.durationMs}), 0)`,
+            totalDurationMs: sql<number>`COALESCE(SUM(${schema.requestUsage.durationMs}), 0)`,
+            errors: sql<number>`COALESCE(SUM(CASE WHEN ${schema.requestUsage.responseStatus} != 'success' THEN 1 ELSE 0 END), 0)`,
+          })
+          .from(schema.requestUsage)
+          .where(
+            and(
+              gte(schema.requestUsage.startTime, startMs),
+              lte(schema.requestUsage.startTime, endMs),
+              ...(keyFilter ? [keyFilter] : [])
+            )
+          );
+        return rows[0] || emptyWindowStats;
+      };
+
+      const statsRow = await fetchWindowStats(rangeStartMs, rangeEndMs);
+
+      // Prior window of equal length ending 1ms before the selected range —
+      // powers the dashboard's delta chips. 'all' starts at the epoch, so no
+      // prior window exists for it.
+      const windowLengthMs = rangeEndMs - rangeStartMs;
+      const prevStatsRow =
+        range === 'all'
+          ? null
+          : await fetchWindowStats(rangeStartMs - windowLengthMs, rangeStartMs - 1);
 
       const todayRows = await db
         .select({
@@ -396,18 +424,6 @@ export async function registerUsageRoutes(
           )
         );
 
-      const statsRow = statsRows[0] || {
-        requests: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        cachedTokens: 0,
-        cacheWriteTokens: 0,
-        kwhUsed: 0,
-        avgDurationMs: 0,
-        totalDurationMs: 0,
-        errors: 0,
-      };
-
       const todayRow = todayRows[0] || {
         requests: 0,
         inputTokens: 0,
@@ -418,6 +434,24 @@ export async function registerUsageRoutes(
         kwhUsed: 0,
         totalCost: 0,
       };
+
+      const toWindowStatsPayload = (row: typeof emptyWindowStats) => ({
+        totalRequests: toNumber(row.requests),
+        totalTokens:
+          toNumber(row.inputTokens) +
+          toNumber(row.outputTokens) +
+          toNumber(row.cachedTokens) +
+          toNumber(row.cacheWriteTokens),
+        inputTokens: toNumber(row.inputTokens),
+        outputTokens: toNumber(row.outputTokens),
+        cachedTokens: toNumber(row.cachedTokens),
+        cacheWriteTokens: toNumber(row.cacheWriteTokens),
+        totalCost: toNumber(row.totalCost),
+        totalKwhUsed: toNumber(row.kwhUsed),
+        avgDurationMs: toNumber(row.avgDurationMs),
+        totalDurationMs: toNumber(row.totalDurationMs),
+        totalErrors: toNumber(row.errors),
+      });
 
       return reply.send({
         range,
@@ -436,18 +470,8 @@ export async function registerUsageRoutes(
             toNumber(row.cachedTokens) +
             toNumber(row.cacheWriteTokens),
         })),
-        stats: {
-          totalRequests: toNumber(statsRow.requests),
-          totalTokens:
-            toNumber(statsRow.inputTokens) +
-            toNumber(statsRow.outputTokens) +
-            toNumber(statsRow.cachedTokens) +
-            toNumber(statsRow.cacheWriteTokens),
-          totalKwhUsed: toNumber(statsRow.kwhUsed),
-          avgDurationMs: toNumber(statsRow.avgDurationMs),
-          totalDurationMs: toNumber(statsRow.totalDurationMs),
-          totalErrors: toNumber(statsRow.errors),
-        },
+        stats: toWindowStatsPayload(statsRow),
+        prevStats: prevStatsRow ? toWindowStatsPayload(prevStatsRow) : null,
         today: {
           requests: toNumber(todayRow.requests),
           inputTokens: toNumber(todayRow.inputTokens),

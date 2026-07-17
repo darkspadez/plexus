@@ -1,0 +1,38 @@
+type: object
+description: >
+  Aggregated totals for one time window (the selected range, or the
+  equal-length window immediately preceding it).
+properties:
+  totalRequests:
+    type: integer
+    description: Total requests in the window.
+  totalTokens:
+    type: integer
+    description: Total tokens (input + output + cached + cacheWrite) in the window.
+  inputTokens:
+    type: integer
+    description: Input tokens in the window.
+  outputTokens:
+    type: integer
+    description: Output tokens in the window.
+  cachedTokens:
+    type: integer
+    description: Cached (cache-read) tokens in the window.
+  cacheWriteTokens:
+    type: integer
+    description: Cache-write tokens in the window.
+  totalCost:
+    type: number
+    description: Total cost in dollars in the window.
+  totalKwhUsed:
+    type: number
+    description: Total energy usage in the window.
+  avgDurationMs:
+    type: number
+    description: Average request duration in milliseconds.
+  totalDurationMs:
+    type: integer
+    description: Sum of all request durations in milliseconds.
+  totalErrors:
+    type: integer
+    description: Number of non-success requests in the window.

@@ -1,12 +1,22 @@
 import React from 'react';
 import { Card } from '../ui/Card';
+import { DeltaChip } from '../chips';
+
+export interface MetricDelta {
+  /** Signed change vs the prior window (relative % or percentage points). */
+  value: number;
+  /** For metrics where lower is better (errors, latency, cost) — up renders as danger. */
+  inverse?: boolean;
+  /** Magnitude formatter; the chip icon carries direction. */
+  format?: (n: number) => string;
+}
 
 export interface MetricItem {
   label: string;
   value: string | number;
   subtitle?: string;
   icon: React.ReactNode;
-  trend?: number;
+  delta?: MetricDelta;
 }
 
 interface MetricsOverviewCardProps {
@@ -20,7 +30,9 @@ export const MetricsOverviewCard: React.FC<MetricsOverviewCardProps> = ({
 }) => {
   return (
     <Card title={title}>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-4">
+      {/* Capped at 4 columns so 8 tiles hold a stable 2×4 on desktop instead
+          of auto-fit's width-dependent wrapping (8×1 on ultrawide, 5+3 splits). */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {metrics.map((metric, index) => (
           <div
             key={index}
@@ -34,17 +46,18 @@ export const MetricsOverviewCard: React.FC<MetricsOverviewCardProps> = ({
                 {metric.icon}
               </div>
             </div>
-            <div className="font-sans text-3xl font-bold text-foreground my-1">{metric.value}</div>
+            <div className="flex items-baseline gap-2 my-1">
+              <span className="font-sans text-3xl font-bold text-foreground">{metric.value}</span>
+              {metric.delta && (
+                <DeltaChip
+                  value={metric.delta.value}
+                  inverse={metric.delta.inverse}
+                  format={metric.delta.format}
+                />
+              )}
+            </div>
             {metric.subtitle && (
               <div className="text-xs text-foreground-subtle">{metric.subtitle}</div>
-            )}
-            {metric.trend !== undefined && (
-              <div
-                className={`text-sm leading-normal ${metric.trend > 0 ? 'text-success' : 'text-danger'}`}
-              >
-                {metric.trend > 0 ? '+' : ''}
-                {metric.trend}% from last week
-              </div>
             )}
           </div>
         ))}
