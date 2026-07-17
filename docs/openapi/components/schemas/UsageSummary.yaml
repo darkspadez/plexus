@@ -39,24 +39,17 @@ properties:
           description: >
             Total token count = inputTokens + outputTokens + cachedTokens + cacheWriteTokens.
   stats:
-    type: object
-    description: Rolling 7-day aggregation window.
-    properties:
-      totalRequests:
-        type: integer
-        description: Total requests in the 7-day window.
-      totalTokens:
-        type: integer
-        description: Total tokens (input + output + cached + cacheWrite) in the window.
-      totalKwhUsed:
-        type: number
-        description: Total energy usage in the window.
-      avgDurationMs:
-        type: number
-        description: Average request duration in milliseconds.
-      totalDurationMs:
-        type: integer
-        description: Sum of all request durations in milliseconds.
+    allOf:
+      - $ref: ./UsageWindowStats.yaml
+    description: Aggregation over the selected range window.
+  prevStats:
+    oneOf:
+      - $ref: ./UsageWindowStats.yaml
+      - type: 'null'
+    description: >
+      Aggregation over the equal-length window immediately preceding the
+      selected range (powers dashboard delta indicators). `null` when
+      `range=all`, which has no prior window.
   today:
     type: object
     description: Aggregation since local midnight (time-of-day based, not UTC).

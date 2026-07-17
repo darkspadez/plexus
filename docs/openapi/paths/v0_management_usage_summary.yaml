@@ -3,7 +3,8 @@ get:
     - Management — Usage
   summary: Aggregated usage time-series and totals
   description: |
-    Returns bucketed series plus 7-day and since-midnight rollups.
+    Returns bucketed series plus range-scoped, prior-window, and
+    since-midnight rollups.
 
     ## Scoping
 
@@ -18,13 +19,15 @@ get:
     - `month` — returns monthly buckets for the last 12 months
     - `custom` — requires `startDate` and `endDate`; buckets are auto-sized
       based on the range duration
+    - `all` — everything since the epoch; buckets are auto-sized like `custom`
 
     ## Response structure
 
     - **series** — Time-bucketed data, where each bucket contains aggregated
       counts and token sums
-    - **stats** — Fixed 7-day rolling window (always the last 7 days, regardless
-      of `range`)
+    - **stats** — Aggregation over the selected range window
+    - **prevStats** — Aggregation over the equal-length window immediately
+      preceding the selected range (`null` for `range=all`)
     - **today** — Aggregation since local midnight (not UTC), giving a
       "day-so-far" view
   security:
@@ -39,6 +42,7 @@ get:
           - day
           - week
           - month
+          - all
           - custom
         default: day
     - in: query

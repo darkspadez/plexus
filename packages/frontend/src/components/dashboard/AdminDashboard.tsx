@@ -1,14 +1,22 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, AlertTriangle, Gauge as GaugeIcon, Zap } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  Coins,
+  DatabaseZap,
+  DollarSign,
+  Gauge as GaugeIcon,
+  Timer,
+  Zap,
+} from 'lucide-react';
 import { Card } from '../ui/Card';
 import { PageHeader } from '../layout/PageHeader';
 import { PageContainer } from '../layout/PageContainer';
 import { TimeRangeSelector, type TimeRange } from './TimeRangeSelector';
-import { MetricsOverviewCard, type MetricItem } from './MetricsOverviewCard';
+import { MetricsOverviewCard, type MetricDelta, type MetricItem } from './MetricsOverviewCard';
 import { ServiceAlertsCard } from './ServiceAlertsCard';
 import { ErrorsByProviderCard } from './ErrorsByProviderCard';
 import { TimelineChart } from './TimelineChart';
-import { ConcurrencyGauge } from './ConcurrencyGauge';
 import { TotalEnergyComparison } from '../TotalEnergyComparison';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -20,16 +28,31 @@ import {
   useClearSingleCooldown,
 } from '../../hooks/queries/useDashboard';
 import { useGrafanaUrl } from '../../hooks/queries/useConfig';
-import { formatEnergy, formatNumber, formatPercent } from '../../lib/format';
+import {
+  formatCost,
+  formatEnergy,
+  formatMs,
+  formatNumber,
+  formatPercent,
+  formatTokens,
+} from '../../lib/format';
 import type { CustomDateRange } from '../../lib/date';
+import {
+  buildKpiDeltas,
+  cacheHitRatePct,
+  errorRatePct,
+  EMPTY_KPI_DELTAS,
+  formatDeltaPp,
+  formatDeltaPercent,
+} from './kpi-deltas';
 
 /**
  * Single-page admin dashboard that replaces the old Live Metrics / Usage
- * Analytics / Performance tab set. Composes the Task 6 widgets
- * (MetricsOverviewCard, TimelineChart, ConcurrencyGauge, ServiceAlertsCard,
- * ErrorsByProviderCard, TotalEnergyComparison) around one shared time range
- * control. Only rendered for non-limited (admin) principals — `OverallTab`
- * remains the limited-key view.
+ * Analytics / Performance tab set. Composes MetricsOverviewCard,
+ * TimelineChart, ServiceAlertsCard, ErrorsByProviderCard and
+ * TotalEnergyComparison around one shared time range control. Only rendered
+ * for non-limited (admin) principals — `OverallTab` remains the limited-key
+ * view.
  */
 export const AdminDashboard: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -75,13 +98,15 @@ export const AdminDashboard: React.FC = () => {
   }, [timeRange, customDateRange]);
 
   const summaryQuery = useUsageSummary(timeRange, { startDate, endDate });
-  const concurrencyQuery = useConcurrencyData();
+  // The Active Requests tile is a live snapshot, and this page is the only
+  // consumer of the shared concurrency query — the 10s poll must live here.
+  const concurrencyQuery = useConcurrencyData({ refetchInterval: 10000 });
   // Cooldowns aren't range-scoped (they reflect current provider state, not a
   // time window), so a fixed 'day' range is used here — same as LiveTab.
-  // Polled on a fixed 10s interval (matching ConcurrencyGauge's cadence) so a
-  // new provider outage shows up in ServiceAlertsCard without requiring the
-  // admin to navigate away and back. This page has no LiveTab-style
-  // visibility-tracking, so a simple fixed interval is used instead.
+  // Polled on a fixed 10s interval so a new provider outage shows up in
+  // ServiceAlertsCard without requiring the admin to navigate away and back.
+  // This page has no LiveTab-style visibility-tracking, so a simple fixed
+  // interval is used instead.
   const dashboardQuery = useDashboardData({ range: 'day', refetchInterval: 10000 });
   const grafanaUrlQuery = useGrafanaUrl();
 
@@ -96,23 +121,47 @@ export const AdminDashboard: React.FC = () => {
     [concurrencyQuery.data]
   );
 
+  // 8 tiles in two themed rows of 4: row 1 = health (requests, errors,
+  // latency, live load), row 2 = consumption (tokens, cache, cost, energy).
   const kpis: MetricItem[] = useMemo(() => {
     const stats = summaryQuery.data?.stats;
-    const totalRequests = stats?.totalRequests ?? 0;
-    const totalErrors = stats?.totalErrors ?? 0;
-    const errorRate = totalRequests > 0 ? (totalErrors / totalRequests) * 100 : 0;
-    const totalKwh = stats?.totalKwhUsed ?? 0;
+    const windowStats = {
+      totalRequests: stats?.totalRequests ?? 0,
+      totalErrors: stats?.totalErrors ?? 0,
+      inputTokens: stats?.inputTokens ?? 0,
+      outputTokens: stats?.outputTokens ?? 0,
+      cachedTokens: stats?.cachedTokens ?? 0,
+      cacheWriteTokens: stats?.cacheWriteTokens ?? 0,
+    };
+    const deltas = stats
+      ? buildKpiDeltas(stats, summaryQuery.data?.prevStats ?? null)
+      : EMPTY_KPI_DELTAS;
+
+    const relativeDeltaChip = (value: number | null, inverse?: boolean): MetricDelta | undefined =>
+      value === null ? undefined : { value, inverse, format: formatDeltaPercent };
+    const ppDeltaChip = (value: number | null, inverse?: boolean): MetricDelta | undefined =>
+      value === null ? undefined : { value, inverse, format: formatDeltaPp };
+
+    const cachedTotal = windowStats.cachedTokens + windowStats.cacheWriteTokens;
 
     return [
       {
         label: 'Total Requests',
-        value: formatNumber(totalRequests, 0),
+        value: formatNumber(windowStats.totalRequests, 0),
         icon: <Activity size={16} />,
+        delta: relativeDeltaChip(deltas.requests),
       },
       {
         label: 'Error Rate',
-        value: formatPercent(errorRate),
+        value: formatPercent(errorRatePct(windowStats)),
         icon: <AlertTriangle size={16} />,
+        delta: ppDeltaChip(deltas.errorRate, true),
+      },
+      {
+        label: 'Avg Latency',
+        value: formatMs(stats?.avgDurationMs ?? 0),
+        icon: <Timer size={16} />,
+        delta: relativeDeltaChip(deltas.avgLatency, true),
       },
       {
         label: 'Active Requests',
@@ -120,9 +169,29 @@ export const AdminDashboard: React.FC = () => {
         icon: <GaugeIcon size={16} />,
       },
       {
+        label: 'Tokens',
+        value: formatTokens(stats?.totalTokens ?? 0),
+        subtitle: `${formatTokens(windowStats.inputTokens)} in · ${formatTokens(windowStats.outputTokens)} out · ${formatTokens(cachedTotal)} cached`,
+        icon: <Coins size={16} />,
+        delta: relativeDeltaChip(deltas.tokens),
+      },
+      {
+        label: 'Cache Hit Rate',
+        value: formatPercent(cacheHitRatePct(windowStats)),
+        icon: <DatabaseZap size={16} />,
+        delta: ppDeltaChip(deltas.cacheHit),
+      },
+      {
+        label: 'Cost',
+        value: formatCost(stats?.totalCost ?? 0, 2),
+        icon: <DollarSign size={16} />,
+        delta: relativeDeltaChip(deltas.cost, true),
+      },
+      {
         label: 'Total Energy',
-        value: formatEnergy(totalKwh),
+        value: formatEnergy(stats?.totalKwhUsed ?? 0),
         icon: <Zap size={16} />,
+        delta: relativeDeltaChip(deltas.energy, true),
       },
     ];
   }, [summaryQuery.data, activeRequests]);
@@ -185,8 +254,6 @@ export const AdminDashboard: React.FC = () => {
         <MetricsOverviewCard metrics={kpis} />
 
         <TimelineChart timeRange={timeRange} startDate={startDate} endDate={endDate} />
-
-        <ConcurrencyGauge />
 
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
           <ServiceAlertsCard
