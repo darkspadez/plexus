@@ -1,14 +1,16 @@
 import React from 'react';
-import { cn } from '../../lib/cn';
 import { getApiBaseType } from '../../lib/apiFormats';
+import { Pill } from './Pill';
 
 export type ApiFormat = 'OpenAI' | 'Anthropic' | 'Gemini' | 'Responses';
 
+// Subtle alphas match the Pill tone tints in dark theme (0.18) so branded
+// format chips carry the same visual weight as semantic pills beside them.
 const FORMAT_HUES: Record<ApiFormat, { hex: string; subtle: string }> = {
-  OpenAI: { hex: '#2F9F6A', subtle: 'rgba(47,159,106,0.12)' },
-  Anthropic: { hex: '#E07A3E', subtle: 'rgba(224,122,62,0.12)' },
-  Gemini: { hex: '#4A7FCF', subtle: 'rgba(74,127,207,0.12)' },
-  Responses: { hex: '#7C5CFC', subtle: 'rgba(124,92,252,0.12)' },
+  OpenAI: { hex: '#2F9F6A', subtle: 'rgba(47,159,106,0.18)' },
+  Anthropic: { hex: '#E07A3E', subtle: 'rgba(224,122,62,0.18)' },
+  Gemini: { hex: '#4A7FCF', subtle: 'rgba(74,127,207,0.18)' },
+  Responses: { hex: '#7C5CFC', subtle: 'rgba(124,92,252,0.18)' },
 };
 
 // Aliases cover both the legacy/client-facing vocabulary (chat, messages,
@@ -62,26 +64,21 @@ export const ApiFormatChip: React.FC<ApiFormatChipProps> = ({ format, className 
   const resolved = resolveApiFormat(format);
   if (!resolved) {
     return (
-      <span
-        className={cn(
-          'inline-flex items-center rounded-full bg-surface-elevated px-2 py-0.5 font-mono text-[11px] font-medium leading-none text-foreground-muted',
-          className
-        )}
-      >
+      <Pill size="sm" className={className}>
+        <span aria-hidden className="inline-block size-1.5 rounded-full bg-current" />
         {format}
-      </span>
+      </Pill>
     );
   }
   const { hex, subtle } = FORMAT_HUES[resolved];
   return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[11px] font-medium leading-none',
-        className
-      )}
-      style={{ color: hex, backgroundColor: subtle }}
-    >
+    <Pill size="sm" className={className} style={{ color: hex, backgroundColor: subtle }}>
+      <span
+        aria-hidden
+        className="inline-block size-1.5 rounded-full"
+        style={{ backgroundColor: hex }}
+      />
       {resolved}
-    </span>
+    </Pill>
   );
 };

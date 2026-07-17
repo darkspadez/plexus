@@ -36,7 +36,6 @@ import {
   Trash2,
   Bug,
   Zap,
-  Languages,
   MoveHorizontal,
   Copy,
   ChevronDown,
@@ -48,7 +47,6 @@ import {
   Wifi,
   WifiOff,
   Loader,
-  Pi,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -711,15 +709,6 @@ export const Logs = () => {
         meta: { priority: 'high', mobileLabel: 'Route', widthClass: 'px-3 2xl:px-4' },
         cell: ({ row }) => {
           const log = row.original;
-          // Destructured consts (not `log.` property reads) so TypeScript's
-          // aliased-condition narrowing carries through `apiTypesDiffer` to the
-          // ApiFormatChip props below.
-          const { incomingApiType, outgoingApiType } = log;
-          const routePath = getRoutePath(log);
-          const apiTypesDiffer =
-            !!incomingApiType &&
-            !!outgoingApiType &&
-            apiFormatsDiffer(incomingApiType, outgoingApiType);
 
           return (
             <div className="flex min-w-0 max-w-[170px] flex-col gap-0.5 whitespace-nowrap 2xl:max-w-none">
@@ -743,44 +732,6 @@ export const Logs = () => {
                     <Copy size={12} className="text-foreground-muted hover:text-foreground" />
                   </button>
                 )}
-                {/* Intentional fixed raw-palette glyph hues (not semantic tokens) — each
-                    signal (streamed, route path, vision/descriptor) keeps a stable identity
-                    color for quick visual scanning, matching the rest of this row today. */}
-                <span className="flex shrink-0 items-center gap-1">
-                  {log.isStreamed && (
-                    <span title="Streamed" className="cursor-help">
-                      <Zap size={12} className="text-blue-400" />
-                    </span>
-                  )}
-                  {routePath === 'native' ? (
-                    <span title="pi-ai native" className="cursor-help">
-                      <Pi size={12} className="text-emerald-400" />
-                    </span>
-                  ) : routePath === 'passthrough' ? (
-                    <span title="Direct/Passthrough" className="cursor-help">
-                      <MoveHorizontal size={12} className="text-yellow-500" />
-                    </span>
-                  ) : (
-                    <span title="Translated" className="cursor-help">
-                      <Languages size={12} className="text-purple-400" />
-                    </span>
-                  )}
-                  {log.isVisionFallthrough ? (
-                    <span
-                      title="Vision fallthrough (images converted to text)"
-                      className="cursor-help"
-                    >
-                      <ScanSearch size={12} className="text-amber-500" />
-                    </span>
-                  ) : log.isDescriptorRequest ? (
-                    <span
-                      title="Descriptor request (generated image description)"
-                      className="cursor-help"
-                    >
-                      <Eye size={12} className="text-blue-500" />
-                    </span>
-                  ) : null}
-                </span>
               </div>
               <div className="group/selected flex items-center gap-1.5 text-xs text-foreground-muted">
                 <span
@@ -805,15 +756,78 @@ export const Logs = () => {
                     <Copy size={10} className="text-foreground-muted hover:text-foreground" />
                   </button>
                 )}
-                {apiTypesDiffer && (
-                  <span className="flex shrink-0 items-center gap-1">
-                    <ApiFormatChip format={incomingApiType} />
-                    <span aria-hidden>→</span>
-                    <ApiFormatChip format={outgoingApiType} />
-                  </span>
-                )}
               </div>
             </div>
+          );
+        },
+      },
+      {
+        id: 'type',
+        header: 'Type',
+        enableSorting: false,
+        meta: { priority: 'medium', mobileLabel: 'Type', widthClass: 'px-3 2xl:px-4' },
+        cell: ({ row }) => {
+          const log = row.original;
+          // Destructured consts (not `log.` property reads) so TypeScript's
+          // aliased-condition narrowing carries through `apiTypesDiffer` to the
+          // ApiFormatChip props below.
+          const { incomingApiType, outgoingApiType } = log;
+          const routePath = getRoutePath(log);
+          const apiTypesDiffer =
+            !!incomingApiType &&
+            !!outgoingApiType &&
+            apiFormatsDiffer(incomingApiType, outgoingApiType);
+
+          // Cross-format rows say it with the pair itself (OpenAI → Anthropic);
+          // passthrough says "direct"; same-format rows show the wire format.
+          return (
+            <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+              {apiTypesDiffer ? (
+                <span className="flex items-center gap-1" title="Translated between API formats">
+                  <ApiFormatChip format={incomingApiType} />
+                  <span aria-hidden className="text-xs text-foreground-muted">
+                    →
+                  </span>
+                  <ApiFormatChip format={outgoingApiType} />
+                </span>
+              ) : routePath === 'passthrough' ? (
+                <Pill tone="warning" size="sm" title="Direct/Passthrough">
+                  <MoveHorizontal size={10} />
+                  direct
+                </Pill>
+              ) : outgoingApiType || incomingApiType ? (
+                <ApiFormatChip format={(outgoingApiType || incomingApiType) as string} />
+              ) : (
+                <span className="text-foreground-subtle">-</span>
+              )}
+              {log.isVisionFallthrough ? (
+                <span title="Vision fallthrough (images converted to text)" className="cursor-help">
+                  <ScanSearch size={12} className="text-amber-500" />
+                </span>
+              ) : log.isDescriptorRequest ? (
+                <span
+                  title="Descriptor request (generated image description)"
+                  className="cursor-help"
+                >
+                  <Eye size={12} className="text-blue-500" />
+                </span>
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
+        id: 'stream',
+        header: 'Streamed',
+        enableSorting: false,
+        meta: { priority: 'medium', mobileLabel: 'Streamed', widthClass: 'px-3 2xl:px-4' },
+        cell: ({ row }) => {
+          if (!row.original.isStreamed) return null;
+          return (
+            <Pill tone="info" size="sm" title="Streamed response">
+              <Zap size={10} />
+              streamed
+            </Pill>
           );
         },
       },
@@ -958,7 +972,7 @@ export const Logs = () => {
         id: 'status',
         header: 'Status',
         enableSorting: false,
-        meta: { priority: 'high', mobileLabel: 'Status', widthClass: 'w-px px-5' },
+        meta: { priority: 'high', mobileLabel: 'Status', align: 'center', widthClass: 'w-px px-5' },
         cell: ({ row }) => {
           const log = row.original;
           // Pure state display — zero interactivity. Error/trace navigation
@@ -970,7 +984,7 @@ export const Logs = () => {
             : (RESPONSE_STATUS_PILLS[log.responseStatus] ?? RESPONSE_STATUS_PILL_FALLBACK);
 
           return (
-            <div className="flex flex-col items-start gap-1">
+            <div className="flex items-center justify-center gap-1">
               <Pill tone={statusPill.tone} size="sm">
                 {statusPill.label}
               </Pill>
@@ -993,11 +1007,11 @@ export const Logs = () => {
         enableSorting: false,
         // priority 'low' keeps this column off the mobile cards — the card
         // header already exposes delete via mobileActions.
-        meta: { priority: 'low', align: 'right', widthClass: 'w-px px-2' },
+        meta: { priority: 'low', align: 'center', widthClass: 'w-px px-2' },
         cell: ({ row }) => {
           const log = row.original;
           return (
-            <div className="flex items-center justify-end gap-1">
+            <div className="flex items-center justify-center gap-1">
               {log.hasDebug && (
                 <button
                   type="button"
