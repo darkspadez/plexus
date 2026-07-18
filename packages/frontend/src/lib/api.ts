@@ -1782,7 +1782,10 @@ export const api = {
           enabled: val.enabled !== false,
           estimateTokens: val.estimateTokens || false,
           useClaudeMasking: val.useClaudeMasking === true,
-          geminiThinkingEnabled: val.gemini_thinking_enabled === true,
+          // The backend schema field is camelCase; keep the snake_case fallback
+          // for configs written before the key was fixed.
+          geminiThinkingEnabled:
+            val.geminiThinkingEnabled === true || val.gemini_thinking_enabled === true,
           disableCooldown: val.disable_cooldown === true,
           stallCooldown: val.stall_cooldown === true,
           discount: val.discount,
@@ -1808,6 +1811,7 @@ export const api = {
           stallWindowMs: val.stallWindowMs ?? undefined,
           stallGracePeriodMs: val.stallGracePeriodMs ?? undefined,
           pi_ai_provider: val.pi_ai_provider ?? undefined,
+          auto_compat: typeof val.auto_compat === 'boolean' ? val.auto_compat : undefined,
           rawPassthrough: val.raw_passthrough
             ? {
                 enabled: val.raw_passthrough.enabled === true,
@@ -1884,6 +1888,7 @@ export const api = {
           }
         : {}),
       ...(provider.pi_ai_provider ? { pi_ai_provider: provider.pi_ai_provider } : {}),
+      ...(provider.auto_compat != null ? { auto_compat: provider.auto_compat } : {}),
     };
 
     const isExistingProvider = oldId === provider.id;
