@@ -13,6 +13,12 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg';
   /** Small muted metadata rendered in the header row, before the close button. */
   headerMeta?: React.ReactNode;
+  /** Muted second line rendered under the title (e.g. "name · id"). */
+  subtitle?: React.ReactNode;
+  /** Action slot rendered in the header row between the title block and the close button. */
+  headerActions?: React.ReactNode;
+  /** Pinned strip between the header and the scrollable body (e.g. a tab bar). */
+  subHeader?: React.ReactNode;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -26,6 +32,9 @@ const CenteredDialog: React.FC<ModalProps> = ({
   children,
   footer,
   headerMeta,
+  subtitle,
+  headerActions,
+  subHeader,
 }) => {
   useBodyScrollLock(isOpen);
 
@@ -52,11 +61,19 @@ const CenteredDialog: React.FC<ModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 p-4 border-b border-border-strong sm:p-5">
-          <h2 className="min-w-0 flex-1 font-sans text-base font-medium text-foreground m-0 truncate">
-            {title}
-          </h2>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-sans text-base font-medium text-foreground m-0 truncate">
+              {title}
+            </h2>
+            {subtitle && (
+              <div className="mt-0.5 text-xs text-foreground-muted truncate">{subtitle}</div>
+            )}
+          </div>
           {headerMeta && (
             <div className="flex-shrink-0 text-xs text-foreground-muted">{headerMeta}</div>
+          )}
+          {headerActions && (
+            <div className="flex flex-shrink-0 items-center gap-2">{headerActions}</div>
           )}
           <button
             type="button"
@@ -67,6 +84,7 @@ const CenteredDialog: React.FC<ModalProps> = ({
             <X size={16} />
           </button>
         </div>
+        {subHeader && <div className="flex-shrink-0 px-4 sm:px-5">{subHeader}</div>}
         <div className="p-4 overflow-y-auto flex-1 sm:p-5">{children}</div>
         {footer && (
           <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 border-t border-border-strong sm:px-5 sm:py-4">
@@ -93,6 +111,9 @@ const SheetPanel: React.FC<ModalProps & { size: 'md' | 'lg' }> = ({
   footer,
   size,
   headerMeta,
+  subtitle,
+  headerActions,
+  subHeader,
 }) => {
   return (
     <Drawer
@@ -105,11 +126,17 @@ const SheetPanel: React.FC<ModalProps & { size: 'md' | 'lg' }> = ({
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border-strong flex-shrink-0">
-        <h2 className="min-w-0 flex-1 font-sans text-base font-medium text-foreground m-0 truncate">
-          {title}
-        </h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-sans text-base font-medium text-foreground m-0 truncate">{title}</h2>
+          {subtitle && (
+            <div className="mt-0.5 text-xs text-foreground-muted truncate">{subtitle}</div>
+          )}
+        </div>
         {headerMeta && (
           <div className="flex-shrink-0 text-xs text-foreground-muted">{headerMeta}</div>
+        )}
+        {headerActions && (
+          <div className="flex flex-shrink-0 items-center gap-2">{headerActions}</div>
         )}
         <button
           type="button"
@@ -120,6 +147,9 @@ const SheetPanel: React.FC<ModalProps & { size: 'md' | 'lg' }> = ({
           <X size={16} />
         </button>
       </div>
+
+      {/* Pinned sub-header (e.g. tab bar) */}
+      {subHeader && <div className="flex-shrink-0 px-5">{subHeader}</div>}
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto p-5">{children}</div>
@@ -146,6 +176,9 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
   size = 'md',
   headerMeta,
+  subtitle,
+  headerActions,
+  subHeader,
 }) => {
   if (size === 'sm') {
     return (
@@ -155,6 +188,9 @@ export const Modal: React.FC<ModalProps> = ({
         title={title}
         footer={footer}
         headerMeta={headerMeta}
+        subtitle={subtitle}
+        headerActions={headerActions}
+        subHeader={subHeader}
       >
         {children}
       </CenteredDialog>
@@ -169,6 +205,9 @@ export const Modal: React.FC<ModalProps> = ({
       footer={footer}
       size={size}
       headerMeta={headerMeta}
+      subtitle={subtitle}
+      headerActions={headerActions}
+      subHeader={subHeader}
     >
       {children}
     </SheetPanel>
