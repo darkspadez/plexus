@@ -118,7 +118,12 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         )}
         {extra && (
           <div
-            className={cn('ml-auto flex flex-shrink-0 flex-wrap items-center gap-2', cellPadding)}
+            className={cn(
+              // max-w-full caps the cell at the card width so an oversized
+              // action cluster wraps inside it instead of overhanging the card.
+              'ml-auto flex max-w-full flex-shrink-0 flex-wrap items-center gap-2',
+              cellPadding
+            )}
             onClick={(e) => e.stopPropagation()}
           >
             {extra}
