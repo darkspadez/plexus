@@ -1,22 +1,46 @@
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { Input } from '../components/ui/Input';
 import { Switch } from '../components/ui/Switch';
+import { Tabs } from '../components/ui/Tabs';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
 import { useProviderForm } from '../hooks/useProviderForm';
+import { PROVIDER_FORM_TABS } from './providers/provider-tab-errors';
 import { ProviderList } from '../components/providers/ProviderList';
-import { ProviderApiUrlsEditor } from '../components/providers/ProviderApiUrlsEditor';
-import { ProviderOAuthEditor } from '../components/providers/ProviderOAuthEditor';
-import { ProviderQuotaEditor } from '../components/providers/ProviderQuotaEditor';
-import { ProviderAdvancedEditor } from '../components/providers/ProviderAdvancedEditor';
-import { ProviderModelsEditor } from '../components/providers/ProviderModelsEditor';
+import { ProviderConnectionTab } from '../components/providers/ProviderConnectionTab';
+import { ProviderLimitsTab } from '../components/providers/ProviderLimitsTab';
+import { ProviderTransformationsTab } from '../components/providers/ProviderTransformationsTab';
+import { ProviderModelsTab } from '../components/providers/ProviderModelsTab';
 import { FetchModelsModal } from '../components/providers/FetchModelsModal';
 import { DeleteProviderModal } from '../components/providers/DeleteProviderModal';
 import { Plus } from 'lucide-react';
 
 export const Providers = () => {
   const f = useProviderForm();
+
+  const isEditing = !!f.originalId;
+  const subtitle = isEditing
+    ? [
+        f.editingProvider.name && f.editingProvider.name !== f.originalId
+          ? f.editingProvider.name
+          : null,
+        f.originalId,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : undefined;
+
+  const tabItems = PROVIDER_FORM_TABS.map((tab) => ({
+    value: tab.value,
+    label: (
+      <span className="inline-flex items-center gap-1.5">
+        {tab.label}
+        {f.saveAttempted && f.tabErrors[tab.value] && (
+          <span aria-hidden className="inline-block size-1.5 rounded-full bg-danger" />
+        )}
+      </span>
+    ),
+  }));
 
   return (
     <div className="flex flex-col min-h-full">
@@ -44,204 +68,86 @@ export const Providers = () => {
           }
         />
 
-        {/* Edit / Add Modal */}
+        {/* Edit / Add drawer — four pinned tabs over a single scrollable panel */}
         <Modal
           isOpen={f.isModalOpen}
-          onClose={() => f.setIsModalOpen(false)}
-          title={f.originalId ? `Edit Provider: ${f.originalId}` : 'Add Provider'}
+          onClose={f.requestClose}
+          title={isEditing ? 'Edit provider' : 'Add provider'}
+          subtitle={subtitle}
+          headerActions={
+            <div className="flex items-center gap-2">
+              <span className="font-sans text-xs text-foreground-muted">Enabled</span>
+              <Switch
+                aria-label="Provider enabled"
+                checked={f.editingProvider.enabled !== false}
+                onChange={(checked) =>
+                  f.setEditingProvider({ ...f.editingProvider, enabled: checked })
+                }
+              />
+            </div>
+          }
+          subHeader={
+            <Tabs
+              value={f.activeTab}
+              onChange={f.setActiveTab}
+              items={tabItems}
+              aria-label="Provider settings sections"
+            />
+          }
           size="lg"
           footer={
             <>
-              <Button variant="ghost" onClick={() => f.setIsModalOpen(false)}>
+              {f.isDirty && (
+                <span className="mr-auto inline-flex items-center gap-1.5 font-sans text-xs text-foreground-muted">
+                  <span aria-hidden className="inline-block size-1.5 rounded-full bg-warning" />
+                  Unsaved changes
+                </span>
+              )}
+              <Button variant="ghost" onClick={f.requestClose}>
                 Cancel
               </Button>
-              <Button
-                onClick={f.handleSave}
-                isLoading={f.isSaving}
-                disabled={!!f.quotaValidationError}
-              >
-                Save Provider
+              <Button onClick={f.handleSave} isLoading={f.isSaving}>
+                {isEditing ? 'Save changes' : 'Create provider'}
               </Button>
             </>
           }
         >
-          <div className="sticky top-0 z-10 -mt-5 -mx-5 mb-3 px-5 py-2 bg-surface-elevated/95 backdrop-blur border-b border-border flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                document
-                  .getElementById('section-connection')
-                  ?.scrollIntoView({ behavior: 'smooth' })
-              }
-            >
-              Connection
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                document.getElementById('section-quota')?.scrollIntoView({ behavior: 'smooth' })
-              }
-            >
-              Quota
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                f.setIsAdvancedOpen(true);
-                document.getElementById('section-advanced')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-            >
-              Advanced
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                f.setIsModelsOpen(true);
-                document.getElementById('section-models')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-            >
-              Models
-            </Button>
+          {/* Panels stay mounted so debounced inputs and local disclosure state
+              survive tab switches; inactive panels are display:none. */}
+          <div className={f.activeTab === 'connection' ? undefined : 'hidden'}>
+            <ProviderConnectionTab f={f} />
           </div>
-          <div className="flex flex-col gap-2.5 -mt-2">
-            {/* Basic fields */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_auto] xl:items-end">
-              <Input
-                label="Unique ID"
-                value={f.editingProvider.id}
-                onChange={(e) => f.setEditingProvider({ ...f.editingProvider, id: e.target.value })}
-                placeholder="e.g. openai"
-                disabled={!!f.originalId}
-              />
-              <Input
-                label="Display Name"
-                value={f.editingProvider.name}
-                onChange={(e) =>
-                  f.setEditingProvider({ ...f.editingProvider, name: e.target.value })
-                }
-                placeholder="e.g. OpenAI Production"
-              />
-              <Input
-                label="API Key"
-                type="password"
-                value={f.editingProvider.apiKey}
-                onChange={(e) =>
-                  f.setEditingProvider({ ...f.editingProvider, apiKey: e.target.value })
-                }
-                placeholder="sk-..."
-                disabled={f.isOAuthMode}
-              />
-              <div className="flex flex-col gap-2">
-                <label className="font-sans text-[13px] font-medium text-foreground-muted">
-                  Enabled
-                </label>
-                <div className="h-[38px] flex items-center">
-                  <Switch
-                    checked={f.editingProvider.enabled !== false}
-                    onChange={(checked) =>
-                      f.setEditingProvider({ ...f.editingProvider, enabled: checked })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="h-px bg-border my-1" />
-
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              {/* Left: APIs & Base URLs */}
-              <ProviderApiUrlsEditor
-                isOAuthMode={f.isOAuthMode}
-                getPrimaryEntry={f.getPrimaryEntry}
-                setPrimaryEntry={f.setPrimaryEntry}
-                editingProvider={f.editingProvider}
-                setEditingProvider={f.setEditingProvider}
-                OAUTH_PROVIDERS={f.OAUTH_PROVIDERS}
-                oauthSlot={
-                  f.isOAuthMode && (
-                    <ProviderOAuthEditor
-                      editingProvider={f.editingProvider}
-                      oauthSession={f.oauthSession}
-                      oauthSessionId={f.oauthSessionId}
-                      oauthPromptValue={f.oauthPromptValue}
-                      setOauthPromptValue={f.setOauthPromptValue}
-                      oauthManualCode={f.oauthManualCode}
-                      setOauthManualCode={f.setOauthManualCode}
-                      oauthError={f.oauthError}
-                      oauthBusy={f.oauthBusy}
-                      oauthCredentialReady={f.oauthCredentialReady}
-                      oauthCredentialChecking={f.oauthCredentialChecking}
-                      oauthStatus={f.oauthStatus}
-                      oauthIsTerminal={f.oauthIsTerminal}
-                      oauthStatusLabel={f.oauthStatusLabel}
-                      onStart={f.handleStartOAuth}
-                      onSubmitPrompt={f.handleSubmitPrompt}
-                      onSubmitManualCode={f.handleSubmitManualCode}
-                      onCancel={f.handleCancelOAuth}
-                    />
-                  )
-                }
-              />
-
-              {/* Right: Quota Checker */}
-              <ProviderQuotaEditor
-                editingProvider={f.editingProvider}
-                setEditingProvider={f.setEditingProvider}
-                selectedQuotaCheckerType={f.selectedQuotaCheckerType}
-                selectableQuotaCheckerTypes={f.selectableQuotaCheckerTypes}
-                isOAuthMode={f.isOAuthMode}
-                oauthCheckerType={f.oauthCheckerType}
-                quotaValidationError={f.quotaValidationError}
-              />
-            </div>
-
-            {/* Advanced */}
-            <ProviderAdvancedEditor
-              editingProvider={f.editingProvider}
-              setEditingProvider={f.setEditingProvider}
-              addKV={f.addKV}
-              updateKV={f.updateKV}
-              removeKV={f.removeKV}
-              isAdvancedOpen={f.isAdvancedOpen}
-              setIsAdvancedOpen={f.setIsAdvancedOpen}
-              isApiBaseUrlsOpen={f.isApiBaseUrlsOpen}
-              setIsApiBaseUrlsOpen={f.setIsApiBaseUrlsOpen}
-              isOAuthMode={f.isOAuthMode}
-              getApiBaseUrlMap={f.getApiBaseUrlMap}
-              addAdditionalBaseUrlEntry={f.addAdditionalBaseUrlEntry}
-              updateApiBaseUrlEntry={f.updateApiBaseUrlEntry}
-              removeApiBaseUrlEntry={f.removeApiBaseUrlEntry}
-            />
-
-            {/* Models */}
-            <ProviderModelsEditor
-              editingProvider={f.editingProvider}
-              setEditingProvider={f.setEditingProvider}
-              isModelsOpen={f.isModelsOpen}
-              setIsModelsOpen={f.setIsModelsOpen}
-              openModelIdx={f.openModelIdx}
-              setOpenModelIdx={f.setOpenModelIdx}
-              isModelExtraBodyOpen={f.isModelExtraBodyOpen}
-              setIsModelExtraBodyOpen={f.setIsModelExtraBodyOpen}
-              testStates={f.testStates}
-              addModel={f.addModel}
-              updateModelId={f.updateModelId}
-              updateModelConfig={f.updateModelConfig}
-              removeModel={f.removeModel}
-              addModelKV={f.addModelKV}
-              updateModelKV={f.updateModelKV}
-              removeModelKV={f.removeModelKV}
-              onOpenFetchModels={f.handleOpenFetchModels}
-              onTestModel={f.handleTestModel}
-              onDismissTestMessage={f.dismissTestMessage}
-              getApiBaseUrlMap={f.getApiBaseUrlMap}
-              isNewProvider={!f.originalId}
-            />
+          <div className={f.activeTab === 'limits' ? undefined : 'hidden'}>
+            <ProviderLimitsTab f={f} />
           </div>
+          <div className={f.activeTab === 'transformations' ? undefined : 'hidden'}>
+            <ProviderTransformationsTab f={f} />
+          </div>
+          <div className={f.activeTab === 'models' ? undefined : 'hidden'}>
+            <ProviderModelsTab f={f} />
+          </div>
+        </Modal>
+
+        {/* Discard-unsaved-changes confirmation */}
+        <Modal
+          isOpen={f.showDiscardConfirm}
+          onClose={() => f.setShowDiscardConfirm(false)}
+          title="Discard unsaved changes?"
+          size="sm"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => f.setShowDiscardConfirm(false)}>
+                Keep editing
+              </Button>
+              <Button variant="danger" onClick={f.confirmDiscard}>
+                Discard
+              </Button>
+            </>
+          }
+        >
+          <p className="font-sans text-sm text-foreground-muted m-0">
+            Your edits to this provider haven&apos;t been saved and will be lost.
+          </p>
         </Modal>
 
         {/* Fetch Models Modal */}

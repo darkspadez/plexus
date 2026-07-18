@@ -26,6 +26,11 @@ import {
   PROVIDER_FORM_DEFAULTS,
   type ProviderFormValues,
 } from '../pages/providers/provider-schema';
+import {
+  computeProviderTabErrors,
+  firstErrorTab,
+  type ProviderFormTab,
+} from '../pages/providers/provider-tab-errors';
 
 const KNOWN_APIS = [
   'chat',
@@ -198,14 +203,22 @@ export function useProviderForm() {
   const [oauthCredentialReady, setOauthCredentialReady] = useState(false);
   const [oauthCredentialChecking, setOauthCredentialChecking] = useState(false);
 
-  // Accordion state
-  const [isModelsOpen, setIsModelsOpen] = useState(false);
-  const [openModelIdx, setOpenModelIdx] = useState<string | null>(null);
+  // Tabbed drawer state
+  const [activeTab, setActiveTabState] = useState<ProviderFormTab>('connection');
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [isApiBaseUrlsOpen, setIsApiBaseUrlsOpen] = useState(true);
-  const [isHeadersOpen, setIsHeadersOpen] = useState(false);
-  const [isExtraBodyOpen, setIsExtraBodyOpen] = useState(false);
   const [isModelExtraBodyOpen, setIsModelExtraBodyOpen] = useState<Record<string, boolean>>({});
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+
+  // Leaving the Models tab returns its next visit to the list view.
+  const setActiveTab = useCallback((tab: ProviderFormTab) => {
+    setActiveTabState(tab);
+    if (tab !== 'models') setSelectedModelId(null);
+  }, []);
+
+  // Dirty tracking — JSON snapshot of the form taken when the drawer opens.
+  const [openSnapshot, setOpenSnapshot] = useState('');
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [saveAttempted, setSaveAttempted] = useState(false);
 
   // Fetch Models Modal state
   const [isFetchModelsModalOpen, setIsFetchModelsModalOpen] = useState(false);
@@ -274,6 +287,10 @@ export function useProviderForm() {
 
   // isSaving — derived from mutation state
   const isSaving = saveProviderMutation.isPending;
+
+  // Unsaved changes — compare the live form against the open-time snapshot.
+  const isDirty =
+    isModalOpen && openSnapshot !== '' && JSON.stringify(editingProvider) !== openSnapshot;
 
   // ---------------------------------------------------------------------------
   // Effects — OAuth credential check and session polling (unchanged)
@@ -367,17 +384,35 @@ export function useProviderForm() {
   // Handlers
   // ---------------------------------------------------------------------------
 
+  const openDrawer = (values: ProviderFormValues) => {
+    reset(values);
+    setOpenSnapshot(JSON.stringify(values));
+    setActiveTab('connection');
+    setSaveAttempted(false);
+    setShowDiscardConfirm(false);
+    setIsModalOpen(true);
+  };
+
   const handleEdit = (provider: Provider) => {
     setOriginalId(provider.id);
-    // Reset the rhf form to the provider's values (deep-clone like old JSON.parse)
-    reset(JSON.parse(JSON.stringify(provider)) as ProviderFormValues);
-    setIsModalOpen(true);
+    // Deep-clone the provider into the rhf form (like old JSON.parse behavior)
+    openDrawer(JSON.parse(JSON.stringify(provider)) as ProviderFormValues);
   };
 
   const handleAddNew = () => {
     setOriginalId(null);
-    reset(JSON.parse(JSON.stringify(PROVIDER_FORM_DEFAULTS)));
-    setIsModalOpen(true);
+    openDrawer(JSON.parse(JSON.stringify(PROVIDER_FORM_DEFAULTS)) as ProviderFormValues);
+  };
+
+  // Close-with-guard: dirty drawers ask for confirmation before discarding.
+  const requestClose = () => {
+    if (isDirty) setShowDiscardConfirm(true);
+    else setIsModalOpen(false);
+  };
+
+  const confirmDiscard = () => {
+    setShowDiscardConfirm(false);
+    setIsModalOpen(false);
   };
 
   const openDeleteModal = async (provider: Provider) => {
@@ -400,30 +435,35 @@ export function useProviderForm() {
   const handleSave = async () => {
     // Use editingProvider (already derived from watch() above) instead of calling watch() again.
     const formValues = editingProvider as unknown as ProviderFormValues;
+    setSaveAttempted(true);
 
-    if (!formValues.id) {
-      toast.error('Provider ID is required');
+    // Pre-flight validation lives in computeProviderTabErrors so each error
+    // can decorate + jump to the tab that owns it (ID/OAuth → Connection,
+    // quota → Limits, raw passthrough → Transformations).
+    const errors = computeProviderTabErrors({
+      id: formValues.id,
+      isOAuthMode,
+      oauthAccount: formValues.oauthAccount,
+      quotaValidationError,
+      rawPassthrough: editingProvider.rawPassthrough,
+    });
+    const errorTab = firstErrorTab(errors);
+    if (errorTab) {
+      setActiveTab(errorTab);
+      toast.error(errors[errorTab] as string);
       return;
     }
 
-    const result = toProviderPayload(formValues, { isOAuthMode });
+    let snapshotValues: ProviderFormValues | undefined;
+    try {
+      snapshotValues = openSnapshot ? (JSON.parse(openSnapshot) as ProviderFormValues) : undefined;
+    } catch {
+      snapshotValues = undefined;
+    }
+    const result = toProviderPayload(formValues, { isOAuthMode, openSnapshot: snapshotValues });
     if (!result.ok) {
       toast.error(result.error);
       return;
-    }
-
-    if (result.provider.rawPassthrough?.enabled) {
-      if (isOAuthMode) {
-        toast.error('Raw passthrough currently supports static API-key providers only');
-        return;
-      }
-      try {
-        const rawBaseUrl = new URL(result.provider.rawPassthrough.baseUrl);
-        if (!['http:', 'https:'].includes(rawBaseUrl.protocol)) throw new Error();
-      } catch {
-        toast.error('Raw passthrough requires a valid HTTP(S) base URL');
-        return;
-      }
     }
 
     saveProviderMutation.mutate(
@@ -767,7 +807,7 @@ export function useProviderForm() {
     };
     newModels[modelId] = { pricing: { source: 'simple', input: 0, output: 0 }, access_via: [] };
     setEditingProvider({ ...editingProvider, models: newModels });
-    setOpenModelIdx(modelId);
+    setSelectedModelId(modelId);
   };
 
   const updateModelId = (oldId: string, newId: string) => {
@@ -776,7 +816,7 @@ export function useProviderForm() {
     models[newId] = models[oldId];
     delete models[oldId];
     setEditingProvider({ ...editingProvider, models });
-    if (openModelIdx === oldId) setOpenModelIdx(newId);
+    if (selectedModelId === oldId) setSelectedModelId(newId);
   };
 
   const updateModelConfig = (modelId: string, updates: any) => {
@@ -789,6 +829,7 @@ export function useProviderForm() {
     const models = { ...(editingProvider.models as Record<string, any>) };
     delete models[modelId];
     setEditingProvider({ ...editingProvider, models });
+    if (selectedModelId === modelId) setSelectedModelId(null);
   };
 
   // Fetch models helpers
@@ -888,9 +929,14 @@ export function useProviderForm() {
   };
 
   const validateQuotaChecker = (): string | null => {
-    const quotaType = editingProvider.quotaChecker?.type;
-    const options = editingProvider.quotaChecker?.options || {};
-    if (!quotaType) return null;
+    const checker = editingProvider.quotaChecker;
+    const quotaType = checker?.type;
+    const options = checker?.options || {};
+    if (!checker) return null;
+    // A paused checker (enabled: false) isn't running — don't block save on
+    // incomplete options; they're re-validated when monitoring is re-enabled.
+    if (checker.enabled === false) return null;
+    if (!quotaType) return 'Select a quota checker type or turn off quota monitoring';
     if (quotaType === 'naga' && (!options.apiKey || !(options.apiKey as string).trim()))
       return 'Provisioning API Key is required for Naga quota checker';
     if (quotaType === 'minimax') {
@@ -981,6 +1027,13 @@ export function useProviderForm() {
 
   const sortedProviders = [...providers].sort((a, b) => a.id.localeCompare(b.id));
   const quotaValidationError = validateQuotaChecker();
+  const tabErrors = computeProviderTabErrors({
+    id: editingProvider.id,
+    isOAuthMode,
+    oauthAccount: editingProvider.oauthAccount,
+    quotaValidationError,
+    rawPassthrough: editingProvider.rawPassthrough,
+  });
 
   return {
     // State
@@ -1013,21 +1066,23 @@ export function useProviderForm() {
     selectableQuotaCheckerTypes,
     selectedQuotaCheckerType,
     quotaValidationError,
-    // Accordion
-    isModelsOpen,
-    setIsModelsOpen,
-    openModelIdx,
-    setOpenModelIdx,
+    // Tabbed drawer
+    activeTab,
+    setActiveTab,
+    selectedModelId,
+    setSelectedModelId,
+    isDirty,
+    requestClose,
+    confirmDiscard,
+    showDiscardConfirm,
+    setShowDiscardConfirm,
+    saveAttempted,
+    tabErrors,
+    // Disclosures
     isApiBaseUrlsOpen,
     setIsApiBaseUrlsOpen,
-    isHeadersOpen,
-    setIsHeadersOpen,
-    isExtraBodyOpen,
-    setIsExtraBodyOpen,
     isModelExtraBodyOpen,
     setIsModelExtraBodyOpen,
-    isAdvancedOpen,
-    setIsAdvancedOpen,
     // Fetch models
     isFetchModelsModalOpen,
     setIsFetchModelsModalOpen,
@@ -1095,3 +1150,6 @@ export function useProviderForm() {
     OAUTH_PROVIDERS,
   };
 }
+
+/** The full form-state surface handed to the drawer's tab components. */
+export type ProviderFormApi = ReturnType<typeof useProviderForm>;

@@ -220,6 +220,84 @@ describe('toProviderPayload — quota checker', () => {
     if (!result.ok) throw new Error('Expected ok');
     expect(result.provider.quotaChecker?.type).toBe('minimax');
   });
+
+  test('preserves a PAUSED checker (enabled: false with a type) — pause keeps config', () => {
+    const input = base({
+      id: 'paused-checker',
+      quotaChecker: {
+        type: 'naga',
+        enabled: false,
+        intervalMinutes: 30,
+        options: { apiKey: 'naga-secret' },
+      },
+    });
+
+    const result = toProviderPayload(input);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected ok');
+
+    // The monitoring switch maps to `enabled`; toggling it off must NOT
+    // destroy the configured type/options.
+    expect(result.provider.quotaChecker).toEqual({
+      type: 'naga',
+      enabled: false,
+      intervalMinutes: 30,
+      options: { apiKey: 'naga-secret' },
+    });
+  });
+
+  test('strips cleared (empty-string) options from a PAUSED checker so the backend accepts it', () => {
+    // Config components store cleared fields as '' — the backend's per-checker
+    // schemas reject those even when the checker is disabled. Real values stay.
+    const partial = toProviderPayload(
+      base({
+        id: 'paused-partial',
+        quotaChecker: {
+          type: 'naga',
+          enabled: false,
+          intervalMinutes: 30,
+          options: { apiKey: '', endpoint: 'https://naga.example/api' },
+        },
+      })
+    );
+    expect(partial.ok).toBe(true);
+    if (!partial.ok) throw new Error('Expected ok');
+    expect(partial.provider.quotaChecker?.options).toEqual({
+      endpoint: 'https://naga.example/api',
+    });
+
+    const allCleared = toProviderPayload(
+      base({
+        id: 'paused-cleared',
+        quotaChecker: {
+          type: 'naga',
+          enabled: false,
+          intervalMinutes: 30,
+          options: { apiKey: '' },
+        },
+      })
+    );
+    expect(allCleared.ok).toBe(true);
+    if (!allCleared.ok) throw new Error('Expected ok');
+    expect(allCleared.provider.quotaChecker).toEqual({
+      type: 'naga',
+      enabled: false,
+      intervalMinutes: 30,
+      options: undefined,
+    });
+  });
+
+  test('does NOT strip empty options from an ENABLED checker (validation owns that case)', () => {
+    const result = toProviderPayload(
+      base({
+        id: 'enabled-empty-key',
+        quotaChecker: { type: 'naga', enabled: true, intervalMinutes: 30, options: { apiKey: '' } },
+      })
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected ok');
+    expect(result.provider.quotaChecker?.options).toEqual({ apiKey: '' });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -405,6 +483,79 @@ describe('toProviderPayload — advanced fields', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('Expected ok');
     expect(result.provider.maxConcurrency).toBeNull();
+  });
+
+  test('emits auto_compat (was silently dropped before the tabbed rework)', () => {
+    const on = toProviderPayload(base({ id: 'compat-on', auto_compat: true }));
+    expect(on.ok).toBe(true);
+    if (!on.ok) throw new Error('Expected ok');
+    expect(on.provider.auto_compat).toBe(true);
+
+    const off = toProviderPayload(base({ id: 'compat-off', auto_compat: false }));
+    expect(off.ok).toBe(true);
+    if (!off.ok) throw new Error('Expected ok');
+    expect(off.provider.auto_compat).toBe(false);
+
+    const unset = toProviderPayload(base({ id: 'compat-unset' }));
+    expect(unset.ok).toBe(true);
+    if (!unset.ok) throw new Error('Expected ok');
+    expect(unset.provider.auto_compat).toBeUndefined();
+  });
+
+  test('emits rawPassthrough verbatim (was silently dropped before the tabbed rework)', () => {
+    const input = base({
+      id: 'raw-provider',
+      rawPassthrough: { enabled: true, baseUrl: 'https://openrouter.ai/api', auth: 'x-api-key' },
+    });
+
+    const result = toProviderPayload(input);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected ok');
+    expect(result.provider.rawPassthrough).toEqual({
+      enabled: true,
+      baseUrl: 'https://openrouter.ai/api',
+      auth: 'x-api-key',
+    });
+  });
+
+  test('passes the untouched rawPassthrough default through (api layer omits empty baseUrl)', () => {
+    const result = toProviderPayload(base({ id: 'raw-default' }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected ok');
+    // PROVIDER_FORM_DEFAULTS carries { enabled: false, baseUrl: '', auth: 'bearer' };
+    // api.saveProvider only emits raw_passthrough when baseUrl is non-empty.
+    expect(result.provider.rawPassthrough).toEqual({ enabled: false, baseUrl: '', auth: 'bearer' });
+  });
+
+  test('re-attaches the snapshot URL when raw passthrough is disabled with a cleared URL', () => {
+    // Clearing the URL then disabling would otherwise emit nothing (empty
+    // baseUrl is omitted by api.saveProvider), and the backend PATCH-merge
+    // would keep the OLD enabled config — the disable would silently revert.
+    const input = base({
+      id: 'raw-cleared',
+      rawPassthrough: { enabled: false, baseUrl: '', auth: 'bearer' },
+    });
+    const snapshot = base({
+      id: 'raw-cleared',
+      rawPassthrough: { enabled: true, baseUrl: 'https://openrouter.ai/api', auth: 'bearer' },
+    });
+
+    const result = toProviderPayload(input, { openSnapshot: snapshot });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected ok');
+    expect(result.provider.rawPassthrough).toEqual({
+      enabled: false,
+      baseUrl: 'https://openrouter.ai/api',
+      auth: 'bearer',
+    });
+  });
+
+  test('leaves a disabled-and-empty rawPassthrough alone when the snapshot had no URL either', () => {
+    const input = base({ id: 'raw-never' });
+    const result = toProviderPayload(input, { openSnapshot: base({ id: 'raw-never' }) });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected ok');
+    expect(result.provider.rawPassthrough).toEqual({ enabled: false, baseUrl: '', auth: 'bearer' });
   });
 });
 
