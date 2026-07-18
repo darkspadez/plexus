@@ -69,6 +69,14 @@ export const providerFormSchema = z.object({
   stallWindowMs: z.number().nullable().optional(),
   stallGracePeriodMs: z.number().nullable().optional(),
   pi_ai_provider: z.string().optional(),
+  auto_compat: z.boolean().optional(),
+  rawPassthrough: z
+    .object({
+      enabled: z.boolean(),
+      baseUrl: z.string(),
+      auth: z.enum(['bearer', 'x-api-key', 'x-goog-api-key']),
+    })
+    .optional(),
   // compaction: verbatim passthrough only (tri-state Inherit/On/Off relies on
   // undefined/true/false + null subfields) — intentionally untyped via
   // z.custom() so we never validate or reshape its contents.
@@ -108,7 +116,7 @@ export interface ToProviderPayloadError {
 
 export function toProviderPayload(
   formValues: ProviderFormValues,
-  options?: { isOAuthMode?: boolean }
+  options?: { isOAuthMode?: boolean; openSnapshot?: ProviderFormValues }
 ): ToProviderPayloadResult | ToProviderPayloadError {
   // Detect OAuth mode from the values themselves if not passed explicitly
   const oauthMode = options?.isOAuthMode ?? isOAuthProvider(formValues);
@@ -147,6 +155,10 @@ export function toProviderPayload(
     stallWindowMs: formValues.stallWindowMs,
     stallGracePeriodMs: formValues.stallGracePeriodMs,
     pi_ai_provider: formValues.pi_ai_provider,
+    auto_compat: formValues.auto_compat,
+    // Passed through verbatim; api.saveProvider only emits raw_passthrough
+    // when baseUrl is non-empty, so an untouched default never reaches the API.
+    rawPassthrough: formValues.rawPassthrough,
     compaction: formValues.compaction,
   };
 
@@ -163,6 +175,37 @@ export function toProviderPayload(
   // Strip quotaChecker if type is empty/blank
   if (p.quotaChecker && !p.quotaChecker.type?.trim()) {
     p = { ...p, quotaChecker: undefined };
+  }
+
+  // A paused checker keeps its config (that's the point of pausing), but the
+  // backend validates any `options` object it receives regardless of `enabled`,
+  // and per-checker schemas require credential fields to be non-empty. Cleared
+  // inputs are stored as '' by the quota config components, so strip empty
+  // values from a paused checker's options — and omit the object entirely once
+  // empty — instead of shipping a payload the backend would reject.
+  if (p.quotaChecker && p.quotaChecker.enabled === false && p.quotaChecker.options) {
+    const kept = Object.entries(p.quotaChecker.options).filter(
+      ([, v]) => !(typeof v === 'string' && v.trim() === '')
+    );
+    p = {
+      ...p,
+      quotaChecker: {
+        ...p.quotaChecker,
+        options: kept.length > 0 ? Object.fromEntries(kept) : undefined,
+      },
+    };
+  }
+
+  // PATCH can't remove raw_passthrough: api.saveProvider omits it when baseUrl
+  // is empty, and the backend keeps omitted keys on merge. If the user cleared
+  // the URL and disabled the feature, re-attach the URL the drawer opened with
+  // so the enabled:false state actually reaches the backend instead of the
+  // whole block silently reverting to its previous (enabled) config.
+  if (p.rawPassthrough && p.rawPassthrough.enabled === false && !p.rawPassthrough.baseUrl?.trim()) {
+    const snapshotUrl = options?.openSnapshot?.rawPassthrough?.baseUrl?.trim();
+    if (snapshotUrl) {
+      p = { ...p, rawPassthrough: { ...p.rawPassthrough, baseUrl: snapshotUrl } };
+    }
   }
 
   return { ok: true, provider: p };
@@ -193,4 +236,5 @@ export const PROVIDER_FORM_DEFAULTS: ProviderFormValues = {
   adapter: [],
   timeoutMs: undefined,
   maxConcurrency: undefined,
+  rawPassthrough: { enabled: false, baseUrl: '', auth: 'bearer' },
 };
