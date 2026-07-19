@@ -287,6 +287,7 @@ const CODEX_UNSUPPORTED_PARAMS = [
   'frequency_penalty',
   'presence_penalty',
   'logit_bias',
+  'truncation',
   'max_output_tokens',
   'max_completion_tokens',
 ] as const;

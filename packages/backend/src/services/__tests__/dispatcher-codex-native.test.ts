@@ -98,6 +98,7 @@ function codexCliRequest(): UnifiedChatRequest {
     // Unsupported sampling params must be stripped even on the verbatim path.
     temperature: 0.7,
     top_p: 0.9,
+    truncation: 'auto',
     client_metadata: {
       'x-codex-installation-id': 'inst-1',
       session_id: 'sess-cli-1',
@@ -126,6 +127,7 @@ function plainResponsesRequest(): UnifiedChatRequest {
     model: 'codex-alias',
     stream: true,
     top_p: 0.5,
+    truncation: 'auto',
     frequency_penalty: 1,
     max_output_tokens: 256,
     input: [{ type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hi' }] }],
@@ -276,6 +278,7 @@ describe('Native Codex OAuth pass-through', () => {
     // Unsupported sampling params are stripped even on the verbatim path.
     expect(sent).not.toHaveProperty('temperature');
     expect(sent).not.toHaveProperty('top_p');
+    expect(sent).not.toHaveProperty('truncation');
 
     // Codex fingerprint headers + auth derived from the token JWT.
     expect(init.headers['Authorization']).toBe(`Bearer ${CODEX_TOKEN}`);
@@ -310,6 +313,7 @@ describe('Native Codex OAuth pass-through', () => {
     expect(sent).not.toHaveProperty('temperature');
     expect(sent).not.toHaveProperty('top_p');
     expect(sent).not.toHaveProperty('frequency_penalty');
+    expect(sent).not.toHaveProperty('truncation');
     // The Codex backend accepts NO max-tokens field (rejects both names).
     expect(sent).not.toHaveProperty('max_output_tokens');
     expect(sent).not.toHaveProperty('max_completion_tokens');
