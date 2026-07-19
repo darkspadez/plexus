@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">A request through Plexus</title>
+  <desc id="desc">A four-step diagram: client request, protocol translation, policy-aware routing, and provider response with metrics.</desc>
+  <rect width="1200" height="360" rx="28" fill="#0b1020"/>
+  <text x="64" y="76" fill="#f6f8fc" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="34" font-weight="700">The request path stays yours.</text>
+  <text x="64" y="108" fill="#94a3bd" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18">Bring your clients and provider accounts. Plexus handles the boundary between them.</text>
+  <path d="M245 210H348M526 210H629M807 210H910" stroke="#4a5978" stroke-width="2" stroke-dasharray="8 8"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
+    <g transform="translate(64 157)"><rect width="181" height="106" rx="16" fill="#141c31" stroke="#33405d"/><text x="20" y="34" fill="#26c6da" font-family="ui-monospace, monospace" font-size="13">01 / REQUEST</text><text x="20" y="68" fill="#f6f8fc" font-size="21" font-weight="650">Your client</text><text x="20" y="91" fill="#94a3bd" font-size="15">OpenAI · Anthropic · Gemini</text></g>
+    <g transform="translate(348 157)"><rect width="178" height="106" rx="16" fill="#141c31" stroke="#33405d"/><text x="20" y="34" fill="#5d73ff" font-family="ui-monospace, monospace" font-size="13">02 / NORMALIZE</text><text x="20" y="68" fill="#f6f8fc" font-size="21" font-weight="650">One surface</text><text x="20" y="91" fill="#94a3bd" font-size="15">Streaming · tools · media</text></g>
+    <g transform="translate(629 157)"><rect width="178" height="106" rx="16" fill="#141c31" stroke="#33405d"/><text x="20" y="34" fill="#b260e9" font-family="ui-monospace, monospace" font-size="13">03 / ROUTE</text><text x="20" y="68" fill="#f6f8fc" font-size="21" font-weight="650">Best target</text><text x="20" y="91" fill="#94a3bd" font-size="15">Cost · latency · failover</text></g>
+    <g transform="translate(910 157)"><rect width="226" height="106" rx="16" fill="#141c31" stroke="#33405d"/><text x="20" y="34" fill="#f2b944" font-family="ui-monospace, monospace" font-size="13">04 / OBSERVE</text><text x="20" y="68" fill="#f6f8fc" font-size="21" font-weight="650">Response + evidence</text><text x="20" y="91" fill="#94a3bd" font-size="15">Tokens · cost · logs · quotas</text></g>
+  </g>
+</svg>

@@ -1,35 +1,33 @@
-# Plexus
+<p align="center">
+  <img src="./assets/readme/hero.svg" width="100%" alt="Plexus: one API surface for every LLM provider, with routes from OpenAI, Anthropic, and Gemini requests to model targets.">
+</p>
 
-**A universal LLM API gateway and transformation layer.**
+<p align="center">
+  <a href="https://discord.com/channels/292942011261124608/1503831216095367239">Discord</a> ·
+  <a href="/docs/openapi/openapi.yaml">API reference</a> ·
+  <a href="docs/CONFIGURATION.md">Configuration</a> ·
+  <a href="docs/INSTALLATION.md">Installation</a> ·
+  <a href="docs/TESTING.md">Testing</a>
+</p>
 
-<img src="docs/images/plexus_logo_transparent.png" alt="Plexus Logo" width="120"/>
+Plexus sits in front of your LLM providers so clients can use one consistent API while you choose how requests are translated, routed, observed, and recovered. It supports OpenAI, Anthropic, Gemini, OpenAI-compatible providers, OAuth-backed subscriptions, and streamable HTTP MCP servers.
 
-### [Discord Community](https://discord.com/channels/292942011261124608/1503831216095367239) | [API Reference](/docs/openapi/openapi.yaml) | [Configuration](docs/CONFIGURATION.md) | [Installation](docs/INSTALLATION.md) | [Testing](docs/TESTING.md)
+## Why Plexus
 
-Plexus sits in front of your LLM providers and exposes one consistent API surface for OpenAI, Anthropic, Gemini, OpenAI-compatible providers, OAuth-backed subscriptions, MCP servers, and more. It handles protocol translation, routing, failover, usage tracking, and provider-specific quirks so clients can switch models without rewriting code.
+- **Keep client code stable.** Accept OpenAI Chat Completions and Responses, Anthropic Messages, Gemini native requests, embeddings, audio, images, streaming, and tool use.
+- **Route on your terms.** Map aliases to one or more targets with `random`, `in_order`, `cost`, `performance`, `latency`, or `e2e_performance` selection.
+- **Operate with evidence.** Inspect request logs, tokens, cost, latency, live throughput, provider health, and per-key quotas from the dashboard.
+- **Stay resilient.** Apply exponential cooldowns, fail over failed providers, detect stalled streams, and use vision fallthrough for non-vision targets.
 
----
+<p align="center">
+  <img src="./assets/readme/request-path.svg" width="100%" alt="A request through Plexus: your client, one normalized API surface, policy-aware routing, and an observable response.">
+</p>
 
-## Highlights
-
-- **Unified API surface** for OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Gemini, embeddings, audio, and images.
-- **Provider routing and load balancing** across OpenAI, Anthropic, Google Gemini, DeepSeek, Groq, OpenRouter, and any OpenAI-compatible backend.
-- **OAuth-backed providers** for GitHub Copilot, Anthropic Claude, and OpenAI Codex through the Admin UI.
-- **Model aliases** that map virtual model names to one or more real provider targets using `random`, `in_order`, `cost`, `performance`, `latency`, or `e2e_performance` selectors.
-- **Vision fallthrough** that describes images with a vision-capable descriptor model before routing to non-vision models.
-- **Automatic failover** with exponential provider cooldowns and optional stall detection for slow or stuck streams.
-- **Usage, quota, and cost controls** with per-request logs, token counts, latency, TPS, and per-API-key limits.
-- **Admin dashboard** for configuration, analytics, debug traces, provider health, and quota monitoring.
-- **MCP proxying** with isolated per-request sessions for streamable HTTP MCP servers.
-- **Encryption at rest** for API keys, OAuth tokens, provider secrets, and MCP headers.
-
----
-
-## Quick Start
+## Quick start
 
 `ADMIN_KEY` is required for the dashboard and management API. `DATABASE_URL` is optional and defaults to SQLite at `./data/plexus.db`; use a PostgreSQL connection string for production.
 
-### Docker
+### Run with Docker
 
 ```bash
 docker run -p 4000:4000 \
@@ -39,7 +37,7 @@ docker run -p 4000:4000 \
   ghcr.io/mcowger/plexus:latest
 ```
 
-### Standalone Binary
+### Or use a standalone binary
 
 Download a pre-built binary from [GitHub Releases](https://github.com/mcowger/plexus/releases/latest):
 
@@ -65,7 +63,7 @@ $env:DATABASE_URL = "sqlite://./data/plexus.db"
 
 The binary is self-contained; database migrations and the web dashboard are embedded. See [Installation](docs/INSTALLATION.md) for Docker Compose, Windows troubleshooting, source builds, and environment variables.
 
-### Try It
+### Send a request
 
 Open the dashboard at `http://localhost:4000`, then create/configure an API key and model alias. Send a request:
 
@@ -76,52 +74,21 @@ curl -X POST http://localhost:4000/v1/chat/completions \
   -d '{"model": "fast", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
-OAuth providers are configured in the Admin UI. See [Configuration: OAuth Providers](docs/CONFIGURATION.md#oauth-providers-pi-ai).
+OAuth providers are configured in the Admin UI. See [Configuration: OAuth providers](docs/CONFIGURATION.md#oauth-providers-pi-ai).
 
----
+## See the control plane
 
-## Screenshots
+The dashboard is the operating view: configure providers and aliases, investigate every request, and watch usage and quota health.
 
-| | |
-|---|---|
-| **Dashboard** — Request volume, token usage, cost trends, and top models. | **Providers** — Configured providers with status, quota indicators, and controls. |
-| ![Dashboard](docs/images/dashhome.png) | ![Providers](docs/images/providers.png) |
-| **Request Logs** — Per-request model, provider, tokens, cost, latency, and live stream throughput. | **Model Aliases** — Virtual model names, targets, selectors, and routing priorities. |
-| ![Logs](docs/images/logs.png) | ![Models](docs/images/models.png) |
+| Dashboard | Providers |
+| --- | --- |
+| ![Dashboard showing request volume, tokens, cost, and recent activity](docs/images/dashhome.png) | ![Providers view showing provider status, quota indicators, and controls](docs/images/providers.png) |
+| Request logs | Model aliases |
+| ![Request logs with model, provider, tokens, cost, latency, and live throughput](docs/images/logs.png) | ![Model aliases with targets, selectors, and routing priorities](docs/images/models.png) |
 
----
+## Built for the edges of provider APIs
 
-## Feature Notes
-
-### Protocol Translation
-
-Plexus accepts OpenAI Chat Completions (`/v1/chat/completions`), OpenAI Responses (`/v1/responses`), Anthropic Messages (`/v1/messages`), Gemini native requests, and OpenAI-compatible provider formats. Requests can be translated between providers in both directions, including streaming and tool use. See the [API Reference](/docs/openapi/openapi.yaml).
-
-### Routing
-
-Model aliases can target one or more providers and choose targets by randomness, order, cost, measured performance, latency, or end-to-end performance. `priority: api_match` prefers providers that natively speak the incoming API format. See [Configuration: models](docs/CONFIGURATION.md#models).
-
-### Vision Fallthrough
-
-Vision fallthrough lets image requests work with non-vision target models. Plexus sends images to a descriptor model, inserts the generated descriptions into the request, and routes the transformed request to the configured target. Enable it per model alias in the Admin UI and configure the descriptor model in settings.
-
-### Quotas, Cooldowns, and Stream Safety
-
-Per-key quotas can limit `tokens`, `requests`, or `cost` across rolling, daily, or weekly windows. Failed providers are automatically cooled down with exponential backoff, and stream protection can cancel upstream requests on client disconnect, timeout stalled providers, and show live throughput in request logs. See [Configuration](docs/CONFIGURATION.md).
-
-### MCP Proxy
-
-Plexus can proxy streamable HTTP [Model Context Protocol](https://modelcontextprotocol.io) servers with isolated sessions per request. See [Configuration: MCP Servers](docs/CONFIGURATION.md#mcp-servers-optional).
-
-### Encryption
-
-Set `ENCRYPTION_KEY` to enable AES-256-GCM encryption for sensitive database fields:
-
-```bash
-export ENCRYPTION_KEY="$(openssl rand -hex 32)"
-```
-
-Existing plaintext values are encrypted on first startup with a key. See [Configuration: Encryption](docs/CONFIGURATION.md#encryption-at-rest-optional).
+**Protocol translation** handles OpenAI, Anthropic, Gemini, and compatible formats in both directions, including streaming and tool use. **MCP proxying** isolates sessions for streamable HTTP MCP servers. **Encryption at rest** protects API keys, OAuth tokens, provider secrets, and MCP headers with AES-256-GCM when `ENCRYPTION_KEY` is set. See [Configuration](docs/CONFIGURATION.md) for the full operating model.
 
 ---
 

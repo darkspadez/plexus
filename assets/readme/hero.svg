@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="390" viewBox="0 0 1200 390" role="img" aria-labelledby="title desc">
+  <title id="title">Plexus — one API for every LLM provider</title>
+  <desc id="desc">A routing map showing OpenAI, Anthropic, Gemini, and MCP traffic flowing through Plexus to model targets.</desc>
+  <rect width="1200" height="390" rx="28" fill="#0b1020"/>
+  <path d="M64 72H1136M64 318H1136" stroke="#27314a" stroke-width="1"/>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" letter-spacing="1.4">
+    <text x="64" y="76" fill="#9ba8c1">LLM INFRASTRUCTURE / OPEN SOURCE</text>
+    <text x="64" y="342" fill="#71809d">OPENAI · ANTHROPIC · GEMINI · MCP · COMPATIBLE PROVIDERS</text>
+  </g>
+  <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
+    <text x="64" y="156" fill="#f6f8fc" font-size="72" font-weight="750" letter-spacing="-3">Plexus</text>
+    <text x="68" y="202" fill="#c8d2e8" font-size="27">One API surface. Any LLM provider.</text>
+    <text x="68" y="237" fill="#94a3bd" font-size="19">Translate protocols, route requests, and keep every call observable.</text>
+  </g>
+  <g fill="none" stroke-linecap="round" stroke-width="3">
+    <path d="M654 129C704 129 701 181 756 181" stroke="#26c6da"/>
+    <path d="M654 199C704 199 701 181 756 181" stroke="#5d73ff"/>
+    <path d="M654 269C704 269 701 181 756 181" stroke="#b260e9"/>
+    <path d="M844 181C894 181 892 118 948 118" stroke="#26c6da"/>
+    <path d="M844 181C894 181 892 181 948 181" stroke="#f2b944"/>
+    <path d="M844 181C894 181 892 244 948 244" stroke="#b260e9"/>
+  </g>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15">
+    <g>
+      <rect x="535" y="104" width="120" height="50" rx="10" fill="#141c31" stroke="#36415c"/>
+      <text x="555" y="135" fill="#c7d2e9">OPENAI</text>
+      <rect x="535" y="174" width="120" height="50" rx="10" fill="#141c31" stroke="#36415c"/>
+      <text x="547" y="205" fill="#c7d2e9">ANTHROPIC</text>
+      <rect x="535" y="244" width="120" height="50" rx="10" fill="#141c31" stroke="#36415c"/>
+      <text x="568" y="275" fill="#c7d2e9">GEMINI</text>
+    </g>
+    <g>
+      <rect x="756" y="139" width="88" height="84" rx="42" fill="#1d2850" stroke="#6478ff" stroke-width="2"/>
+      <text x="775" y="176" fill="#f6f8fc" font-size="17" font-weight="700">PLEXUS</text>
+      <text x="782" y="197" fill="#9ba8c1" font-size="11">ROUTE</text>
+    </g>
+    <g>
+      <rect x="948" y="93" width="186" height="50" rx="10" fill="#141c31" stroke="#36415c"/>
+      <text x="968" y="124" fill="#c7d2e9">fast → groq</text>
+      <rect x="948" y="156" width="186" height="50" rx="10" fill="#141c31" stroke="#36415c"/>
+      <text x="968" y="187" fill="#c7d2e9">smart → claude</text>
+      <rect x="948" y="219" width="186" height="50" rx="10" fill="#141c31" stroke="#36415c"/>
+      <text x="968" y="250" fill="#c7d2e9">vision → gemini</text>
+    </g>
+  </g>
+  <g fill="#26c6da"><circle cx="654" cy="129" r="5"/><circle cx="756" cy="181" r="6"/><circle cx="948" cy="118" r="5"/></g>
+  <g fill="#b260e9"><circle cx="654" cy="269" r="5"/><circle cx="844" cy="181" r="6"/><circle cx="948" cy="244" r="5"/></g>
+</svg>
