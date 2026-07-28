@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveAdapters } from '../../services/dispatch/adapter-resolver';
 import type { RouteResult } from '../../services/routing/router';
+import { apiAccessToKey } from '../../utils/api-format';
 
 // Minimal RouteResult factory
 function makeRoute(providerAdapter?: any[], modelAdapter?: any[]): RouteResult {
@@ -218,5 +219,72 @@ describe('resolveAdapters', () => {
     const resolved = resolveAdapters(route);
     expect(resolved).toHaveLength(1);
     expect(resolved[0]!.adapter.name).toBe('model_override');
+  });
+});
+
+describe('resolveAdapters — Anthropic tool-id normalization by outbound wire format', () => {
+  it('auto-injects the tool-id normalizer when the effective API type is messages', () => {
+    const resolved = resolveAdapters(makeRoute(undefined, undefined), 'messages');
+    expect(resolved.map((r) => r.adapter.name)).toEqual(['normalize_anthropic_tool_ids']);
+  });
+
+  it('auto-injects the tool-id normalizer for a messages subtype', () => {
+    // Subtype keys are minted by apiAccessToKey from a configured
+    // `access_via: [{ type, subtype }]` entry, so the injection has to match on
+    // the base type rather than the whole string. No `messages:*` subtype ships
+    // today ('responses:lite' is the only named one), but the config schema
+    // accepts any type/subtype pair, so one is constructible.
+    const subtypeApiType = apiAccessToKey({ type: 'Messages', subtype: 'Lite' });
+    expect(subtypeApiType).toBe('messages:lite');
+    expect(
+      resolveAdapters(makeRoute(undefined, undefined), subtypeApiType).map((r) => r.adapter.name)
+    ).toEqual(['normalize_anthropic_tool_ids']);
+  });
+
+  it('does not auto-inject the tool-id normalizer for non-messages API types', () => {
+    for (const apiType of [
+      'chat',
+      'responses',
+      'responses:lite',
+      'gemini',
+      'completions',
+      'ollama',
+    ]) {
+      expect(resolveAdapters(makeRoute(undefined, undefined), apiType)).toHaveLength(0);
+    }
+  });
+
+  it('does not auto-inject the tool-id normalizer when no API type is passed', () => {
+    expect(resolveAdapters(makeRoute(undefined, undefined))).toHaveLength(0);
+  });
+
+  it('allows a provider adapter entry to disable the tool-id normalizer', () => {
+    const route = makeRoute([{ name: 'normalize_anthropic_tool_ids', enabled: false }]);
+    expect(resolveAdapters(route, 'messages')).toHaveLength(0);
+  });
+
+  it('allows a model adapter entry to restore the tool-id normalizer disabled by its provider', () => {
+    const route = makeRoute(
+      [{ name: 'normalize_anthropic_tool_ids', enabled: false }],
+      [{ name: 'normalize_anthropic_tool_ids', enabled: true }]
+    );
+    expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([
+      'normalize_anthropic_tool_ids',
+    ]);
+  });
+
+  it('runs the tool-id normalizer after other implicit adapters and before configured ones', () => {
+    const base = makeRoute([{ name: 'reasoning_content', options: {} }]);
+    const route: RouteResult = {
+      ...base,
+      model: 'gpt-5.2',
+      config: { ...base.config, pi_ai_provider: 'openrouter' },
+    };
+    expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([
+      'suppress_unsupported_gpt5_options',
+      'strip_unsupported_tool_search',
+      'normalize_anthropic_tool_ids',
+      'reasoning_content',
+    ]);
   });
 });
