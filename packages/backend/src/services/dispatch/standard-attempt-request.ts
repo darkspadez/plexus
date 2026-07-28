@@ -6,10 +6,48 @@ import type { RetryAttemptRecord } from './dispatcher-types';
 import type { StallConfig } from '../inspectors/stall-inspector';
 import { CooldownManager } from '../runtime/cooldown-manager';
 import type { RequestManagerHost } from './request-manager';
+import {
+  createThinkingSignatureStripState,
+  createUnsupportedParamStripState,
+  deleteDottedPath,
+  planThinkingSignatureStrip,
+  planUnsupportedParamStrip,
+  refundThinkingSignatureStrip,
+  stripThinkingSignatureBlocks,
+  MAX_THINKING_SIGNATURE_STRIP_RETRIES,
+  MAX_UNSUPPORTED_PARAM_STRIP_RETRIES,
+} from './dispatcher-auto-compat';
 
 export type StandardAttemptResult =
   | { outcome: 'success'; response: UnifiedChatResponse }
   | { outcome: 'retry'; error: any };
+
+/**
+ * Derives the stall config to hand the post-fetch streaming probe: the
+ * pristine (full, per-request-configured) TTFB budget minus however long
+ * fetch() itself already took to return headers. Pure function of the
+ * PRISTINE config — never of a previously-derived one — so calling it again
+ * for a later retry iteration can't compound an earlier iteration's
+ * reduction (see the reset in `executeStandardAttempt`'s retry loop).
+ *
+ * `null`/`undefined` pass through unchanged (TTFB stall detection disabled
+ * for this request). When `pristineConfig.ttfbMs` is itself `null`, the
+ * config is returned as-is too — there's no budget to subtract from.
+ */
+export function deriveProbeStallConfig(
+  pristineConfig: StallConfig | null | undefined,
+  fetchElapsedMs: number
+): StallConfig | null | undefined {
+  if (!pristineConfig || pristineConfig.ttfbMs == null) return pristineConfig;
+
+  const remainingTtfbMs = Math.max(0, pristineConfig.ttfbMs - fetchElapsedMs);
+  // Fetch returned just barely within (or beyond) the TTFB window — no time
+  // left for the probe. Signal "skip the probe" via null and let the
+  // pipeline handle it, rather than arming a probe with ~0ms to work with.
+  return remainingTtfbMs <= 0
+    ? { ...pristineConfig, ttfbMs: null }
+    : { ...pristineConfig, ttfbMs: remainingTtfbMs };
+}
 
 export interface StandardAttemptContext {
   host: RequestManagerHost;
@@ -40,7 +78,6 @@ export async function executeStandardAttempt(
 ): Promise<StandardAttemptResult> {
   const {
     host,
-    providerPayload,
     request: currentRequest,
     requestWithTargetModel,
     route,
@@ -60,7 +97,18 @@ export async function executeStandardAttempt(
     sessionKey,
     release: doRelease,
   } = context;
-  let effectiveStallConfig = initialStallConfig;
+  // Mutable (not const): the unsupported-param strip-and-retry path below
+  // rebuilds this via copy-on-write (deleteDottedPath) rather than mutating
+  // in place, so a successful strip must reassign this binding.
+  let providerPayload = context.providerPayload;
+  // Pristine snapshot taken once, outside the loop. Every retry iteration
+  // below resets `effectiveStallConfig` from THIS rather than carrying
+  // forward whatever the previous iteration's post-fetch adjustment left it
+  // as — otherwise a same-target strip-and-retry (thinking-signature or
+  // unsupported-param, below) would inherit a reduced or null ttfbMs from
+  // the failed attempt instead of the full configured budget.
+  const pristineStallConfig = initialStallConfig;
+  let effectiveStallConfig = pristineStallConfig;
 
   const incomingApi = currentRequest.incomingApiType || 'unknown';
   const url = host.buildRequestUrl(route, transformer, requestWithTargetModel, targetApiType);
@@ -70,161 +118,248 @@ export async function executeStandardAttempt(
     `Dispatching ${currentRequest.model} to ${route.provider}:${route.model} ${incomingApi} <-> ${transformer.name}`
   );
 
-  logger.silly('Upstream Request Payload', providerPayload);
+  // Reactive auto-compat: bounded per-target state so a strip-and-retry
+  // cycle (see the 400 handling below) can't loop forever (see
+  // dispatcher-auto-compat.ts for the matching/bound logic). Two independent
+  // mechanisms, two independent budgets — neither resets the other's
+  // counter, so the combined worst case for this target is bounded at
+  // exactly 1 (initial attempt) + MAX_THINKING_SIGNATURE_STRIP_RETRIES +
+  // MAX_UNSUPPORTED_PARAM_STRIP_RETRIES fetches, however the two mechanisms
+  // interleave — they can't ping-pong into an unbounded loop.
+  const paramStripState = createUnsupportedParamStripState();
+  const thinkingStripState = createThinkingSignatureStripState();
 
-  // When TTFB stall detection is configured for streaming requests, wrap
-  // the fetch + probe in a single timeout that covers the entire TTFB
-  // window (from request dispatch to receiving ttfbBytes of body data).
-  // This handles the case where fetch() itself blocks for a long time
-  // waiting for HTTP response headers from a slow provider.
+  // Looped so a strip-and-retry can redo the fetch against the SAME target
+  // without returning to the caller's failover loop — failing over would
+  // just hit the same "client sent an unsupported param" problem on the
+  // next provider too. Logging the payload inside the loop means a
+  // strip-retry's silly-level log reflects the field that was actually
+  // removed, not just the original request.
   let response: Response;
-  let stallAbortController: AbortController | undefined;
-  let ttfbTimerId: ReturnType<typeof setTimeout> | undefined;
-  const dispatchStartTime = Date.now();
+  while (true) {
+    // Reset to the pristine, full TTFB budget at the start of every
+    // iteration — see the comment on `pristineStallConfig` above.
+    effectiveStallConfig = pristineStallConfig;
 
-  if (currentRequest.stream && effectiveStallConfig?.ttfbMs != null) {
-    // Create a separate AbortController for the TTFB stall timeout.
-    // We don't use the route's abortController because an abort there
-    // means the client disconnected — we need a distinct signal for
-    // "provider is too slow to start responding".
-    stallAbortController = new AbortController();
-    const combinedSignal = AbortSignal.any([attemptTimeout.signal, stallAbortController.signal]);
+    logger.silly('Upstream Request Payload', providerPayload);
 
-    const ttfbMs = effectiveStallConfig.ttfbMs!;
-    ttfbTimerId = setTimeout(() => {
-      stallAbortController!.abort(
-        new DOMException(
-          `Stream stalled: TTFB timeout — no response within ${ttfbMs}ms`,
-          'TimeoutError'
-        )
-      );
-    }, ttfbMs);
-    ttfbTimerId.unref?.();
+    let stallAbortController: AbortController | undefined;
+    let ttfbTimerId: ReturnType<typeof setTimeout> | undefined;
+    const dispatchStartTime = Date.now();
 
-    try {
-      response = await host.executeProviderRequest(url, headers, providerPayload, combinedSignal);
-    } catch (fetchError: any) {
-      // Client disconnected takes priority over stall detection —
-      // if the client is gone, no point retrying.
-      if (signal?.aborted) {
-        clearTimeout(ttfbTimerId);
-        throw host.buildCancelledError(signal);
+    // When TTFB stall detection is configured for streaming requests, wrap
+    // the fetch + probe in a single timeout that covers the entire TTFB
+    // window (from request dispatch to receiving ttfbBytes of body data).
+    // This handles the case where fetch() itself blocks for a long time
+    // waiting for HTTP response headers from a slow provider.
+    if (currentRequest.stream && effectiveStallConfig?.ttfbMs != null) {
+      // Create a separate AbortController for the TTFB stall timeout.
+      // We don't use the route's abortController because an abort there
+      // means the client disconnected — we need a distinct signal for
+      // "provider is too slow to start responding".
+      stallAbortController = new AbortController();
+      const combinedSignal = AbortSignal.any([attemptTimeout.signal, stallAbortController.signal]);
+
+      const ttfbMs = effectiveStallConfig.ttfbMs!;
+      ttfbTimerId = setTimeout(() => {
+        stallAbortController!.abort(
+          new DOMException(
+            `Stream stalled: TTFB timeout — no response within ${ttfbMs}ms`,
+            'TimeoutError'
+          )
+        );
+      }, ttfbMs);
+      ttfbTimerId.unref?.();
+
+      try {
+        response = await host.executeProviderRequest(url, headers, providerPayload, combinedSignal);
+      } catch (fetchError: any) {
+        // Client disconnected takes priority over stall detection —
+        // if the client is gone, no point retrying.
+        if (signal?.aborted) {
+          clearTimeout(ttfbTimerId);
+          throw host.buildCancelledError(signal);
+        }
+
+        // If the error was caused by our TTFB stall timeout, synthesize
+        // a stall result instead of treating it as a generic network error.
+        if (stallAbortController.signal.aborted) {
+          clearTimeout(ttfbTimerId);
+          const stallError = new Error(
+            `Stream stalled: TTFB timeout — no response within ${ttfbMs}ms`
+          );
+
+          const canRetryStall =
+            failoverEnabled &&
+            hasNextTarget &&
+            (host.isRetryableNetworkError(stallError, retryableErrors) ||
+              stallError.message?.includes('stalled'));
+
+          if (canRetryStall) {
+            attemptTimeout.cleanup();
+            await host.recordAttemptMetric(route, currentRequest.requestId, false, {
+              isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
+              isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
+              visionFallthroughModel: (currentRequest as any)._visionFallthroughModel,
+            });
+            host.appendFailureAttempt(retryHistory, route, stallError, targetApiType, true);
+            CooldownManager.getInstance().markProviderStallFailure(
+              route.provider,
+              route.model,
+              host.formatFailureReason(stallError)
+            );
+            host.saveIntermediateError(
+              currentRequest.requestId,
+              targetApiType || 'chat',
+              stallError
+            );
+            logger.info(
+              `TTFB stall: fetch timed out after ${ttfbMs}ms for ${route.provider}/${route.model}, retrying with next provider`
+            );
+            doRelease();
+            return { outcome: 'retry', error: stallError };
+          }
+          doRelease();
+          throw stallError;
+        }
+        throw fetchError;
       }
 
-      // If the error was caused by our TTFB stall timeout, synthesize
-      // a stall result instead of treating it as a generic network error.
-      if (stallAbortController.signal.aborted) {
-        clearTimeout(ttfbTimerId);
-        const stallError = new Error(
-          `Stream stalled: TTFB timeout — no response within ${ttfbMs}ms`
+      // Fetch returned — clear the TTFB timer (we beat the timeout)
+      clearTimeout(ttfbTimerId);
+      ttfbTimerId = undefined;
+
+      // Adjust the stall config's ttfbMs for the probe — subtract the time
+      // already spent waiting for fetch() to return. The probe only needs
+      // to cover the remaining time until the byte threshold is met. Always
+      // derived from the PRISTINE snapshot (never from the possibly
+      // already-reduced `effectiveStallConfig`), so a value computed on a
+      // previous retry iteration can never compound into this one.
+      const fetchElapsed = Date.now() - dispatchStartTime;
+      effectiveStallConfig = deriveProbeStallConfig(pristineStallConfig, fetchElapsed);
+    } else {
+      response = await host.executeProviderRequest(
+        url,
+        headers,
+        providerPayload,
+        attemptTimeout.signal
+      );
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+
+      // Reactive auto-compat: a 400 can name a problem that failing over
+      // won't fix — every remaining target would reject the same request
+      // the same way — so both mechanisms below strip the offending content
+      // and retry the SAME target instead. Checked in order:
+      //
+      //   1. Stale thinking-block signatures: alias-level failover can
+      //      replay a conversation whose `thinking`/`redacted_thinking`
+      //      blocks were signed by a DIFFERENT Claude model/session than
+      //      the one we're now targeting, and Anthropic 400s naming the
+      //      stale signature specifically.
+      //   2. Unsupported parameters: some upstreams 400 naming one specific
+      //      client-sent field (e.g. LobeHub's gpt-5.5 traffic sending
+      //      safety_identifier / prompt_cache_key that a provider rejects).
+      if (response.status === 400) {
+        if (planThinkingSignatureStrip(errorText, providerPayload, thinkingStripState)) {
+          const stripResult = stripThinkingSignatureBlocks(providerPayload);
+          if (stripResult.strippedCount > 0) {
+            // Copy-on-write, like the unsupported-param strip below: the
+            // strip returns a NEW payload and never mutates the original
+            // (whose `messages` can be shared by reference with the
+            // long-lived request), so a successful strip reassigns the
+            // binding.
+            providerPayload = stripResult.payload;
+            logger.warn(
+              `Auto-compat: ${route.provider}/${route.model} rejected a stale thinking-block ` +
+                `signature — stripped ${stripResult.strippedCount} thinking block(s) and retrying the ` +
+                `same target (attempt ${thinkingStripState.attempts}/${MAX_THINKING_SIGNATURE_STRIP_RETRIES})`
+            );
+            continue;
+          }
+          // Zero blocks stripped — planThinkingSignatureStrip's structural
+          // `messages`-array check also matches OpenAI-format payloads,
+          // which never carry thinking blocks. Retrying would resend a
+          // byte-identical request, so fall through to the unsupported-param
+          // check / normal failover handling below instead of retrying this
+          // target — and refund the planned attempt: no retry happened, so
+          // the one-per-target budget stays available for a later genuine
+          // signature 400. Loop-safe because this branch never `continue`s.
+          refundThinkingSignatureStrip(thinkingStripState);
+        }
+
+        const paramToStrip = planUnsupportedParamStrip(errorText, paramStripState);
+        if (paramToStrip) {
+          const stripResult = deleteDottedPath(providerPayload, paramToStrip);
+          if (stripResult.deleted) {
+            providerPayload = stripResult.payload;
+            logger.warn(
+              `Auto-compat: ${route.provider}/${route.model} rejected unsupported parameter ` +
+                `'${paramToStrip}' — stripping it and retrying the same target ` +
+                `(attempt ${paramStripState.attempts}/${MAX_UNSUPPORTED_PARAM_STRIP_RETRIES})`
+            );
+            continue;
+          }
+          // Nothing was actually removed (a rejected __proto__/constructor/
+          // prototype segment, or the named field wasn't present) —
+          // resending the SAME payload would just repeat the identical
+          // upstream rejection, so fall through to normal failover/error
+          // handling below instead of retrying this target again.
+        }
+      }
+
+      const canRetry =
+        failoverEnabled &&
+        hasNextTarget &&
+        host.isRetryableStatus(response.status, retryableStatusCodes);
+
+      try {
+        await host.handleProviderError(
+          response,
+          route,
+          errorText,
+          url,
+          headers,
+          targetApiType,
+          currentRequest.requestId
         );
+      } catch (e: any) {
+        if (signal?.aborted) throw host.buildCancelledError(signal);
+        host.appendFailureAttempt(retryHistory, route, e, targetApiType, canRetry);
 
-        const canRetryStall =
-          failoverEnabled &&
-          hasNextTarget &&
-          (host.isRetryableNetworkError(stallError, retryableErrors) ||
-            stallError.message?.includes('stalled'));
-
-        if (canRetryStall) {
+        if (canRetry) {
           attemptTimeout.cleanup();
+          doRelease();
           await host.recordAttemptMetric(route, currentRequest.requestId, false, {
             isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
             isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
             visionFallthroughModel: (currentRequest as any)._visionFallthroughModel,
           });
-          host.appendFailureAttempt(retryHistory, route, stallError, targetApiType, true);
-          CooldownManager.getInstance().markProviderStallFailure(
-            route.provider,
-            route.model,
-            host.formatFailureReason(stallError)
+          // Only mark as failed if the error actually triggered a cooldown (i.e., it's not a caller error like validation)
+          // Caller errors (400 validation errors, 413, 422) should not cause cooldown
+          if (e?.routingContext?.cooldownTriggered) {
+            CooldownManager.getInstance().markProviderFailure(
+              route.provider,
+              route.model,
+              undefined,
+              host.formatFailureReason(e, true)
+            );
+          }
+          host.saveIntermediateError(currentRequest.requestId, targetApiType || 'chat', e);
+          logger.warn(
+            `Failover: retrying after HTTP ${response.status} from ${route.provider}/${route.model}`
           );
-          host.saveIntermediateError(currentRequest.requestId, targetApiType || 'chat', stallError);
-          logger.info(
-            `TTFB stall: fetch timed out after ${ttfbMs}ms for ${route.provider}/${route.model}, retrying with next provider`
-          );
-          doRelease();
-          return { outcome: 'retry', error: stallError };
+          return { outcome: 'retry', error: e };
         }
+
         doRelease();
-        throw stallError;
+        throw e;
       }
-      throw fetchError;
     }
 
-    // Fetch returned — clear the TTFB timer (we beat the timeout)
-    clearTimeout(ttfbTimerId);
-    ttfbTimerId = undefined;
-
-    // Adjust the stall config's ttfbMs for the probe — subtract the time
-    // already spent waiting for fetch() to return. The probe only needs
-    // to cover the remaining time until the byte threshold is met.
-    const fetchElapsed = Date.now() - dispatchStartTime;
-    const remainingTtfbMs = Math.max(0, ttfbMs - fetchElapsed);
-    if (remainingTtfbMs <= 0 && effectiveStallConfig) {
-      // Fetch returned just barely within the TTFB window — no time left
-      // for the probe. Skip the probe and let the pipeline handle it.
-      effectiveStallConfig = { ...effectiveStallConfig, ttfbMs: null };
-    } else if (effectiveStallConfig) {
-      effectiveStallConfig = { ...effectiveStallConfig, ttfbMs: remainingTtfbMs };
-    }
-  } else {
-    response = await host.executeProviderRequest(
-      url,
-      headers,
-      providerPayload,
-      attemptTimeout.signal
-    );
-  }
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    const canRetry =
-      failoverEnabled &&
-      hasNextTarget &&
-      host.isRetryableStatus(response.status, retryableStatusCodes);
-
-    try {
-      await host.handleProviderError(
-        response,
-        route,
-        errorText,
-        url,
-        headers,
-        targetApiType,
-        currentRequest.requestId
-      );
-    } catch (e: any) {
-      if (signal?.aborted) throw host.buildCancelledError(signal);
-      host.appendFailureAttempt(retryHistory, route, e, targetApiType, canRetry);
-
-      if (canRetry) {
-        attemptTimeout.cleanup();
-        doRelease();
-        await host.recordAttemptMetric(route, currentRequest.requestId, false, {
-          isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
-          isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
-          visionFallthroughModel: (currentRequest as any)._visionFallthroughModel,
-        });
-        // Only mark as failed if the error actually triggered a cooldown (i.e., it's not a caller error like validation)
-        // Caller errors (400 validation errors, 413, 422) should not cause cooldown
-        if (e?.routingContext?.cooldownTriggered) {
-          CooldownManager.getInstance().markProviderFailure(
-            route.provider,
-            route.model,
-            undefined,
-            host.formatFailureReason(e, true)
-          );
-        }
-        host.saveIntermediateError(currentRequest.requestId, targetApiType || 'chat', e);
-        logger.warn(
-          `Failover: retrying after HTTP ${response.status} from ${route.provider}/${route.model}`
-        );
-        return { outcome: 'retry', error: e };
-      }
-
-      doRelease();
-      throw e;
-    }
+    break;
   }
 
   // 5. Handle Response
@@ -351,6 +486,7 @@ export async function executeStandardAttempt(
     bypassTransformation,
     adapters
   );
+
   await host.recordAttemptMetric(route, currentRequest.requestId, true, {
     isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
     isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,

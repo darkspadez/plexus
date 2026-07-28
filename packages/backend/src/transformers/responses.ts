@@ -151,27 +151,40 @@ export class ResponsesTransformer implements Transformer {
       });
     }
 
+    // Maybe-undefined client fields use conditional spread (not
+    // `key: input.maybeUndefined`) so an omitted client field leaves NO own
+    // property on the unified request — a phantom `key: undefined` own
+    // property survives object spreads and flips `'key' in x` /
+    // hasOwnProperty checks downstream even though JSON would drop it.
     return {
-      requestId: input.requestId,
+      ...(input.requestId !== undefined ? { requestId: input.requestId } : {}),
       model: input.model,
       messages,
-      max_tokens: input.max_output_tokens,
-      temperature: input.temperature ?? 1.0,
-      stream: input.stream ?? false,
-      tools: tools.length > 0 ? tools : undefined,
+      ...(input.max_output_tokens !== undefined ? { max_tokens: input.max_output_tokens } : {}),
+      // Forward temperature only when the client actually sent it. GPT-5
+      // reasoning models (and others) reject sampling params outright, so
+      // injecting a fabricated default here would send `temperature: 1.0`
+      // upstream on every request that omitted it.
+      ...(input.temperature !== undefined ? { temperature: input.temperature } : {}),
+      ...(input.stream !== undefined ? { stream: input.stream } : {}),
+      ...(tools.length > 0 ? { tools } : {}),
       tool_choice: this.convertToolChoiceForChatCompletions(input.tool_choice),
-      reasoning: input.reasoning,
-      include: input.include,
-      prompt_cache_key: input.prompt_cache_key,
-      text: input.text,
-      parallel_tool_calls: input.parallel_tool_calls,
-      response_format: input.text?.format
+      ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+      ...(input.include !== undefined ? { include: input.include } : {}),
+      ...(input.prompt_cache_key !== undefined ? { prompt_cache_key: input.prompt_cache_key } : {}),
+      ...(input.text !== undefined ? { text: input.text } : {}),
+      ...(input.parallel_tool_calls !== undefined
+        ? { parallel_tool_calls: input.parallel_tool_calls }
+        : {}),
+      ...(input.text?.format
         ? {
-            type: input.text.format.type,
-            json_schema: input.text.format.schema,
+            response_format: {
+              type: input.text.format.type,
+              json_schema: input.text.format.schema,
+            },
           }
-        : undefined,
-      metadata: input.metadata,
+        : {}),
+      ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
       incomingApiType: 'responses',
       originalBody: input,
     };
@@ -264,10 +277,15 @@ export class ResponsesTransformer implements Transformer {
       };
     });
 
+    // `stream` uses conditional spread for the same reason parseRequest does:
+    // when the client omitted it, the outbound payload must carry NO own
+    // `stream` property — a phantom `stream: undefined` survives object
+    // spreads and flips `'stream' in x` / hasOwnProperty checks downstream
+    // even though JSON serialization would drop it.
     const payload: any = {
       model: request.model,
       input: inputItems,
-      stream: request.stream,
+      ...(request.stream !== undefined ? { stream: request.stream } : {}),
     };
 
     if (instructions) {
