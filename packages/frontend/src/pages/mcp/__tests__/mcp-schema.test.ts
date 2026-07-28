@@ -26,6 +26,9 @@ describe('remoteMcpFormSchema', () => {
       mode: 'remote_http',
       serverName: 'my-server',
       upstream_url: 'https://mcp.example.com/mcp',
+      auth_scheme: 'bearer',
+      rate_limit_cooldown_ms: 60_000,
+      quota_cooldown_ms: 86_400_000,
       enabled: true,
     });
     expect(result.success).toBe(true);
@@ -77,6 +80,9 @@ describe('localMcpFormSchema', () => {
       port: 7345,
       path: '/mcp',
       startup_timeout_ms: 30000,
+      auth_scheme: '',
+      rate_limit_cooldown_ms: 60_000,
+      quota_cooldown_ms: 86_400_000,
       enabled: true,
     });
     expect(result.success).toBe(true);
@@ -129,6 +135,9 @@ describe('serverName format validation', () => {
   const baseRemote = {
     mode: 'remote_http' as const,
     upstream_url: 'https://example.com/mcp',
+    auth_scheme: '',
+    rate_limit_cooldown_ms: 60_000,
+    quota_cooldown_ms: 86_400_000,
     enabled: true,
   };
 
@@ -173,6 +182,9 @@ describe('mcpFormSchema discriminated union', () => {
       mode: 'remote_http',
       serverName: 'my-server',
       upstream_url: 'https://example.com/mcp',
+      auth_scheme: 'bearer',
+      rate_limit_cooldown_ms: 60_000,
+      quota_cooldown_ms: 86_400_000,
       enabled: true,
     });
     expect(result.success).toBe(true);
@@ -191,6 +203,9 @@ describe('mcpFormSchema discriminated union', () => {
       port: 7345,
       path: '/mcp',
       startup_timeout_ms: 30000,
+      auth_scheme: '',
+      rate_limit_cooldown_ms: 60_000,
+      quota_cooldown_ms: 86_400_000,
       enabled: true,
     });
     expect(result.success).toBe(true);

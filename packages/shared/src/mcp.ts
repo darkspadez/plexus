@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 export const McpServerSettingsSchema = z.object({
   auth_scheme: z.string().trim().min(1).nullable().optional(),

@@ -27,6 +27,8 @@ import {
   mcpFormSchema,
   REMOTE_MCP_DEFAULTS,
   LOCAL_MCP_DEFAULTS,
+  DEFAULT_RATE_LIMIT_COOLDOWN_MS,
+  DEFAULT_QUOTA_COOLDOWN_MS,
   type McpFormValues,
   type RemoteMcpFormValues,
   type LocalMcpFormValues,
@@ -123,6 +125,9 @@ export const McpServerSheet: React.FC<Props> = ({
           port: initial.port,
           path: initial.path ?? '/mcp',
           startup_timeout_ms: initial.startup_timeout_ms ?? 30000,
+          auth_scheme: initial.auth_scheme ?? '',
+          rate_limit_cooldown_ms: initial.rate_limit_cooldown_ms ?? DEFAULT_RATE_LIMIT_COOLDOWN_MS,
+          quota_cooldown_ms: initial.quota_cooldown_ms ?? DEFAULT_QUOTA_COOLDOWN_MS,
           enabled: initial.enabled,
         } satisfies LocalMcpFormValues);
       } else {
@@ -130,6 +135,9 @@ export const McpServerSheet: React.FC<Props> = ({
           mode: 'remote_http',
           serverName: editingServerName!,
           upstream_url: (initial as RemoteMcpServer).upstream_url,
+          auth_scheme: initial.auth_scheme ?? '',
+          rate_limit_cooldown_ms: initial.rate_limit_cooldown_ms ?? DEFAULT_RATE_LIMIT_COOLDOWN_MS,
+          quota_cooldown_ms: initial.quota_cooldown_ms ?? DEFAULT_QUOTA_COOLDOWN_MS,
           enabled: initial.enabled,
         } satisfies RemoteMcpFormValues);
       }
@@ -222,6 +230,9 @@ export const McpServerSheet: React.FC<Props> = ({
         path: values.path,
         startup_timeout_ms: values.startup_timeout_ms,
         headers: finalHeaders,
+        auth_scheme: values.auth_scheme.trim() || null,
+        rate_limit_cooldown_ms: values.rate_limit_cooldown_ms,
+        quota_cooldown_ms: values.quota_cooldown_ms,
       } satisfies LocalMcpServer;
     } else {
       payload = {
@@ -229,6 +240,9 @@ export const McpServerSheet: React.FC<Props> = ({
         upstream_url: values.upstream_url,
         enabled: values.enabled,
         headers: finalHeaders,
+        auth_scheme: values.auth_scheme.trim() || null,
+        rate_limit_cooldown_ms: values.rate_limit_cooldown_ms,
+        quota_cooldown_ms: values.quota_cooldown_ms,
       } satisfies RemoteMcpServer;
     }
 
@@ -435,6 +449,35 @@ export const McpServerSheet: React.FC<Props> = ({
             error={(errors as Record<string, { message?: string }>).upstream_url?.message}
           />
         )}
+
+        {/* Auth scheme + cooldowns (load-balanced key rotation) */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Input
+            {...register('auth_scheme')}
+            label="Auth Scheme"
+            placeholder="bearer"
+            error={(errors as Record<string, { message?: string }>).auth_scheme?.message}
+          />
+          <Input
+            {...register('rate_limit_cooldown_ms', { valueAsNumber: true })}
+            label="Rate Limit Cooldown (ms)"
+            type="number"
+            min={0}
+            error={(errors as Record<string, { message?: string }>).rate_limit_cooldown_ms?.message}
+          />
+          <Input
+            {...register('quota_cooldown_ms', { valueAsNumber: true })}
+            label="Quota Cooldown (ms)"
+            type="number"
+            min={0}
+            error={(errors as Record<string, { message?: string }>).quota_cooldown_ms?.message}
+          />
+        </div>
+        <p className="-mt-2 text-xs text-foreground-muted">
+          Static headers below are injected into every request. For load-balanced authentication
+          keys, set the Auth Scheme above and add keys via the server&apos;s key button in the
+          servers table.
+        </p>
 
         {/* Headers (both modes) */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">

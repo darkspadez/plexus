@@ -10,6 +10,9 @@
  */
 import * as z from 'zod';
 
+export const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 60_000;
+export const DEFAULT_QUOTA_COOLDOWN_MS = 86_400_000;
+
 // ---------------------------------------------------------------------------
 // Remote HTTP
 // ---------------------------------------------------------------------------
@@ -25,6 +28,10 @@ export const remoteMcpFormSchema = z.object({
       'Lowercase letters, digits, hyphens, underscores; must start with a letter or digit; 2–63 chars.'
     ),
   upstream_url: z.string().trim().min(1, 'Upstream URL is required.'),
+  /** Header scheme for load-balanced keys (e.g. "bearer"); empty means keys are not sent */
+  auth_scheme: z.string(),
+  rate_limit_cooldown_ms: z.number().int().min(0),
+  quota_cooldown_ms: z.number().int().min(0),
   enabled: z.boolean(),
 });
 
@@ -49,6 +56,9 @@ export const localMcpFormSchema = z.object({
   port: z.number().int().min(1).max(65535),
   path: z.string(),
   startup_timeout_ms: z.number().int().min(100),
+  auth_scheme: z.string(),
+  rate_limit_cooldown_ms: z.number().int().min(0),
+  quota_cooldown_ms: z.number().int().min(0),
   enabled: z.boolean(),
 });
 
@@ -73,6 +83,9 @@ export const REMOTE_MCP_DEFAULTS: RemoteMcpFormValues = {
   mode: 'remote_http',
   serverName: '',
   upstream_url: '',
+  auth_scheme: '',
+  rate_limit_cooldown_ms: DEFAULT_RATE_LIMIT_COOLDOWN_MS,
+  quota_cooldown_ms: DEFAULT_QUOTA_COOLDOWN_MS,
   enabled: true,
 };
 
@@ -85,5 +98,8 @@ export const LOCAL_MCP_DEFAULTS: LocalMcpFormValues = {
   port: 7345,
   path: '/mcp',
   startup_timeout_ms: 30000,
+  auth_scheme: '',
+  rate_limit_cooldown_ms: DEFAULT_RATE_LIMIT_COOLDOWN_MS,
+  quota_cooldown_ms: DEFAULT_QUOTA_COOLDOWN_MS,
   enabled: true,
 };

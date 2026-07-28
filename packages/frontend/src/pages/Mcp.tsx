@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   api,
   McpServer,
+  McpServerKey,
   McpLogRecord,
   McpOAuthClientRecord,
   McpOAuthTokenRecord,
@@ -51,7 +52,7 @@ import {
   useDeleteAllMcpLogs,
   MCP_SERVERS_KEY,
 } from '../hooks/queries/useMcp';
-import { formatMs } from '../lib/format';
+import { formatMs, formatResetsIn } from '../lib/format';
 import { isClipboardAvailable, copyToClipboard } from '../lib/clipboard';
 import { SECTION_NAMES } from '../lib/nav';
 import plexusCliSkill from '../../../../.agents/skills/plexus-cli/SKILL.md' with { type: 'text' };
@@ -97,6 +98,21 @@ export const McpPage: React.FC = () => {
 
   // Plexus CLI install popover
   const [isCliInstallOpen, setIsCliInstallOpen] = useState(false);
+
+  // Load-balanced key management (remote servers)
+  const [keyManagementServerName, setKeyManagementServerName] = useState<string | null>(null);
+  const [serverKeys, setServerKeys] = useState<McpServerKey[]>([]);
+  const [isLoadingKeys, setIsLoadingKeys] = useState(false);
+  const [newServerKey, setNewServerKey] = useState('');
+  const [isSavingKey, setIsSavingKey] = useState(false);
+  // Re-render every 30s while the key modal is open so cooldown countdowns stay fresh
+  const [, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    if (!keyManagementServerName) return;
+    const interval = window.setInterval(() => setCurrentTime(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, [keyManagementServerName]);
 
   // Logs UI state (input filters before submitting search)
   const [logsFilters, setLogsFilters] = useState({ serverName: '', apiKey: '' });
@@ -196,6 +212,58 @@ export const McpPage: React.FC = () => {
     } catch (e) {
       console.error('Toggle error', e);
       toast.error(`Failed to update MCP server: ${e}`);
+    }
+  };
+
+  const loadServerKeys = async (serverName: string) => {
+    setIsLoadingKeys(true);
+    try {
+      setServerKeys(await api.getMcpServerKeys(serverName));
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setIsLoadingKeys(false);
+    }
+  };
+
+  const handleManageKeys = (serverName: string) => {
+    setKeyManagementServerName(serverName);
+    setNewServerKey('');
+    setServerKeys([]);
+    void loadServerKeys(serverName);
+  };
+
+  const handleAddServerKey = async () => {
+    if (!keyManagementServerName || !newServerKey.trim()) return;
+    setIsSavingKey(true);
+    try {
+      await api.addMcpServerKey(keyManagementServerName, newServerKey.trim());
+      setNewServerKey('');
+      await loadServerKeys(keyManagementServerName);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setIsSavingKey(false);
+    }
+  };
+
+  const handleDeleteServerKey = async (keyId: number) => {
+    if (!keyManagementServerName) return;
+    try {
+      await api.deleteMcpServerKey(keyManagementServerName, keyId);
+      await loadServerKeys(keyManagementServerName);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleClearServerKeyCooldown = async (keyId: number) => {
+    if (!keyManagementServerName) return;
+    try {
+      await api.clearMcpServerKeyCooldown(keyManagementServerName, keyId);
+      await loadServerKeys(keyManagementServerName);
+    } catch (e) {
+      toast.error((e as Error).message);
     }
   };
 
@@ -438,18 +506,36 @@ export const McpPage: React.FC = () => {
       cell: ({ row }) => {
         const r = row.original;
         if (r.kind === 'management') return null;
+        const server = servers[r.name];
         return (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete(r.name);
-            }}
-            className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
-          >
-            <Trash2 size={14} />
-          </Button>
+          <div className="flex items-center justify-end gap-1">
+            {server?.mode !== 'local_http' && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleManageKeys(r.name);
+                }}
+                className="text-foreground-muted hover:text-foreground"
+                title="Manage load-balanced keys"
+                aria-label={`Manage keys for ${r.name}`}
+              >
+                <KeyRound size={14} />
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(r.name);
+              }}
+              className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+            >
+              <Trash2 size={14} />
+            </Button>
+          </div>
         );
       },
     },
@@ -836,18 +922,34 @@ export const McpPage: React.FC = () => {
             }
             mobileActions={(r) =>
               r.kind === 'server' ? (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(r.name);
-                  }}
-                  className="text-danger"
-                  aria-label={`Delete ${r.name}`}
-                >
-                  <Trash2 size={14} />
-                </Button>
+                <>
+                  {servers[r.name]?.mode !== 'local_http' && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleManageKeys(r.name);
+                      }}
+                      className="text-foreground-muted"
+                      aria-label={`Manage keys for ${r.name}`}
+                    >
+                      <KeyRound size={14} />
+                    </Button>
+                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(r.name);
+                    }}
+                    className="text-danger"
+                    aria-label={`Delete ${r.name}`}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </>
               ) : null
             }
           />
@@ -1084,6 +1186,112 @@ export const McpPage: React.FC = () => {
             initial={editingServer}
             servers={servers}
           />
+
+          {/* ── Manage Keys Modal ── */}
+          <Modal
+            isOpen={keyManagementServerName !== null}
+            onClose={() => setKeyManagementServerName(null)}
+            title={
+              keyManagementServerName ? `Manage Keys: ${keyManagementServerName}` : 'Manage Keys'
+            }
+            footer={
+              <Button variant="secondary" onClick={() => setKeyManagementServerName(null)}>
+                Close
+              </Button>
+            }
+          >
+            <div className="flex flex-col gap-4">
+              <div className="rounded-md border border-border bg-surface-elevated p-3 text-sm text-foreground-muted">
+                <p>
+                  These keys are load-balanced (round robin) and rotated automatically when a rate
+                  limit or quota is exceeded. They are injected using the server&apos;s configured{' '}
+                  <strong>Auth Scheme</strong>:{' '}
+                  <span className="rounded bg-surface-sunken px-1 py-0.5 font-mono text-foreground">
+                    {keyManagementServerName && servers[keyManagementServerName]?.auth_scheme
+                      ? servers[keyManagementServerName].auth_scheme
+                      : 'None (keys will not be sent)'}
+                  </span>
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div className="min-w-0 flex-1">
+                  <Input
+                    label="New Key"
+                    value={newServerKey}
+                    onChange={(e) => setNewServerKey(e.target.value)}
+                    placeholder="Paste key value"
+                  />
+                </div>
+                <Button
+                  onClick={handleAddServerKey}
+                  disabled={isSavingKey || !newServerKey.trim()}
+                  isLoading={isSavingKey}
+                  className="w-full sm:w-auto"
+                >
+                  Add Key
+                </Button>
+              </div>
+
+              {isLoadingKeys ? (
+                <p className="text-sm text-foreground-muted">Loading keys...</p>
+              ) : serverKeys.length === 0 ? (
+                <p className="text-sm text-foreground-muted">No keys configured.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {serverKeys.map((key) => {
+                    const isExhausted =
+                      key.cooldown_until !== null &&
+                      new Date(key.cooldown_until).getTime() > Date.now();
+                    return (
+                      <div
+                        key={key.id}
+                        className="flex flex-col gap-3 rounded-md border border-border bg-surface-elevated p-3 sm:flex-row sm:items-center"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className="truncate font-mono text-sm text-foreground"
+                            title={key.key}
+                          >
+                            {key.key}
+                          </div>
+                          <div
+                            className={cn(
+                              'mt-1 text-xs font-medium',
+                              !key.is_active || isExhausted ? 'text-warning' : 'text-success'
+                            )}
+                          >
+                            {!key.is_active
+                              ? 'Inactive'
+                              : isExhausted
+                                ? `Exhausted, ${formatResetsIn(key.cooldown_until)}`
+                                : 'Active'}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          {isExhausted && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => handleClearServerKeyCooldown(key.id)}
+                            >
+                              Clear Cooldown
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleDeleteServerKey(key.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </Modal>
 
           {/* ── Delete All Logs Modal ── */}
           <Modal
