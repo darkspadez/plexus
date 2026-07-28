@@ -201,15 +201,18 @@ export async function buildRequestPayload(
     );
     // Codex CLI and Responses clients receive the native Responses stream.
     // Cross-format Codex requests must translate the response back to the
-    // incoming client format. Anthropic remains raw pass-through, while
-    // Copilot honors its computed same-format decision.
-    const incomingIsResponses =
-      getApiBaseType(request.incomingApiType?.toLowerCase() ?? '') === 'responses';
+    // incoming client format. Anthropic bypasses only for same-format
+    // (Messages) clients — chat/responses clients get the response
+    // translated by the standard pipeline (mirrors the identical Codex fix,
+    // commit 4f74c1c6). Copilot honors its computed same-format decision.
+    const incomingBaseType = getApiBaseType(request.incomingApiType?.toLowerCase() ?? '');
+    const incomingIsResponses = incomingBaseType === 'responses';
+    const incomingIsMessages = incomingBaseType === 'messages';
     const nativeBypass = codexNative
       ? codexCliPassthrough || incomingIsResponses
       : copilotNative
         ? bypassTransformation
-        : true;
+        : incomingIsMessages;
     return { payload: prepared.body, bypassTransformation: nativeBypass };
   }
 
