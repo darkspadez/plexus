@@ -245,7 +245,7 @@ OAuth providers are not supported by the raw endpoint.
 
 Adapters rewrite request payloads outbound to a provider and raw response payloads inbound, fixing provider-specific field-name incompatibilities without modifying the core transformer pipeline.
 
-Adapters can be set at **provider level** (applied to every model under the provider) or at **model level** (appended after provider-level adapters for a specific model). Both accept a single name or a list. Use `{ "name": "...", "enabled": false }` at model level to disable an inherited or automatic adapter; a later enabled entry restores it.
+Adapters can be set at **provider level** (applied to every model under the provider) or at **model level** (appended after provider-level adapters for a specific model). Both accept a single name or a list. Use `{ "name": "...", "enabled": false }` at provider or model level to disable an inherited or automatic adapter; a later enabled entry restores it.
 
 | Adapter | Description |
 |---------|-------------|
@@ -255,6 +255,7 @@ Adapters can be set at **provider level** (applied to every model under the prov
 | `reasoning_rewrite` | Manually rewrites reasoning/thinking request fields for providers with bespoke compatibility requirements. Prefer `auto_compat` for models linked to the pi-ai builtin registry; this adapter is now best treated as an escape hatch. |
 | `web_search_coercion` | Translates server-side web search tool entries to the format expected by the target provider. Clients can use any web search format; Plexus rewrites it transparently. See [Web Search Coercion Adapter](#web-search-coercion-adapter) below. |
 | `suppress_unsupported_gpt5_options` | Removes generation options unsupported by GPT-5 models. Enabled automatically for the GPT-5 family; set `enabled: false` for a model to opt out. |
+| `normalize_anthropic_tool_ids` | Rewrites `tool_use` / `tool_result` ids that violate Anthropic's `^[a-zA-Z0-9_-]+$` charset (e.g. Moonshot's `functions.WebSearch:3`), which Anthropic rejects with a hard HTTP 400. Enabled automatically when the outbound wire format is Anthropic Messages **and** the provider looks Anthropic (base URL containing `anthropic.com`, Anthropic OAuth, or Claude masking). Add `{ "name": "normalize_anthropic_tool_ids", "options": {}, "enabled": true }` to force it on for an Anthropic-compatible gateway hosted on another domain; set `enabled: false` to opt out. |
 
 **Example — provider-level:**
 ```json
@@ -277,7 +278,7 @@ PUT /v0/management/providers/fireworks
 }
 ```
 
-Adapters are applied in order on outbound (preDispatch) and in reverse on inbound (postDispatch). Pass-through optimisation is automatically disabled when any adapter is active.
+Adapters are applied in order on outbound (preDispatch) and in reverse on inbound (postDispatch). They run whether or not the pass-through optimisation is active: a same-format request skips the transformer, but its body is still cloned, given the target model and the provider/model config fields, and run through the adapter chain before dispatch.
 
 ### Model Override Adapter
 

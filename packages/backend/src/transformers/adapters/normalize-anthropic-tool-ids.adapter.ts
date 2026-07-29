@@ -32,8 +32,17 @@ import { logger } from '../../utils/logger';
  *     `prepareNativeOAuthDispatch`, which runs *after* adapters. Mutating the
  *     body post-signing would invalidate that signature, so the rewrite has to
  *     happen up front.
- *   - Failover cannot rescue the request either: every messages-format target
- *     enforces the same charset, so the identical body 400s on each attempt.
+ *   - Failover cannot rescue the request either: every Anthropic
+ *     messages-format target enforces the same charset, so the identical body
+ *     400s on each attempt.
+ *
+ * Where it is injected: `adapter-resolver.ts` adds this adapter implicitly only
+ * when the outbound wire format is Anthropic Messages AND the target looks like
+ * Anthropic (anthropic.com base URL, Anthropic OAuth, or Claude masking) —
+ * other Messages-speaking proxies do not enforce the charset. A provider- or
+ * model-level `adapter` entry overrides that either way
+ * (`{ name, options: {}, enabled: true }` to force it on, `{ name, enabled:
+ * false }` to opt out).
  *
  * (Same decision rule as the NOTE in
  * `suppress-unsupported-gpt5-options.adapter.ts`: strip statically when every

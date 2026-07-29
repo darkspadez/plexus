@@ -22,11 +22,14 @@ global.fetch = fetchMock as any;
 // ---------------------------------------------------------------------------
 // Wire-level proof for the `normalize_anthropic_tool_ids` adapter.
 //
-// The adapter is injected implicitly by adapter-resolver.ts for every route
-// whose FINAL outbound wire type is Anthropic Messages. These tests drive the
-// REAL Dispatcher end to end and read the outbound bytes off `fetch`, so they
-// prove the injection point, the ordering relative to Claude-Code masking, and
-// the per-attempt behaviour — not just the pure function.
+// The adapter is injected implicitly by adapter-resolver.ts for routes that
+// satisfy BOTH halves of its gate: the FINAL outbound wire type is Anthropic
+// Messages AND the target looks like Anthropic (anthropic.com base URL,
+// Anthropic OAuth, or Claude masking). A provider/model `adapter` entry
+// overrides that either way. These tests drive the REAL Dispatcher end to end
+// and read the outbound bytes off `fetch`, so they prove the injection point,
+// the ordering relative to Claude-Code masking, and the per-attempt behaviour —
+// not just the pure function.
 //
 // `functions.WebSearch:3` is the real Moonshot/Kimi id shape that makes
 // Anthropic hard-400 with
@@ -198,6 +201,9 @@ function recomputeCch(transmittedBody: any): string {
  * uses the record/map form so getProviderTypes() resolves the 'messages' API
  * type explicitly — the string-URL inference path only recognizes 'messages'
  * for URLs containing "anthropic.com" (see config.ts's getProviderTypes()).
+ * The hosts are anthropic.com gateways so the routes also satisfy the second
+ * half of the injection gate; keeping the record form means these tests
+ * wire-prove the record branch of `isAnthropicTargetProvider` at the same time.
  */
 function makeMessagesConfig(options?: { targetCount?: number }) {
   const targetCount = options?.targetCount ?? 1;
@@ -205,14 +211,14 @@ function makeMessagesConfig(options?: { targetCount?: number }) {
   const providers: Record<string, any> = {
     p1: {
       type: 'messages',
-      api_base_url: { messages: 'https://p1.example.com/v1' },
+      api_base_url: { messages: 'https://gw1.anthropic.com/v1' },
       api_key: 'test-key-p1',
       useClaudeMasking: false,
       models: { 'model-1': {} },
     },
     p2: {
       type: 'messages',
-      api_base_url: { messages: 'https://p2.example.com/v1' },
+      api_base_url: { messages: 'https://gw2.anthropic.com/v1' },
       api_key: 'test-key-p2',
       useClaudeMasking: false,
       models: { 'model-2': {} },
@@ -230,6 +236,40 @@ function makeMessagesConfig(options?: { targetCount?: number }) {
       'claude-alias': {
         selector: 'in_order',
         targets: orderedTargets,
+      },
+    },
+    keys: {},
+    failover: {
+      enabled: true,
+      retryableStatusCodes: [500, 502, 503, 504, 429],
+      retryableErrors: ['ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND'],
+    },
+    quotas: [],
+  } as any;
+}
+
+/**
+ * A Messages-format provider that is NOT Anthropic: same record/map shape as
+ * `makeMessagesConfig`, but hosted on a plain proxy domain. The route's outbound
+ * wire type is still Anthropic Messages, so it isolates the second half of the
+ * injection gate. `adapter` optionally sets the provider-level override.
+ */
+function makeProxyMessagesConfig(adapter?: any[]) {
+  return {
+    providers: {
+      p1: {
+        type: 'messages',
+        api_base_url: { messages: 'https://p1.example.com/v1' },
+        api_key: 'test-key-p1',
+        useClaudeMasking: false,
+        ...(adapter ? { adapter } : {}),
+        models: { 'model-1': {} },
+      },
+    },
+    models: {
+      'proxy-alias': {
+        selector: 'in_order',
+        targets: [{ provider: 'p1', model: 'model-1' }],
       },
     },
     keys: {},
@@ -269,11 +309,16 @@ function makeChatConfig() {
   } as any;
 }
 
-/** Verbatim copy of dispatcher-claude-masking.test.ts's masked-route config. */
-function maskedAnthropicConfig() {
+/**
+ * Verbatim copy of dispatcher-claude-masking.test.ts's masked-route config.
+ * The provider SLUG is a parameter because `useClaudeMasking` is
+ * provider-name-agnostic: any static provider can carry it, including one whose
+ * name collides with a native-OAuth provider id.
+ */
+function maskedAnthropicConfig(providerSlug = 'claude_masked') {
   return {
     providers: {
-      claude_masked: {
+      [providerSlug]: {
         type: 'messages',
         api_base_url: 'https://api.anthropic.com',
         api_key: 'sk-ant-api03-masked-test-key',
@@ -287,10 +332,21 @@ function maskedAnthropicConfig() {
     },
     models: {
       'test-model': {
-        targets: [{ provider: 'claude_masked', model: 'claude-test' }],
+        targets: [{ provider: providerSlug, model: 'claude-test' }],
       },
     },
     keys: {},
+  } as any;
+}
+
+/** The masked-route client request (same-format Messages, poisoned tool ids). */
+function makeMaskedRequest(): UnifiedChatRequest {
+  return {
+    model: 'test-model',
+    messages: [{ role: 'user', content: 'search please' }],
+    incomingApiType: 'messages',
+    stream: false,
+    originalBody: poisonedMessagesBody('test-model'),
   } as any;
 }
 
@@ -394,7 +450,7 @@ describe('Dispatcher Anthropic tool-id normalization', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('https://p1.example.com/v1/messages');
+    expect(url).toBe('https://gw1.anthropic.com/v1/messages');
 
     const body = outboundBody(0);
     // Pass-through rewrites the alias to the target's real model id.
@@ -452,13 +508,7 @@ describe('Dispatcher Anthropic tool-id normalization', () => {
     fetchMock.mockImplementation(async () => messagesSuccessResponse('claude-test'));
 
     const dispatcher = new Dispatcher();
-    const response = await dispatcher.dispatch({
-      model: 'test-model',
-      messages: [{ role: 'user', content: 'search please' }],
-      incomingApiType: 'messages',
-      stream: false,
-      originalBody: poisonedMessagesBody('test-model'),
-    } as any);
+    const response = await dispatcher.dispatch(makeMaskedRequest());
 
     expect(response).toBeDefined();
     // The masked API-key route goes NATIVE (real fetch, x-api-key), not pi-ai.
@@ -496,6 +546,42 @@ describe('Dispatcher Anthropic tool-id normalization', () => {
     // changes the hash, so the match above cannot be an accident.
     const poisonedBody = JSON.parse(JSON.stringify(body).replaceAll(SANITIZED_ID, POISONED_ID));
     expect(recomputeCch(poisonedBody)).not.toBe(emittedCch);
+
+    expect(normalizeWarns()).toHaveLength(1);
+  });
+
+  test('Claude-masking route whose provider slug collides with a native-OAuth id still dispatches as Messages', async () => {
+    // `useClaudeMasking` is provider-name-agnostic, so nothing stops an operator
+    // from naming a masked provider 'openai-codex'. The masked route carries no
+    // oauth_provider, so the slug used to fall through to nativeOAuthApiType()
+    // and resolve the wire type to 'responses' — which would drop the native
+    // Anthropic path (no masking, no x-api-key, wrong endpoint) AND, because the
+    // effective wire type was no longer 'messages', skip the tool-id normalizer.
+    setConfigForTesting(maskedAnthropicConfig('openai-codex'));
+    fetchMock.mockImplementation(async () => messagesSuccessResponse('claude-test'));
+
+    const dispatcher = new Dispatcher();
+    const response = await dispatcher.dispatch(makeMaskedRequest());
+
+    expect(response).toBeDefined();
+    expect(vi.mocked(piAi.complete)).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://api.anthropic.com/v1/messages');
+    const headers = init.headers as Record<string, string>;
+    expect(headers['x-api-key']).toBe('sk-ant-api03-masked-test-key');
+    expect(headers.Authorization).toBeUndefined();
+    expect(headers['anthropic-beta']).toBeTruthy();
+
+    const body = outboundBody(0);
+    // Masking markers: identity system block rebuilt + billing header signed.
+    expect(Array.isArray(body.system)).toBe(true);
+    expect(body.system[0].text).toContain('x-anthropic-billing-header');
+
+    const { toolUseIds, toolResultIds } = collectAnthropicToolIds(body);
+    expect(toolUseIds).toEqual([SANITIZED_ID, VALID_ID]);
+    expect(toolResultIds).toEqual([SANITIZED_ID, VALID_ID]);
 
     expect(normalizeWarns()).toHaveLength(1);
   });
@@ -551,6 +637,57 @@ describe('Dispatcher Anthropic tool-id normalization', () => {
     expect(normalizeWarns()).toHaveLength(0);
   });
 
+  test('non-Anthropic messages proxy: the adapter is NOT injected and tool ids pass through verbatim', async () => {
+    setConfigForTesting(makeProxyMessagesConfig());
+    fetchMock.mockImplementation(async () => messagesSuccessResponse('model-1'));
+
+    const dispatcher = new Dispatcher();
+    const response = await dispatcher.dispatch(makeMessagesRequest('proxy-alias'));
+
+    expect(response).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String((fetchMock.mock.calls[0] as any[])[0])).toBe(
+      'https://p1.example.com/v1/messages'
+    );
+
+    const body = outboundBody(0);
+    // Only the alias -> target model rewrite; every message is byte-identical,
+    // poisoned ids included. A Messages-speaking proxy does not enforce
+    // Anthropic's charset, and rewriting here would break the ids the client
+    // matches against on its next turn.
+    expect(body.model).toBe('model-1');
+    expect(body.messages).toEqual(poisonedMessagesBody('proxy-alias').messages);
+
+    // Not merely a no-op rewrite — the adapter was never in the chain.
+    expect(normalizeWarns()).toHaveLength(0);
+  });
+
+  test('non-Anthropic messages proxy: an explicit provider adapter entry force-enables normalization', async () => {
+    setConfigForTesting(
+      makeProxyMessagesConfig([
+        { name: 'normalize_anthropic_tool_ids', options: {}, enabled: true },
+      ])
+    );
+    fetchMock.mockImplementation(async () => messagesSuccessResponse('model-1'));
+
+    const dispatcher = new Dispatcher();
+    const response = await dispatcher.dispatch(makeMessagesRequest('proxy-alias'));
+
+    expect(response).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Still the proxy host — the escape hatch is the only thing that changed.
+    expect(String((fetchMock.mock.calls[0] as any[])[0])).toBe(
+      'https://p1.example.com/v1/messages'
+    );
+
+    const body = outboundBody(0);
+    const { toolUseIds, toolResultIds } = collectAnthropicToolIds(body);
+    expect(toolUseIds).toEqual([SANITIZED_ID, VALID_ID]);
+    expect(toolResultIds).toEqual([SANITIZED_ID, VALID_ID]);
+
+    expect(normalizeWarns()).toHaveLength(1);
+  });
+
   test('failover: every attempt gets its own freshly sanitized body', async () => {
     setConfigForTesting(makeMessagesConfig({ targetCount: 2 }));
     fetchMock
@@ -575,10 +712,10 @@ describe('Dispatcher Anthropic tool-id normalization', () => {
       expect(toolResultIds).toEqual([SANITIZED_ID, VALID_ID]);
     }
     expect(String((fetchMock.mock.calls[0] as any[])[0])).toBe(
-      'https://p1.example.com/v1/messages'
+      'https://gw1.anthropic.com/v1/messages'
     );
     expect(String((fetchMock.mock.calls[1] as any[])[0])).toBe(
-      'https://p2.example.com/v1/messages'
+      'https://gw2.anthropic.com/v1/messages'
     );
 
     // One warn per attempt — the rewrite genuinely re-ran, it was not carried

@@ -13,6 +13,7 @@ import { preprocessVisionRequest } from '../vision/vision-request-preprocessor';
 import { resolveRouteCandidates } from '../routing/route-candidates';
 import { executeStandardAttempt } from './standard-attempt-request';
 import { isNativeOAuthRoute } from './request-payload-builder';
+import { isClaudeMaskingApiKeyRoute } from '../oauth/oauth-dispatcher';
 import { nativeOAuthApiType } from '../oauth/oauth-native-request';
 import type { RetryAttemptRecord } from './dispatcher-types';
 import type { ResolveTimeoutMs } from './upstream-execution';
@@ -163,10 +164,18 @@ export class RequestManager {
               `Supported OAuth providers: anthropic, openai-codex, github-copilot.`
           );
         }
-        const effectiveApiType = nativeOAuth
-          ? (nativeOAuthApiType(route.config.oauth_provider || route.provider, route.model) ??
-            'messages')
-          : targetApiType;
+        // Claude-masking API-key routes are Anthropic Messages by construction
+        // and carry NO oauth_provider, so the slug fallback below would hand an
+        // arbitrary provider name to the native-OAuth mapping: a provider
+        // unluckily named 'openai-codex' or 'github-copilot' would resolve to
+        // 'responses' / Copilot's per-model wire type and break the route.
+        // Resolve them explicitly instead.
+        const effectiveApiType = isClaudeMaskingApiKeyRoute(route, targetApiType)
+          ? 'messages'
+          : nativeOAuth
+            ? (nativeOAuthApiType(route.config.oauth_provider || route.provider, route.model) ??
+              'messages')
+            : targetApiType;
         const transformer = TransformerFactory.getTransformer(effectiveApiType);
 
         // 3. Transform Request

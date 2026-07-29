@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAdapters } from '../../services/dispatch/adapter-resolver';
+import {
+  isAnthropicTargetProvider,
+  resolveAdapters,
+} from '../../services/dispatch/adapter-resolver';
 import type { RouteResult } from '../../services/routing/router';
 import { apiAccessToKey } from '../../utils/api-format';
 
-// Minimal RouteResult factory
-function makeRoute(providerAdapter?: any[], modelAdapter?: any[]): RouteResult {
+// Minimal RouteResult factory. `configOverrides` is spread LAST so a test can
+// replace any baseline config field (api_base_url, useClaudeMasking, …).
+function makeRoute(
+  providerAdapter?: any[],
+  modelAdapter?: any[],
+  configOverrides?: Record<string, any>
+): RouteResult {
   return {
     provider: 'test-provider',
     model: 'test-model',
@@ -16,6 +24,7 @@ function makeRoute(providerAdapter?: any[], modelAdapter?: any[]): RouteResult {
       estimateTokens: false,
       useClaudeMasking: false,
       adapter: providerAdapter,
+      ...configOverrides,
     } as any,
     modelConfig: modelAdapter !== undefined ? ({ adapter: modelAdapter } as any) : undefined,
   } as RouteResult;
@@ -222,13 +231,62 @@ describe('resolveAdapters', () => {
   });
 });
 
-describe('resolveAdapters — Anthropic tool-id normalization by outbound wire format', () => {
-  it('auto-injects the tool-id normalizer when the effective API type is messages', () => {
-    const resolved = resolveAdapters(makeRoute(undefined, undefined), 'messages');
-    expect(resolved.map((r) => r.adapter.name)).toEqual(['normalize_anthropic_tool_ids']);
+describe('resolveAdapters — Anthropic tool-id normalization gate', () => {
+  // The gate has TWO parts: the outbound wire format must be Anthropic Messages
+  // AND the target must look like Anthropic. Not every messages-format target is
+  // Anthropic — a plain Messages-speaking proxy does not enforce Anthropic's
+  // tool-id charset, and rewriting ids there would corrupt ids the client
+  // matches against on its next turn.
+  const NORMALIZER = 'normalize_anthropic_tool_ids';
+
+  it('auto-injects for a string anthropic.com base URL on the messages wire format', () => {
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: 'https://api.anthropic.com',
+    });
+    expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([NORMALIZER]);
   });
 
-  it('auto-injects the tool-id normalizer for a messages subtype', () => {
+  it('auto-injects for a record base URL whose messages value is anthropic.com', () => {
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: { messages: 'https://gw.anthropic.com/v1' },
+    });
+    expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([NORMALIZER]);
+  });
+
+  it('matches the anthropic.com host case-insensitively', () => {
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: 'https://API.ANTHROPIC.COM',
+    });
+    expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([NORMALIZER]);
+  });
+
+  it('auto-injects for an Anthropic OAuth route (string oauth:// URL)', () => {
+    // Native-OAuth Anthropic routes reach the resolver with effectiveApiType
+    // already resolved to 'messages' (request-manager.ts), never 'oauth'.
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: 'oauth://anthropic',
+      oauth_provider: 'anthropic',
+    });
+    expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([NORMALIZER]);
+  });
+
+  it('auto-injects for an Anthropic OAuth route (record oauth:// URL)', () => {
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: { messages: 'oauth://anthropic' },
+      oauth_provider: 'anthropic',
+    });
+    expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([NORMALIZER]);
+  });
+
+  it('auto-injects for a Claude-masking route regardless of its base URL', () => {
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: 'https://example.com',
+      useClaudeMasking: true,
+    });
+    expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([NORMALIZER]);
+  });
+
+  it('auto-injects for a messages subtype on an Anthropic target', () => {
     // Subtype keys are minted by apiAccessToKey from a configured
     // `access_via: [{ type, subtype }]` entry, so the injection has to match on
     // the base type rather than the whole string. No `messages:*` subtype ships
@@ -236,12 +294,52 @@ describe('resolveAdapters — Anthropic tool-id normalization by outbound wire f
     // accepts any type/subtype pair, so one is constructible.
     const subtypeApiType = apiAccessToKey({ type: 'Messages', subtype: 'Lite' });
     expect(subtypeApiType).toBe('messages:lite');
-    expect(
-      resolveAdapters(makeRoute(undefined, undefined), subtypeApiType).map((r) => r.adapter.name)
-    ).toEqual(['normalize_anthropic_tool_ids']);
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: 'https://api.anthropic.com',
+    });
+    expect(resolveAdapters(route, subtypeApiType).map((r) => r.adapter.name)).toEqual([NORMALIZER]);
+  });
+
+  it('does NOT auto-inject for a non-Anthropic messages proxy', () => {
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: 'https://p1.example.com/v1',
+    });
+    expect(resolveAdapters(route, 'messages')).toHaveLength(0);
+  });
+
+  it('does NOT auto-inject for a record whose anthropic.com URL is not the dispatched one', () => {
+    // The messages request goes to r8.example; the chat URL is never dispatched
+    // for this wire format and must not pull the normalizer in.
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: { messages: 'https://r8.example/v1', chat: 'https://api.anthropic.com/v1' },
+    });
+    expect(resolveAdapters(route, 'messages')).toHaveLength(0);
+  });
+
+  it('does NOT auto-inject for a Copilot OAuth route serving a Claude model over messages', () => {
+    // The real-world non-Anthropic messages-wire OAuth case: GitHub Copilot
+    // fronts Claude models, so nativeOAuthApiType() resolves this route's wire
+    // type to 'messages' — yet the upstream is Copilot, not Anthropic, and it
+    // does not enforce Anthropic's tool-id charset.
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: 'oauth://github-copilot',
+      oauth_provider: 'github-copilot',
+    });
+    expect(resolveAdapters(route, 'messages')).toHaveLength(0);
+  });
+
+  it('does NOT auto-inject for a non-Anthropic OAuth provider', () => {
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: 'oauth://openai-codex',
+      oauth_provider: 'openai-codex',
+    });
+    expect(resolveAdapters(route, 'messages')).toHaveLength(0);
   });
 
   it('does not auto-inject the tool-id normalizer for non-messages API types', () => {
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: 'https://api.anthropic.com',
+    });
     for (const apiType of [
       'chat',
       'responses',
@@ -250,41 +348,287 @@ describe('resolveAdapters — Anthropic tool-id normalization by outbound wire f
       'completions',
       'ollama',
     ]) {
-      expect(resolveAdapters(makeRoute(undefined, undefined), apiType)).toHaveLength(0);
+      expect(resolveAdapters(route, apiType)).toHaveLength(0);
     }
   });
 
   it('does not auto-inject the tool-id normalizer when no API type is passed', () => {
-    expect(resolveAdapters(makeRoute(undefined, undefined))).toHaveLength(0);
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: 'https://api.anthropic.com',
+    });
+    expect(resolveAdapters(route)).toHaveLength(0);
   });
 
   it('allows a provider adapter entry to disable the tool-id normalizer', () => {
-    const route = makeRoute([{ name: 'normalize_anthropic_tool_ids', enabled: false }]);
+    const route = makeRoute([{ name: NORMALIZER, enabled: false }], undefined, {
+      api_base_url: 'https://api.anthropic.com',
+    });
     expect(resolveAdapters(route, 'messages')).toHaveLength(0);
+  });
+
+  it('allows a model adapter entry to disable the tool-id normalizer', () => {
+    // Same tombstone override as the provider level, one scope down.
+    const route = makeRoute(undefined, [{ name: NORMALIZER, enabled: false }], {
+      api_base_url: 'https://api.anthropic.com',
+    });
+    expect(resolveAdapters(route, 'messages')).toHaveLength(0);
+  });
+
+  it('allows a provider adapter entry to force-enable the normalizer on a non-Anthropic proxy', () => {
+    // The escape hatch for an Anthropic-compatible gateway on some other host
+    // that DOES enforce the tool-id charset.
+    const route = makeRoute([{ name: NORMALIZER, options: {}, enabled: true }], undefined, {
+      api_base_url: 'https://p1.example.com/v1',
+    });
+    expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([NORMALIZER]);
   });
 
   it('allows a model adapter entry to restore the tool-id normalizer disabled by its provider', () => {
     const route = makeRoute(
-      [{ name: 'normalize_anthropic_tool_ids', enabled: false }],
-      [{ name: 'normalize_anthropic_tool_ids', enabled: true }]
+      [{ name: NORMALIZER, enabled: false }],
+      [{ name: NORMALIZER, enabled: true }],
+      { api_base_url: 'https://api.anthropic.com' }
     );
+    expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([NORMALIZER]);
+  });
+
+  it('resolves the normalizer TWICE when an Anthropic route also enables it explicitly', () => {
+    // Pins the tolerated duplicate: the implicit injection and the explicit
+    // enabled entry both land in the list. Harmless because the sanitizer is
+    // idempotent (f(f(x)) === f(x)), so the second pass rewrites nothing. This
+    // test exists so that adding de-duplication later is a conscious decision
+    // rather than an accidental behaviour change.
+    const route = makeRoute([{ name: NORMALIZER, options: {}, enabled: true }], undefined, {
+      api_base_url: 'https://api.anthropic.com',
+    });
     expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([
-      'normalize_anthropic_tool_ids',
+      NORMALIZER,
+      NORMALIZER,
     ]);
   });
 
   it('runs the tool-id normalizer after other implicit adapters and before configured ones', () => {
-    const base = makeRoute([{ name: 'reasoning_content', options: {} }]);
-    const route: RouteResult = {
-      ...base,
-      model: 'gpt-5.2',
-      config: { ...base.config, pi_ai_provider: 'openrouter' },
-    };
+    const route = makeRoute([{ name: 'reasoning_content', options: {} }], undefined, {
+      pi_ai_provider: 'openrouter',
+      useClaudeMasking: true,
+    });
+    route.model = 'gpt-5.2';
     expect(resolveAdapters(route, 'messages').map((r) => r.adapter.name)).toEqual([
       'suppress_unsupported_gpt5_options',
       'strip_unsupported_tool_search',
       'normalize_anthropic_tool_ids',
       'reasoning_content',
     ]);
+  });
+});
+
+describe('isAnthropicTargetProvider', () => {
+  // Contract: "is the URL this dispatch would actually be sent to an Anthropic
+  // one?". For the record form of api_base_url the answer is therefore scoped to
+  // the key `resolveProviderBaseUrl` would pick for the given wire type (exact
+  // key, then base type); with no wire type passed, every value is scanned.
+
+  it('matches a string anthropic.com base URL', () => {
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, { api_base_url: 'https://api.anthropic.com' })
+      )
+    ).toBe(true);
+  });
+
+  it('matches a string anthropic.com base URL case-insensitively', () => {
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, { api_base_url: 'https://API.ANTHROPIC.COM/v1' })
+      )
+    ).toBe(true);
+  });
+
+  it('matches a string base URL regardless of the API type passed', () => {
+    // Nothing to select in the string form — the same URL serves every type.
+    const route = makeRoute(undefined, undefined, { api_base_url: 'https://api.anthropic.com' });
+    for (const apiType of [undefined, 'messages', 'messages:lite', 'chat']) {
+      expect(isAnthropicTargetProvider(route, apiType)).toBe(true);
+    }
+  });
+
+  it('matches a record base URL whose messages value is anthropic.com', () => {
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: { messages: 'https://gw.anthropic.com/v1' },
+        }),
+        'messages'
+      )
+    ).toBe(true);
+  });
+
+  it("matches the record's messages value even when another key points elsewhere", () => {
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: { chat: 'https://x.example.com', messages: 'https://y.anthropic.com' },
+        }),
+        'messages'
+      )
+    ).toBe(true);
+  });
+
+  it('does NOT match a record whose anthropic.com value sits under an unused key', () => {
+    // The bug this scoping exists for: dispatch sends the messages request to
+    // r8.example, so the (unused) chat URL must not make it look Anthropic.
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: { messages: 'https://r8.example/v1', chat: 'https://api.anthropic.com/v1' },
+        }),
+        'messages'
+      )
+    ).toBe(false);
+  });
+
+  it('matches that same record when the dispatched key IS the anthropic.com one', () => {
+    // Chat is not the Messages wire format, so resolveAdapters' gate would never
+    // inject for it — but the helper's own contract is per-key, and the URL a
+    // 'chat' dispatch uses here really is Anthropic's.
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: { messages: 'https://r8.example/v1', chat: 'https://api.anthropic.com/v1' },
+        }),
+        'chat'
+      )
+    ).toBe(true);
+  });
+
+  it('scans every record value when no API type is passed', () => {
+    // Legacy/unscoped callers keep the pre-scoping any-value behaviour.
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: { messages: 'https://r8.example/v1', chat: 'https://api.anthropic.com/v1' },
+        })
+      )
+    ).toBe(true);
+  });
+
+  it('resolves a messages subtype to the exact key first, then the base-type key', () => {
+    // Mirrors resolveProviderBaseUrl's `urlMap[typeKey] || urlMap[baseType]`.
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: { messages: 'https://gw.anthropic.com/v1' },
+        }),
+        'messages:lite'
+      )
+    ).toBe(true);
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: {
+            'messages:lite': 'https://r8.example/v1',
+            messages: 'https://gw.anthropic.com/v1',
+          },
+        }),
+        'messages:lite'
+      )
+    ).toBe(false);
+  });
+
+  it('does not match when the record has no key for the dispatched API type', () => {
+    // resolveProviderBaseUrl would fall back further (default key, aliases, first
+    // key); the gate deliberately treats a provider that doesn't advertise the
+    // wire type as no evidence of an Anthropic target.
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: { chat: 'https://api.anthropic.com/v1' },
+        }),
+        'messages'
+      )
+    ).toBe(false);
+  });
+
+  it('does not match a record base URL with no anthropic.com value', () => {
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: { messages: 'https://p1.example.com/v1' },
+        }),
+        'messages'
+      )
+    ).toBe(false);
+  });
+
+  it('does not match a plain string proxy URL', () => {
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, { api_base_url: 'https://p1.example.com/v1' })
+      )
+    ).toBe(false);
+  });
+
+  it('matches an oauth:// route whose oauth_provider is anthropic', () => {
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: 'oauth://anthropic',
+          oauth_provider: 'anthropic',
+        })
+      )
+    ).toBe(true);
+  });
+
+  it('does not match an oauth:// route for a non-Anthropic OAuth provider', () => {
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: 'oauth://openai-codex',
+          oauth_provider: 'openai-codex',
+        })
+      )
+    ).toBe(false);
+  });
+
+  it('falls back to the provider slug when oauth_provider is unset', () => {
+    // Same `oauth_provider || route.provider` resolution request-manager.ts uses.
+    const route = makeRoute(undefined, undefined, { api_base_url: 'oauth://anthropic' });
+    route.provider = 'anthropic';
+    expect(isAnthropicTargetProvider(route)).toBe(true);
+  });
+
+  it('matches an oauth:// value inside a record base URL', () => {
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: { messages: 'oauth://anthropic' },
+          oauth_provider: 'anthropic',
+        }),
+        'messages'
+      )
+    ).toBe(true);
+  });
+
+  it('does NOT match an oauth:// value sitting under an unused key', () => {
+    // The key scoping applies to the oauth:// signal too, not just the host test.
+    expect(
+      isAnthropicTargetProvider(
+        makeRoute(undefined, undefined, {
+          api_base_url: { messages: 'https://r8.example/v1', chat: 'oauth://anthropic' },
+          oauth_provider: 'anthropic',
+        }),
+        'messages'
+      )
+    ).toBe(false);
+  });
+
+  it('matches a Claude-masking route regardless of its base URL or API type', () => {
+    const route = makeRoute(undefined, undefined, {
+      api_base_url: 'https://example.com',
+      useClaudeMasking: true,
+    });
+    for (const apiType of [undefined, 'messages', 'chat']) {
+      expect(isAnthropicTargetProvider(route, apiType)).toBe(true);
+    }
   });
 });

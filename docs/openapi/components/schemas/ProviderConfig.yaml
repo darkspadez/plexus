@@ -170,6 +170,14 @@ properties:
                             type: object
                             additionalProperties: true
                             description: Adapter-specific options.
+                          enabled:
+                            type: boolean
+                            default: true
+                            description: >
+                              Set to `false` to remove earlier instances of this
+                              adapter, including provider-level and implicitly
+                              injected ones. A later entry with `enabled: true`
+                              restores it.
               description: >
                 Adapter name(s) applied to this specific model. Appended after
                 any provider-level adapters. Accepts bare strings or
@@ -294,6 +302,13 @@ properties:
                   type: object
                   additionalProperties: true
                   description: Adapter-specific options.
+                enabled:
+                  type: boolean
+                  default: true
+                  description: >
+                    Set to `false` to remove earlier instances of this adapter,
+                    including implicitly injected defaults. A later entry with
+                    `enabled: true` restores it.
     description: >
       Adapter name(s) applied to every model under this provider.
       Adapters rewrite outbound request payloads (preDispatch) and inbound
@@ -343,8 +358,21 @@ properties:
         Messages, OpenAI Responses, and Gemini native).
         See [`WebSearchCoercionAdapterOptions`](#/components/schemas/WebSearchCoercionAdapterOptions).
 
-      Pass-through optimisation is automatically disabled when any adapter
-      is active.
+      - `normalize_anthropic_tool_ids` — Rewrites `tool_use` / `tool_result`
+        identifiers that violate Anthropic's tool-id charset
+        `^[a-zA-Z0-9_-]+$` (e.g. Moonshot's `functions.WebSearch:3`), which
+        Anthropic rejects with a hard HTTP 400. Injected automatically when the
+        route's outbound wire format is Anthropic Messages AND the provider
+        looks Anthropic (base URL containing `anthropic.com`, Anthropic OAuth,
+        or Claude masking). Override per provider or model with
+        `{ name: 'normalize_anthropic_tool_ids', options: {}, enabled: true }`
+        to force it on for an Anthropic-compatible gateway hosted elsewhere, or
+        `{ name: 'normalize_anthropic_tool_ids', enabled: false }` to opt out.
+
+      Adapters run on the outbound body whether or not the pass-through
+      optimisation is active — a same-format request skips the transformer, but
+      its body is still cloned, given the target model and the provider/model
+      config fields, and run through the adapter chain before dispatch.
   timeoutMs:
     type: integer
     minimum: 1

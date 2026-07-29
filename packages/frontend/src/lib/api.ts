@@ -1993,7 +1993,7 @@ export const api = {
       ...(provider.gpu_power_draw_watts != null
         ? { gpu_power_draw_watts: provider.gpu_power_draw_watts }
         : {}),
-      ...(provider.adapter && provider.adapter.length > 0 ? { adapter: provider.adapter } : {}),
+      adapter: provider.adapter ?? [],
       ...(provider.timeoutMs != null ? { timeoutMs: provider.timeoutMs } : {}),
       ...(provider.maxConcurrency != null ? { maxConcurrency: provider.maxConcurrency } : {}),
       ...(provider.stallTtfbMs != null ? { stallTtfbMs: provider.stallTtfbMs } : {}),

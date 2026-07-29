@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Info, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { DebouncedInput } from '../ui/DebouncedInput';
 import { Switch } from '../ui/Switch';
 import { Badge } from '../ui/Badge';
+import { Tooltip } from '../ui/Tooltip';
 import { GPU_PROFILE_OPTIONS, resolveGpuParams } from '@plexus/shared';
 import type { Provider, CompactionSettings } from '../../lib/api';
 import { api } from '../../lib/api';
@@ -39,6 +40,8 @@ export const KNOWN_ADAPTERS: { value: string; label: string; description: string
       'Coerces server-side web search tool entries to the format expected by this provider (Anthropic, OpenAI, or OpenRouter).',
   },
 ];
+
+const ANTHROPIC_TOOL_ID_ADAPTER = 'normalize_anthropic_tool_ids';
 
 const WEB_SEARCH_TARGETS = [
   { value: 'anthropic', label: 'Anthropic (web_search_20250305)' },
@@ -398,6 +401,133 @@ export function ProviderAdvancedEditor({
                           )}
                         </div>
                       )}
+                    </div>
+                  );
+                })()}
+
+                {/* Anthropic Tool-ID Normalization — Auto | Enabled | Disabled */}
+                {(() => {
+                  const entries: any[] = editingProvider.adapter ?? [];
+                  // The backend replays adapter entries in order, so a LATER
+                  // entry overrides an earlier one — read the last match, not
+                  // the first (resolveAdapters, adapter-resolver.ts).
+                  let entry: any;
+                  for (const candidate of entries) {
+                    const name = typeof candidate === 'string' ? candidate : candidate?.name;
+                    if (name === ANTHROPIC_TOOL_ID_ADAPTER) entry = candidate;
+                  }
+                  const mode: 'auto' | 'on' | 'off' = !entry
+                    ? 'auto'
+                    : typeof entry === 'string' || entry.enabled !== false
+                      ? 'on'
+                      : 'off';
+
+                  const setMode = (value: 'auto' | 'on' | 'off') => {
+                    const withoutEntry = entries.filter(
+                      (e: any) =>
+                        (typeof e === 'string' ? e : e?.name) !== ANTHROPIC_TOOL_ID_ADAPTER
+                    );
+                    const next =
+                      value === 'auto'
+                        ? withoutEntry
+                        : [
+                            ...withoutEntry,
+                            {
+                              name: ANTHROPIC_TOOL_ID_ADAPTER,
+                              options: {},
+                              enabled: value === 'on',
+                            },
+                          ];
+                    setEditingProvider({ ...editingProvider, adapter: next });
+                  };
+
+                  // Advisory mirror of the backend gate (adapter-resolver.ts):
+                  // it only fires on the Messages wire format, so a record base
+                  // URL counts only where the Messages dispatch would go — a
+                  // chat-only anthropic.com entry never receives one. A string
+                  // base URL containing anthropic.com IS a Messages provider by
+                  // inference (getProviderTypes), so it counts as-is.
+                  const isAnthropicUrl = (url: string) => {
+                    const lowered = url.toLowerCase();
+                    return (
+                      lowered.includes('anthropic.com') ||
+                      (lowered.startsWith('oauth://') &&
+                        (editingProvider.oauthProvider || editingProvider.id) === 'anthropic')
+                    );
+                  };
+                  const baseUrls = editingProvider.apiBaseUrl;
+                  const autoDetected =
+                    editingProvider.useClaudeMasking === true ||
+                    (typeof baseUrls === 'string'
+                      ? isAnthropicUrl(baseUrls)
+                      : Object.entries(baseUrls ?? {}).some(([key, value]) => {
+                          const type = key.toLowerCase();
+                          return (
+                            (type === 'messages' || type.startsWith('messages:')) &&
+                            typeof value === 'string' &&
+                            isAnthropicUrl(value)
+                          );
+                        }));
+
+                  return (
+                    <div
+                      style={{
+                        gridColumn: '1 / -1',
+                        padding: '4px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--color-border-glass)',
+                        background:
+                          mode === 'auto' ? 'var(--color-bg-glass)' : 'var(--color-bg-hover)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                      }}
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="font-body text-[12px] font-medium text-text">
+                            Anthropic Tool-ID Normalization
+                          </div>
+                          <Tooltip
+                            position="top"
+                            content={
+                              <div className="w-64 whitespace-normal font-body leading-relaxed">
+                                Auto enables this only for Anthropic-like targets on this provider's
+                                Messages endpoint: base URL containing anthropic.com, Anthropic
+                                OAuth, or Claude masking. Choose Enabled to force it for
+                                Anthropic-compatible gateways on other hosts.
+                              </div>
+                            }
+                          >
+                            <button
+                              type="button"
+                              aria-label="About Anthropic Tool-ID Normalization"
+                              className="flex h-4 w-4 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                            >
+                              <Info size={12} />
+                            </button>
+                          </Tooltip>
+                        </div>
+                        <div
+                          className="font-body text-[11px] text-text-secondary"
+                          style={{ lineHeight: 1.35 }}
+                        >
+                          Rewrites tool ids that violate Anthropic's ^[a-zA-Z0-9_-]+$ charset before
+                          dispatch. Anthropic rejects such ids with HTTP 400.
+                        </div>
+                      </div>
+                      <select
+                        className="w-full py-1 pl-2 pr-2 font-body text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                        value={mode === 'auto' ? '' : mode}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          setMode(raw === 'on' ? 'on' : raw === 'off' ? 'off' : 'auto');
+                        }}
+                      >
+                        <option value="">{`Auto (currently: ${autoDetected ? 'enabled' : 'disabled'})`}</option>
+                        <option value="on">Enabled</option>
+                        <option value="off">Disabled</option>
+                      </select>
                     </div>
                   );
                 })()}
