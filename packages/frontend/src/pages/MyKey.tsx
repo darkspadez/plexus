@@ -17,6 +17,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
 import { Skeleton } from '../components/ui/Skeleton';
 import { statusForPercent, formatQuotaValue, sortMostConstrainedFirst } from '../lib/quota';
+import { useCurrency } from '../lib/CurrencyContext';
 
 interface SelfInfo {
   role: 'admin' | 'limited';
@@ -33,6 +34,7 @@ interface SelfInfo {
 
 export const MyKey: React.FC = () => {
   const { isLimited, isAdmin, login } = useAuth();
+  const { currency, rate, symbol } = useCurrency();
   const toast = useToast();
   const selfMeQuery = useSelfMe();
   const selfQuotaQuery = useSelfQuota();
@@ -217,7 +219,15 @@ export const MyKey: React.FC = () => {
                         label={q.limitType}
                         value={q.currentUsage}
                         max={q.limit}
-                        displayValue={`${formatQuotaValue(q.currentUsage, q.limitType)} / ${formatQuotaValue(q.limit, q.limitType)}`}
+                        displayValue={`${formatQuotaValue(q.currentUsage, q.limitType, {
+                          currency,
+                          rate,
+                          symbol,
+                        })} / ${formatQuotaValue(q.limit, q.limitType, {
+                          currency,
+                          rate,
+                          symbol,
+                        })}`}
                         status={statusForPercent(pct)}
                         size="md"
                       />
@@ -225,7 +235,11 @@ export const MyKey: React.FC = () => {
                         <span>
                           Remaining:{' '}
                           <span className="text-foreground font-medium">
-                            {formatQuotaValue(q.remaining, q.limitType)}
+                            {formatQuotaValue(q.remaining, q.limitType, {
+                              currency,
+                              rate,
+                              symbol,
+                            })}
                           </span>
                         </span>
                         <span>Resets {new Date(q.resetsAt).toLocaleString()}</span>

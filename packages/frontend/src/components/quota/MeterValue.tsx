@@ -2,7 +2,7 @@ import React from 'react';
 import { formatCostIn, formatPointsFull, type FormatCostInOptions } from '../../lib/format';
 import { useCurrency } from '../../lib/CurrencyContext';
 
-type MeterCurrencyOptions = Pick<FormatCostInOptions, 'currency' | 'rate' | 'symbol'>;
+export type MeterCurrencyOptions = Pick<FormatCostInOptions, 'currency' | 'rate' | 'symbol'>;
 
 const DEFAULT_CURRENCY: MeterCurrencyOptions = {
   currency: 'USD',

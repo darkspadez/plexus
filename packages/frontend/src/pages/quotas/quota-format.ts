@@ -5,7 +5,7 @@
  * should render.
  */
 import type { Meter } from '../../types/quota';
-import { formatMeterValue } from '../../components/quota/MeterValue';
+import { formatMeterValue, type MeterCurrencyOptions } from '../../components/quota/MeterValue';
 import { formatTimeAgo, formatResetsIn } from '../../lib/format';
 
 // Same mapping the page's old periodLabel used. Anything other than these
@@ -79,10 +79,15 @@ export function usagePercent(meter: Meter | undefined): number | null {
 
 /** "920 / 1,000" via formatMeterValue(v, unit, true) per side; '—' for a missing side;
  *  null when BOTH used and limit are undefined or meter is undefined. */
-export function usedLimitText(meter: Meter | undefined): string | null {
+export function usedLimitText(
+  meter: Meter | undefined,
+  currency?: MeterCurrencyOptions
+): string | null {
   if (!meter) return null;
   if (meter.used === undefined && meter.limit === undefined) return null;
-  const used = meter.used !== undefined ? formatMeterValue(meter.used, meter.unit, true) : '—';
-  const limit = meter.limit !== undefined ? formatMeterValue(meter.limit, meter.unit, true) : '—';
+  const used =
+    meter.used !== undefined ? formatMeterValue(meter.used, meter.unit, true, currency) : '—';
+  const limit =
+    meter.limit !== undefined ? formatMeterValue(meter.limit, meter.unit, true, currency) : '—';
   return `${used} / ${limit}`;
 }

@@ -135,9 +135,6 @@ const DisplayPreferencesPanel = () => {
           }))}
           className="w-full sm:w-80"
         />
-        <p className="font-sans text-[11px] text-foreground-subtle">
-          Costs are converted for display only — all amounts are stored and billed in USD.
-        </p>
         {!ratesAvailable && currency !== 'USD' && (
           <p className="flex items-center gap-1.5 font-sans text-[11px] text-foreground-subtle">
             <Info size={13} className="text-warning shrink-0" aria-hidden="true" />

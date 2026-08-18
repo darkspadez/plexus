@@ -187,6 +187,12 @@ describe('usedLimitText', () => {
     expect(usedLimitText(m)).toBe(expected);
   });
 
+  test('usd meter applies display-currency formatting to both sides', () => {
+    const m = meter({ unit: 'usd', used: 11.5, limit: 25 });
+    const currency = { currency: 'EUR' as const, rate: 0.8, symbol: '€' };
+    expect(usedLimitText(m, currency)).toBe('€9.2000 / €20.0000');
+  });
+
   test('tokens use compact formatting on both sides', () => {
     const m = meter({ unit: 'tokens', used: 920, limit: 1000 });
     const expected = `${formatMeterValue(920, 'tokens', true)} / ${formatMeterValue(1000, 'tokens', true)}`;

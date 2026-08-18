@@ -34,6 +34,7 @@ import {
   usedLimitText,
 } from './quotas/quota-format';
 import { cn } from '../lib/cn';
+import { useCurrency } from '../lib/CurrencyContext';
 
 const SeverityBadge = ({ severity }: { severity: QuotaRowSeverity }) => (
   <span className="inline-flex items-center gap-2">
@@ -80,6 +81,7 @@ function RowRefreshButton({
 }
 
 export const Quotas = () => {
+  const { currency, rate, symbol } = useCurrency();
   const [refreshing, setRefreshing] = useState<Set<string>>(new Set());
   const [historyTarget, setHistoryTarget] = useState<{
     quota: QuotaCheckerInfo;
@@ -230,7 +232,7 @@ export const Quotas = () => {
         cell: ({ row }) => {
           const r = row.original;
           const pct = usagePercent(r.meter);
-          const usedLimit = usedLimitText(r.meter);
+          const usedLimit = usedLimitText(r.meter, { currency, rate, symbol });
           return (
             <div>
               {pct === null ? (
@@ -273,7 +275,7 @@ export const Quotas = () => {
           }
           return (
             <span className="text-sm font-medium tabular-nums text-foreground">
-              {formatMeterValue(value, m.unit, true)}
+              {formatMeterValue(value, m.unit, true, { currency, rate, symbol })}
             </span>
           );
         },
@@ -295,7 +297,7 @@ export const Quotas = () => {
         ),
       },
     ],
-    [refreshing]
+    [currency, rate, refreshing, symbol]
   );
 
   const handleRowClick = (row: QuotaTableRow) => {

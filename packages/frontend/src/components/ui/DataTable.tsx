@@ -237,6 +237,38 @@ const EXPANDER_COLUMN: ColumnDef<any> = {
   cell: ExpanderCell,
 };
 
+const BREAKPOINT_QUERIES = {
+  md: '(min-width: 48rem)',
+  lg: '(min-width: 64rem)',
+  xl: '(min-width: 80rem)',
+} as const;
+
+/**
+ * Tracks the active responsive layout so DataTable mounts either the desktop
+ * table or the mobile cards, never both. The non-browser fallback favors the
+ * semantic table layout for SSR and node-based tests.
+ */
+function useDesktopLayout(breakpoint: 'md' | 'lg' | 'xl') {
+  const query = BREAKPOINT_QUERIES[breakpoint];
+  const subscribe = React.useCallback(
+    (onStoreChange: () => void) => {
+      if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+        return () => {};
+      }
+      const mediaQuery = window.matchMedia(query);
+      mediaQuery.addEventListener('change', onStoreChange);
+      return () => mediaQuery.removeEventListener('change', onStoreChange);
+    },
+    [query]
+  );
+  const getSnapshot = React.useCallback(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
+    return window.matchMedia(query).matches;
+  }, [query]);
+
+  return React.useSyncExternalStore(subscribe, getSnapshot, () => true);
+}
+
 export function DataTable<TData>({
   columns,
   data,
@@ -314,15 +346,7 @@ export function DataTable<TData>({
     },
   });
 
-  // Breakpoint classes
-  const hiddenOnDesktop =
-    breakpoint === 'xl' ? 'xl:hidden' : breakpoint === 'lg' ? 'lg:hidden' : 'md:hidden';
-  const hiddenOnMobile =
-    breakpoint === 'xl'
-      ? 'hidden xl:block'
-      : breakpoint === 'lg'
-        ? 'hidden lg:block'
-        : 'hidden md:block';
+  const isDesktopLayout = useDesktopLayout(breakpoint);
 
   // ── Chrome slots (title / titleExtra / headerSlot / footerSlot) ───────────
   // Strictly additive in-frame chrome — replaces wrapping <Card title=…> at
@@ -352,23 +376,13 @@ export function DataTable<TData>({
   // own standard mini-frame so they read as a distinct block against the
   // frameless card list, mirroring the old Card wrapper they replaced.
   const titleRowMobile = showTitleStrip && (
-    <div className={cn('flex items-center justify-between gap-2 px-1', hiddenOnDesktop)}>
-      {titleStripContent}
-    </div>
+    <div className="flex items-center justify-between gap-2 px-1">{titleStripContent}</div>
   );
   const headerSlotMobile = headerSlot && (
-    <div
-      className={cn('rounded-lg border border-border bg-surface overflow-hidden', hiddenOnDesktop)}
-    >
-      {headerSlot}
-    </div>
+    <div className="rounded-lg border border-border bg-surface overflow-hidden">{headerSlot}</div>
   );
   const footerSlotMobile = footerSlot && (
-    <div
-      className={cn('rounded-lg border border-border bg-surface overflow-hidden', hiddenOnDesktop)}
-    >
-      {footerSlot}
-    </div>
+    <div className="rounded-lg border border-border bg-surface overflow-hidden">{footerSlot}</div>
   );
 
   // ── State classification ───────────────────────────────────────────────────
@@ -470,26 +484,20 @@ export function DataTable<TData>({
       );
     }
 
-    return (
+    return isDesktopLayout ? (
       <div className={cn('flex flex-col gap-4', className)}>
-        {/* Desktop frame — chrome + body in one stable position */}
-        <div
-          className={cn(
-            'overflow-hidden rounded-lg border border-border bg-surface',
-            hiddenOnMobile
-          )}
-        >
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
           {titleStripFramed}
           {headerSlotFramed}
           {bodyDesktop}
           {footerSlotFramed}
         </div>
-
-        {/* Mobile chrome: unframed title + mini-framed slots, same rules the
-            success render's mobile track uses below */}
+      </div>
+    ) : (
+      <div className={cn('flex flex-col gap-4', className)}>
         {titleRowMobile}
         {headerSlotMobile}
-        <div className={hiddenOnDesktop}>{bodyMobile}</div>
+        <div>{bodyMobile}</div>
         {footerSlotMobile}
       </div>
     );
@@ -533,159 +541,154 @@ export function DataTable<TData>({
     </>
   );
 
+  if (isDesktopLayout) {
+    return (
+      <div className={cn('flex flex-col gap-4', className)}>
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
+          {titleStripFramed}
+          {headerSlotFramed}
+          {/* Horizontal-scroll fallback: when columns exceed the container the
+              table scrolls inside the frame while the in-frame chrome (title /
+              headerSlot / footerSlot / pagination) stays fixed. The outer frame
+              keeps overflow-hidden for its rounded corners. The scrollbar is
+              forced visible as a thin bar (instead of the macOS auto-hiding
+              overlay) so overflow reads as scrollable rather than clipped. */}
+          <div className="overflow-x-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border-strong [&::-webkit-scrollbar-track]:bg-transparent">
+            <table className="w-full border-collapse font-sans text-sm">
+              <thead>
+                {table.getHeaderGroups().map((hg) => (
+                  <tr key={hg.id} className="border-b border-border bg-surface-elevated/50">
+                    {hg.headers.map((h) => {
+                      const meta = h.column.columnDef.meta ?? {};
+                      const align = meta.align;
+                      const canSort = h.column.getCanSort();
+                      const sorted = h.column.getIsSorted();
+                      const isExpanderCol = h.column.id === EXPANDER_COLUMN_ID;
+                      return (
+                        <th
+                          key={h.id}
+                          className={cn(
+                            'h-11 text-[10px] font-medium uppercase tracking-wider text-foreground-muted',
+                            isExpanderCol ? 'w-6 px-2' : 'px-4',
+                            align === 'right'
+                              ? 'text-right'
+                              : align === 'center'
+                                ? 'text-center'
+                                : 'text-left',
+                            canSort && 'cursor-pointer select-none hover:text-foreground',
+                            meta.widthClass
+                          )}
+                          onClick={canSort ? h.column.getToggleSortingHandler() : undefined}
+                        >
+                          {h.isPlaceholder ? null : (
+                            <span className="inline-flex items-center gap-1">
+                              {flexRender(h.column.columnDef.header, h.getContext())}
+                              {canSort &&
+                                (sorted === 'asc' ? (
+                                  <ArrowUp size={10} />
+                                ) : sorted === 'desc' ? (
+                                  <ArrowDown size={10} />
+                                ) : (
+                                  <ArrowUpDown size={10} className="opacity-40" />
+                                ))}
+                            </span>
+                          )}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                {table.getRowModel().rows.map((row, rowIdx) => {
+                  const cells = row.getVisibleCells();
+                  // Toggle-on-row-click only kicks in when expansion is enabled
+                  // and the caller hasn't claimed onClick for its own purpose;
+                  // if both are set onRowClick wins (the chevron still toggles).
+                  const canToggleRow = Boolean(renderExpanded) && !onRowClick;
+                  const isRowExpanded = Boolean(renderExpanded) && expandedIds.has(row.id);
+                  // Row-level click. When expansion is enabled the row hosts
+                  // nested interactive elements (chevron, copy buttons, status
+                  // pills, …), so BOTH expansion-aware branches bail on clicks
+                  // from those; the plain onRowClick path (no renderExpanded)
+                  // stays exactly as it was before this feature existed.
+                  const handleRowClick = onRowClick
+                    ? renderExpanded
+                      ? (e: React.MouseEvent<HTMLTableRowElement>) => {
+                          if (isInteractiveElementClick(e)) return;
+                          onRowClick(row.original);
+                        }
+                      : () => onRowClick(row.original)
+                    : canToggleRow
+                      ? (e: React.MouseEvent<HTMLTableRowElement>) => {
+                          if (isInteractiveElementClick(e)) return;
+                          toggleExpanded(row.id);
+                        }
+                      : undefined;
+                  return (
+                    <React.Fragment key={getRowKey ? getRowKey(row.original, rowIdx) : row.id}>
+                      <tr
+                        onClick={handleRowClick}
+                        className={cn(
+                          'group border-b border-border last:border-b-0 transition-colors duration-150',
+                          (onRowClick || canToggleRow) &&
+                            'cursor-pointer hover:bg-surface-elevated/50',
+                          rowClassName?.(row.original)
+                        )}
+                      >
+                        {cells.map((cell) => {
+                          const meta = cell.column.columnDef.meta ?? {};
+                          const align = meta.align;
+                          const isExpanderCell = cell.column.id === EXPANDER_COLUMN_ID;
+                          return (
+                            <td
+                              key={cell.id}
+                              className={cn(
+                                'py-3.5 text-foreground',
+                                isExpanderCell ? 'w-6 px-2' : 'px-4',
+                                align === 'right' && 'text-right',
+                                align === 'center' && 'text-center',
+                                meta.widthClass
+                              )}
+                            >
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      {renderExpanded && isRowExpanded && (
+                        <tr>
+                          <td colSpan={cells.length} className="p-0 border-b border-border">
+                            {renderExpanded(row.original)}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {footerSlotFramed}
+          {paginationInner && (
+            <div className="border-t border-border px-3 py-2 sm:px-4">
+              <div className="flex items-center justify-between gap-3">{paginationInner}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn('flex flex-col gap-4', className)}>
-      {/* ------------------------------------------------------------------ */}
-      {/* Desktop table                                                        */}
-      {/* ------------------------------------------------------------------ */}
-      <div
-        className={cn('overflow-hidden rounded-lg border border-border bg-surface', hiddenOnMobile)}
-      >
-        {titleStripFramed}
-        {headerSlotFramed}
-        {/* Horizontal-scroll fallback: when columns exceed the container the
-            table scrolls inside the frame while the in-frame chrome (title /
-            headerSlot / footerSlot / pagination) stays fixed. The outer frame
-            keeps overflow-hidden for its rounded corners. The scrollbar is
-            forced visible as a thin bar (instead of the macOS auto-hiding
-            overlay) so overflow reads as scrollable rather than clipped. */}
-        <div className="overflow-x-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border-strong [&::-webkit-scrollbar-track]:bg-transparent">
-          <table className="w-full border-collapse font-sans text-sm">
-            <thead>
-              {table.getHeaderGroups().map((hg) => (
-                <tr key={hg.id} className="border-b border-border bg-surface-elevated/50">
-                  {hg.headers.map((h) => {
-                    const meta = h.column.columnDef.meta ?? {};
-                    const align = meta.align;
-                    const canSort = h.column.getCanSort();
-                    const sorted = h.column.getIsSorted();
-                    const isExpanderCol = h.column.id === EXPANDER_COLUMN_ID;
-                    return (
-                      <th
-                        key={h.id}
-                        className={cn(
-                          'h-11 text-[10px] font-medium uppercase tracking-wider text-foreground-muted',
-                          isExpanderCol ? 'w-6 px-2' : 'px-4',
-                          align === 'right'
-                            ? 'text-right'
-                            : align === 'center'
-                              ? 'text-center'
-                              : 'text-left',
-                          canSort && 'cursor-pointer select-none hover:text-foreground',
-                          meta.widthClass
-                        )}
-                        onClick={canSort ? h.column.getToggleSortingHandler() : undefined}
-                      >
-                        {h.isPlaceholder ? null : (
-                          <span className="inline-flex items-center gap-1">
-                            {flexRender(h.column.columnDef.header, h.getContext())}
-                            {canSort &&
-                              (sorted === 'asc' ? (
-                                <ArrowUp size={10} />
-                              ) : sorted === 'desc' ? (
-                                <ArrowDown size={10} />
-                              ) : (
-                                <ArrowUpDown size={10} className="opacity-40" />
-                              ))}
-                          </span>
-                        )}
-                      </th>
-                    );
-                  })}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map((row, rowIdx) => {
-                const cells = row.getVisibleCells();
-                // Toggle-on-row-click only kicks in when expansion is enabled
-                // and the caller hasn't claimed onClick for its own purpose;
-                // if both are set onRowClick wins (the chevron still toggles).
-                const canToggleRow = Boolean(renderExpanded) && !onRowClick;
-                const isRowExpanded = Boolean(renderExpanded) && expandedIds.has(row.id);
-                // Row-level click. When expansion is enabled the row hosts
-                // nested interactive elements (chevron, copy buttons, status
-                // pills, …), so BOTH expansion-aware branches bail on clicks
-                // from those; the plain onRowClick path (no renderExpanded)
-                // stays exactly as it was before this feature existed.
-                const handleRowClick = onRowClick
-                  ? renderExpanded
-                    ? (e: React.MouseEvent<HTMLTableRowElement>) => {
-                        if (isInteractiveElementClick(e)) return;
-                        onRowClick(row.original);
-                      }
-                    : () => onRowClick(row.original)
-                  : canToggleRow
-                    ? (e: React.MouseEvent<HTMLTableRowElement>) => {
-                        if (isInteractiveElementClick(e)) return;
-                        toggleExpanded(row.id);
-                      }
-                    : undefined;
-                return (
-                  <React.Fragment key={getRowKey ? getRowKey(row.original, rowIdx) : row.id}>
-                    <tr
-                      onClick={handleRowClick}
-                      className={cn(
-                        'group border-b border-border last:border-b-0 transition-colors duration-150',
-                        (onRowClick || canToggleRow) &&
-                          'cursor-pointer hover:bg-surface-elevated/50',
-                        rowClassName?.(row.original)
-                      )}
-                    >
-                      {cells.map((cell) => {
-                        const meta = cell.column.columnDef.meta ?? {};
-                        const align = meta.align;
-                        const isExpanderCell = cell.column.id === EXPANDER_COLUMN_ID;
-                        return (
-                          <td
-                            key={cell.id}
-                            className={cn(
-                              'py-3.5 text-foreground',
-                              isExpanderCell ? 'w-6 px-2' : 'px-4',
-                              align === 'right' && 'text-right',
-                              align === 'center' && 'text-center',
-                              meta.widthClass
-                            )}
-                          >
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                    {renderExpanded && isRowExpanded && (
-                      <tr>
-                        <td colSpan={cells.length} className="p-0 border-b border-border">
-                          {renderExpanded(row.original)}
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {footerSlotFramed}
-        {paginationInner && (
-          <div className="border-t border-border px-3 py-2 sm:px-4">
-            <div className="flex items-center justify-between gap-3">{paginationInner}</div>
-          </div>
-        )}
-      </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Mobile chrome: title row (unframed) + headerSlot (mini-frame), above  */}
-      {/* the cards                                                            */}
-      {/* ------------------------------------------------------------------ */}
       {titleRowMobile}
       {headerSlotMobile}
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Mobile card layout — always a single column: card lists are usually */}
-      {/* sequences (e.g. chronological logs), and a multi-column grid makes   */}
-      {/* the reading order ambiguous.                                         */}
-      {/* ------------------------------------------------------------------ */}
-      <div className={cn('flex flex-col gap-3', hiddenOnDesktop)}>
+      {/* Mobile card layout — always a single column: card lists are usually
+          sequences (e.g. chronological logs), and a multi-column grid makes
+          the reading order ambiguous. */}
+      <div className="flex flex-col gap-3">
         {/* Hoist column derivations outside the row map — they depend only on
             `columns` (stable), not on per-row data.  Logs fires setLiveTick
             every 100 ms while SSE is connected; recomputing these per-row per-
@@ -707,13 +710,9 @@ export function DataTable<TData>({
           };
 
           return table.getRowModel().rows.map((tanstackRow, rowIdx) => {
-            // Fix #1: iterate sorted/paginated row model directly so card cells,
-            // onRowClick, and mobileActions always reference the correct row.
             const rowData = tanstackRow.original;
 
             const renderCell = (colDef: ColumnDef<TData>) => {
-              // Fix #5: resolve column id from explicit id OR accessorKey so
-              // accessor-only columns (no explicit id) render correctly in mobile cards.
               const resolvedId =
                 colDef.id ?? (colDef as { accessorKey?: string }).accessorKey ?? '';
               const cell = tanstackRow.getVisibleCells().find((c) => c.column.id === resolvedId);
@@ -728,8 +727,6 @@ export function DataTable<TData>({
                   onRowClick
                     ? renderExpanded
                       ? (e: React.MouseEvent<HTMLDivElement>) => {
-                          // Same guard as desktop — the card hosts the Details
-                          // Disclosure toggle when expansion is enabled.
                           if (isInteractiveElementClick(e)) return;
                           onRowClick(rowData);
                         }
@@ -743,7 +740,6 @@ export function DataTable<TData>({
                   rowClassName?.(rowData)
                 )}
               >
-                {/* Card header: title column + row actions slot */}
                 {(titleEntry || mobileActions) && (
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1 font-sans text-sm font-medium text-foreground break-words">
@@ -757,11 +753,9 @@ export function DataTable<TData>({
                   </div>
                 )}
 
-                {/* Detail definition list */}
                 {detailEntries.length > 0 && (
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                     {detailEntries.map(({ col }, colIdx) => (
-                      // Fix #6: stable key — col.id when available, else map index.
                       <React.Fragment key={col.id ?? String(colIdx)}>
                         <dt className="self-center text-[10px] font-medium uppercase tracking-wide text-foreground-muted">
                           {getHeader(col)}
@@ -772,8 +766,6 @@ export function DataTable<TData>({
                   </dl>
                 )}
 
-                {/* Row expansion — same expansion state as desktop, wired to a
-                    controlled Disclosure so programmatic toggles stay in sync. */}
                 {renderExpanded && (
                   <Disclosure
                     title="Details"
@@ -789,20 +781,9 @@ export function DataTable<TData>({
         })()}
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Mobile chrome: footerSlot (mini-frame), below the cards              */}
-      {/* ------------------------------------------------------------------ */}
       {footerSlotMobile}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Pagination (mobile placement — unchanged; the desktop copy lives    */}
-      {/* inside the frame above, so this copy is hidden at the desktop       */}
-      {/* breakpoint to avoid rendering it twice).                             */}
-      {/* ------------------------------------------------------------------ */}
       {paginationInner && (
-        <div className={cn('flex items-center justify-between gap-3', hiddenOnDesktop)}>
-          {paginationInner}
-        </div>
+        <div className="flex items-center justify-between gap-3">{paginationInner}</div>
       )}
     </div>
   );

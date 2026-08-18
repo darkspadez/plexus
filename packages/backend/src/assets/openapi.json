@@ -6280,7 +6280,7 @@
           "Management — Usage"
         ],
         "summary": "Aggregated usage time-series and totals",
-        "description": "Returns bucketed series plus 7-day and since-midnight rollups.\n\n## Scoping\n\nLimited principals see only their own key's data; admins see global data.\n\n## Bucket algorithm\n\nThe endpoint uses adaptive bucketing to ensure meaningful visualizations:\n- `hour` — returns hourly buckets for the last 24 hours\n- `day` — returns daily buckets for the last 30 days\n- `week` — returns weekly buckets for the last 12 weeks\n- `month` — returns monthly buckets for the last 12 months\n- `custom` — requires `startDate` and `endDate`; buckets are auto-sized\n  based on the range duration\n\n## Response structure\n\n- **series** — Time-bucketed data, where each bucket contains aggregated\n  counts and token sums\n- **stats** — Fixed 7-day rolling window (always the last 7 days, regardless\n  of `range`)\n- **today** — Aggregation since local midnight (not UTC), giving a\n  \"day-so-far\" view\n",
+        "description": "Returns bucketed series plus range-scoped, prior-window, and\nsince-midnight rollups.\n\n## Scoping\n\nLimited principals see only their own key's data; admins see global data.\n\n## Bucket algorithm\n\nThe endpoint uses adaptive bucketing to ensure meaningful visualizations:\n- `hour` — returns hourly buckets for the last 24 hours\n- `day` — returns daily buckets for the last 30 days\n- `week` — returns weekly buckets for the last 12 weeks\n- `month` — returns monthly buckets for the last 12 months\n- `custom` — requires `startDate` and `endDate`; buckets are auto-sized\n  based on the range duration\n- `all` — everything since the epoch; buckets are auto-sized like `custom`\n\n## Response structure\n\n- **series** — Time-bucketed data, where each bucket contains aggregated\n  counts and token sums\n- **stats** — Aggregation over the selected range window\n- **prevStats** — Aggregation over the equal-length window immediately\n  preceding the selected range (`null` for `range=all`)\n- **today** — Aggregation since local midnight (not UTC), giving a\n  \"day-so-far\" view\n",
         "security": [
           {
             "AdminKey": []
@@ -6297,6 +6297,7 @@
                 "day",
                 "week",
                 "month",
+                "all",
                 "custom"
               ],
               "default": "day"
@@ -13066,6 +13067,56 @@
           }
         }
       },
+      "UsageWindowStats": {
+        "type": "object",
+        "description": "Aggregated totals for one time window (the selected range, or the equal-length window immediately preceding it).\n",
+        "properties": {
+          "totalRequests": {
+            "type": "integer",
+            "description": "Total requests in the window."
+          },
+          "totalTokens": {
+            "type": "integer",
+            "description": "Total tokens (input + output + cached + cacheWrite) in the window."
+          },
+          "inputTokens": {
+            "type": "integer",
+            "description": "Input tokens in the window."
+          },
+          "outputTokens": {
+            "type": "integer",
+            "description": "Output tokens in the window."
+          },
+          "cachedTokens": {
+            "type": "integer",
+            "description": "Cached (cache-read) tokens in the window."
+          },
+          "cacheWriteTokens": {
+            "type": "integer",
+            "description": "Cache-write tokens in the window."
+          },
+          "totalCost": {
+            "type": "number",
+            "description": "Total cost in dollars in the window."
+          },
+          "totalKwhUsed": {
+            "type": "number",
+            "description": "Total energy usage in the window."
+          },
+          "avgDurationMs": {
+            "type": "number",
+            "description": "Average request duration in milliseconds."
+          },
+          "totalDurationMs": {
+            "type": "integer",
+            "description": "Sum of all request durations in milliseconds."
+          },
+          "totalErrors": {
+            "type": "integer",
+            "description": "Number of non-success requests in the window."
+          }
+        }
+      },
       "UsageSummary": {
         "type": "object",
         "description": "Aggregated usage statistics over time windows.\n",
@@ -13116,30 +13167,23 @@
             }
           },
           "stats": {
-            "type": "object",
-            "description": "Rolling 7-day aggregation window.",
-            "properties": {
-              "totalRequests": {
-                "type": "integer",
-                "description": "Total requests in the 7-day window."
-              },
-              "totalTokens": {
-                "type": "integer",
-                "description": "Total tokens (input + output + cached + cacheWrite) in the window."
-              },
-              "totalKwhUsed": {
-                "type": "number",
-                "description": "Total energy usage in the window."
-              },
-              "avgDurationMs": {
-                "type": "number",
-                "description": "Average request duration in milliseconds."
-              },
-              "totalDurationMs": {
-                "type": "integer",
-                "description": "Sum of all request durations in milliseconds."
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UsageWindowStats"
               }
-            }
+            ],
+            "description": "Aggregation over the selected range window."
+          },
+          "prevStats": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UsageWindowStats"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Aggregation over the equal-length window immediately preceding the selected range (powers dashboard delta indicators). `null` when `range=all`, which has no prior window.\n"
           },
           "today": {
             "type": "object",
