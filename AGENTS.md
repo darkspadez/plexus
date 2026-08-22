@@ -8,6 +8,11 @@ This file is a **guardrail**, not general documentation.
 3. Use the listed command/workflow exactly.
 4. If unsure, **ask** instead of guessing.
 
+## 🚨 STOP — MANDATORY FIRST STEP
+
+> **Before tracing how anything works, you MUST read `.repomap.txt`.**
+> **Do not start by grepping through files.** The repomap is vastly more efficient.
+
 ## Critical rules
 
 - **NEVER** commit, push, or create a PR unless the user explicitly asks.
