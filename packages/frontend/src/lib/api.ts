@@ -144,7 +144,6 @@ export interface UsageData {
   outputTokens: number;
   cachedTokens: number;
   cacheWriteTokens: number;
-  kwhUsed: number;
 }
 
 export interface TodayMetrics {
@@ -154,7 +153,6 @@ export interface TodayMetrics {
   reasoningTokens: number;
   cachedTokens: number;
   cacheWriteTokens: number;
-  kwhUsed: number;
   totalCost: number;
 }
 
@@ -238,12 +236,6 @@ export interface Provider {
     enabled: boolean;
     intervalMinutes: number;
   };
-  // GPU Profile settings for inference energy calculation
-  gpu_profile?: string;
-  gpu_ram_gb?: number;
-  gpu_bandwidth_tb_s?: number;
-  gpu_flops_tflop?: number;
-  gpu_power_draw_watts?: number;
   adapter?: any[];
   timeoutMs?: number;
   maxConcurrency?: number | null;
@@ -512,17 +504,6 @@ export interface Alias {
   advanced?: AliasBehavior[];
   metadata?: AliasMetadata;
   use_image_fallthrough?: boolean;
-  // Model architecture override for inference energy calculation
-  model_architecture?: {
-    total_params?: number;
-    active_params?: number;
-    layers?: number;
-    heads?: number;
-    kv_lora_rank?: number;
-    qk_rope_head_dim?: number;
-    context_length?: number;
-    dtype?: 'fp16' | 'bf16' | 'fp8' | 'fp8_e4m3' | 'fp8_e5m2' | 'nvfp4' | 'int4' | 'int8';
-  };
   enforce_limits?: boolean;
   sticky_session?: boolean;
   preferred_api?: Array<PreferredApiValue>;
@@ -618,8 +599,6 @@ export interface UsageRecord {
   isVisionFallthrough?: boolean;
   isDescriptorRequest?: boolean;
   visionFallthroughModel?: string | null;
-  // Energy estimation
-  kwhUsed?: number;
   // Provider-reported cost
   providerReportedCost?: number;
 }
@@ -637,7 +616,6 @@ interface UsageSummarySeriesPoint {
   outputTokens: number;
   cachedTokens: number;
   cacheWriteTokens: number;
-  kwhUsed: number;
   tokens: number;
 }
 
@@ -647,7 +625,6 @@ export interface UsageSummaryResponse {
   stats: {
     totalRequests: number;
     totalTokens: number;
-    totalKwhUsed: number;
     avgDurationMs: number;
     totalDurationMs: number;
   };
@@ -779,9 +756,6 @@ export async function fetchQuotaCheckers(): Promise<QuotaCheckersResponse> {
   };
 }
 
-// Re-export GpuProfileOption from shared package for use by other components
-export type { GpuProfileOption } from '@plexus/shared';
-
 const normalizeProviderQuotaChecker = (checker?: {
   type?: string;
   enabled?: boolean;
@@ -807,7 +781,6 @@ const USAGE_PAGE_FIELDS: UsageRecordField[] = [
   'tokensOutput',
   'tokensCached',
   'tokensCacheWrite',
-  'kwhUsed',
   'incomingModelAlias',
   'provider',
   'apiKey',
@@ -880,7 +853,6 @@ const buildUsageSeries = (
         outputTokens: 0,
         cachedTokens: 0,
         cacheWriteTokens: 0,
-        kwhUsed: 0,
       };
     }
   }
@@ -903,7 +875,6 @@ const buildUsageSeries = (
         outputTokens: 0,
         cachedTokens: 0,
         cacheWriteTokens: 0,
-        kwhUsed: 0,
       };
     }
 
@@ -918,7 +889,6 @@ const buildUsageSeries = (
     grouped[key].outputTokens += outputTokens;
     grouped[key].cachedTokens += cachedTokens;
     grouped[key].cacheWriteTokens += cacheWriteTokens;
-    grouped[key].kwhUsed += record.kwhUsed || 0;
   });
 
   return Object.values(grouped);
@@ -957,7 +927,6 @@ const buildSummarySeries = (summary: UsageSummaryResponse, now: Date): UsageData
       outputTokens,
       cachedTokens,
       cacheWriteTokens,
-      kwhUsed: point?.kwhUsed || 0,
     };
   }
 
@@ -1270,7 +1239,6 @@ function aliasToConfigPayload(alias: Alias): Record<string, unknown> {
     ...(alias.advanced?.length ? { advanced: alias.advanced } : {}),
     ...(alias.metadata && { metadata: alias.metadata }),
     ...(alias.pi_model && { pi_model: alias.pi_model }),
-    ...(alias.model_architecture && { model_architecture: alias.model_architecture }),
     ...(alias.extraBody && Object.keys(alias.extraBody).length > 0
       ? { extraBody: alias.extraBody }
       : {}),
@@ -1400,7 +1368,6 @@ export const api = {
           reasoningTokens: 0,
           cachedTokens: 0,
           cacheWriteTokens: 0,
-          kwhUsed: 0,
           totalCost: 0,
         },
       };
@@ -1460,34 +1427,10 @@ export const api = {
         outputTokens: point.outputTokens,
         cachedTokens: point.cachedTokens,
         cacheWriteTokens: point.cacheWriteTokens,
-        kwhUsed: point.kwhUsed,
       }));
     } catch (e) {
       console.error('API Error getSummaryData', e);
       return [];
-    }
-  },
-
-  /**
-   * Fetch pre-aggregated energy stats from the backend.
-   * Uses the same /summary endpoint but returns only totalKwhUsed,
-   * avoiding the need to fetch 1000 individual records for energy calculations.
-   */
-  getEnergySummary: async (
-    range: 'hour' | 'day' | 'week' | 'month' | 'custom' = 'week',
-    cache = true,
-    startDate?: string,
-    endDate?: string
-  ): Promise<{ totalKwhUsed: number } | null> => {
-    try {
-      const summaryResponse = await fetchUsageSummary(range, cache, startDate, endDate);
-      const stats = summaryResponse.stats;
-      return {
-        totalKwhUsed: stats.totalKwhUsed || 0,
-      };
-    } catch (e) {
-      console.error('API Error getEnergySummary', e);
-      return null;
     }
   },
 
@@ -1546,7 +1489,6 @@ export const api = {
           'tokensReasoning',
           'tokensCached',
           'tokensCacheWrite',
-          'kwhUsed',
           'costTotal',
         ],
         cache: true,
@@ -1559,7 +1501,6 @@ export const api = {
         reasoningTokens: 0,
         cachedTokens: 0,
         cacheWriteTokens: 0,
-        kwhUsed: 0,
         totalCost: 0,
       };
 
@@ -1570,7 +1511,6 @@ export const api = {
         metrics.reasoningTokens += r.tokensReasoning || 0;
         metrics.cachedTokens += r.tokensCached || 0;
         metrics.cacheWriteTokens += r.tokensCacheWrite || 0;
-        metrics.kwhUsed += r.kwhUsed || 0;
         metrics.totalCost += r.costTotal || 0;
       });
 
@@ -1584,7 +1524,6 @@ export const api = {
         reasoningTokens: 0,
         cachedTokens: 0,
         cacheWriteTokens: 0,
-        kwhUsed: 0,
         totalCost: 0,
       };
     }
@@ -2084,17 +2023,6 @@ export const api = {
         enabled: provider.modelAutosync?.enabled === true,
         intervalMinutes: Math.max(1, provider.modelAutosync?.intervalMinutes || 60),
       },
-      // GPU Profile settings — always send resolved numeric fields so backend
-      // never needs to resolve profile names. gpu_profile is a display hint only.
-      ...(provider.gpu_profile ? { gpu_profile: provider.gpu_profile } : {}),
-      ...(provider.gpu_ram_gb != null ? { gpu_ram_gb: provider.gpu_ram_gb } : {}),
-      ...(provider.gpu_bandwidth_tb_s != null
-        ? { gpu_bandwidth_tb_s: provider.gpu_bandwidth_tb_s }
-        : {}),
-      ...(provider.gpu_flops_tflop != null ? { gpu_flops_tflop: provider.gpu_flops_tflop } : {}),
-      ...(provider.gpu_power_draw_watts != null
-        ? { gpu_power_draw_watts: provider.gpu_power_draw_watts }
-        : {}),
       adapter: provider.adapter ?? [],
       ...(provider.timeoutMs != null ? { timeoutMs: provider.timeoutMs } : {}),
       ...(provider.maxConcurrency != null ? { maxConcurrency: provider.maxConcurrency } : {}),
@@ -2341,7 +2269,6 @@ export const api = {
           sticky_session: val.sticky_session ?? true,
           advanced: val.advanced || [],
           metadata: val.metadata,
-          model_architecture: val.model_architecture,
           preferred_api: val.preferred_api || [],
           pi_model: val.pi_model,
           extraBody:
@@ -3515,40 +3442,6 @@ export const api = {
   }> => {
     const res = await fetchWithAuth(`${API_BASE}/v0/management/self/quota`);
     if (!res.ok) throw new Error('Failed to fetch quota status');
-    return res.json();
-  },
-
-  /**
-   * Fetches model architecture from Hugging Face via the backend API.
-   * This centralizes the HF API calls on the backend to avoid CORS issues
-   * and provide consistent caching.
-   *
-   * @param modelId - The Hugging Face model ID (e.g., 'moonshotai/Kimi-K2.5')
-   * @returns Model architecture data including total_params, active_params, layers, etc.
-   */
-  fetchHuggingFaceModelArchitecture: async (
-    modelId: string
-  ): Promise<{
-    success: boolean;
-    model_id: string;
-    architecture: {
-      total_params?: number;
-      active_params?: number;
-      layers?: number;
-      heads?: number;
-      kv_lora_rank?: number;
-      qk_rope_head_dim?: number;
-      context_length?: number;
-      dtype?: string;
-    };
-  }> => {
-    const res = await fetchWithAuth(
-      `${API_BASE}/v0/management/models/huggingface/${encodeURIComponent(modelId)}`
-    );
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: { message: 'Unknown error' } }));
-      throw new Error(err.error?.message || `Failed to fetch model architecture: ${res.status}`);
-    }
     return res.json();
   },
 
