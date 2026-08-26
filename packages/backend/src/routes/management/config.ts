@@ -18,12 +18,27 @@ import { validateServerName } from '../../services/mcp-proxy/mcp-proxy-service';
 import { mcpProcessManager } from '../../services/mcp-local/mcp-process-manager';
 import { VisionDescriptorService } from '../../services/vision/vision-descriptor-service';
 import { decryptField } from '../../utils/encryption';
+import { generateApiKeySecret } from '../../utils/api-key-secret';
+import { ApiKeyPauseService } from '../../services/api-key-security/api-key-pause-service';
 import type { GpuParams, ModelArchitecture } from '@plexus/shared';
 import { DEFAULT_GPU_PARAMS } from '@plexus/shared';
 import { McpKeyCreateSchema } from '@plexus/shared';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isApiKeyNameConflict(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+  const code = error.code;
+  if (code === '23505') {
+    return typeof error.constraint === 'string' && error.constraint.includes('api_keys_name');
+  }
+  return (
+    code === 'SQLITE_CONSTRAINT_UNIQUE' &&
+    typeof error.message === 'string' &&
+    error.message.includes('api_keys.name')
+  );
 }
 
 function serializeMcpKey(key: {
@@ -143,7 +158,8 @@ export async function registerConfigRoutes(
   fastify.get('/v0/management/config', async (_request, reply) => {
     try {
       const config = configService.getConfig();
-      return reply.send(config);
+      const publicKeys = await configService.getRepository().getAllKeys();
+      return reply.send({ ...config, keys: publicKeys });
     } catch (e: any) {
       return reply.code(500).send({ error: 'Internal server error' });
     }
@@ -379,13 +395,60 @@ export async function registerConfigRoutes(
   fastify.get('/v0/management/keys/:name', async (request, reply) => {
     const { name } = request.params as { name: string };
     try {
-      const keys = await configService.getRepository().getAllKeys();
-      const key = keys[name];
+      const key = await configService.getRepository().getPublicKeyByName(name);
       if (!key) {
         return reply.code(404).send({ error: `API key '${name}' not found` });
       }
       return reply.send({ name, ...key });
     } catch (e: any) {
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  fastify.post('/v0/management/keys', async (request, reply) => {
+    const body = request.body as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return reply.code(400).send({ error: 'Object body is required' });
+    }
+    const name = body.name;
+    if (typeof name !== 'string' || name.length === 0) {
+      return reply.code(400).send({ error: 'Key name is required' });
+    }
+    if (name.includes('*')) {
+      return reply
+        .code(400)
+        .send({ error: "Key name cannot contain '*' (reserved for the shared-quota bucket)" });
+    }
+    if ('secret' in body || 'expiresAt' in body || 'disabledAt' in body) {
+      return reply
+        .code(400)
+        .send({ error: 'Server-generated key creation does not accept secret or timestamps' });
+    }
+
+    const existing = await configService.getRepository().getPublicKeyByName(name);
+    if (existing) {
+      return reply.code(409).send({ error: `API key '${name}' already exists` });
+    }
+
+    const { name: _name, ...config } = body;
+    const result = KeyConfigSchema.safeParse({ ...config, secret: generateApiKeySecret() });
+    if (!result.success) {
+      return reply.code(400).send({ error: 'Validation failed', details: result.error.issues });
+    }
+    const normalized = normalizeKeyConfig(result.data);
+    try {
+      await configService.saveKey(name, normalized);
+      logger.info(`[AUDIT] API key created for key='${name}'`);
+      return reply.code(201).header('Cache-Control', 'no-store').send({
+        name,
+        secret: normalized.secret,
+        message: 'Secret created. Store it now — it will not be shown again.',
+      });
+    } catch (error) {
+      if (isApiKeyNameConflict(error)) {
+        return reply.code(409).send({ error: `API key '${name}' already exists` });
+      }
+      logger.error(`Failed to create API key '${name}'`);
       return reply.code(500).send({ error: 'Internal server error' });
     }
   });
@@ -420,8 +483,8 @@ export async function registerConfigRoutes(
       await configService.saveKey(name, normalizeKeyConfig(result.data));
       logger.debug(`API key '${name}' saved via API (PUT)`);
       return reply.send({ success: true, name });
-    } catch (e: any) {
-      logger.error(`Failed to save API key '${name}'`, e);
+    } catch {
+      logger.error(`Failed to save API key '${name}'`);
       return reply.code(500).send({ error: 'Internal server error' });
     }
   });
@@ -435,9 +498,14 @@ export async function registerConfigRoutes(
     if ('expiresInMinutes' in body || 'expiresAt' in body || 'disabledAt' in body) {
       return reply.code(400).send({ error: 'Key expiry cannot be changed after creation' });
     }
+    if ('secret' in body || 'name' in body) {
+      return reply
+        .code(400)
+        .send({ error: 'Key names and secrets are immutable; rotate to replace a secret' });
+    }
 
     try {
-      const keys = await configService.getRepository().getAllKeys();
+      const keys = await configService.getRepository().getAllKeysForAuthCache();
       const existing = keys[name];
       if (!existing) {
         return reply.code(404).send({ error: `API key '${name}' not found` });
@@ -453,8 +521,30 @@ export async function registerConfigRoutes(
       await configService.saveKey(name, result.data);
       logger.debug(`API key '${name}' updated via API (PATCH)`);
       return reply.send({ success: true, name });
-    } catch (e: any) {
-      logger.error(`Failed to patch API key '${name}'`, e);
+    } catch {
+      logger.error(`Failed to patch API key '${name}'`);
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  fastify.post('/v0/management/keys/:name/rotate', async (request, reply) => {
+    const { name } = request.params as { name: string };
+    try {
+      const keys = await configService.getRepository().getAllKeysForAuthCache();
+      const existing = keys[name];
+      if (!existing) {
+        return reply.code(404).send({ error: `API key '${name}' not found` });
+      }
+      const secret = generateApiKeySecret();
+      await configService.saveKey(name, { ...existing, secret });
+      logger.info(`[AUDIT] secret rotated for key='${name}' by principal='admin'`);
+      return reply.header('Cache-Control', 'no-store').send({
+        name,
+        secret,
+        message: 'Secret rotated. Store it now — it will not be shown again.',
+      });
+    } catch {
+      logger.error(`Failed to rotate API key '${name}'`);
       return reply.code(500).send({ error: 'Internal server error' });
     }
   });
@@ -463,7 +553,7 @@ export async function registerConfigRoutes(
     const { name } = request.params as { name: string };
 
     try {
-      await configService.deleteKey(name);
+      await configService.deleteKey(name, 'admin', 'deleted via management API');
       logger.debug(`API key '${name}' deleted via API`);
       return reply.send({ success: true });
     } catch (e: any) {
@@ -485,6 +575,73 @@ export async function registerConfigRoutes(
       logger.error(`Failed to disable API key '${name}'`, e);
       return reply.code(500).send({ error: 'Internal server error' });
     }
+  });
+
+  fastify.post('/v0/management/keys/:name/pause', async (request, reply) => {
+    const { name } = request.params as { name: string };
+    const reason = (request.body as { reason?: unknown } | null)?.reason;
+    if (typeof reason !== 'string' || reason.trim().length === 0) {
+      return reply.code(400).send({ error: 'Pause reason is required' });
+    }
+    const pauseService = new ApiKeyPauseService();
+    const result = await pauseService.pauseKey(name, 'manual', reason.trim(), 'admin');
+    const key = await configService.getRepository().getPublicKeyByName(name);
+    if (!key) return reply.code(404).send({ error: `API key '${name}' not found` });
+    if (result === 'paused') {
+      const [event] = await pauseService.getEvents(name, 1);
+      if (event?.eventKind === 'manual_pause') {
+        logger.info(`[AUDIT] API key pause transition key='${name}' eventId='${event.id}'`);
+      }
+    }
+    return reply.send({
+      result,
+      key: { fingerprint: key.fingerprint, ...(key.pausedAt ? { pausedAt: key.pausedAt } : {}) },
+    });
+  });
+
+  fastify.post('/v0/management/keys/:name/resume', async (request, reply) => {
+    const { name } = request.params as { name: string };
+    const reason = (request.body as { reason?: unknown } | null)?.reason;
+    if (typeof reason !== 'string' || reason.trim().length === 0) {
+      return reply.code(400).send({ error: 'Resume reason is required' });
+    }
+    const pauseService = new ApiKeyPauseService();
+    const result = await pauseService.resumeKey(name, 'admin', reason.trim());
+    const key = await configService.getRepository().getPublicKeyByName(name);
+    if (!key) return reply.code(404).send({ error: `API key '${name}' not found` });
+    if (result === 'resumed') {
+      const [event] = await pauseService.getEvents(name, 1);
+      if (event?.eventKind === 'resume') {
+        logger.info(`[AUDIT] API key resume transition key='${name}' eventId='${event.id}'`);
+      }
+    }
+    return reply.send({
+      result,
+      key: { fingerprint: key.fingerprint, ...(key.pausedAt ? { pausedAt: key.pausedAt } : {}) },
+    });
+  });
+
+  fastify.get('/v0/management/keys/:name/security-status', async (request, reply) => {
+    const { name } = request.params as { name: string };
+    const key = await configService.getRepository().getPublicKeyByName(name);
+    if (!key) return reply.code(404).send({ error: `API key '${name}' not found` });
+    return reply.send({
+      key: { fingerprint: key.fingerprint, ...(key.pausedAt ? { pausedAt: key.pausedAt } : {}) },
+    });
+  });
+
+  fastify.get('/v0/management/keys/:name/security-events', async (request, reply) => {
+    const { name } = request.params as { name: string };
+    const query = request.query as { limit?: string; offset?: string };
+    const limit = query.limit === undefined ? 50 : Number(query.limit);
+    const offset = query.offset === undefined ? 0 : Number(query.offset);
+    if (!Number.isSafeInteger(limit) || limit < 0 || !Number.isSafeInteger(offset) || offset < 0) {
+      return reply.code(400).send({ error: 'Pagination values must be non-negative integers' });
+    }
+    const key = await configService.getRepository().getPublicKeyByName(name);
+    if (!key) return reply.code(404).send({ error: `API key '${name}' not found` });
+    const events = await new ApiKeyPauseService().getEvents(name, limit, offset);
+    return reply.send({ key: { fingerprint: key.fingerprint }, events });
   });
 
   // ─── System Settings ──────────────────────────────────────────────

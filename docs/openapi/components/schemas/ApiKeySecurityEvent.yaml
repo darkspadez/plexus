@@ -1,0 +1,11 @@
+type: object
+required: [id, keyName, eventKind, source, createdAt]
+properties:
+  id: { type: integer }
+  keyName: { type: string }
+  eventKind: { type: string, enum: [manual_pause, auto_pause, resume, key_deleted, would_pause] }
+  source: { type: string }
+  actor: { type: [string, 'null'] }
+  reason: { type: [string, 'null'] }
+  evidence: {}
+  createdAt: { type: integer, format: int64 }

@@ -8,6 +8,10 @@ import { ConcurrencyTracker } from '../../services/runtime/concurrency-tracker';
 import { DebugManager } from '../../services/observability/debug-manager';
 import type { QuotaEnforcer } from '../../services/quota/quota-enforcer';
 import { StallInspector } from '../../services/inspectors/stall-inspector';
+import { ApiKeyActivityRecorder } from '../../services/api-key-security/activity-recorder';
+import { closeAuthDatabase, resetAuthDatabase, seedAuthKeys } from '../../../test/auth-db-fixtures';
+import { getDatabase, getSchema } from '../../db/client';
+import { ApiKeyPauseService } from '../../services/api-key-security/api-key-pause-service';
 
 interface CapturedRequest {
   method?: string;
@@ -29,6 +33,9 @@ describe('raw passthrough routes', () => {
   let quotaEnforcer: QuotaEnforcer;
 
   beforeEach(async () => {
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await resetAuthDatabase();
     captured = {};
     upstreamResponseStatus = 200;
     upstreamResponseHeaders = { 'content-type': 'application/octet-stream' };
@@ -87,6 +94,14 @@ describe('raw passthrough routes', () => {
       },
       quotas: [],
     });
+    await seedAuthKeys({
+      allowed: {
+        secret: 'plexus-secret',
+        allowRawPassthrough: true,
+        allowedProviders: ['openrouter'],
+      },
+      denied: { secret: 'denied-secret' },
+    });
 
     usageStorage = {
       emitStartedAsync: vi.fn(),
@@ -116,6 +131,9 @@ describe('raw passthrough routes', () => {
     await new Promise<void>((resolve, reject) =>
       upstream.close((error) => (error ? reject(error) : resolve()))
     );
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await closeAuthDatabase();
   });
 
   test('relays exact request and response bytes while replacing authentication', async () => {
@@ -237,6 +255,69 @@ describe('raw passthrough routes', () => {
     });
     expect(response.statusCode).toBe(401);
     expect(captured.url).toBeUndefined();
+  });
+
+  test('records activity only after successful raw bearer authentication', async () => {
+    // Given
+    const schema = getSchema();
+    const storedKeys = await getDatabase()
+      .select({ id: schema.apiKeys.id, name: schema.apiKeys.name })
+      .from(schema.apiKeys);
+    const keyId = storedKeys.find(
+      (key: { readonly id: number; readonly name: string }) => key.name === 'allowed'
+    )?.id;
+    if (keyId === undefined) throw new Error('Expected seeded raw key');
+
+    // When
+    const response = await fastify.inject({
+      method: 'GET',
+      url: '/raw/openrouter/v1/models',
+      headers: { authorization: 'Bearer plexus-secret' },
+    });
+    await ApiKeyActivityRecorder.getInstance().flush();
+
+    // Then
+    expect(response.statusCode).toBe(200);
+    expect(await getDatabase().select().from(schema.apiKeyRequestBuckets)).toMatchObject([
+      { apiKeyId: keyId, count: 1 },
+    ]);
+  });
+
+  test('does not record activity for rejected raw bearer authentication', async () => {
+    // Given
+    const schema = getSchema();
+
+    // When
+    const response = await fastify.inject({
+      method: 'GET',
+      url: '/raw/openrouter/v1/models',
+      headers: { authorization: 'Bearer invalid-raw-secret' },
+    });
+    await ApiKeyActivityRecorder.getInstance().flush();
+
+    // Then
+    expect(response.statusCode).toBe(401);
+    expect(await getDatabase().select().from(schema.apiKeyRequestBuckets)).toEqual([]);
+  });
+
+  test('rejects a pause written after raw registration without recording activity', async () => {
+    // Given
+    const secret = 'plexus-secret';
+    await new ApiKeyPauseService().pauseKey('allowed', 'automatic', 'private pause reason');
+
+    // When
+    const response = await fastify.inject({
+      method: 'GET',
+      url: '/raw/openrouter/v1/models',
+      headers: { authorization: `Bearer ${secret}` },
+    });
+    await ApiKeyActivityRecorder.getInstance().flush();
+
+    // Then
+    expect(response.statusCode).toBe(401);
+    expect(response.body).not.toContain(secret);
+    expect(response.body).not.toContain('private pause reason');
+    expect(await getDatabase().select().from(getSchema().apiKeyRequestBuckets)).toEqual([]);
   });
 
   test('rejects encoded base-path traversal before upstream dispatch', async () => {

@@ -20,6 +20,10 @@ export const apiKeys = sqliteTable('api_keys', {
   generation: text('generation'), // JSON: { reasoning?, maxTokens?, verbosity?, serviceTier? }
   expiresAt: integer('expires_at'),
   disabledAt: integer('disabled_at'),
+  pausedAt: integer('paused_at'),
+  pauseSource: text('pause_source'),
+  pauseReason: text('pause_reason'),
+  anomalyPolicy: text('anomaly_policy'),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });

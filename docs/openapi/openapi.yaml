@@ -201,6 +201,8 @@ tags:
     description: Admin-key verification and self-service identity.
   - name: Management — Config
     description: Providers, aliases, keys, system settings, MCP servers.
+  - name: Management — Security
+    description: API key pause lifecycle, security events, and anomaly policies.
   - name: Management — Usage
     description: >-
       Request-level usage records and time-series aggregates.
@@ -457,6 +459,20 @@ paths:
     $ref: paths/v0_management_keys_{name}.yaml
   /v0/management/keys/{name}/disable:
     $ref: paths/v0_management_keys_{name}_disable.yaml
+  /v0/management/keys/{name}/rotate:
+    $ref: paths/v0_management_keys_{name}_rotate.yaml
+  /v0/management/keys/{name}/pause:
+    $ref: paths/v0_management_keys_{name}_pause.yaml
+  /v0/management/keys/{name}/resume:
+    $ref: paths/v0_management_keys_{name}_resume.yaml
+  /v0/management/keys/{name}/security-status:
+    $ref: paths/v0_management_keys_{name}_security-status.yaml
+  /v0/management/keys/{name}/security-events:
+    $ref: paths/v0_management_keys_{name}_security-events.yaml
+  /v0/management/security/anomaly-policy:
+    $ref: paths/v0_management_security_anomaly-policy.yaml
+  /v0/management/keys/{name}/anomaly-policy:
+    $ref: paths/v0_management_keys_{name}_anomaly-policy.yaml
   /v0/management/mcp-servers:
     $ref: paths/v0_management_mcp-servers.yaml
   /v0/management/mcp-servers/{serverName}:
@@ -471,6 +487,12 @@ paths:
     $ref: paths/v0_management_mcp-servers_{serverName}_restart.yaml
   /v0/management/mcp-servers/{serverName}/process-logs:
     $ref: paths/v0_management_mcp-servers_{serverName}_process-logs.yaml
+  /v0/management/mcp-servers/{serverName}/keys:
+    $ref: paths/v0_management_mcp-servers_{serverName}_keys.yaml
+  /v0/management/mcp-servers/{serverName}/keys/{keyId}:
+    $ref: paths/v0_management_mcp-servers_{serverName}_keys_{keyId}.yaml
+  /v0/management/mcp-servers/{serverName}/keys/{keyId}/clear-cooldown:
+    $ref: paths/v0_management_mcp-servers_{serverName}_keys_{keyId}_clear-cooldown.yaml
   /v0/management/quota-checker-types:
     $ref: paths/v0_management_quota-checker-types.yaml
   /v0/management/quota-checkers:

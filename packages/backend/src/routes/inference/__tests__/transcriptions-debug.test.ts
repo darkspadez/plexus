@@ -8,6 +8,12 @@ import { UsageStorageService } from '../../../services/observability/usage-stora
 import { DebugManager } from '../../../services/observability/debug-manager';
 import { SelectorFactory } from '../../../services/routing/selectors/factory';
 import FormData from 'form-data';
+import { ApiKeyActivityRecorder } from '../../../services/api-key-security/activity-recorder';
+import {
+  closeAuthDatabase,
+  resetAuthDatabase,
+  seedAuthKeys,
+} from '../../../../test/auth-db-fixtures';
 
 /**
  * Test suite to verify that binary audio files are NOT stored in debug logs
@@ -22,6 +28,8 @@ describe('Transcriptions Debug Logging', () => {
   let wasDebugEnabled: boolean = false;
 
   beforeAll(async () => {
+    await resetAuthDatabase();
+    await seedAuthKeys({ 'test-key-1': { secret: 'sk-valid-key', comment: 'Test Key' } });
     // Save current debug state
     debugManager = DebugManager.getInstance();
     wasDebugEnabled = debugManager.isEnabled();
@@ -133,9 +141,13 @@ describe('Transcriptions Debug Logging', () => {
     await fastify.ready();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     // Restore original debug state
     debugManager.setEnabled(wasDebugEnabled);
+    await fastify.close();
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await closeAuthDatabase();
   });
 
   it('should NOT store binary audio data in debug logs', async () => {

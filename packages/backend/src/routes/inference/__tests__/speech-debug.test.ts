@@ -6,6 +6,12 @@ import { Dispatcher } from '../../../services/dispatch/dispatcher';
 import { UsageStorageService } from '../../../services/observability/usage-storage';
 import { DebugManager } from '../../../services/observability/debug-manager';
 import { SelectorFactory } from '../../../services/routing/selectors/factory';
+import { ApiKeyActivityRecorder } from '../../../services/api-key-security/activity-recorder';
+import {
+  closeAuthDatabase,
+  resetAuthDatabase,
+  seedAuthKeys,
+} from '../../../../test/auth-db-fixtures';
 
 describe('Speech Route Debug Logging', () => {
   let fastify: FastifyInstance;
@@ -16,6 +22,8 @@ describe('Speech Route Debug Logging', () => {
   let wasDebugEnabled: boolean = false;
 
   beforeAll(async () => {
+    await resetAuthDatabase();
+    await seedAuthKeys({ 'test-key-1': { secret: 'sk-valid-key', comment: 'Test Key' } });
     debugManager = DebugManager.getInstance();
     wasDebugEnabled = debugManager.isEnabled();
 
@@ -91,8 +99,12 @@ describe('Speech Route Debug Logging', () => {
     await fastify.ready();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     debugManager.setEnabled(wasDebugEnabled);
+    await fastify.close();
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await closeAuthDatabase();
   });
 
   it('captures the incoming request text (input) for TTS in the debug log', async () => {

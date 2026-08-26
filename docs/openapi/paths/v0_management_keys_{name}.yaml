@@ -12,9 +12,9 @@ get:
   description: |
     Returns a single API key record by name.
 
-    The stored secret is returned decrypted by the HTTP management API.
-    Clients that need redaction should apply it themselves or use the MCP
-    management surface instead.
+    This is a public metadata projection. `secret` is intentionally absent.
+    Plaintext is reveal-once only during create/rotate; backups remain
+    explicitly sensitive.
 
     **Admin only** — limited principals receive 403.
   security:
@@ -27,9 +27,9 @@ get:
           schema:
             allOf:
               - type: object
+                required: [name]
                 properties:
-                  name:
-                    type: string
+                  name: { type: string }
               - $ref: ../components/schemas/KeyConfig.yaml
     '404':
       description: API key not found.
@@ -69,7 +69,7 @@ put:
     content:
       application/json:
         schema:
-          $ref: ../components/schemas/KeyConfig.yaml
+          $ref: ../components/schemas/KeyConfigInput.yaml
         examples:
           production_key:
             summary: Production API key
@@ -101,8 +101,12 @@ put:
                 const: true
               name:
                 type: string
+    '400':
+      $ref: ../components/responses/ValidationError.yaml
     '401':
-      description: Authentication required or invalid credentials.
+      $ref: ../components/responses/AdminAuthError.yaml
+    '403':
+      description: Admin principal required.
   operationId: putV0ManagementKeysByname
 patch:
   tags:
@@ -139,9 +143,13 @@ patch:
               name:
                 type: string
     '400':
-      description: Validation failed.
+      $ref: ../components/responses/ValidationError.yaml
     '404':
       description: API key not found.
+    '401':
+      $ref: ../components/responses/AdminAuthError.yaml
+    '403':
+      description: Admin principal required.
   operationId: patchV0ManagementKeysByname
 delete:
   tags:
@@ -167,5 +175,7 @@ delete:
           schema:
             $ref: ../components/schemas/SuccessTrue.yaml
     '401':
-      description: Authentication required or invalid credentials.
+      $ref: ../components/responses/AdminAuthError.yaml
+    '403':
+      description: Admin principal required.
   operationId: deleteV0ManagementKeysByname

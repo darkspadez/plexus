@@ -1,0 +1,24 @@
+parameters:
+  - in: path
+    name: name
+    required: true
+    schema: { type: string }
+post:
+  tags: [Management — Config]
+  summary: Rotate an API key secret (admin only)
+  description: >
+    Generates a replacement server secret while preserving metadata, pause
+    state, and anomaly policy. The plaintext is reveal-once and this response
+    has Cache-Control: no-store.
+  security: [{ AdminKey: [] }]
+  responses:
+    '200':
+      description: Sensitive reveal-once rotation response.
+      headers:
+        Cache-Control: { schema: { const: no-store } }
+      content: { application/json: { schema: { $ref: ../components/schemas/KeySecretResponse.yaml } } }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '404': { description: API key not found. }
+    '500': { description: Internal server error. }
+  operationId: postV0ManagementKeysBynameRotate

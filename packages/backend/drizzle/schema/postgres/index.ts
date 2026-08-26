@@ -16,6 +16,7 @@ export * from './model-aliases';
 export * from './model-alias-targets';
 export * from './alias-metadata-overrides';
 export * from './api-keys';
+export * from './api-key-security';
 export * from './user-quota-definitions';
 export * from './mcp-servers';
 export * from './mcp-keys';

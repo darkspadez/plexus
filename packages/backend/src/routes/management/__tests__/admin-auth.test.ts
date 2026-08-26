@@ -8,6 +8,12 @@ import { UsageStorageService } from '../../../services/observability/usage-stora
 import { ProbeService } from '../../../services/probes/probe-service';
 import { DebugManager } from '../../../services/observability/debug-manager';
 import { SelectorFactory } from '../../../services/routing/selectors/factory';
+import { ApiKeyActivityRecorder } from '../../../services/api-key-security/activity-recorder';
+import {
+  closeAuthDatabase,
+  resetAuthDatabase,
+  seedAuthKeys,
+} from '../../../../test/auth-db-fixtures';
 
 // Helper to close Fastify instances after tests
 const closeFastify = async (fastify: FastifyInstance | undefined) => {
@@ -33,7 +39,11 @@ const BASE_CONFIG = {
 // Admin key is now read from process.env.ADMIN_KEY
 const originalAdminKey = process.env.ADMIN_KEY;
 
-beforeEach(() => {
+beforeEach(async () => {
+  await ApiKeyActivityRecorder.getInstance().stop();
+  ApiKeyActivityRecorder.resetForTesting();
+  await resetAuthDatabase();
+  await seedAuthKeys(BASE_CONFIG.keys);
   process.env.ADMIN_KEY = originalAdminKey;
 });
 
@@ -47,6 +57,12 @@ afterAll(() => {
   } else {
     process.env.ADMIN_KEY = originalAdminKey;
   }
+});
+
+afterAll(async () => {
+  await ApiKeyActivityRecorder.getInstance().stop();
+  ApiKeyActivityRecorder.resetForTesting();
+  await closeAuthDatabase();
 });
 
 // ---------------------------------------------------------------------------
@@ -203,6 +219,13 @@ describe('Limited management key IP allowlist', () => {
           comment: 'IP limited key',
           allowedIps: ['10.0.0.0/8'],
         },
+      },
+    });
+    await seedAuthKeys({
+      'ip-limited-key': {
+        secret: 'sk-ip-limited',
+        comment: 'IP limited key',
+        allowedIps: ['10.0.0.0/8'],
       },
     });
     fastify = Fastify();

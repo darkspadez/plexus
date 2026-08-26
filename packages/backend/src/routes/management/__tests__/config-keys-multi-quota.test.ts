@@ -24,6 +24,8 @@ vi.mock('../../../services/configuration/config-service', () => ({
       disableTimeBoundKey: serviceState.disableTimeBoundKey,
       getRepository: vi.fn(() => ({
         getAllKeys: vi.fn(async () => serviceState.keys),
+        getPublicKeyByName: vi.fn(async (name: string) => serviceState.keys[name] ?? null),
+        getAllKeysForAuthCache: vi.fn(async () => serviceState.keys),
       })),
     })),
   },

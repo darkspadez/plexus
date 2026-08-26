@@ -1,27 +1,23 @@
 type: object
-required:
-  - secret
 additionalProperties: true
 description: >
-  API key configuration. Controls access to Plexus inference endpoints.
-  Stored in the database.
+  Public API key metadata returned by ordinary management list, get, status,
+  and configuration responses. This breaking management-response change
+  intentionally omits `secret`; plaintext credentials are reveal-once and
+  appear only in create or rotate responses. Sensitive backup exports are the
+  sole exception and must be handled as secrets.
 properties:
-  secret:
+  fingerprint:
     type: string
-    example: sk-0123...
-    description: >
-      The API key secret. Stored encrypted at rest. Format is typically
-      `sk-...` but any string is accepted.
+    pattern: '^[a-f0-9]{8}$|^unavailable$'
+    description: First eight lowercase hexadecimal characters of the secret SHA-256 hash.
   comment:
     type: string
-    description: >
-       Freeform description or notes about this key. Max 500 characters.
+    description: Freeform description or notes about this key. Max 500 characters.
   expiresInMinutes:
     type: integer
     minimum: 1
-    description: >
-      Optional lifetime for a new key, expressed as positive whole minutes.
-      This value is accepted only when creating the key and cannot be changed.
+    description: Original creation lifetime in whole minutes.
   expiresAt:
     type: integer
     format: int64
@@ -31,43 +27,36 @@ properties:
     type: integer
     format: int64
     readOnly: true
-    description: Time the key was disabled as Unix epoch milliseconds.
+  pausedAt:
+    type: integer
+    format: int64
+    readOnly: true
+  pauseSource:
+    type: string
+    enum: [manual, automatic]
+    readOnly: true
+  pauseReason:
+    type: string
+    readOnly: true
+  anomalyPolicy:
+    $ref: ./PerKeyAnomalyPolicy.yaml
   allowedProviders:
     type: array
-    items:
-      type: string
-    description: >
-      Restrict this key to specific providers only. If empty, the key
-      can be used with any provider.
+    items: { type: string }
   excludedProviders:
     type: array
-    items:
-      type: string
-    description: >
-      Optional denylist. If set, routing will not use these provider IDs.
+    items: { type: string }
   excludedModels:
     type: array
-    items:
-      type: string
-    description: >
-      Optional denylist. If set, this key cannot use these model aliases.
+    items: { type: string }
   allowedModels:
     type: array
-    items:
-      type: string
-    description: >
-      Restrict this key to specific model aliases only. If empty, the
-      key can be used with any model.
+    items: { type: string }
   allowRawPassthrough:
     type: boolean
     default: false
-    description: >
-      Privileged provider-wide raw access. Existing provider allow/deny lists
-      still apply; model restrictions do not apply to raw requests.
   quota:
-    type:
-      - string
-      - 'null'
-    description: >
-      Name of a user quota definition to enforce. If null, no quota
-      is enforced for this key.
+    type: [string, 'null']
+  quotas:
+    type: array
+    items: { type: string }

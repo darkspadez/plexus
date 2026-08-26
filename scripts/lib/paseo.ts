@@ -1,5 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from 'child_process';
 
+const PASEO_COMMAND_TIMEOUT_MS = 1_000;
+
 export interface WorkspaceScriptPayload {
   scriptName: string;
   type: 'service' | 'command';
@@ -21,6 +23,7 @@ export function isPaseoScriptAvailable(scriptName?: string, cwd = process.cwd())
       encoding: 'utf8',
       env: process.env,
       stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: PASEO_COMMAND_TIMEOUT_MS,
     });
     if (res.status !== 0 || !res.stdout) return false;
 
@@ -46,6 +49,7 @@ export function getPaseoScriptStatus(
       encoding: 'utf8',
       env: process.env,
       stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: PASEO_COMMAND_TIMEOUT_MS,
     });
     if (res.status !== 0 || !res.stdout) return null;
 
@@ -72,6 +76,7 @@ export function startPaseoScript(
       encoding: 'utf8',
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: PASEO_COMMAND_TIMEOUT_MS,
     });
 
     if (res.status === 0 && res.stdout) {
@@ -103,6 +108,7 @@ export function stopPaseoScript(scriptName: string, cwd = process.cwd()): boolea
       encoding: 'utf8',
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: PASEO_COMMAND_TIMEOUT_MS,
     });
     return res.status === 0;
   } catch {

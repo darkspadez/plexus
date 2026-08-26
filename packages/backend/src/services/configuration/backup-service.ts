@@ -17,9 +17,9 @@
 
 import { getDatabase, getSchema, getCurrentDialect } from '../../db/client';
 import { ConfigService } from './config-service';
-import { ConfigRepository, McpKeyConfig, OAuthCredentialsData } from '../../db/config-repository';
+import { McpKeyConfig } from '../../db/config-repository';
+import type { ApiKeySecurityEvent } from '../../db/types';
 import { logger } from '../../utils/logger';
-import { decrypt, encrypt } from '../../utils/encryption';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { parse as parseCsvSync } from 'csv-parse/sync';
 
@@ -56,6 +56,7 @@ export interface ConfigBackupData {
     refresh_token: string;
     expires_at: number;
   }>;
+  api_key_security_events?: readonly Omit<ApiKeySecurityEvent, 'id' | 'apiKeyId'>[];
 }
 
 /** Summary of what was restored. */
@@ -352,6 +353,11 @@ const TABLE_META: Record<
     timestampMsCols: [],
     timestampTextCols: [],
   },
+  api_key_security_events: {
+    booleanCols: [],
+    timestampMsCols: [],
+    timestampTextCols: [],
+  },
 };
 
 // Operational tables in insertion order (respecting FK dependencies)
@@ -369,6 +375,7 @@ const OPERATIONAL_TABLES = [
   'responses',
   'conversations',
   'response_items',
+  'api_key_security_events',
 ] as const;
 
 // ─── BackupService ──────────────────────────────────────────────────
@@ -386,6 +393,7 @@ export class BackupService {
     const repo = configService.getRepository();
     const oauthProviders = await repo.getAllOAuthProviders();
     const oauthCredentials: ConfigBackupData['oauth_credentials'] = [];
+    const securityEvents = await repo.getAllApiKeySecurityEventsForBackup();
 
     for (const { providerType, accountId } of oauthProviders) {
       const creds = await repo.getOAuthCredentials(providerType, accountId);
@@ -414,6 +422,9 @@ export class BackupService {
         mcp_keys: configData.mcp_keys as McpKeyConfig[],
         settings: configData.settings as Record<string, unknown>,
         oauth_credentials: oauthCredentials,
+        api_key_security_events: securityEvents.map(
+          ({ id: _id, apiKeyId: _apiKeyId, ...event }) => event
+        ),
       },
     };
   }
@@ -425,7 +436,6 @@ export class BackupService {
   async exportFullBackup(): Promise<Buffer> {
     const dialect = getCurrentDialect();
     const db = getDatabase();
-    const schema = getSchema();
 
     const files = new Map<string, Buffer>();
 
@@ -495,7 +505,6 @@ export class BackupService {
       throw new Error(`Unsupported backup version ${data.version} (expected ${BACKUP_VERSION})`);
     }
 
-    const dialect = getCurrentDialect();
     const configService = ConfigService.getInstance();
     const repo = configService.getRepository();
     const counts: Record<string, number> = {};
@@ -560,6 +569,10 @@ export class BackupService {
     }
     counts['oauth_credentials'] = oauthCreds.length;
 
+    const securityEvents = data.data.api_key_security_events ?? [];
+    await repo.restoreApiKeySecurityEvents(securityEvents);
+    counts['api_key_security_events'] = securityEvents.length;
+
     // Rebuild cache
     await configService.initialize();
 
@@ -615,7 +628,7 @@ export class BackupService {
       version: manifest.version,
       created_at: manifest.created_at,
       dialect: manifest.dialect,
-      data: configData,
+      data: { ...configData, api_key_security_events: [] },
     };
 
     const configResult = await this.restoreConfigBackup(configEnvelope);
@@ -623,7 +636,6 @@ export class BackupService {
 
     // Now restore operational tables
     const db = getDatabase();
-    const schema = getSchema();
     const dialect = getCurrentDialect();
     const schemaMap = this.getSchemaTableMap();
 
@@ -701,6 +713,26 @@ export class BackupService {
         continue;
       }
 
+      if (tableName === 'api_key_security_events') {
+        const events = records.map((record) => ({
+          keyName: record.keyName ?? '',
+          eventKind: record.eventKind ?? '',
+          source: record.source ?? '',
+          actor: record.actor === NULL_SENTINEL ? null : (record.actor ?? null),
+          reason: record.reason === NULL_SENTINEL ? null : (record.reason ?? null),
+          evidence: record.evidence === NULL_SENTINEL ? null : (record.evidence ?? null),
+          evaluationWindowEndMs:
+            record.evaluationWindowEndMs === NULL_SENTINEL ||
+            record.evaluationWindowEndMs === undefined
+              ? null
+              : Number(record.evaluationWindowEndMs),
+          createdAt: Number(record.createdAt),
+        }));
+        await ConfigService.getInstance().getRepository().restoreApiKeySecurityEvents(events);
+        counts[tableName] = events.length;
+        continue;
+      }
+
       let inserted = 0;
 
       // Batch insert in chunks of 500
@@ -772,6 +804,7 @@ export class BackupService {
       responses: schema.responses,
       conversations: schema.conversations ?? null,
       response_items: schema.responseItems ?? null,
+      api_key_security_events: schema.apiKeySecurityEvents,
     };
   }
 }

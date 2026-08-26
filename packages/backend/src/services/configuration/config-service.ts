@@ -13,6 +13,12 @@ import type {
   TimeoutConfig,
   StallConfigType,
 } from '../../config';
+import {
+  DEFAULT_GLOBAL_ANOMALY_POLICY,
+  type GlobalAnomalyPolicy,
+  type PerKeyAnomalyPolicy,
+} from '../api-key-security/policy-schema';
+import { ApiKeyPauseService } from '../api-key-security/api-key-pause-service';
 
 import { QuotaScheduler } from '../quota/quota-scheduler';
 import { ModelAutosyncScheduler } from '../models/model-autosync-scheduler';
@@ -221,10 +227,13 @@ export class ConfigService {
     this.rebuildCache();
   }
 
-  async deleteKey(name: string): Promise<void> {
-    await this.repo.deleteKey(name);
-    this.pendingWrites++;
-    this.rebuildCache();
+  async deleteKey(name: string, actor?: string, reason?: string): Promise<boolean> {
+    const deleted = await new ApiKeyPauseService().deleteKey(name, actor, reason);
+    if (deleted) {
+      this.pendingWrites++;
+      this.rebuildCache();
+    }
+    return deleted;
   }
 
   async disableTimeBoundKey(name: string): Promise<boolean> {
@@ -284,6 +293,33 @@ export class ConfigService {
 
   async getAllSettings(): Promise<Record<string, unknown>> {
     return this.repo.getAllSettings();
+  }
+
+  async getGlobalAnomalyPolicy(): Promise<GlobalAnomalyPolicy> {
+    return this.repo.getGlobalAnomalyPolicy();
+  }
+
+  async saveGlobalAnomalyPolicy(policy: GlobalAnomalyPolicy): Promise<void> {
+    await this.repo.saveGlobalAnomalyPolicy(policy);
+    this.pendingWrites++;
+    this.rebuildCache();
+  }
+
+  async getAllKeyAnomalyPolicies(): Promise<Record<string, PerKeyAnomalyPolicy>> {
+    return this.repo.getAllKeyAnomalyPolicies();
+  }
+
+  async getKeyAnomalyPolicy(name: string): Promise<PerKeyAnomalyPolicy | null> {
+    return this.repo.getKeyAnomalyPolicy(name);
+  }
+
+  async saveKeyAnomalyPolicy(name: string, policy: PerKeyAnomalyPolicy): Promise<boolean> {
+    const saved = await this.repo.saveKeyAnomalyPolicy(name, policy);
+    if (saved) {
+      this.pendingWrites++;
+      this.rebuildCache();
+    }
+    return saved;
   }
 
   // ─── OAuth Credentials ──────────────────────────────────────────
@@ -348,7 +384,7 @@ export class ConfigService {
   async exportConfig(): Promise<Record<string, unknown>> {
     const providers = await this.repo.getAllProviders();
     const models = await this.repo.getAllAliases();
-    const keys = await this.repo.getAllKeys();
+    const keys = await this.repo.getAllKeysForBackup();
     const userQuotas = await this.repo.getAllUserQuotas();
     const mcpServers = await this.repo.getAllMcpServers();
     const mcpKeys = await this.repo.getAllMcpKeys();
@@ -446,7 +482,7 @@ export class ConfigService {
   private async doRebuild(): Promise<void> {
     const providers = await this.repo.getAllProviders();
     const models = await this.repo.getAllAliases();
-    const keys = await this.repo.getAllKeys();
+    const keys = await this.repo.getAllKeysForAuthCache();
     const userQuotas = await this.repo.getAllUserQuotas();
     const mcpServers = await this.repo.getAllMcpServers();
     const failover = await this.repo.getFailoverPolicy();
@@ -455,6 +491,10 @@ export class ConfigService {
     const timeout = await this.repo.getTimeoutConfig();
     const stall = await this.repo.getStallConfig();
     const allSettings = await this.repo.getAllSettings();
+    const anomalyPolicy =
+      typeof this.repo.getGlobalAnomalyPolicy === 'function'
+        ? await this.repo.getGlobalAnomalyPolicy()
+        : DEFAULT_GLOBAL_ANOMALY_POLICY;
 
     // Spread all flat settings (non-dotted keys) onto the cache so new settings
     // are picked up automatically without needing to touch rebuildCache().
@@ -470,6 +510,7 @@ export class ConfigService {
       providers,
       models,
       keys,
+      anomalyPolicy,
       failover,
       cooldown,
       timeout,

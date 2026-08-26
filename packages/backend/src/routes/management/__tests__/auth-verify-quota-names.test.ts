@@ -5,6 +5,12 @@ import { registerManagementRoutes } from '../../management';
 import { Dispatcher } from '../../../services/dispatch/dispatcher';
 import { UsageStorageService } from '../../../services/observability/usage-storage';
 import { ProbeService } from '../../../services/probes/probe-service';
+import { ApiKeyPauseService } from '../../../services/api-key-security/api-key-pause-service';
+import {
+  closeAuthDatabase,
+  resetAuthDatabase,
+  seedAuthKeys,
+} from '../../../../test/auth-db-fixtures';
 
 const closeFastify = async (fastify: FastifyInstance | undefined) => {
   if (fastify) await fastify.close();
@@ -12,12 +18,17 @@ const closeFastify = async (fastify: FastifyInstance | undefined) => {
 
 const originalAdminKey = process.env.ADMIN_KEY;
 
-beforeEach(() => {
+beforeEach(async () => {
+  await resetAuthDatabase();
   process.env.ADMIN_KEY = 'correct-admin-key';
 });
 
 afterEach(() => {
   process.env.ADMIN_KEY = originalAdminKey;
+});
+
+afterEach(async () => {
+  await closeAuthDatabase();
 });
 
 afterAll(() => {
@@ -53,6 +64,9 @@ describe('GET /v0/management/auth/verify — quotaNames compat', () => {
       },
       quotas: [],
     } as any);
+    await seedAuthKeys({
+      'multi-quota-key': { secret: 'sk-multi-quota', quotas: ['quota-a', 'quota-b'] },
+    });
 
     fastify = Fastify();
     const { mockUsageStorage, mockDispatcher, mockProbeService } = makeMockDeps();
@@ -85,6 +99,7 @@ describe('GET /v0/management/auth/verify — quotaNames compat', () => {
       },
       quotas: [],
     } as any);
+    await seedAuthKeys({ 'no-quota-key': { secret: 'sk-no-quota' } });
 
     fastify = Fastify();
     const { mockUsageStorage, mockDispatcher, mockProbeService } = makeMockDeps();
@@ -101,5 +116,35 @@ describe('GET /v0/management/auth/verify — quotaNames compat', () => {
     const body = res.json() as { quotaNames: string[]; quotaName: string | null };
     expect(body.quotaNames).toEqual([]);
     expect(body.quotaName).toBeNull();
+  });
+
+  it('rejects a persisted pause written after limited management route registration generically', async () => {
+    // Given
+    const secret = 'sk-limited-paused';
+    setConfigForTesting({
+      providers: {},
+      models: {},
+      keys: { 'limited-paused': { secret } },
+      failover: { enabled: false, retryableStatusCodes: [], retryableErrors: [] },
+      quotas: [],
+    } as any);
+    await seedAuthKeys({ 'limited-paused': { secret } });
+    fastify = Fastify();
+    const { mockUsageStorage, mockDispatcher, mockProbeService } = makeMockDeps();
+    await registerManagementRoutes(fastify, mockUsageStorage, mockDispatcher, mockProbeService);
+    await fastify.ready();
+    await new ApiKeyPauseService().pauseKey('limited-paused', 'automatic', 'private pause reason');
+
+    // When
+    const response = await fastify.inject({
+      method: 'GET',
+      url: '/v0/management/auth/verify',
+      headers: { 'x-admin-key': secret },
+    });
+
+    // Then
+    expect(response.statusCode).toBe(401);
+    expect(response.body).not.toContain(secret);
+    expect(response.body).not.toContain('private pause reason');
   });
 });

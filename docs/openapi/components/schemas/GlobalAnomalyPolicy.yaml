@@ -1,0 +1,6 @@
+allOf:
+  - $ref: ./AnomalyThresholdPolicy.yaml
+  - type: object
+    required: [mode]
+    properties:
+      mode: { type: string, enum: [disabled, observe, enforce] }

@@ -7,9 +7,9 @@ get:
 
     ## Secret handling
 
-    The `secret` field is stored encrypted at rest in the database. It is
-    decrypted for this response. Treat these values carefully — they grant
-    access to your Plexus instance.
+    This is a public metadata projection. `secret` is intentionally absent
+    from normal list/get/config responses. Plaintext is reveal-once during
+    create/rotate; explicit backup exports remain sensitive.
 
     ## Rotation
 
@@ -31,5 +31,50 @@ get:
             additionalProperties:
               $ref: ../components/schemas/KeyConfig.yaml
     '401':
-      description: Authentication required or invalid credentials.
+      $ref: ../components/responses/AdminAuthError.yaml
+    '403':
+      description: Admin principal required; limited principals cannot list keys.
   operationId: getV0ManagementKeys
+post:
+  tags:
+    - Management — Config
+  summary: Create a server-generated API key (admin only)
+  description: >
+    Creates a key with a server-generated 192-bit secret. The plaintext is
+    reveal-once and returned with Cache-Control: no-store; ordinary key and
+    configuration responses expose public metadata only.
+  security:
+    - AdminKey: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [name]
+          properties:
+            name: { type: string }
+            comment: { type: string }
+            expiresInMinutes: { type: integer, minimum: 1 }
+            allowedProviders: { type: array, items: { type: string } }
+            excludedProviders: { type: array, items: { type: string } }
+            excludedModels: { type: array, items: { type: string } }
+            allowedModels: { type: array, items: { type: string } }
+            allowRawPassthrough: { type: boolean }
+            quota: { type: [string, 'null'] }
+            quotas: { type: array, items: { type: string } }
+            anomalyPolicy: { $ref: ../components/schemas/PerKeyAnomalyPolicy.yaml }
+  responses:
+    '201':
+      description: Sensitive reveal-once creation response.
+      headers:
+        Cache-Control: { schema: { const: no-store } }
+      content:
+        application/json:
+          schema: { $ref: ../components/schemas/KeySecretResponse.yaml }
+    '400': { $ref: ../components/responses/ValidationError.yaml }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '409': { description: An API key with this name already exists. }
+    '500': { description: Internal server error. }
+  operationId: postV0ManagementKeys

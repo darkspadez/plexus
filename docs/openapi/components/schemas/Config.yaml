@@ -18,7 +18,9 @@ properties:
     type: object
     additionalProperties:
       $ref: ./KeyConfig.yaml
-    description: Map of API key name to key configuration.
+    description: >
+      Map of public API key metadata. `secret` is intentionally absent from
+      ordinary configuration responses; sensitive backups are the exception.
   mcp_servers:
     type: object
     additionalProperties:

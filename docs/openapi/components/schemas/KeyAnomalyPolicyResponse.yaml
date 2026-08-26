@@ -1,0 +1,5 @@
+type: object
+required: [configured, effective]
+properties:
+  configured: { $ref: ./PerKeyAnomalyPolicy.yaml }
+  effective: { $ref: ./GlobalAnomalyPolicy.yaml }

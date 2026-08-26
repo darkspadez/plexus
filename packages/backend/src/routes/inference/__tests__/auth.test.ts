@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { afterAll, beforeAll, describe, it, expect, vi } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
 import { getConfig, setConfigForTesting } from '../../../config';
 import { registerInferenceRoutes } from '../index';
@@ -6,6 +6,38 @@ import { Dispatcher } from '../../../services/dispatch/dispatcher';
 import { UsageStorageService } from '../../../services/observability/usage-storage';
 import { DebugManager } from '../../../services/observability/debug-manager';
 import { SelectorFactory } from '../../../services/routing/selectors/factory';
+import { ApiKeyActivityRecorder } from '../../../services/api-key-security/activity-recorder';
+import {
+  closeAuthDatabase,
+  resetAuthDatabase,
+  seedAuthKeys,
+} from '../../../../test/auth-db-fixtures';
+
+beforeAll(async () => {
+  await resetAuthDatabase();
+  await seedAuthKeys({
+    'test-key-1': { secret: 'sk-valid-key', comment: 'Test Key' },
+    restricted: {
+      secret: 'sk-restricted-key',
+      allowedModels: ['gpt-4', 'gpt-4-mini'],
+      allowedProviders: ['openai', 'azure-openai'],
+    },
+    excluded: {
+      secret: 'sk-excluded-key',
+      excludedModels: ['claude-3-opus', 'gpt-5'],
+      excludedProviders: ['azure-openai', 'google'],
+    },
+    'ip-restricted': { secret: 'sk-ip-restricted', allowedIps: ['10.0.0.0/8'] },
+    'ip-open': { secret: 'sk-ip-open', allowedIps: ['0.0.0.0/0'] },
+    'ip-none': { secret: 'sk-ip-none' },
+  });
+});
+
+afterAll(async () => {
+  await ApiKeyActivityRecorder.getInstance().stop();
+  ApiKeyActivityRecorder.resetForTesting();
+  await closeAuthDatabase();
+});
 
 describe('Auth Middleware', () => {
   let fastify: FastifyInstance;
@@ -194,6 +226,7 @@ describe('Auth Middleware', () => {
         'disabled-key': { secret: 'sk-disabled-key', disabledAt: Date.now() },
       },
     });
+    await seedAuthKeys({ 'disabled-key': { secret: 'sk-disabled-key', disabledAt: Date.now() } });
 
     const response = await fastify.inject({
       method: 'POST',

@@ -6,6 +6,13 @@ import { Dispatcher } from '../../../services/dispatch/dispatcher';
 import { UsageStorageService } from '../../../services/observability/usage-storage';
 import { DebugManager } from '../../../services/observability/debug-manager';
 import { SelectorFactory } from '../../../services/routing/selectors/factory';
+import { ApiKeyActivityRecorder } from '../../../services/api-key-security/activity-recorder';
+import { ApiKeyPauseService } from '../../../services/api-key-security/api-key-pause-service';
+import {
+  closeAuthDatabase,
+  resetAuthDatabase,
+  seedAuthKeys,
+} from '../../../../test/auth-db-fixtures';
 
 const COMPLETIONS_TEST_CONFIG = {
   providers: {
@@ -47,7 +54,11 @@ describe('Completions Endpoint', () => {
   let mockDispatcher: Dispatcher;
 
   beforeEach(async () => {
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await resetAuthDatabase();
     setConfigForTesting(COMPLETIONS_TEST_CONFIG);
+    await seedAuthKeys(COMPLETIONS_TEST_CONFIG.keys);
 
     fastify = Fastify();
 
@@ -92,6 +103,9 @@ describe('Completions Endpoint', () => {
 
   afterEach(async () => {
     await fastify.close();
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await closeAuthDatabase();
   });
 
   it('should accept non-streaming POST /v1/completions request', async () => {
@@ -118,6 +132,25 @@ describe('Completions Endpoint', () => {
     expect(body.choices[0].text).toBe('return a + b;');
     expect(body.usage.prompt_tokens).toBe(10);
     expect(body.usage.completion_tokens).toBe(4);
+  });
+
+  it('rejects a persisted pause written after inference route registration', async () => {
+    // Given
+    const secret = 'sk-valid-key';
+    await new ApiKeyPauseService().pauseKey('test-key-1', 'automatic', 'private pause reason');
+
+    // When
+    const response = await fastify.inject({
+      method: 'POST',
+      url: '/v1/completions',
+      headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/json' },
+      payload: { model: 'code-completion', prompt: 'x', max_tokens: 1 },
+    });
+
+    // Then
+    expect(response.statusCode).toBe(401);
+    expect(response.body).not.toContain(secret);
+    expect(response.body).not.toContain('private pause reason');
   });
 
   it('should accept non-streaming POST /completions alias request', async () => {

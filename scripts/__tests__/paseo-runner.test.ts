@@ -73,7 +73,7 @@ describe('paseo adapter graceful fallbacks when paseo CLI is unavailable or non-
     }
   });
 
-  it('startPaseoScript returns null gracefully when paseo CLI fails', () => {
+  it('startPaseoScript returns null promptly when paseo CLI fails', () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'plexus-test-adapter-'));
     try {
       const result = startPaseoScript('dev:full', tempDir);
@@ -81,7 +81,7 @@ describe('paseo adapter graceful fallbacks when paseo CLI is unavailable or non-
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
-  });
+  }, 3_000);
 
   it('stopPaseoScript returns false gracefully when paseo CLI fails', () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'plexus-test-adapter-'));

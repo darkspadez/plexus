@@ -22,6 +22,9 @@ import { authenticate, requireAdmin, ManagementAuthError } from './management/_p
 import { registerModelRoutes } from './management/models';
 import { registerBackupRoutes } from './management/backup';
 import { registerConcurrencyRoutes } from './management/concurrency';
+import { registerAnomalyPolicyRoutes } from './management/anomaly-policy';
+import { AnomalyPolicyService } from '../services/api-key-security/anomaly-policy-service';
+import { ConfigService } from '../services/configuration/config-service';
 import { Dispatcher } from '../services/dispatch/dispatcher';
 import { ProbeService } from '../services/probes/probe-service';
 import { QuotaScheduler } from '../services/quota/quota-scheduler';
@@ -121,6 +124,10 @@ export async function registerManagementRoutes(
       await registerBackupRoutes(adminOnly, usageStorage, mcpUsageStorage);
       // Concurrency (live snapshot + historical timeline)
       await registerConcurrencyRoutes(adminOnly, usageStorage);
+      await registerAnomalyPolicyRoutes(
+        adminOnly,
+        new AnomalyPolicyService(ConfigService.getInstance())
+      );
     });
   });
 }

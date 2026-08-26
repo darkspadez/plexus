@@ -1,10 +1,37 @@
-import { FastifyRequest } from 'fastify';
-import { getConfig, isKeyDisabled } from '../config';
+import type { FastifyRequest } from 'fastify';
+import { getConfig, isKeyDisabled, type KeyConfig } from '../config';
+import { ConfigRepository, type InternalApiKeyRecord } from '../db/config-repository';
 import { logger } from './logger';
 import { getTrustedClientIp } from './ip';
 import { isIpAllowed } from './ip-match';
 import { enterRequestContext } from '../services/observability/request-context';
-import { ConfigService } from '../services/configuration/config-service';
+import { ApiKeyActivityRecorder } from '../services/api-key-security/activity-recorder';
+
+export type ResolvedApiKey = {
+  readonly id: number;
+  readonly name: string;
+  readonly config: KeyConfig;
+  readonly attribution: string | null;
+};
+
+type AuthRepository = Pick<ConfigRepository, 'resolveKeyBySecret'>;
+type ActivityRecorder = Pick<ApiKeyActivityRecorder, 'recordSuccessfulAuth'>;
+
+export type AuthHookOptions = {
+  readonly allowQueryKey?: boolean;
+  readonly repository?: AuthRepository;
+  readonly activityRecorder?: ActivityRecorder;
+  readonly recordActivity?: boolean;
+};
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    keyId?: number;
+    keyName?: string;
+    keyConfig?: KeyConfig;
+    attribution?: string | null;
+  }
+}
 
 export function attachKeyAccessPolicy<T extends { metadata?: Record<string, any> }>(
   request: FastifyRequest,
@@ -65,11 +92,95 @@ export function isRequestIpAllowed(
   return isIpAllowed(clientIp, allowedIps);
 }
 
-export function createAuthHook(options: { allowQueryKey?: boolean } = {}) {
+function parseCredential(credential: string): {
+  readonly secretPart: string;
+  readonly attribution: string | null;
+} {
+  const firstColonIndex = credential.indexOf(':');
+  if (firstColonIndex === -1) {
+    return { secretPart: credential, attribution: null };
+  }
+
+  const rawAttribution = credential.substring(firstColonIndex + 1);
+  return {
+    secretPart: credential.substring(0, firstColonIndex),
+    attribution: rawAttribution.toLowerCase() || null,
+  };
+}
+
+function getTrustedProxies(): string[] | undefined {
+  return getConfig().trustedProxies;
+}
+
+function attachResolvedApiKey(request: FastifyRequest, resolved: ResolvedApiKey): void {
+  request.keyId = resolved.id;
+  request.keyName = resolved.name;
+  request.keyConfig = resolved.config;
+  request.attribution = resolved.attribution;
+  enterRequestContext({ keyName: resolved.name });
+}
+
+export async function resolveApiKey(
+  credential: string,
+  request: FastifyRequest,
+  options: {
+    readonly repository?: AuthRepository;
+    readonly activityRecorder?: ActivityRecorder;
+    readonly recordActivity?: boolean;
+  } = {}
+): Promise<ResolvedApiKey | null> {
+  const { secretPart, attribution } = parseCredential(credential);
+  const repository = options.repository ?? new ConfigRepository();
+
+  try {
+    const record: InternalApiKeyRecord | null = await repository.resolveKeyBySecret(secretPart);
+    if (!record || isKeyDisabled(record.config) || record.config.pausedAt !== undefined) {
+      return null;
+    }
+
+    if (!isRequestIpAllowed(request, record.config.allowedIps, getTrustedProxies())) {
+      return null;
+    }
+
+    const resolved: ResolvedApiKey = {
+      id: record.id,
+      name: record.name,
+      config: record.config,
+      attribution,
+    };
+    attachResolvedApiKey(request, resolved);
+
+    if (options.recordActivity === true) {
+      try {
+        (options.activityRecorder ?? ApiKeyActivityRecorder.getInstance()).recordSuccessfulAuth(
+          resolved.id,
+          Date.now()
+        );
+      } catch (error) {
+        logger.warn('API key activity recording failed', {
+          errorType: error instanceof Error ? error.name : typeof error,
+        });
+      }
+    }
+
+    return resolved;
+  } catch (error) {
+    logger.error('API key resolution failed', {
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
+    return null;
+  }
+}
+
+export function createAuthHook(options: AuthHookOptions = {}) {
   const allowQueryKey = options.allowQueryKey !== false;
+  const repository = options.repository ?? new ConfigRepository();
+  const recordActivity = options.recordActivity !== false;
   return {
     onRequest: async (request: FastifyRequest) => {
-      logger.silly(`onRequest called: ${request.method} ${request.url}`);
+      const queryIndex = request.url.indexOf('?');
+      const requestPath = queryIndex === -1 ? request.url : request.url.slice(0, queryIndex);
+      logger.silly(`onRequest called: ${request.method} ${requestPath}`);
 
       // Normalize Authorization header - ensure it has "Bearer " prefix
       const authHeader = request.headers.authorization;
@@ -91,88 +202,24 @@ export function createAuthHook(options: { allowQueryKey?: boolean } = {}) {
           logger.silly(`Set authorization from x-api-key/x-goog-api-key`);
         }
       }
-
-      logger.silly(
-        `Final Authorization header: ${request.headers.authorization?.substring(0, 25)}`
-      );
     },
 
     bearerAuthOptions: {
       keys: new Set([]),
-      auth: (key: string, req: any) => {
-        logger.silly(`bearerAuth auth called with key: ${key.substring(0, 25)}`);
-
-        const config = getConfig();
-        logger.silly(`config.keys exists: ${!!config.keys}`);
-
-        if (!config.keys) {
-          logger.silly(`No keys configured`);
+      auth: async (key: string, req: FastifyRequest): Promise<boolean> => {
+        const resolved = await resolveApiKey(key, req, {
+          repository,
+          activityRecorder: options.activityRecorder,
+          recordActivity,
+        });
+        if (!resolved) {
+          logger.silly('Auth FAILED - credential rejected');
           return false;
         }
-
-        let secretPart: string;
-        let attributionPart: string | null = null;
-
-        const firstColonIndex = key.indexOf(':');
-        if (firstColonIndex !== -1) {
-          secretPart = key.substring(0, firstColonIndex);
-          const rawAttribution = key.substring(firstColonIndex + 1);
-          attributionPart = rawAttribution.toLowerCase() || null;
-        } else {
-          secretPart = key;
-        }
-
-        logger.silly(`Looking for secret: ${secretPart.substring(0, 15)}`);
-        logger.silly(`Available keys config: ${JSON.stringify(config.keys)}`);
-
-        const entry = Object.entries(config.keys).find(
-          ([_, k]) => (k as { secret: string }).secret === secretPart
-        );
-
-        if (entry) {
-          const keyCfg = entry[1] as {
-            allowedIps?: string[];
-            expiresAt?: number;
-            disabledAt?: number;
-          };
-          if (isKeyDisabled(keyCfg)) {
-            if (keyCfg.expiresAt !== undefined && keyCfg.disabledAt === undefined) {
-              void ConfigService.getInstance()
-                .disableTimeBoundKey(entry[0])
-                .catch((error) => logger.error(`Failed to disable expired key ${entry[0]}`, error));
-            }
-            logger.silly(`Auth FAILED - key disabled: ${entry[0]}`);
-            return false;
-          }
-          // Enforce the key's IP allowlist (if any). Returning false here yields
-          // the standard 401 auth_error, which deliberately does not reveal that
-          // the key is valid-but-used-from-a-disallowed-IP.
-          if (
-            !isRequestIpAllowed(req as FastifyRequest, keyCfg.allowedIps, config.trustedProxies)
-          ) {
-            logger.silly(`Auth FAILED - client IP not in allowlist for key: ${entry[0]}`);
-            return false;
-          }
-
-          logger.silly(`Auth SUCCESS for key: ${entry[0]}`);
-          req.keyName = entry[0];
-          req.attribution = attributionPart;
-          req.keyConfig = entry[1];
-          // Seed the async-local request context so downstream code (notably
-          // DebugManager) can resolve the key name without explicit plumbing.
-          enterRequestContext({ keyName: entry[0] });
-          return true;
-        }
-
-        logger.silly(`Auth FAILED - no matching key`);
-        logger.error(`Auth FAILED - no matching key for secret: ${secretPart}`);
-        logger.error(`Available keys config: ${JSON.stringify(config.keys)}`);
-        return false;
+        logger.silly(`Auth SUCCESS for key: ${resolved.name}`);
+        return true;
       },
-      errorResponse: ((err: Error) => {
-        logger.silly(`Error response: ${err.message}`);
-        return { error: { message: err.message, type: 'auth_error', code: 401 } };
-      }) as any,
+      errorResponse: () => ({ error: 'Unauthorized' }),
     },
   };
 }

@@ -1,0 +1,21 @@
+oneOf:
+  - type: object
+    additionalProperties: false
+    required: [mode]
+    properties:
+      mode: { const: inherit }
+  - type: object
+    additionalProperties: false
+    required: [mode, reason]
+    properties:
+      mode: { const: disabled }
+      reason: { type: string, minLength: 1 }
+  - type: object
+    additionalProperties: false
+    required: [mode, reason, policy]
+    properties:
+      mode: { const: override }
+      reason: { type: string, minLength: 1 }
+      policy: { $ref: ./AnomalyThresholdPolicy.yaml }
+discriminator:
+  propertyName: mode

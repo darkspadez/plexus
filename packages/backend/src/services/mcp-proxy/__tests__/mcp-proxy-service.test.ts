@@ -11,8 +11,13 @@ import {
   proxyMcpRequest,
   selectMcpKeyRoundRobin,
   injectMcpKeyAuth,
+  redactUrlForLog,
 } from '../mcp-proxy-service';
 import { setConfigForTesting } from '../../../config';
+import { logger } from '../../../utils/logger';
+import { registerSpy } from '../../../../test/test-utils';
+import { closeAuthDatabase, resetAuthDatabase } from '../../../../test/auth-db-fixtures';
+import { mcpProcessManager } from '../../mcp-local/mcp-process-manager';
 
 describe('MCP Proxy Service', () => {
   describe('validateServerName', () => {
@@ -219,6 +224,18 @@ describe('MCP Proxy Service', () => {
     });
   });
 
+  test('removes credentials from URLs and never returns an invalid raw URL', () => {
+    // Given
+    const credentialUrl = 'https://user:password@example.test/mcp?token=url-canary#fragment';
+
+    // When
+    const safeUrl = redactUrlForLog(credentialUrl);
+
+    // Then
+    expect(safeUrl).toBe('https://example.test/mcp');
+    expect(redactUrlForLog('not a valid url?token=url-canary')).toBe('[INVALID_URL]');
+  });
+
   describe('extractJsonRpcMethod', () => {
     test('should extract method from JSON-RPC body', () => {
       const body = {
@@ -342,5 +359,150 @@ describe('MCP Proxy Service', () => {
 
       expect(config).toBeNull();
     });
+  });
+
+  test('returns a generic error and logs no credentials when proxying fails', async () => {
+    // Given
+    const plexusSecret = 'sk-proxy-log-canary';
+    const upstreamSecret = 'upstream-proxy-log-canary';
+    await resetAuthDatabase();
+    setConfigForTesting({
+      providers: {},
+      models: {},
+      keys: {},
+      failover: { enabled: false, retryableStatusCodes: [], retryableErrors: [] },
+      quotas: [],
+      mcpServers: {
+        'test-server': {
+          upstream_url: 'http://example.test/mcp?token=upstream-proxy-log-canary',
+          enabled: true,
+          headers: { Authorization: `Bearer ${upstreamSecret}` },
+        },
+      },
+    });
+    const errorSpy = registerSpy(logger, 'error');
+    const infoSpy = registerSpy(logger, 'info');
+    const sillySpy = registerSpy(logger, 'silly');
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new Error(`${plexusSecret} ${upstreamSecret}`));
+
+    try {
+      // When
+      const result = await proxyMcpRequest(
+        'test-server',
+        'POST',
+        { authorization: `Bearer ${plexusSecret}` },
+        { method: 'tools/list' }
+      );
+
+      // Then
+      expect(result).toEqual({ status: 500, headers: {}, error: 'Upstream MCP request failed' });
+      const logs = JSON.stringify([
+        ...errorSpy.mock.calls,
+        ...infoSpy.mock.calls,
+        ...sillySpy.mock.calls,
+      ]);
+      expect(logs).not.toContain(plexusSecret);
+      expect(logs).not.toContain(upstreamSecret);
+    } finally {
+      fetchSpy.mockRestore();
+      await closeAuthDatabase();
+    }
+  });
+
+  test('forwards successful response bodies without logging credential-bearing request or response data', async () => {
+    // Given
+    const plexusSecret = 'sk-success-request-canary';
+    const requestBodyCanary = 'success-request-body-canary';
+    const queryCanary = 'success-query-canary';
+    const staticHeaderCanary = 'success-static-header-canary';
+    const responseHeaderCanary = 'success-response-header-canary';
+    const responseBodyCanary = 'success-response-body-canary';
+    await resetAuthDatabase();
+    setConfigForTesting({
+      providers: {},
+      models: {},
+      keys: {},
+      failover: { enabled: false, retryableStatusCodes: [], retryableErrors: [] },
+      quotas: [],
+      mcpServers: {
+        'test-server': {
+          upstream_url: `http://user:password@example.test/mcp?token=${queryCanary}`,
+          enabled: true,
+          headers: { 'x-custom-secret': staticHeaderCanary },
+        },
+      },
+    });
+    const infoSpy = registerSpy(logger, 'info');
+    const sillySpy = registerSpy(logger, 'silly');
+    const errorSpy = registerSpy(logger, 'error');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ result: responseBodyCanary }), {
+        status: 200,
+        headers: { 'content-type': 'application/json', 'x-response-secret': responseHeaderCanary },
+      })
+    );
+
+    try {
+      // When
+      const result = await proxyMcpRequest(
+        'test-server',
+        'POST',
+        { authorization: `Bearer ${plexusSecret}` },
+        { method: requestBodyCanary }
+      );
+
+      // Then
+      expect(result.body).toEqual({ result: responseBodyCanary });
+      const logs = JSON.stringify([
+        ...infoSpy.mock.calls,
+        ...sillySpy.mock.calls,
+        ...errorSpy.mock.calls,
+      ]);
+      for (const canary of [
+        plexusSecret,
+        requestBodyCanary,
+        queryCanary,
+        staticHeaderCanary,
+        responseHeaderCanary,
+        responseBodyCanary,
+      ]) {
+        expect(logs).not.toContain(canary);
+      }
+    } finally {
+      fetchSpy.mockRestore();
+      await closeAuthDatabase();
+    }
+  });
+
+  test('classifies local startup failure without exposing its error details', async () => {
+    // Given
+    const startupCanary = 'local-startup-error-canary';
+    setConfigForTesting({
+      providers: {},
+      models: {},
+      keys: {},
+      failover: { enabled: false, retryableStatusCodes: [], retryableErrors: [] },
+      quotas: [],
+      mcpServers: {
+        'local-server': {
+          mode: 'local_http',
+          enabled: true,
+          launcher: 'bunx',
+          package: '@example/mcp-server',
+          port: 7345,
+        },
+      },
+    });
+    const errorSpy = registerSpy(logger, 'error');
+    registerSpy(mcpProcessManager, 'ensureRunning').mockRejectedValue(new Error(startupCanary));
+
+    // When
+    const result = await proxyMcpRequest('local-server', 'GET', {});
+
+    // Then
+    expect(result).toEqual({ status: 502, headers: {}, error: 'Upstream MCP server unavailable' });
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain(startupCanary);
   });
 });

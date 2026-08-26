@@ -1,0 +1,28 @@
+parameters:
+  - in: path
+    name: name
+    required: true
+    schema: { type: string }
+post:
+  tags: [Management — Security]
+  summary: Manually pause an API key (admin only)
+  description: >
+    Requires an operator reason. Pause is reversible only through the admin
+    resume endpoint and credentials remain rejected with generic 401 errors.
+  security: [{ AdminKey: [] }]
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [reason]
+          properties: { reason: { type: string, minLength: 1 } }
+  responses:
+    '200': { description: Pause outcome and public fingerprint, content: { application/json: { schema: { $ref: ../components/schemas/KeyPauseResult.yaml } } } }
+    '400': { $ref: ../components/responses/ValidationError.yaml }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '404': { description: API key not found. }
+    '500': { description: Internal server error. }
+  operationId: postV0ManagementKeysBynamePause

@@ -1,0 +1,28 @@
+parameters:
+  - in: path
+    name: name
+    required: true
+    schema: { type: string }
+get:
+  tags: [Management — Security]
+  summary: Get API key pause status (admin only)
+  security: [{ AdminKey: [] }]
+  responses:
+    '200':
+      description: Public key security state.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [key]
+            properties:
+              key:
+                type: object
+                required: [fingerprint]
+                properties:
+                  fingerprint: { type: string }
+                  pausedAt: { type: integer, format: int64 }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '404': { description: API key not found. }
+  operationId: getV0ManagementKeysBynameSecurityStatus

@@ -1,0 +1,20 @@
+parameters:
+  - in: path
+    name: serverName
+    required: true
+    schema: { type: string }
+  - in: path
+    name: keyId
+    required: true
+    schema: { type: integer, minimum: 1 }
+delete:
+  tags: [Management — Config]
+  summary: Delete an MCP server upstream key (admin only)
+  security: [{ AdminKey: [] }]
+  responses:
+    '200': { description: Deleted, content: { application/json: { schema: { $ref: ../components/schemas/SuccessTrue.yaml } } } }
+    '400': { $ref: ../components/responses/ValidationError.yaml }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '404': { description: MCP key not found. }
+  operationId: deleteV0ManagementMcpserversByserverNameKeysBykeyId

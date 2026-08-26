@@ -3,6 +3,7 @@ import { closeDatabase, getDatabase, getSchema, initializeDatabase } from '../cl
 import { runMigrations } from '../migrate';
 import { ConfigRepository } from '../config-repository';
 import type { KeyConfig, QuotaDefinition } from '../../config';
+import { hashSecret } from '../../utils/encryption';
 
 describe('config-repository multi-quota round-trips', () => {
   let db: ReturnType<typeof getDatabase>;
@@ -75,7 +76,7 @@ describe('config-repository multi-quota round-trips', () => {
     await db.insert(schema.apiKeys).values({
       name: 'secret-lookup-key',
       secret: 'sk-secret-lookup',
-      secretHash: 'hash-secret-lookup',
+      secretHash: hashSecret('sk-secret-lookup'),
       quotaName: 'legacy-only',
       createdAt: Date.now(),
       updatedAt: Date.now(),

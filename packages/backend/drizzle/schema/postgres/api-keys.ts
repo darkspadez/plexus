@@ -18,6 +18,10 @@ export const apiKeys = pgTable('api_keys', {
   generation: jsonb('generation'), // { reasoning?, maxTokens?, verbosity?, serviceTier? }
   expiresAt: bigint('expires_at', { mode: 'number' }),
   disabledAt: bigint('disabled_at', { mode: 'number' }),
+  pausedAt: bigint('paused_at', { mode: 'number' }),
+  pauseSource: text('pause_source'),
+  pauseReason: text('pause_reason'),
+  anomalyPolicy: jsonb('anomaly_policy'),
   createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
 });

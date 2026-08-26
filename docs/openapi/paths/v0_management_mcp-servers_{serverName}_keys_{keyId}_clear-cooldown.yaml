@@ -1,0 +1,20 @@
+parameters:
+  - in: path
+    name: serverName
+    required: true
+    schema: { type: string }
+  - in: path
+    name: keyId
+    required: true
+    schema: { type: integer, minimum: 1 }
+post:
+  tags: [Management — Config]
+  summary: Clear an MCP server key cooldown (admin only)
+  security: [{ AdminKey: [] }]
+  responses:
+    '200': { description: Cooldown cleared, content: { application/json: { schema: { $ref: ../components/schemas/SuccessTrue.yaml } } } }
+    '400': { $ref: ../components/responses/ValidationError.yaml }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '404': { description: MCP key not found. }
+  operationId: postV0ManagementMcpserversByserverNameKeysBykeyIdClearCooldown

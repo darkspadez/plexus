@@ -1,0 +1,50 @@
+parameters:
+  - in: path
+    name: serverName
+    required: true
+    schema: { type: string }
+get:
+  tags: [Management — Config]
+  summary: List an MCP server's upstream keys (admin only)
+  description: Sensitive key material is returned only to administrators.
+  security: [{ AdminKey: [] }]
+  responses:
+    '200':
+      description: Sensitive upstream key records.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [keys]
+            properties:
+              keys:
+                type: array
+                items: { $ref: ../components/schemas/McpServerKey.yaml }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '404': { description: MCP server not found. }
+  operationId: getV0ManagementMcpserversByserverNameKeys
+post:
+  tags: [Management — Config]
+  summary: Add an upstream key to an MCP server (admin only)
+  description: The returned key material is sensitive and must be handled as a secret.
+  security: [{ AdminKey: [] }]
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [key]
+          properties:
+            key: { type: string }
+            is_active: { type: boolean, default: true }
+  responses:
+    '201':
+      description: Sensitive upstream key record.
+      content: { application/json: { schema: { $ref: ../components/schemas/McpServerKey.yaml } } }
+    '400': { $ref: ../components/responses/ValidationError.yaml }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '404': { description: MCP server not found. }
+  operationId: postV0ManagementMcpserversByserverNameKeys

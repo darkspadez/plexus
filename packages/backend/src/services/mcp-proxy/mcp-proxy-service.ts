@@ -4,7 +4,6 @@ import { and, asc, eq } from 'drizzle-orm';
 import { decryptField } from '../../utils/encryption';
 import { logger } from '../../utils/logger';
 import { McpServerConfig } from '../../types/mcp';
-import { getClientIp } from '../../utils/ip';
 import { mcpProcessManager } from '../mcp-local/mcp-process-manager';
 
 const HOP_BY_HOP_HEADERS = new Set([
@@ -23,6 +22,7 @@ const SENSITIVE_HEADERS = new Set(['authorization', 'cookie', 'set-cookie', 'x-a
 const CLIENT_AUTH_HEADERS = new Set(['authorization', 'x-api-key', 'proxy-authorization']);
 
 const RESERVED_SERVER_NAMES = new Set(['plexus']);
+const UNEXPECTED_PROXY_ERROR = 'Upstream MCP request failed';
 
 const lastMcpKeyIds = new Map<number, number>();
 
@@ -208,6 +208,19 @@ export function redactSensitiveHeaders(headers: Record<string, string>): Record<
   return redacted;
 }
 
+export function redactUrlForLog(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.username = '';
+    parsed.password = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return '[INVALID_URL]';
+  }
+}
+
 export function filterClientAuthHeaders(headers: Record<string, string>): Record<string, string> {
   const filtered: Record<string, string> = {};
 
@@ -289,20 +302,35 @@ export async function proxyMcpRequest(
     try {
       await mcpProcessManager.ensureRunning(serverName, serverConfig);
     } catch (error) {
-      logger.error(`[mcp-proxy:${serverName}] local MCP server failed to start`, error);
+      logger.error('MCP local server startup failed', {
+        serverName,
+        errorType: error instanceof Error ? error.name : typeof error,
+      });
       return {
         status: 502,
         headers: {},
-        error: (error as Error).message || 'Local MCP server failed to start',
+        error: 'Upstream MCP server unavailable',
       };
     }
   }
 
   const upstreamUrl = getEffectiveUpstreamUrl(serverConfig);
   const staticHeaders = serverConfig.headers || {};
-  logger.info('[mcp-proxy:' + serverName + '] proxying ' + method + ' request to ' + upstreamUrl);
+  logger.info(
+    '[mcp-proxy:' +
+      serverName +
+      '] proxying ' +
+      method +
+      ' request to ' +
+      redactUrlForLog(upstreamUrl)
+  );
 
-  logger.silly(`Server config: ${JSON.stringify({ upstreamUrl, staticHeaders })}`);
+  logger.silly(
+    `Server config: ${JSON.stringify({
+      upstreamUrl: redactUrlForLog(upstreamUrl),
+      staticHeaderNames: Object.keys(staticHeaders),
+    })}`
+  );
 
   const filteredClientHeaders = filterHopByHopHeaders(clientHeaders);
 
@@ -322,7 +350,7 @@ export async function proxyMcpRequest(
     url = `${upstreamUrl}${separator}${params.toString()}`;
   }
 
-  logger.silly(`Final URL: ${url}`);
+  logger.silly(`Final URL: ${redactUrlForLog(url)}`);
 
   try {
     let requestBody = '';
@@ -351,17 +379,8 @@ export async function proxyMcpRequest(
         requestHeaders = { ...requestHeaders, 'content-type': 'application/json' };
       }
 
-      const redactedHeaders = redactSensitiveHeaders(requestHeaders);
-      if (keyConfig?.server.authScheme && key) {
-        const headerToRedact =
-          keyConfig.server.authScheme.toLowerCase() === 'bearer'
-            ? 'Authorization'
-            : keyConfig.server.authScheme;
-        redactedHeaders[headerToRedact] = '[REDACTED]';
-      }
-      logger.silly(`Upstream headers: ${JSON.stringify(redactedHeaders)}`);
-      logger.silly(`Request body: ${requestBody}`);
-      logger.silly(`Starting fetch to ${url} with method ${method}`);
+      logger.silly(`Upstream header names: ${Object.keys(requestHeaders).join(',')}`);
+      logger.silly(`Starting fetch to ${redactUrlForLog(url)} with method ${method}`);
       response = await fetch(url, {
         method,
         headers: requestHeaders,
@@ -391,10 +410,9 @@ export async function proxyMcpRequest(
       }
     });
 
-    logger.silly(`Response headers: ${JSON.stringify(responseHeaders)}`);
-
     const contentType = response.headers.get('content-type');
-    logger.silly(`Content-Type: ${contentType}`);
+    logger.silly(`Response header names: ${Object.keys(responseHeaders).join(',')}`);
+    logger.silly(`Response content type present: ${contentType !== null}`);
 
     if (contentType?.includes('text/event-stream') || (method === 'GET' && response.ok)) {
       logger.info('[mcp-proxy:' + serverName + '] upstream streaming response detected');
@@ -409,15 +427,11 @@ export async function proxyMcpRequest(
 
     const responseText = await response.text();
 
-    logger.silly(`Response body (raw): ${responseText.substring(0, 500)}`);
-
     let parsedBody: unknown;
     try {
       parsedBody = JSON.parse(responseText);
-      logger.silly(`Response body (parsed): ${JSON.stringify(parsedBody).substring(0, 500)}`);
     } catch {
       parsedBody = responseText;
-      logger.silly(`Response body (text): ${responseText.substring(0, 500)}`);
     }
 
     logger.info(
@@ -434,10 +448,10 @@ export async function proxyMcpRequest(
     };
   } catch (error) {
     const err = error as Error;
-    logger.error(`Error proxying request to ${serverName}:`, err);
-    logger.error(`Error name: ${err.name}`);
-    logger.error(`Error message: ${err.message}`);
-    logger.error(`Error stack: ${err.stack}`);
+    logger.error('MCP proxy request failed', {
+      serverName,
+      errorType: err.name,
+    });
 
     if (err.message.includes('ECONNREFUSED') || err.message.includes('connect')) {
       logger.silly(`Connection refused - upstream server not reachable`);
@@ -457,14 +471,10 @@ export async function proxyMcpRequest(
       };
     }
 
-    if (err.cause) {
-      logger.silly(`Error cause: ${JSON.stringify(err.cause)}`);
-    }
-
     return {
       status: 500,
       headers: {},
-      error: err.message || 'Unknown error',
+      error: UNEXPECTED_PROXY_ERROR,
     };
   }
 }

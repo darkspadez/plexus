@@ -7,7 +7,12 @@ import { getClientIp } from '../../utils/ip';
 import { McpUsageStorageService } from '../../services/mcp-proxy/mcp-usage-storage';
 import { registerPlexusMcpRoutes } from './plexus';
 
-const DEFAULT_TIMEOUT_MS = 120000;
+function getSafeUpstreamUrl(serverName: string): string {
+  const serverConfig = mcpProxyService.getMcpServerConfig(serverName);
+  return serverConfig
+    ? mcpProxyService.redactUrlForLog(mcpProxyService.getEffectiveUpstreamUrl(serverConfig))
+    : '';
+}
 
 // streamUpstreamResponse proxies an upstream MCP event-stream to the client,
 // writing the head via reply.raw so it is flushed immediately. Fastify's
@@ -56,7 +61,9 @@ async function streamUpstreamResponse(
       }
     }
   } catch (error) {
-    logger.silly(`[mcp] Upstream stream error: ${(error as Error).message}`);
+    logger.silly('MCP upstream stream error', {
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
   } finally {
     reply.raw.removeListener('close', onClose);
     reply.raw.end();
@@ -117,7 +124,7 @@ export async function registerMcpRoutes(
   await registerPlexusMcpRoutes(fastify, mcpUsageStorage);
 
   fastify.register(async (protectedRoutes) => {
-    const auth = createAuthHook();
+    const auth = createAuthHook({ recordActivity: true });
 
     protectedRoutes.addHook('onRequest', auth.onRequest);
 
@@ -164,17 +171,12 @@ export async function registerMcpRoutes(
         const keyName = (request as any).keyName;
         const attribution = (request as any).attribution || null;
         const sourceIp = getClientIp(request);
-        const clientHeaders = mcpProxyService.redactSensitiveHeaders(
-          request.headers as Record<string, string>
-        );
-
         const body = request.body;
         const jsonrpcMethod = mcpProxyService.extractJsonRpcMethod(body);
         const toolName = mcpProxyService.extractToolName(body);
         const isStreamed = false;
 
         logger.silly(`POST /mcp/${serverName} - requestId: ${requestId}`);
-        logger.silly(`Request body: ${JSON.stringify(body)?.substring(0, 500)}`);
 
         const result = await mcpProxyService.proxyMcpRequest(
           serverName,
@@ -184,9 +186,6 @@ export async function registerMcpRoutes(
         );
 
         logger.silly(`Proxy result status: ${result.status}`);
-        logger.silly(`Proxy result body: ${JSON.stringify(result.body)?.substring(0, 500)}`);
-        logger.silly(`Proxy result error: ${result.error}`);
-        logger.silly(`Proxy result headers: ${JSON.stringify(result.headers)}`);
 
         const durationMs = Date.now() - startTime;
 
@@ -196,11 +195,7 @@ export async function registerMcpRoutes(
           start_time: startTime,
           duration_ms: durationMs,
           server_name: serverName,
-          upstream_url: mcpProxyService.getMcpServerConfig(serverName)
-            ? mcpProxyService.getEffectiveUpstreamUrl(
-                mcpProxyService.getMcpServerConfig(serverName)!
-              )
-            : '',
+          upstream_url: getSafeUpstreamUrl(serverName),
           method,
           jsonrpc_method: jsonrpcMethod,
           tool_name: toolName,
@@ -262,9 +257,6 @@ export async function registerMcpRoutes(
         const keyName = (request as any).keyName;
         const attribution = (request as any).attribution || null;
         const sourceIp = getClientIp(request);
-        const clientHeaders = mcpProxyService.redactSensitiveHeaders(
-          request.headers as Record<string, string>
-        );
         const isStreamed = true;
 
         logger.silly(`GET /mcp/${serverName} - requestId: ${requestId}`);
@@ -285,11 +277,7 @@ export async function registerMcpRoutes(
           start_time: startTime,
           duration_ms: durationMs,
           server_name: serverName,
-          upstream_url: mcpProxyService.getMcpServerConfig(serverName)
-            ? mcpProxyService.getEffectiveUpstreamUrl(
-                mcpProxyService.getMcpServerConfig(serverName)!
-              )
-            : '',
+          upstream_url: getSafeUpstreamUrl(serverName),
           method,
           jsonrpc_method: null,
           tool_name: null,
@@ -346,9 +334,6 @@ export async function registerMcpRoutes(
         const keyName = (request as any).keyName;
         const attribution = (request as any).attribution || null;
         const sourceIp = getClientIp(request);
-        const clientHeaders = mcpProxyService.redactSensitiveHeaders(
-          request.headers as Record<string, string>
-        );
         const isStreamed = false;
 
         logger.silly(`DELETE /mcp/${serverName} - requestId: ${requestId}`);
@@ -367,11 +352,7 @@ export async function registerMcpRoutes(
           start_time: startTime,
           duration_ms: durationMs,
           server_name: serverName,
-          upstream_url: mcpProxyService.getMcpServerConfig(serverName)
-            ? mcpProxyService.getEffectiveUpstreamUrl(
-                mcpProxyService.getMcpServerConfig(serverName)!
-              )
-            : '',
+          upstream_url: getSafeUpstreamUrl(serverName),
           method,
           jsonrpc_method: null,
           tool_name: null,

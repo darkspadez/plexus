@@ -103,6 +103,12 @@ async function parseRoutesFromFile(filePath: string): Promise<RouteInfo[]> {
   try {
     const content = await readFile(filePath, 'utf-8');
     const lines = content.split('\n');
+    const routePathConstants = new Map<string, string>();
+    for (const match of content.matchAll(
+      /(?:const|let)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*['"`]([^'"`]+)['"`]/g
+    )) {
+      routePathConstants.set(match[1], match[2]);
+    }
 
     // Match patterns like:
     // - fastify.get('/path', handler)
@@ -111,7 +117,7 @@ async function parseRoutesFromFile(filePath: string): Promise<RouteInfo[]> {
     // Supports any identifier followed by HTTP method
     // - fastify.get(\n    '/path',\n    handler
     const routeRegex =
-      /[a-zA-Z_][a-zA-Z0-9_]*\.(get|post|put|patch|delete|options|head)\s*\(\s*['"`]([^'"`]+)['"`]/;
+      /[a-zA-Z_][a-zA-Z0-9_]*\.(get|post|put|patch|delete|options|head)(?:<[^\n]*>)?\s*\(\s*(?:['"`]([^'"`]+)['"`]|([a-zA-Z_][a-zA-Z0-9_]*))/;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -119,7 +125,8 @@ async function parseRoutesFromFile(filePath: string): Promise<RouteInfo[]> {
 
       if (match) {
         const method = match[1] as HttpMethod;
-        const path = match[2];
+        const path = match[2] ?? routePathConstants.get(match[3] ?? '');
+        if (!path) continue;
 
         // Skip internal/test routes
         if (path.startsWith('/__') || path.includes('__')) {
@@ -161,11 +168,12 @@ async function parseRoutesFromFile(filePath: string): Promise<RouteInfo[]> {
     // Pattern: fastify.get(\n    '/path',
     // Supports any identifier (fastify, mgmt, app, etc.)
     const multiLineRegex =
-      /[a-zA-Z_][a-zA-Z0-9_]*\.(get|post|put|patch|delete|options|head)\s*\(\s*\n\s*['"`]([^'"`]+)['"`]/g;
+      /[a-zA-Z_][a-zA-Z0-9_]*\.(get|post|put|patch|delete|options|head)(?:<[^\n]*>)?\s*\(\s*\n\s*(?:['"`]([^'"`]+)['"`]|([a-zA-Z_][a-zA-Z0-9_]*))/g;
     let multiMatch;
     while ((multiMatch = multiLineRegex.exec(content)) !== null) {
       const method = multiMatch[1] as HttpMethod;
-      const path = multiMatch[2];
+      const path = multiMatch[2] ?? routePathConstants.get(multiMatch[3] ?? '');
+      if (!path) continue;
 
       if (path.startsWith('/__') || path.includes('__')) {
         continue;

@@ -6,6 +6,12 @@ import { Dispatcher } from '../../../services/dispatch/dispatcher';
 import { UsageStorageService } from '../../../services/observability/usage-storage';
 import { DebugManager } from '../../../services/observability/debug-manager';
 import { SelectorFactory } from '../../../services/routing/selectors/factory';
+import { ApiKeyActivityRecorder } from '../../../services/api-key-security/activity-recorder';
+import {
+  closeAuthDatabase,
+  resetAuthDatabase,
+  seedAuthKeys,
+} from '../../../../test/auth-db-fixtures';
 
 const EMBEDDINGS_TEST_CONFIG = {
   providers: {
@@ -47,8 +53,12 @@ describe('Embeddings Endpoint', () => {
   let mockDispatcher: Dispatcher;
 
   beforeEach(async () => {
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await resetAuthDatabase();
     // Set config first so it's available when routes register
     setConfigForTesting(EMBEDDINGS_TEST_CONFIG);
+    await seedAuthKeys(EMBEDDINGS_TEST_CONFIG.keys);
 
     fastify = Fastify();
 
@@ -108,6 +118,9 @@ describe('Embeddings Endpoint', () => {
 
   afterEach(async () => {
     await fastify.close();
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await closeAuthDatabase();
   });
 
   it('should accept embeddings request with single text input', async () => {

@@ -1,8 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'node:crypto';
 import { logger } from '../../utils/logger';
-import { getConfig, isKeyDisabled } from '../../config';
-import { isRequestIpAllowed } from '../../utils/auth';
+import { resolveApiKey } from '../../utils/auth';
 
 /**
  * Sentinel error thrown by authenticate/requireAdmin so that Fastify's error
@@ -29,6 +28,7 @@ export type Principal =
   | { role: 'admin' }
   | {
       role: 'limited';
+      keyId?: number;
       keyName: string;
       allowedProviders: string[];
       allowedModels: string[];
@@ -54,18 +54,6 @@ function constantTimeEquals(a: string, b: string): boolean {
 }
 
 /**
- * Constant-time string compare via SHA-256. Hashing normalizes input length
- * (so no length leak from `timingSafeEqual`) and keeps the per-comparison
- * cost independent of where the mismatch first occurs. Cost is one extra
- * hash per stored key per login — acceptable for a small keys set.
- */
-function constantTimeHashEquals(a: string, b: string): boolean {
-  const aHash = crypto.createHash('sha256').update(a).digest();
-  const bHash = crypto.createHash('sha256').update(b).digest();
-  return crypto.timingSafeEqual(aHash, bHash);
-}
-
-/**
  * Resolve the principal for an incoming management request.
  * Returns null if no valid credential was presented.
  */
@@ -78,48 +66,14 @@ export async function resolvePrincipal(request: FastifyRequest): Promise<Princip
     return { role: 'admin' };
   }
 
-  // Not the ADMIN_KEY — try matching an api_keys row by secret. We use the
-  // in-memory config (same source v1 inference uses) rather than a direct DB
-  // query so that test harnesses using setConfigForTesting(...) work and we
-  // avoid a DB round-trip on every management request.
-  //
-  // Walk the whole list even after a match so the rejection path doesn't
-  // leak a count-of-keys-before-match timing signal.
   try {
-    const config = getConfig();
-    if (!config.keys) return null;
-    let matched: { name: string; cfg: unknown } | null = null;
-    for (const [name, cfg] of Object.entries(config.keys)) {
-      const storedSecret = (cfg as { secret: string }).secret;
-      if (typeof storedSecret === 'string' && constantTimeHashEquals(storedSecret, providedKey)) {
-        if (!matched) matched = { name, cfg };
-      }
-    }
-    if (!matched) return null;
-    const cfg = matched.cfg as {
-      allowedProviders?: string[];
-      allowedModels?: string[];
-      excludedProviders?: string[];
-      excludedModels?: string[];
-      quotas?: string[];
-      comment?: string | null;
-      allowedIps?: string[];
-      expiresAt?: number;
-      disabledAt?: number;
-    };
-    if (isKeyDisabled(cfg)) {
-      logger.silly(`Rejected disabled limited key ${matched.name}`);
-      return null;
-    }
-    // Enforce the key's IP allowlist for the management API too, so a wrong-IP
-    // key can neither call inference nor administer.
-    if (!isRequestIpAllowed(request, cfg.allowedIps, config.trustedProxies)) {
-      logger.silly(`Rejected limited key ${matched.name} - client IP not in allowlist`);
-      return null;
-    }
+    const resolved = await resolveApiKey(providedKey, request, { recordActivity: false });
+    if (!resolved) return null;
+    const cfg = resolved.config;
     return {
       role: 'limited',
-      keyName: matched.name,
+      keyId: resolved.id,
+      keyName: resolved.name,
       allowedProviders: cfg.allowedProviders ?? [],
       allowedModels: cfg.allowedModels ?? [],
       excludedProviders: cfg.excludedProviders ?? [],
@@ -129,7 +83,9 @@ export async function resolvePrincipal(request: FastifyRequest): Promise<Princip
       comment: cfg.comment ?? null,
     };
   } catch (err) {
-    logger.silly(`api_keys lookup failed: ${(err as Error).message}`);
+    logger.silly('api_keys lookup failed', {
+      errorType: err instanceof Error ? err.name : typeof err,
+    });
     return null;
   }
 }
@@ -139,14 +95,16 @@ export async function resolvePrincipal(request: FastifyRequest): Promise<Princip
  * 401 if the credential is missing/invalid.
  */
 export async function authenticate(request: FastifyRequest, _reply: FastifyReply): Promise<void> {
+  const queryIndex = request.url.indexOf('?');
+  const requestPath = queryIndex === -1 ? request.url : request.url.slice(0, queryIndex);
   const principal = await resolvePrincipal(request);
   if (!principal) {
-    logger.silly(`Rejected request to ${request.url} - invalid or missing credential`);
+    logger.silly(`Rejected request to ${requestPath} - invalid or missing credential`);
     throw new ManagementAuthError(401, 'Unauthorized', 'auth_error');
   }
   request.principal = principal;
   logger.silly(
-    `[ADMIN AUTH] Accepted request to ${request.url} as ${
+    `[ADMIN AUTH] Accepted request to ${requestPath} as ${
       principal.role === 'admin' ? 'admin' : `limited(${principal.keyName})`
     }`
   );

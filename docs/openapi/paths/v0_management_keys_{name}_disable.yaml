@@ -29,4 +29,8 @@ post:
                 type: string
     '400':
       description: The key does not exist or is not time-bound.
+    '401':
+      $ref: ../components/responses/AdminAuthError.yaml
+    '403':
+      description: Admin principal required.
   operationId: postV0ManagementKeysBynameDisable

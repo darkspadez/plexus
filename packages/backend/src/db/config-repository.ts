@@ -1,29 +1,31 @@
 import { eq, and, sql, inArray, isNotNull } from 'drizzle-orm';
 import { getDatabase, getSchema, getCurrentDialect } from './client';
 import { logger } from '../utils/logger';
+import { encrypt, decrypt, encryptField, decryptField, hashSecret } from '../utils/encryption';
 import {
-  encrypt,
-  decrypt,
-  encryptField,
-  decryptField,
-  hashSecret,
-  isEncrypted,
-  isEncryptionEnabled,
-} from '../utils/encryption';
+  DEFAULT_GLOBAL_ANOMALY_POLICY,
+  GlobalAnomalyPolicySchema,
+  PerKeyAnomalyPolicySchema,
+  type GlobalAnomalyPolicy,
+  type PerKeyAnomalyPolicy,
+} from '../services/api-key-security/policy-schema';
 import type {
   ProviderConfig,
   ModelConfig,
   KeyConfig,
+  PublicKeyConfig,
   QuotaDefinition,
   McpServerConfig,
   FailoverPolicy,
   CooldownPolicy,
   BackgroundExplorationConfig,
   TimeoutConfig,
-  StallConfigType,
   MetadataOverrides,
 } from '../config';
+import type { ApiKeySecurityEvent } from './types';
 import { resolveGpuParams } from '@plexus/shared';
+
+export const GLOBAL_ANOMALY_POLICY_SETTING = 'apiKeySecurity.globalAnomalyPolicy';
 
 // Helper to parse JSON from SQLite text columns (PG jsonb auto-deserializes)
 function parseJson<T>(value: unknown): T | null {
@@ -243,6 +245,11 @@ function quotasFromRow(row: {
   return row.quotaName ? [row.quotaName] : undefined;
 }
 
+function parseAnomalyPolicy(value: unknown): KeyConfig['anomalyPolicy'] {
+  const parsed = PerKeyAnomalyPolicySchema.safeParse(parseJson(value));
+  return parsed.success ? parsed.data : undefined;
+}
+
 export interface OAuthCredentialsData {
   accessToken: string;
   refreshToken: string;
@@ -254,6 +261,34 @@ export interface McpKeyConfig {
   key: string;
   isActive: boolean;
 }
+
+type ApiKeyProjectionRow = {
+  readonly id: number;
+  readonly name: string;
+  readonly secret: string;
+  readonly secretHash: string | null;
+  readonly comment: string | null;
+  readonly quotaName: string | null;
+  readonly quotaNames: string | null;
+  readonly allowedModels: string | null;
+  readonly allowedProviders: string | null;
+  readonly excludedModels: string | null;
+  readonly excludedProviders: string | null;
+  readonly allowRawPassthrough: boolean | number;
+  readonly allowedIps: string | null;
+  readonly expiresAt: number | null;
+  readonly disabledAt: number | null;
+  readonly pausedAt: number | null;
+  readonly pauseSource: string | null;
+  readonly pauseReason: string | null;
+  readonly anomalyPolicy: unknown;
+};
+
+export type InternalApiKeyRecord = {
+  readonly id: number;
+  readonly name: string;
+  readonly config: KeyConfig;
+};
 
 export class ConfigRepository {
   private db() {
@@ -268,6 +303,8 @@ export class ConfigRepository {
 
   async clearAllData(): Promise<void> {
     const schema = this.schema();
+    await this.db().delete(schema.apiKeySecurityEvents);
+    await this.db().delete(schema.apiKeyRequestBuckets);
     await this.db().delete(schema.modelAliasTargets);
     await this.db().delete(schema.providerModels);
     await this.db().delete(schema.modelAliases);
@@ -1047,90 +1084,191 @@ export class ConfigRepository {
 
   // ─── API Keys ────────────────────────────────────────────────────
 
-  async getAllKeys(): Promise<Record<string, KeyConfig>> {
-    const schema = this.schema();
-    const rows = await this.db().select().from(schema.apiKeys);
-    const result: Record<string, KeyConfig> = {};
-
-    for (const row of rows) {
-      const allowedModels = parseStringArray(row.allowedModels);
-      const allowedProviders = parseStringArray(row.allowedProviders);
-      const excludedModels = parseStringArray(row.excludedModels);
-      const excludedProviders = parseStringArray(row.excludedProviders);
-      const allowedIps = parseStringArray(row.allowedIps);
-      const quotas = quotasFromRow(row);
-
-      result[row.name] = {
-        secret: decrypt(row.secret),
-        ...(row.comment ? { comment: row.comment } : {}),
-        ...(row.expiresAt != null ? { expiresAt: row.expiresAt } : {}),
-        ...(row.disabledAt != null ? { disabledAt: row.disabledAt } : {}),
-        ...(quotas !== undefined ? { quotas } : {}),
-        ...(allowedModels ? { allowedModels } : {}),
-        ...(allowedProviders ? { allowedProviders } : {}),
-        ...(excludedModels ? { excludedModels } : {}),
-        ...(excludedProviders ? { excludedProviders } : {}),
-        allowRawPassthrough: toBool(row.allowRawPassthrough),
-        ...(allowedIps ? { allowedIps } : {}),
-      };
-    }
-
-    return result;
-  }
-
-  async getKeyBySecret(secret: string): Promise<{ name: string; config: KeyConfig } | null> {
-    const schema = this.schema();
-    const hash = hashSecret(secret);
-
-    // Try hash-based lookup first (works after encryption migration)
-    let rows = await this.db()
-      .select()
-      .from(schema.apiKeys)
-      .where(eq(schema.apiKeys.secretHash, hash))
-      .limit(1);
-
-    // Fallback to plaintext lookup for backward compatibility (before migration)
-    if (rows.length === 0) {
-      rows = await this.db()
-        .select()
-        .from(schema.apiKeys)
-        .where(eq(schema.apiKeys.secret, secret))
-        .limit(1);
-
-      if (rows.length > 0) {
-        logger.error(
-          'API key matched via plaintext fallback — encryption migration may not have run. ' +
-            'Restart with ENCRYPTION_KEY set to trigger migration.'
-        );
-      }
-    }
-
-    if (rows.length === 0) return null;
-
-    const row = rows[0]!;
+  private keyConfigFieldsFromRow(row: ApiKeyProjectionRow): Omit<KeyConfig, 'secret'> {
     const allowedModels = parseStringArray(row.allowedModels);
     const allowedProviders = parseStringArray(row.allowedProviders);
     const excludedModels = parseStringArray(row.excludedModels);
     const excludedProviders = parseStringArray(row.excludedProviders);
     const allowedIps = parseStringArray(row.allowedIps);
     const quotas = quotasFromRow(row);
+    const anomalyPolicy = parseAnomalyPolicy(row.anomalyPolicy);
 
     return {
-      name: row.name,
-      config: {
-        secret: decrypt(row.secret),
-        ...(row.comment ? { comment: row.comment } : {}),
-        ...(row.expiresAt != null ? { expiresAt: row.expiresAt } : {}),
-        ...(row.disabledAt != null ? { disabledAt: row.disabledAt } : {}),
-        ...(quotas !== undefined ? { quotas } : {}),
-        ...(allowedModels ? { allowedModels } : {}),
-        ...(allowedProviders ? { allowedProviders } : {}),
-        ...(excludedModels ? { excludedModels } : {}),
-        ...(excludedProviders ? { excludedProviders } : {}),
-        allowRawPassthrough: toBool(row.allowRawPassthrough),
-        ...(allowedIps ? { allowedIps } : {}),
-      },
+      ...(row.comment ? { comment: row.comment } : {}),
+      ...(row.expiresAt != null ? { expiresAt: row.expiresAt } : {}),
+      ...(row.disabledAt != null ? { disabledAt: row.disabledAt } : {}),
+      ...(row.pausedAt != null ? { pausedAt: row.pausedAt } : {}),
+      ...(row.pauseSource ? { pauseSource: row.pauseSource } : {}),
+      ...(row.pauseReason ? { pauseReason: row.pauseReason } : {}),
+      ...(anomalyPolicy ? { anomalyPolicy } : {}),
+      ...(quotas !== undefined ? { quotas } : {}),
+      ...(allowedModels ? { allowedModels } : {}),
+      ...(allowedProviders ? { allowedProviders } : {}),
+      ...(excludedModels ? { excludedModels } : {}),
+      ...(excludedProviders ? { excludedProviders } : {}),
+      allowRawPassthrough: toBool(row.allowRawPassthrough),
+      ...(allowedIps ? { allowedIps } : {}),
     };
+  }
+
+  private keyConfigFromRow(row: ApiKeyProjectionRow, secret: string): KeyConfig {
+    return {
+      secret,
+      ...this.keyConfigFieldsFromRow(row),
+    };
+  }
+
+  private async publicKeyProjection(row: ApiKeyProjectionRow): Promise<PublicKeyConfig> {
+    return {
+      ...this.keyConfigFieldsFromRow(row),
+      fingerprint: await this.fingerprintForRow(row),
+    };
+  }
+
+  private internalKeyRecord(row: ApiKeyProjectionRow): InternalApiKeyRecord | null {
+    try {
+      const secret = decrypt(row.secret);
+      return {
+        id: row.id,
+        name: row.name,
+        config: this.keyConfigFromRow(row, secret),
+      };
+    } catch {
+      this.logUnreadableSecret(row);
+      return null;
+    }
+  }
+
+  private async fingerprintForRow(row: ApiKeyProjectionRow): Promise<string> {
+    if (row.secretHash != null) return row.secretHash.slice(0, 8).toLowerCase();
+
+    try {
+      const secretHash = hashSecret(decrypt(row.secret));
+      await this.persistSecretHash(row, secretHash);
+      return secretHash.slice(0, 8).toLowerCase();
+    } catch {
+      this.logUnreadableSecret(row);
+      return 'unavailable';
+    }
+  }
+
+  private async persistSecretHash(row: ApiKeyProjectionRow, secretHash: string): Promise<void> {
+    const schema = this.schema();
+    await this.db().update(schema.apiKeys).set({ secretHash }).where(eq(schema.apiKeys.id, row.id));
+  }
+
+  private logUnreadableSecret(row: Pick<ApiKeyProjectionRow, 'id'>): void {
+    logger.warn('API key fingerprint unavailable', {
+      keyId: row.id,
+      reason: 'secret_decryption_failed',
+    });
+  }
+
+  async getAllPublicKeyProjections(): Promise<Record<string, PublicKeyConfig>> {
+    const schema = this.schema();
+    const rows = await this.db().select().from(schema.apiKeys);
+    const result: Record<string, PublicKeyConfig> = {};
+
+    for (const row of rows) {
+      const projection = await this.publicKeyProjection(row);
+      result[row.name] = projection;
+    }
+
+    return result;
+  }
+
+  async getAllKeys(): Promise<Record<string, PublicKeyConfig>> {
+    return this.getAllPublicKeyProjections();
+  }
+
+  async getPublicKeyByName(name: string): Promise<PublicKeyConfig | null> {
+    const schema = this.schema();
+    const rows = await this.db()
+      .select()
+      .from(schema.apiKeys)
+      .where(eq(schema.apiKeys.name, name))
+      .limit(1);
+    const row = rows[0];
+    return row === undefined ? null : this.publicKeyProjection(row);
+  }
+
+  async getAllKeysForAuthCache(): Promise<Record<string, KeyConfig>> {
+    const schema = this.schema();
+    const rows = await this.db().select().from(schema.apiKeys);
+    const result: Record<string, KeyConfig> = {};
+
+    for (const row of rows) {
+      const record = this.internalKeyRecord(row);
+      if (record) result[row.name] = record.config;
+    }
+
+    return result;
+  }
+
+  async getAllKeysForBackup(): Promise<Record<string, KeyConfig>> {
+    const schema = this.schema();
+    const rows = await this.db().select().from(schema.apiKeys);
+    const result: Record<string, KeyConfig> = {};
+
+    for (const row of rows) {
+      result[row.name] = this.keyConfigFromRow(row, decrypt(row.secret));
+    }
+
+    return result;
+  }
+
+  async getAllApiKeySecurityEventsForBackup(): Promise<readonly ApiKeySecurityEvent[]> {
+    return this.db().select().from(this.schema().apiKeySecurityEvents);
+  }
+
+  async restoreApiKeySecurityEvents(
+    events: readonly Omit<ApiKeySecurityEvent, 'id' | 'apiKeyId'>[]
+  ): Promise<void> {
+    const schema = this.schema();
+    for (const event of events) {
+      const [key] = await this.db()
+        .select({ id: schema.apiKeys.id })
+        .from(schema.apiKeys)
+        .where(eq(schema.apiKeys.name, event.keyName))
+        .limit(1);
+      await this.db()
+        .insert(schema.apiKeySecurityEvents)
+        .values({
+          ...event,
+          apiKeyId: key?.id ?? null,
+        });
+    }
+  }
+
+  async resolveKeyBySecret(secret: string): Promise<InternalApiKeyRecord | null> {
+    const schema = this.schema();
+    const hash = hashSecret(secret);
+    const rows = await this.db()
+      .select()
+      .from(schema.apiKeys)
+      .where(eq(schema.apiKeys.secretHash, hash))
+      .limit(1);
+
+    const row = rows[0];
+    if (row === undefined) return null;
+
+    let storedSecret: string;
+    try {
+      storedSecret = decrypt(row.secret);
+    } catch {
+      this.logUnreadableSecret(row);
+      return null;
+    }
+
+    return {
+      id: row.id,
+      name: row.name,
+      config: this.keyConfigFromRow(row, storedSecret),
+    };
+  }
+
+  async getKeyBySecret(secret: string): Promise<InternalApiKeyRecord | null> {
+    return this.resolveKeyBySecret(secret);
   }
 
   async saveKey(name: string, config: KeyConfig): Promise<void> {
@@ -1165,10 +1303,16 @@ export class ConfigRepository {
       generation: null,
       expiresAt: existingKey
         ? existingKey.expiresAt
-        : config.expiresInMinutes
-          ? timestamp + config.expiresInMinutes * 60_000
-          : null,
-      disabledAt: existingKey?.disabledAt ?? null,
+        : (config.expiresAt ??
+          (config.expiresInMinutes ? timestamp + config.expiresInMinutes * 60_000 : null)),
+      disabledAt: existingKey ? existingKey.disabledAt : (config.disabledAt ?? null),
+      pausedAt: config.pausedAt ?? existingKey?.pausedAt ?? null,
+      pauseSource: config.pauseSource ?? existingKey?.pauseSource ?? null,
+      pauseReason: config.pauseReason ?? existingKey?.pauseReason ?? null,
+      anomalyPolicy:
+        config.anomalyPolicy !== undefined
+          ? toJson(config.anomalyPolicy)
+          : (existingKey?.anomalyPolicy ?? null),
       updatedAt: timestamp,
     };
 
@@ -1179,6 +1323,53 @@ export class ConfigRepository {
         .insert(schema.apiKeys)
         .values({ ...keyData, createdAt: timestamp });
     }
+  }
+
+  async getAllKeyAnomalyPolicies(): Promise<Record<string, PerKeyAnomalyPolicy>> {
+    const schema = this.schema();
+    const rows = await this.db().select().from(schema.apiKeys);
+    const policies: Record<string, PerKeyAnomalyPolicy> = {};
+
+    for (const row of rows) {
+      policies[row.name] = PerKeyAnomalyPolicySchema.parse(
+        parseJson<unknown>(row.anomalyPolicy) ?? { mode: 'inherit' }
+      );
+    }
+
+    return policies;
+  }
+
+  async getKeyAnomalyPolicy(name: string): Promise<PerKeyAnomalyPolicy | null> {
+    const schema = this.schema();
+    const [row] = await this.db()
+      .select({ anomalyPolicy: schema.apiKeys.anomalyPolicy })
+      .from(schema.apiKeys)
+      .where(eq(schema.apiKeys.name, name))
+      .limit(1);
+    if (!row) return null;
+
+    return PerKeyAnomalyPolicySchema.parse(
+      parseJson<unknown>(row.anomalyPolicy) ?? { mode: 'inherit' }
+    );
+  }
+
+  async saveKeyAnomalyPolicy(name: string, policy: PerKeyAnomalyPolicy): Promise<boolean> {
+    const schema = this.schema();
+    const existing = await this.db()
+      .select({ id: schema.apiKeys.id })
+      .from(schema.apiKeys)
+      .where(eq(schema.apiKeys.name, name))
+      .limit(1);
+    if (!existing[0]) return false;
+
+    await this.db()
+      .update(schema.apiKeys)
+      .set({
+        anomalyPolicy: policy.mode === 'inherit' ? null : toJson(policy),
+        updatedAt: now(),
+      })
+      .where(eq(schema.apiKeys.name, name));
+    return true;
   }
 
   async deleteKey(name: string): Promise<void> {
@@ -1523,6 +1714,16 @@ export class ConfigRepository {
   }
 
   // ─── System Settings ─────────────────────────────────────────────
+
+  async getGlobalAnomalyPolicy(): Promise<GlobalAnomalyPolicy> {
+    const stored = await this.getSetting<unknown>(GLOBAL_ANOMALY_POLICY_SETTING, undefined);
+    if (stored === null || stored === undefined) return DEFAULT_GLOBAL_ANOMALY_POLICY;
+    return GlobalAnomalyPolicySchema.parse(stored);
+  }
+
+  async saveGlobalAnomalyPolicy(policy: GlobalAnomalyPolicy): Promise<void> {
+    await this.setSetting(GLOBAL_ANOMALY_POLICY_SETTING, policy);
+  }
 
   async getSetting<T>(key: string, defaultValue: T): Promise<T> {
     const schema = this.schema();

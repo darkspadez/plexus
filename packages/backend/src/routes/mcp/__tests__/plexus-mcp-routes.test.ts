@@ -7,9 +7,14 @@ import { McpUsageStorageService } from '../../../services/mcp-proxy/mcp-usage-st
 import { UsageStorageService } from '../../../services/observability/usage-storage';
 import * as mcpProxyService from '../../../services/mcp-proxy/mcp-proxy-service';
 import { DebugManager } from '../../../services/observability/debug-manager';
-import { CooldownManager } from '../../../services/runtime/cooldown-manager';
 import { BackupService } from '../../../services/configuration/backup-service';
 import { ModelMetadataManager } from '../../../services/models/model-metadata-manager';
+import { ApiKeyActivityRecorder } from '../../../services/api-key-security/activity-recorder';
+import {
+  closeAuthDatabase,
+  resetAuthDatabase,
+  seedAuthKeys,
+} from '../../../../test/auth-db-fixtures';
 
 describe('Plexus management MCP routes', () => {
   let fastify: FastifyInstance;
@@ -20,6 +25,8 @@ describe('Plexus management MCP routes', () => {
   let mockLogLevel = 'info';
 
   beforeAll(async () => {
+    await resetAuthDatabase();
+    await seedAuthKeys({ 'test-key': { secret: 'sk-valid-key', comment: 'Test Key' } });
     originalAdminKey = process.env.ADMIN_KEY;
     process.env.ADMIN_KEY = 'test-admin-key';
 
@@ -541,6 +548,9 @@ describe('Plexus management MCP routes', () => {
       process.env.ADMIN_KEY = originalAdminKey;
     }
     await fastify.close();
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await closeAuthDatabase();
   });
 
   test('rejects missing x-admin-key', async () => {

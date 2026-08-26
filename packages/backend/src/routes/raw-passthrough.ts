@@ -181,7 +181,7 @@ export async function registerRawPassthroughRoutes(
       done(null, body);
     });
 
-    const auth = createAuthHook({ allowQueryKey: false });
+    const auth = createAuthHook({ allowQueryKey: false, recordActivity: true });
     rawRoutes.addHook('onRequest', auth.onRequest);
     await rawRoutes.register(bearerAuth, auth.bearerAuthOptions);
 

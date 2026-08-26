@@ -1,0 +1,43 @@
+parameters:
+  - in: path
+    name: name
+    required: true
+    schema: { type: string }
+get:
+  tags: [Management — Security]
+  summary: Get configured and effective anomaly policy for an API key (admin only)
+  security: [{ AdminKey: [] }]
+  responses:
+    '200': { description: Per-key policy and resolved effective policy, content: { application/json: { schema: { $ref: ../components/schemas/KeyAnomalyPolicyResponse.yaml } } } }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '404': { description: API key not found. }
+  operationId: getV0ManagementKeysBynameAnomalyPolicy
+put:
+  tags: [Management — Security]
+  summary: Replace an API key anomaly-policy override (admin only)
+  description: Complete inherit, disabled, or override policy; partial overrides are rejected.
+  security: [{ AdminKey: [] }]
+  requestBody: { required: true, content: { application/json: { schema: { $ref: ../components/schemas/PerKeyAnomalyPolicy.yaml } } } }
+  responses:
+    '200': { description: Stored configured policy and effective preview, content: { application/json: { schema: { $ref: ../components/schemas/KeyAnomalyPolicyResponse.yaml } } } }
+    '400': { $ref: ../components/responses/ValidationError.yaml }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '404': { description: API key not found. }
+    '500': { description: Internal server error. }
+  operationId: putV0ManagementKeysBynameAnomalyPolicy
+patch:
+  tags: [Management — Security]
+  summary: Replace an API key anomaly-policy override (admin only)
+  description: Alias for whole-object replacement; partial overrides are rejected.
+  security: [{ AdminKey: [] }]
+  requestBody: { required: true, content: { application/json: { schema: { $ref: ../components/schemas/PerKeyAnomalyPolicy.yaml } } } }
+  responses:
+    '200': { description: Stored configured policy and effective preview, content: { application/json: { schema: { $ref: ../components/schemas/KeyAnomalyPolicyResponse.yaml } } } }
+    '400': { $ref: ../components/responses/ValidationError.yaml }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '404': { description: API key not found. }
+    '500': { description: Internal server error. }
+  operationId: patchV0ManagementKeysBynameAnomalyPolicy

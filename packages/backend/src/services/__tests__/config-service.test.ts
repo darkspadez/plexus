@@ -33,6 +33,8 @@ function createMockRepo() {
     getAllProviders: vi.fn(() => Promise.resolve({})),
     getAllAliases: vi.fn(() => Promise.resolve({})),
     getAllKeys: vi.fn(() => Promise.resolve({})),
+    getAllKeysForAuthCache: vi.fn(() => Promise.resolve({})),
+    getAllKeysForBackup: vi.fn(() => Promise.resolve({})),
     getAllUserQuotas: vi.fn(() => Promise.resolve({})),
     getAllMcpServers: vi.fn(() => Promise.resolve({})),
     getFailoverPolicy: vi.fn(() => Promise.resolve({ enabled: false })),

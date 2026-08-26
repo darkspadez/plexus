@@ -47,6 +47,7 @@ import { ModelMetadataManager } from './services/models/model-metadata-manager';
 import { CodexVersionService } from './services/oauth/codex-version-service';
 import { SelectorFactory } from './services/routing/selectors/factory';
 import { QuotaScheduler } from './services/quota/quota-scheduler';
+import { AnomalyEvaluationScheduler } from './services/api-key-security/anomaly-evaluation-scheduler';
 import { ResponsesStorageService } from './services/responses/responses-storage';
 import { OAuthAuthManager } from './services/oauth/oauth-auth-manager';
 import { requestLogger } from './middleware/log';
@@ -138,6 +139,7 @@ const dispatcher = new Dispatcher();
 const usageStorage = new UsageStorageService();
 const mcpUsageStorage = new McpUsageStorageService();
 const quotaScheduler = QuotaScheduler.getInstance();
+const anomalyEvaluationScheduler = AnomalyEvaluationScheduler.getInstance();
 
 // Initialize singletons with storage dependencies
 dispatcher.setUsageStorage(usageStorage);
@@ -241,6 +243,12 @@ try {
   await quotaScheduler.initialize(config.quotas ?? []);
 } catch (e) {
   logger.error('Failed to initialize quota checkers', e);
+}
+
+try {
+  await anomalyEvaluationScheduler.start();
+} catch (e) {
+  logger.error('Failed to initialize API key anomaly evaluator', e);
 }
 
 // Initialize user quota enforcer (requires DB to be ready)
@@ -442,6 +450,7 @@ const start = async () => {
     const shutdown = async (signal: string) => {
       logger.info(`Received ${signal}, shutting down gracefully...`);
       quotaScheduler.stop();
+      anomalyEvaluationScheduler.stop();
       await mcpProcessManager.stopAll();
       await fastify.close();
       const { closeDatabase } = await import('./db/client');

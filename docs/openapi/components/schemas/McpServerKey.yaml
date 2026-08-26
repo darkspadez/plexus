@@ -1,0 +1,10 @@
+type: object
+description: >
+  Sensitive upstream MCP server key record. The `key` value is returned only
+  to authenticated administrators and must be handled as a secret.
+required: [id, key, is_active, cooldown_until]
+properties:
+  id: { type: integer }
+  key: { type: string }
+  is_active: { type: boolean }
+  cooldown_until: { type: [string, 'null'], format: date-time }

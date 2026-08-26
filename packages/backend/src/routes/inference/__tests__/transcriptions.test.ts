@@ -8,6 +8,12 @@ import { UsageStorageService } from '../../../services/observability/usage-stora
 import { DebugManager } from '../../../services/observability/debug-manager';
 import { SelectorFactory } from '../../../services/routing/selectors/factory';
 import FormData from 'form-data';
+import { ApiKeyActivityRecorder } from '../../../services/api-key-security/activity-recorder';
+import {
+  closeAuthDatabase,
+  resetAuthDatabase,
+  seedAuthKeys,
+} from '../../../../test/auth-db-fixtures';
 
 // Helper to create multipart form-data payload using form-data package
 function createMultipartPayload(
@@ -79,8 +85,12 @@ describe('Transcriptions Endpoint', () => {
   let mockDispatcher: Dispatcher;
 
   beforeEach(async () => {
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await resetAuthDatabase();
     // Set config first so it's available when routes register
     setConfigForTesting(TRANSCRIPTIONS_TEST_CONFIG);
+    await seedAuthKeys(TRANSCRIPTIONS_TEST_CONFIG.keys);
 
     fastify = Fastify({
       bodyLimit: 30 * 1024 * 1024, // 30MB
@@ -150,6 +160,9 @@ describe('Transcriptions Endpoint', () => {
 
   afterEach(async () => {
     await fastify.close();
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await closeAuthDatabase();
   });
 
   it('should accept transcription request with audio file (JSON format)', async () => {

@@ -1,0 +1,12 @@
+type: object
+additionalProperties: false
+required: [lookbackMinutes, exclusionGapMinutes, windowMinutes, sustainedWindows, minimumRequestsPerMinute, baselineMultiplier, minimumBaselineRequests, minimumActiveMinutes]
+properties:
+  lookbackMinutes: { type: integer, minimum: 1 }
+  exclusionGapMinutes: { type: integer, minimum: 1 }
+  windowMinutes: { type: integer, minimum: 1 }
+  sustainedWindows: { type: integer, minimum: 1 }
+  minimumRequestsPerMinute: { type: number, exclusiveMinimum: 0 }
+  baselineMultiplier: { type: number, exclusiveMinimum: 0 }
+  minimumBaselineRequests: { type: integer, minimum: 0 }
+  minimumActiveMinutes: { type: integer, minimum: 0 }

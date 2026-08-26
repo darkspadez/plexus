@@ -1,0 +1,35 @@
+get:
+  tags: [Management — Security]
+  summary: Get global and effective API-key anomaly policy (admin only)
+  security: [{ AdminKey: [] }]
+  responses:
+    '200': { description: Global policy plus per-key configured/effective snapshots, content: { application/json: { schema: { $ref: ../components/schemas/AnomalyPolicySnapshot.yaml } } } }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+  operationId: getV0ManagementSecurityAnomalyPolicy
+put:
+  tags: [Management — Security]
+  summary: Replace global API-key anomaly policy (admin only)
+  description: Whole-object replacement; omitted policy fields receive server defaults.
+  security: [{ AdminKey: [] }]
+  requestBody: { required: true, content: { application/json: { schema: { $ref: ../components/schemas/GlobalAnomalyPolicy.yaml } } } }
+  responses:
+    '200': { description: Stored global policy, content: { application/json: { schema: { $ref: ../components/schemas/GlobalAnomalyPolicy.yaml } } } }
+    '400': { $ref: ../components/responses/ValidationError.yaml }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '500': { description: Internal server error. }
+  operationId: putV0ManagementSecurityAnomalyPolicy
+patch:
+  tags: [Management — Security]
+  summary: Replace global API-key anomaly policy (admin only)
+  description: Alias for whole-object replacement; this is not a partial nested merge.
+  security: [{ AdminKey: [] }]
+  requestBody: { required: true, content: { application/json: { schema: { $ref: ../components/schemas/GlobalAnomalyPolicy.yaml } } } }
+  responses:
+    '200': { description: Stored global policy, content: { application/json: { schema: { $ref: ../components/schemas/GlobalAnomalyPolicy.yaml } } } }
+    '400': { $ref: ../components/responses/ValidationError.yaml }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '500': { description: Internal server error. }
+  operationId: patchV0ManagementSecurityAnomalyPolicy

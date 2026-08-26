@@ -5,6 +5,16 @@ import { setConfigForTesting } from '../../../config';
 import { registerMcpRoutes } from '../index';
 import { McpUsageStorageService } from '../../../services/mcp-proxy/mcp-usage-storage';
 import * as mcpProxyService from '../../../services/mcp-proxy/mcp-proxy-service';
+import { ApiKeyActivityRecorder } from '../../../services/api-key-security/activity-recorder';
+import {
+  closeAuthDatabase,
+  resetAuthDatabase,
+  seedAuthKeys,
+} from '../../../../test/auth-db-fixtures';
+import { getDatabase, getSchema } from '../../../db/client';
+import { eq } from 'drizzle-orm';
+import { ApiKeyPauseService } from '../../../services/api-key-security/api-key-pause-service';
+import { logger } from '../../../utils/logger';
 
 describe('MCP Routes', () => {
   let fastify: FastifyInstance;
@@ -12,6 +22,8 @@ describe('MCP Routes', () => {
   let mockProxyMcpRequest: any;
 
   beforeAll(async () => {
+    await resetAuthDatabase();
+    await seedAuthKeys({ 'test-key-1': { secret: 'sk-valid-key', comment: 'Test Key' } });
     fastify = Fastify();
 
     // Mock MCP usage storage
@@ -61,17 +73,22 @@ describe('MCP Routes', () => {
         },
       },
     });
-
     await registerMcpRoutes(fastify, mockMcpUsageStorage);
     await fastify.ready();
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await getDatabase().delete(getSchema().apiKeyRequestBuckets);
     registerSpy(mcpProxyService, 'proxyMcpRequest').mockImplementation(mockProxyMcpRequest);
   });
 
   afterAll(async () => {
     await fastify.close();
+    await ApiKeyActivityRecorder.getInstance().stop();
+    ApiKeyActivityRecorder.resetForTesting();
+    await closeAuthDatabase();
   });
 
   describe('OAuth Discovery Endpoints', () => {
@@ -284,7 +301,7 @@ describe('MCP Routes', () => {
 
   describe('HTTP Methods', () => {
     test('POST /mcp/:name should proxy POST requests', async () => {
-      const response = await fastify.inject({
+      await fastify.inject({
         method: 'POST',
         url: '/mcp/test-server',
         headers: {
@@ -419,5 +436,126 @@ describe('MCP Routes', () => {
       const callArgs = (mockMcpUsageStorage.saveRequest as any).mock.calls[0][0];
       expect(callArgs.method).toBe('DELETE');
     });
+  });
+
+  test('records activity only after successful protected MCP bearer authentication', async () => {
+    // Given
+    const schema = getSchema();
+    const storedKey = await getDatabase()
+      .select({ id: schema.apiKeys.id })
+      .from(schema.apiKeys)
+      .where(eq(schema.apiKeys.name, 'test-key-1'));
+    const keyId = storedKey[0]?.id;
+    if (keyId === undefined) throw new Error('Expected seeded MCP key');
+
+    // When
+    const accepted = await fastify.inject({
+      method: 'POST',
+      url: '/mcp/test-server',
+      headers: { authorization: 'Bearer sk-valid-key', 'content-type': 'application/json' },
+      payload: { jsonrpc: '2.0', method: 'tools/list', id: 1 },
+    });
+    await ApiKeyActivityRecorder.getInstance().flush();
+
+    // Then
+    expect(accepted.statusCode).toBe(200);
+    expect(await getDatabase().select().from(schema.apiKeyRequestBuckets)).toMatchObject([
+      { apiKeyId: keyId, count: 1 },
+    ]);
+  });
+
+  test('does not record activity for rejected protected MCP bearer authentication', async () => {
+    // Given
+    const schema = getSchema();
+
+    // When
+    const rejected = await fastify.inject({
+      method: 'POST',
+      url: '/mcp/test-server',
+      headers: { authorization: 'Bearer sk-invalid-key', 'content-type': 'application/json' },
+      payload: { jsonrpc: '2.0', method: 'tools/list', id: 1 },
+    });
+    await ApiKeyActivityRecorder.getInstance().flush();
+
+    // Then
+    expect(rejected.statusCode).toBe(401);
+    expect(await getDatabase().select().from(schema.apiKeyRequestBuckets)).toEqual([]);
+  });
+
+  test('rejects a pause written after protected MCP registration without revealing pause state', async () => {
+    // Given
+    const secret = 'sk-valid-key';
+    await new ApiKeyPauseService().pauseKey('test-key-1', 'automatic', 'private pause reason');
+
+    // When
+    const response = await fastify.inject({
+      method: 'POST',
+      url: '/mcp/test-server',
+      headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/json' },
+      payload: { jsonrpc: '2.0', method: 'tools/list', id: 1 },
+    });
+
+    // Then
+    expect(response.statusCode).toBe(401);
+    expect(response.body).not.toContain(secret);
+    expect(response.body).not.toContain('private pause reason');
+    expect(await getDatabase().select().from(getSchema().apiKeyRequestBuckets)).toEqual([]);
+  });
+
+  test('redacts protected MCP request diagnostics and persisted upstream URL while forwarding response bodies', async () => {
+    // Given
+    const plexusSecret = 'sk-route-log-canary';
+    const upstreamSecret = 'upstream-route-log-canary';
+    const bodyCanary = 'body-log-canary';
+    const headerCanary = 'header-log-canary';
+    setConfigForTesting({
+      providers: {},
+      models: {},
+      keys: { 'test-key-1': { secret: plexusSecret, comment: 'Test Key' } },
+      failover: { enabled: false, retryableStatusCodes: [], retryableErrors: [] },
+      quotas: [],
+      mcpServers: {
+        'test-server': {
+          upstream_url: `http://localhost:3000/mcp?token=${upstreamSecret}`,
+          enabled: true,
+          headers: { 'x-custom-secret': headerCanary },
+        },
+      },
+    });
+    await seedAuthKeys({ 'route-canary-key': { secret: plexusSecret } });
+    mockProxyMcpRequest.mockResolvedValueOnce({
+      status: 200,
+      headers: { 'x-upstream-secret': headerCanary },
+      body: { result: bodyCanary },
+    });
+    const infoSpy = registerSpy(logger, 'info');
+    const sillySpy = registerSpy(logger, 'silly');
+    const errorSpy = registerSpy(logger, 'error');
+    (mockMcpUsageStorage.saveRequest as ReturnType<typeof vi.fn>).mockClear();
+
+    // When
+    const response = await fastify.inject({
+      method: 'POST',
+      url: '/mcp/test-server',
+      headers: { authorization: `Bearer ${plexusSecret}`, 'content-type': 'application/json' },
+      payload: { jsonrpc: '2.0', method: 'tools/call', params: { name: bodyCanary }, id: 1 },
+    });
+
+    // Then
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ result: bodyCanary });
+    const serializedLogs = JSON.stringify([
+      ...infoSpy.mock.calls,
+      ...sillySpy.mock.calls,
+      ...errorSpy.mock.calls,
+    ]);
+    for (const canary of [plexusSecret, upstreamSecret, bodyCanary, headerCanary]) {
+      expect(serializedLogs).not.toContain(canary);
+    }
+    const usage = (mockMcpUsageStorage.saveRequest as ReturnType<typeof vi.fn>).mock.calls.at(
+      -1
+    )?.[0];
+    expect(JSON.stringify(usage)).not.toContain(upstreamSecret);
+    expect(usage?.upstream_url).toBe('http://localhost:3000/mcp');
   });
 });

@@ -6,6 +6,10 @@ import { isValidIpRule } from './utils/ip-match';
 import { resolveGpuParams, VALID_GPU_PROFILES } from '@plexus/shared';
 import type { ModelArchitecture } from '@plexus/shared';
 import { getCatalogModel } from './services/pi-ai/catalog';
+import {
+  PerKeyAnomalyPolicySchema,
+  type GlobalAnomalyPolicy,
+} from './services/api-key-security/policy-schema';
 
 // --- Zod Schemas ---
 
@@ -963,6 +967,10 @@ export const KeyConfigSchema = z.object({
   expiresInMinutes: z.number().int().positive().optional(),
   expiresAt: z.number().int().positive().optional(),
   disabledAt: z.number().int().positive().optional(),
+  pausedAt: z.number().int().positive().optional(),
+  pauseSource: z.string().min(1).optional(),
+  pauseReason: z.string().min(1).optional(),
+  anomalyPolicy: PerKeyAnomalyPolicySchema.optional(),
   // Deprecated: single quota-definition reference. Still accepted on input
   // (indefinitely) for backward compat. Not auto-normalized by this schema —
   // callers must run parsed/merged data through `normalizeKeyConfig` (see
@@ -1080,6 +1088,7 @@ export type PlexusConfig = z.infer<typeof RawPlexusConfigSchema> & {
   timeout?: TimeoutConfig;
   stall?: StallConfigType;
   quotas: QuotaConfig[];
+  anomalyPolicy?: GlobalAnomalyPolicy;
   mcpServers?: Record<string, McpServerConfig>;
   // Immediate-peer IPs/CIDRs whose forwarding headers are trusted when
   // resolving the client IP. Semantics:
@@ -1097,6 +1106,7 @@ export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 export type ModelProviderConfig = z.infer<typeof ModelProviderConfigSchema>;
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 export type KeyConfig = z.infer<typeof KeyConfigSchema>;
+export type PublicKeyConfig = Omit<KeyConfig, 'secret'> & { fingerprint: string };
 
 export function isKeyDisabled(key: Pick<KeyConfig, 'expiresAt' | 'disabledAt'>, at = Date.now()) {
   return key.disabledAt !== undefined || (key.expiresAt !== undefined && key.expiresAt <= at);

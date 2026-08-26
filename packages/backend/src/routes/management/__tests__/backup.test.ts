@@ -31,6 +31,7 @@ vi.mock('../../../services/configuration/config-service', () => ({
       getRepository: vi.fn(() => ({
         getAllOAuthProviders: vi.fn(async () => []),
         getOAuthCredentials: vi.fn(),
+        getAllApiKeySecurityEventsForBackup: vi.fn(async () => []),
       })),
       initialize: vi.fn(),
     })),

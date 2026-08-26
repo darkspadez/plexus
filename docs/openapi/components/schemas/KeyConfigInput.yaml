@@ -1,0 +1,23 @@
+type: object
+additionalProperties: true
+description: >
+  API key configuration accepted by the compatibility PUT/import endpoint.
+  `secret` is accepted for import only and is never echoed in ordinary
+  responses. PATCH rejects `secret` and key-name changes; rotate is the only
+  normal secret replacement path.
+required: [secret]
+properties:
+  secret:
+    type: string
+    writeOnly: true
+    example: sk-0123...
+  comment: { type: string }
+  expiresInMinutes: { type: integer, minimum: 1 }
+  allowedProviders: { type: array, items: { type: string } }
+  excludedProviders: { type: array, items: { type: string } }
+  excludedModels: { type: array, items: { type: string } }
+  allowedModels: { type: array, items: { type: string } }
+  allowRawPassthrough: { type: boolean }
+  quota: { type: [string, 'null'] }
+  quotas: { type: array, items: { type: string } }
+  anomalyPolicy: { $ref: ./PerKeyAnomalyPolicy.yaml }

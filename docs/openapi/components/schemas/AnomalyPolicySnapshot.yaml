@@ -1,0 +1,7 @@
+type: object
+required: [global, keys]
+properties:
+  global: { $ref: ./GlobalAnomalyPolicy.yaml }
+  keys:
+    type: object
+    additionalProperties: { $ref: ./KeyAnomalyPolicyResponse.yaml }

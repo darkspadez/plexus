@@ -26,7 +26,7 @@ export async function registerInferenceRoutes(
 
   // Protected Routes (v1 and v1beta)
   fastify.register(async (protectedRoutes) => {
-    const auth = createAuthHook();
+    const auth = createAuthHook({ recordActivity: true });
 
     protectedRoutes.addHook('onRequest', auth.onRequest);
 

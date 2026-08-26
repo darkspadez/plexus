@@ -1,4 +1,4 @@
-import { InferSelectModel, InferInsertModel } from 'drizzle-orm';
+import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import * as schema from '../../drizzle/schema';
 
 export type RequestUsage = InferSelectModel<typeof schema.requestUsage>;
@@ -10,6 +10,8 @@ export type ProviderPerformance = InferSelectModel<typeof schema.providerPerform
 // superseded by meter_snapshots. See src/types/meter.ts for the new types.
 export type McpRequestUsage = InferSelectModel<typeof schema.mcpRequestUsage>;
 export type McpDebugLog = InferSelectModel<typeof schema.mcpDebugLogs>;
+export type ApiKeyRequestBucket = InferSelectModel<typeof schema.apiKeyRequestBuckets>;
+export type ApiKeySecurityEvent = InferSelectModel<typeof schema.apiKeySecurityEvents>;
 
 export type NewRequestUsage = InferInsertModel<typeof schema.requestUsage>;
 export type NewProviderCooldown = InferInsertModel<typeof schema.providerCooldowns>;
@@ -18,6 +20,8 @@ export type NewInferenceError = InferInsertModel<typeof schema.inferenceErrors>;
 export type NewProviderPerformance = InferInsertModel<typeof schema.providerPerformance>;
 export type NewMcpRequestUsage = InferInsertModel<typeof schema.mcpRequestUsage>;
 export type NewMcpDebugLog = InferInsertModel<typeof schema.mcpDebugLogs>;
+export type NewApiKeyRequestBucket = InferInsertModel<typeof schema.apiKeyRequestBuckets>;
+export type NewApiKeySecurityEvent = InferInsertModel<typeof schema.apiKeySecurityEvents>;
 
 export type UsageRecord = Omit<RequestUsage, 'isStreamed' | 'isPassthrough' | 'isRaw'> & {
   isStreamed: boolean;

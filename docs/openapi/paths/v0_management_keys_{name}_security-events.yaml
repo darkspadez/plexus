@@ -1,0 +1,37 @@
+parameters:
+  - in: path
+    name: name
+    required: true
+    schema: { type: string }
+  - in: query
+    name: limit
+    schema: { type: integer, minimum: 0, default: 50 }
+  - in: query
+    name: offset
+    schema: { type: integer, minimum: 0, default: 0 }
+get:
+  tags: [Management — Security]
+  summary: List API key security events (admin only)
+  description: Events contain key fingerprints and structured trigger evidence, never secrets.
+  security: [{ AdminKey: [] }]
+  responses:
+    '200':
+      description: Paginated security-event page.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [key, events]
+            properties:
+              key:
+                type: object
+                required: [fingerprint]
+                properties: { fingerprint: { type: string } }
+              events:
+                type: array
+                items: { $ref: ../components/schemas/ApiKeySecurityEvent.yaml }
+    '400': { $ref: ../components/responses/ValidationError.yaml }
+    '401': { $ref: ../components/responses/AdminAuthError.yaml }
+    '403': { description: Admin principal required. }
+    '404': { description: API key not found. }
+  operationId: getV0ManagementKeysBynameSecurityEvents

@@ -1,13 +1,12 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import crypto from 'node:crypto';
 import { logger } from '../../utils/logger';
 import { DebugManager } from '../../services/observability/debug-manager';
 import { ConfigService } from '../../services/configuration/config-service';
-import { ConfigRepository } from '../../db/config-repository';
 import { QuotaEnforcer } from '../../services/quota/quota-enforcer';
 import { mostConstrained } from '@plexus/shared';
 import { serializeQuotaSnapshot } from './_quota-response';
+import { generateApiKeySecret } from '../../utils/api-key-secret';
 import type { Principal } from './_principal';
 
 const toggleSchema = z.object({
@@ -17,12 +16,6 @@ const toggleSchema = z.object({
 const commentSchema = z.object({
   comment: z.string().nullable().optional(),
 });
-
-function generateSecret(): string {
-  // `sk-` prefix mirrors existing Plexus conventions and external provider
-  // secrets.
-  return `sk-${crypto.randomBytes(24).toString('hex')}`;
-}
 
 /**
  * Self-service endpoints for the currently authenticated principal.
@@ -99,7 +92,7 @@ export async function registerSelfRoutes(fastify: FastifyInstance, quotaEnforcer
       return reply.code(404).send({ error: `Key '${target.keyName}' not found` });
     }
 
-    const newSecret = generateSecret();
+    const newSecret = generateApiKeySecret();
     await ConfigService.getInstance().saveKey(target.keyName, {
       ...existing,
       secret: newSecret,
@@ -111,7 +104,7 @@ export async function registerSelfRoutes(fastify: FastifyInstance, quotaEnforcer
       }'`
     );
 
-    return reply.send({
+    return reply.header('Cache-Control', 'no-store').send({
       keyName: target.keyName,
       secret: newSecret,
       message: 'Secret rotated. Store it now — it will not be shown again.',
