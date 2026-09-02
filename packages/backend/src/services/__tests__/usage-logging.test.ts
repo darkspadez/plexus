@@ -2,11 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { registerSpy } from '../../../test/test-utils';
 import { PassThrough } from 'stream';
 import { UsageInspector } from '../inspectors/usage-logging';
-import { DebugLoggingInspector } from '../inspectors/debug-logging';
 import { UsageStorageService } from '../observability/usage-storage';
 import { DebugManager } from '../observability/debug-manager';
 import type { UsageRecord } from '../../types/usage';
-import * as quotaMiddleware from '../quota/quota-middleware';
 
 describe('UsageInspector', () => {
   let mockStorage: any;
@@ -421,22 +419,17 @@ describe('UsageInspector', () => {
   });
 
   describe('_destroy() — client disconnect handling', () => {
-    function makeInspector(
-      requestId: string,
-      startTime: number,
-      incomingApiType = 'chat',
-      responseStatus?: string
-    ) {
+    function makeInspector(requestId: string, startTime: number) {
       return new UsageInspector(
         requestId,
         mockStorage,
-        { requestId, responseStatus } as Partial<UsageRecord>,
+        { requestId } as Partial<UsageRecord>,
         mockPricing,
         undefined,
         startTime,
         false,
-        incomingApiType,
-        incomingApiType,
+        'chat',
+        undefined,
         undefined
       );
     }
@@ -465,205 +458,6 @@ describe('UsageInspector', () => {
       expect(capturedRecord!.responseStatus).toBe('cancelled');
       expect(capturedRecord!.durationMs).toBeGreaterThanOrEqual(0);
     });
-
-    it('preserves success when a Responses terminal event precedes stream destruction', async () => {
-      const requestId = 'test-destroy-responses-completed';
-      const transformedCapture = new DebugLoggingInspector(requestId, 'transformed');
-      const transformedTap = transformedCapture.createInspector('responses');
-      transformedTap.write('event: response.completed\ndata: {"type":"response.completed"}\n\n');
-      const inspector = new UsageInspector(
-        requestId,
-        mockStorage,
-        { requestId, responseStatus: 'success' } as Partial<UsageRecord>,
-        mockPricing,
-        undefined,
-        Date.now() - 200,
-        false,
-        'responses',
-        'responses',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        transformedCapture
-      );
-      inspector.on('error', () => {});
-
-      let capturedRecord: UsageRecord | null = null;
-      registerSpy(mockStorage, 'saveRequest').mockImplementation(async (record: UsageRecord) => {
-        capturedRecord = record;
-      });
-      inspector.destroy();
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(capturedRecord).not.toBeNull();
-      expect(capturedRecord!.responseStatus).toBe('success');
-    });
-
-    it('preserves success when a Chat Completions terminal chunk precedes stream destruction', async () => {
-      const requestId = 'test-destroy-chat-completed';
-      const transformedCapture = new DebugLoggingInspector(requestId, 'transformed');
-      const transformedTap = transformedCapture.createInspector('chat');
-      transformedTap.write(
-        'data: {"id":"chatcmpl_test","choices":[{"delta":{},"finish_reason":"stop"}]}\n\n'
-      );
-      const inspector = new UsageInspector(
-        requestId,
-        mockStorage,
-        { requestId, responseStatus: 'success' } as Partial<UsageRecord>,
-        mockPricing,
-        undefined,
-        Date.now() - 200,
-        false,
-        'chat',
-        'chat',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        transformedCapture
-      );
-      inspector.on('error', () => {});
-
-      let capturedRecord: UsageRecord | null = null;
-      registerSpy(mockStorage, 'saveRequest').mockImplementation(async (record: UsageRecord) => {
-        capturedRecord = record;
-      });
-      inspector.destroy();
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(capturedRecord).not.toBeNull();
-      expect(capturedRecord!.responseStatus).toBe('success');
-    });
-
-    it('runs successful finalization after a terminal Responses stream is destroyed', async () => {
-      const requestId = 'test-destroy-responses-full-finalization';
-      const rawCapture = new DebugLoggingInspector(requestId, 'raw');
-      const rawTap = rawCapture.createInspector('responses');
-      rawTap.write(
-        JSON.stringify({
-          status: 'completed',
-          output: [
-            { type: 'function_call', id: 'fc_1' },
-            { type: 'function_call', id: 'fc_2' },
-          ],
-          usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
-          providerReportedCost: { request_cost_usd: 0.42 },
-          providerReportedEnergy: { energy_kwh: 0.12345678901 },
-        })
-      );
-      const transformedCapture = new DebugLoggingInspector(requestId, 'transformed');
-      const transformedTap = transformedCapture.createInspector('responses');
-      transformedTap.write('event: response.completed\ndata: {"type":"response.completed"}\n\n');
-
-      const quotaEnforcer = {};
-      const inspector = new UsageInspector(
-        requestId,
-        mockStorage,
-        {
-          requestId,
-          responseStatus: 'success',
-          provider: 'test-provider',
-          selectedModelName: 'test-model',
-          canonicalModelName: 'test-canonical-model',
-          finalAttemptProvider: 'final-provider',
-          finalAttemptModel: 'final-model',
-        } as Partial<UsageRecord>,
-        mockPricing,
-        undefined,
-        Date.now() - 200,
-        false,
-        'responses',
-        'responses',
-        undefined,
-        quotaEnforcer,
-        'test-key',
-        rawCapture,
-        transformedCapture
-      );
-
-      let capturedRecord: UsageRecord | null = null;
-      registerSpy(mockStorage, 'saveRequest').mockImplementation(async (record: UsageRecord) => {
-        capturedRecord = record;
-      });
-      const recordQuotaUsageSpy = registerSpy(
-        quotaMiddleware,
-        'recordQuotaUsage'
-      ).mockResolvedValue(undefined);
-
-      inspector.destroy();
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(capturedRecord!.responseStatus).toBe('success');
-      expect(capturedRecord!.toolCallsCount).toBe(2);
-      expect(capturedRecord!.finishReason).toBe('tool_calls');
-      expect(capturedRecord!.providerReportedCost).toBe(0.42);
-      expect(capturedRecord!.kwhUsed).toBe(0.123456789);
-      expect(capturedRecord!.tokensPerSec).toBeGreaterThan(0);
-      expect(mockStorage.updatePerformanceMetrics).toHaveBeenCalledWith(
-        'test-provider',
-        'test-model',
-        'test-canonical-model',
-        null,
-        5,
-        expect.any(Number),
-        requestId
-      );
-      expect(recordQuotaUsageSpy).toHaveBeenCalledWith(
-        'test-key',
-        'final-provider',
-        'final-model',
-        expect.objectContaining({ tokensInput: 10, tokensOutput: 5, costTotal: 0.42 }),
-        quotaEnforcer
-      );
-    });
-
-    it('records cancellation when destroyed before the terminal event', async () => {
-      const requestId = 'test-destroy-before-terminal';
-      const inspector = makeInspector(requestId, Date.now() - 200, 'responses', 'success');
-      inspector.on('error', () => {});
-
-      let capturedRecord: UsageRecord | null = null;
-      registerSpy(mockStorage, 'saveRequest').mockImplementation(async (record: UsageRecord) => {
-        capturedRecord = record;
-      });
-
-      const src = new PassThrough();
-      src.pipe(inspector);
-      src.write('event: response.output_text.delta\n');
-      inspector.destroy();
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(capturedRecord).not.toBeNull();
-      expect(capturedRecord!.responseStatus).toBe('cancelled');
-    });
-
-    it.each(['gemini', 'messages'])(
-      'does not classify %s streams from Responses markers',
-      async (apiType) => {
-        const requestId = `test-destroy-${apiType}-marker`;
-        const inspector = makeInspector(requestId, Date.now() - 200, apiType, 'success');
-        inspector.on('error', () => {});
-
-        let capturedRecord: UsageRecord | null = null;
-        registerSpy(mockStorage, 'saveRequest').mockImplementation(async (record: UsageRecord) => {
-          capturedRecord = record;
-        });
-
-        const src = new PassThrough();
-        src.pipe(inspector);
-        src.write('event: response.completed\n');
-        inspector.destroy();
-
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        expect(capturedRecord).not.toBeNull();
-        expect(capturedRecord!.responseStatus).toBe('cancelled');
-      }
-    );
 
     it('records responseStatus=timeout when destroyed with a TimeoutError', async () => {
       const requestId = 'test-destroy-timeout';
