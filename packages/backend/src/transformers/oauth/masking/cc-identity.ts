@@ -160,14 +160,14 @@ export function injectClaudeCodeIdentity(body: any): any {
     : typeof body.system === 'string'
       ? [{ type: 'text', text: body.system }]
       : [];
-  const normalizedSystemText = existingSystem.map((part: any) =>
-    typeof part?.text === 'string' ? part.text.trim() : ''
+  const systemText = existingSystem.map((part: any) =>
+    typeof part?.text === 'string' ? part.text : ''
   );
   const hasCanonicalIdentity =
-    normalizedSystemText.length >= 3 &&
-    normalizedSystemText[0]?.startsWith(BILLING_HEADER_PREFIX) &&
-    normalizedSystemText[1] === CLAUDE_CODE_IDENTITY_TEXT &&
-    normalizedSystemText[2] === STATIC_CLAUDE_CODE_PROMPT;
+    systemText.length >= 3 &&
+    systemText[0]?.startsWith(BILLING_HEADER_PREFIX) &&
+    systemText[1] === CLAUDE_CODE_IDENTITY_TEXT &&
+    systemText[2] === STATIC_CLAUDE_CODE_PROMPT;
 
   // Treat every non-canonical system block as caller content. Only the full
   // generated three-block identity can be safely distinguished from caller

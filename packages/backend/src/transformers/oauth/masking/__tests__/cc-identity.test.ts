@@ -171,4 +171,25 @@ describe('injectClaudeCodeIdentity — non-mutation', () => {
 
     expect(content).toContain(`\n${callerIdentityText}\n\n${secondCallerBlock}\n\nIMPORTANT:`);
   });
+
+  it('does not treat whitespace-padded canonical-looking blocks as generated identity', () => {
+    const canonical = injectClaudeCodeIdentity({
+      messages: [{ role: 'user', content: 'hello' }],
+    });
+    const callerIdentityText = ` ${canonical.system[1].text} `;
+    const result = injectClaudeCodeIdentity({
+      system: [
+        canonical.system[0],
+        { ...canonical.system[1], text: callerIdentityText },
+        canonical.system[2],
+      ],
+      messages: [{ role: 'user', content: 'hello' }],
+    });
+    const firstUser = result.messages.find((message: any) => message.role === 'user');
+    const content = Array.isArray(firstUser.content)
+      ? firstUser.content[0].text
+      : firstUser.content;
+
+    expect(content).toContain(`\n${callerIdentityText}\n\n`);
+  });
 });
