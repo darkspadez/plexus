@@ -57,6 +57,8 @@ export class OpenAITransformer implements Transformer {
       tools: input.tools,
       tool_choice: input.tool_choice,
       reasoning: input.reasoning,
+      ...(input.response_format !== undefined ? { response_format: input.response_format } : {}),
+      ...(input.text !== undefined ? { text: input.text } : {}),
     };
   }
 
