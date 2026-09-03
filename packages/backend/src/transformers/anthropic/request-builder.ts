@@ -2,6 +2,80 @@ import { UnifiedChatRequest } from '../../types/unified';
 import { convertUnifiedToolsToAnthropic } from './tool-mapper';
 
 /**
+ * Converts a unified `image_url` part into an Anthropic image `source`.
+ * Unified stores images as data URIs or http(s) URLs (see content-mapper);
+ * the previous builder always emitted `data: ''`, which dropped every
+ * screenshot on the chat/responses → messages path.
+ */
+export function toAnthropicImageSource(part: {
+  image_url?: { url?: string };
+  media_type?: string;
+}): { type: 'base64'; media_type: string; data: string } | { type: 'url'; url: string } | null {
+  const url = part.image_url?.url;
+  if (typeof url !== 'string' || !url) return null;
+
+  if (url.startsWith('data:')) {
+    const comma = url.indexOf(',');
+    if (comma < 0) return null;
+    const data = url.slice(comma + 1);
+    if (!data) return null;
+    const meta = url.slice('data:'.length, comma);
+    const mediaTypeFromMeta = meta.split(';')[0];
+    return {
+      type: 'base64',
+      media_type: part.media_type || mediaTypeFromMeta || 'image/jpeg',
+      data,
+    };
+  }
+
+  if (/^https?:\/\//i.test(url)) {
+    return { type: 'url', url };
+  }
+
+  return {
+    type: 'base64',
+    media_type: part.media_type || 'image/jpeg',
+    data: url,
+  };
+}
+
+/**
+ * Pulls a JSON Schema object from either the unified `response_format`
+ * (Responses `text.format` / Chat `response_format`) or `text.format`.
+ * Accepts both the unified shape (`json_schema` is the schema) and the
+ * OpenAI Chat nested shape (`json_schema.schema` is the schema).
+ */
+export function jsonSchemaFromUnified(
+  request: UnifiedChatRequest
+): Record<string, unknown> | undefined {
+  const rf = request.response_format;
+  if (rf?.type === 'json_schema' && rf.json_schema && typeof rf.json_schema === 'object') {
+    const nested = rf.json_schema as Record<string, unknown>;
+    // OpenAI Chat wraps the schema as { name, schema, strict }; unified /
+    // Responses store the JSON Schema object directly on json_schema.
+    const looksLikeOpenAiWrapper =
+      nested.schema &&
+      typeof nested.schema === 'object' &&
+      (typeof nested.name === 'string' || typeof nested.strict === 'boolean');
+    if (looksLikeOpenAiWrapper) {
+      return nested.schema as Record<string, unknown>;
+    }
+    return nested;
+  }
+
+  const textFormat = request.text?.format;
+  if (
+    textFormat?.type === 'json_schema' &&
+    textFormat.schema &&
+    typeof textFormat.schema === 'object'
+  ) {
+    return textFormat.schema as Record<string, unknown>;
+  }
+
+  return undefined;
+}
+
+/**
  * Transforms a Unified request into Anthropic API format.
  *
  * Key transformations:
@@ -61,15 +135,16 @@ export async function buildAnthropicRequest(request: UnifiedChatRequest): Promis
                 ...(part.cache_control !== undefined ? { cache_control: part.cache_control } : {}),
               });
             } else if (part.type === 'image_url') {
-              content.push({
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: part.media_type || 'image/jpeg',
-                  data: '',
-                },
-                ...(part.cache_control !== undefined ? { cache_control: part.cache_control } : {}),
-              });
+              const source = toAnthropicImageSource(part);
+              if (source) {
+                content.push({
+                  type: 'image',
+                  source,
+                  ...(part.cache_control !== undefined
+                    ? { cache_control: part.cache_control }
+                    : {}),
+                });
+              }
             }
           }
         }
@@ -134,6 +209,7 @@ export async function buildAnthropicRequest(request: UnifiedChatRequest): Promis
     const passthroughFields = [
       'thinking',
       'output_config',
+      'output_format',
       'metadata',
       'tool_choice',
       'top_p',
@@ -146,6 +222,17 @@ export async function buildAnthropicRequest(request: UnifiedChatRequest): Promis
         payload[field] = request.originalBody[field];
       }
     }
+  }
+
+  // Cross-format (Responses `text.format` / Chat `response_format`) → Anthropic
+  // structured outputs. Same-format messages already carry `output_config` via
+  // the passthrough above; only fill `format` when the client didn't send one.
+  const schema = jsonSchemaFromUnified(request);
+  if (schema && payload.output_config?.format === undefined) {
+    payload.output_config = {
+      ...(payload.output_config ?? {}),
+      format: { type: 'json_schema', schema },
+    };
   }
 
   return payload;
