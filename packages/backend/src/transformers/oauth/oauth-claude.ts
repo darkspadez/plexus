@@ -318,13 +318,22 @@ Focus text output on:
 
 If you can say it in one sentence, don't use three. Prefer short, direct sentences over long explanations. This does not apply to code or tool calls.`;
 
+const CLAUDE_CODE_IDENTITY_TEXT = "You are Claude Code, Anthropic's official CLI for Claude.";
+const STATIC_CLAUDE_CODE_PROMPT = [
+  CLAUDE_CODE_INTRO,
+  CLAUDE_CODE_SYSTEM,
+  CLAUDE_CODE_DOING_TASKS,
+  CLAUDE_CODE_TONE_AND_STYLE,
+  CLAUDE_CODE_OUTPUT_EFFICIENCY,
+].join('\n\n');
+
 export interface ClaudeOAuthConfig {
   version?: string; // Claude Code version (e.g., "2.1.63")
   entrypoint?: string; // CLI entrypoint (e.g., "claude")
   workload?: string; // Workload identifier
   strictMode?: boolean; // If true, don't move user system to first user message
   experimentalCCHSigning?: boolean; // Enable CCH signing
-  oauthMode?: boolean; // OAuth mode flag for sanitization
+  oauthMode?: boolean; // Legacy caller marker retained for compatibility
 }
 
 /**
@@ -420,20 +429,6 @@ function computeSHA256Truncated(input: string, length: number): string {
 }
 
 /**
- * Sanitizes forwarded third-party system prompts to minimal neutral content.
- * Removes all client-specific branding, URLs, and workflow descriptions.
- */
-function sanitizeForwardedSystemPrompt(text: string): string {
-  if (!text || !text.trim()) {
-    return '';
-  }
-
-  return `Use the available tools when needed to help with software engineering tasks.
-Keep responses concise and focused on the user's request.
-Prefer acting on the user's task over describing product-specific workflows.`;
-}
-
-/**
  * Prepends system context to the first user message as a system-reminder block.
  */
 function prependToFirstUserMessage(messages: any[], text: string): any[] {
@@ -482,12 +477,17 @@ IMPORTANT: this context may or may not be relevant to your tasks. You should not
 export function injectClaudeCodeSystemPrompt(payload: any, config: ClaudeOAuthConfig = {}): any {
   const result = JSON.parse(JSON.stringify(payload));
 
-  // Check if already injected (avoid double-injection)
-  const firstSystemText = result.system?.[0]?.text;
-  if (
-    typeof firstSystemText === 'string' &&
-    firstSystemText.startsWith('x-anthropic-billing-header:')
-  ) {
+  // Check the complete generated shape before treating the request as
+  // already injected. A caller-authored prompt may legitimately begin with
+  // the billing-header text.
+  const isAlreadyInjected =
+    Array.isArray(result.system) &&
+    result.system.length >= 3 &&
+    typeof result.system[0]?.text === 'string' &&
+    result.system[0].text.startsWith('x-anthropic-billing-header:') &&
+    result.system[1]?.text === CLAUDE_CODE_IDENTITY_TEXT &&
+    result.system[2]?.text === STATIC_CLAUDE_CODE_PROMPT;
+  if (isAlreadyInjected) {
     logger.debug('System prompt already injected, skipping');
     return result;
   }
@@ -499,18 +499,19 @@ export function injectClaudeCodeSystemPrompt(payload: any, config: ClaudeOAuthCo
   if (Array.isArray(result.system)) {
     for (const part of result.system) {
       if (part.type === 'text') {
-        const txt = part.text?.trim();
-        if (txt) {
-          messageText = messageText || txt;
-          userSystemParts.push(txt);
+        const rawText = typeof part.text === 'string' ? part.text : '';
+        const normalizedText = rawText.trim();
+        if (normalizedText) {
+          messageText = messageText || normalizedText;
+          userSystemParts.push(rawText);
         }
       }
     }
   } else if (typeof result.system === 'string') {
-    const txt = result.system.trim();
-    if (txt) {
-      messageText = txt;
-      userSystemParts.push(txt);
+    const normalizedText = result.system.trim();
+    if (normalizedText) {
+      messageText = normalizedText;
+      userSystemParts.push(result.system);
     }
   }
 
@@ -536,33 +537,20 @@ export function injectClaudeCodeSystemPrompt(payload: any, config: ClaudeOAuthCo
   // [1] Agent identifier (no cache_control)
   systemBlocks.push({
     type: 'text',
-    text: "You are Claude Code, Anthropic's official CLI for Claude.",
+    text: CLAUDE_CODE_IDENTITY_TEXT,
   });
 
   // [2] Static prompt sections combined
-  const staticPrompt = [
-    CLAUDE_CODE_INTRO,
-    CLAUDE_CODE_SYSTEM,
-    CLAUDE_CODE_DOING_TASKS,
-    CLAUDE_CODE_TONE_AND_STYLE,
-    CLAUDE_CODE_OUTPUT_EFFICIENCY,
-  ].join('\n\n');
-
   systemBlocks.push({
     type: 'text',
-    text: staticPrompt,
+    text: STATIC_CLAUDE_CODE_PROMPT,
   });
 
   result.system = systemBlocks;
 
   // Move user system instructions to first user message (if not strict mode)
   if (!config.strictMode && userSystemParts.length > 0) {
-    let combined = userSystemParts.join('\n\n');
-
-    // In OAuth mode, sanitize the forwarded system prompt
-    if (config.oauthMode) {
-      combined = sanitizeForwardedSystemPrompt(combined);
-    }
+    const combined = userSystemParts.join('\n\n');
 
     if (combined.trim()) {
       result.messages = prependToFirstUserMessage(result.messages, combined);

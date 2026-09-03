@@ -173,7 +173,7 @@ describe('Anthropic reasoning intent normalization', () => {
   });
 });
 
-describe('Anthropic image block cache_control round-trip', () => {
+describe('Anthropic image source translation', () => {
   it('preserves cache_control on image blocks (Fix #2)', async () => {
     const requestWithImage = {
       model: 'claude-sonnet-4-6',
@@ -253,6 +253,7 @@ describe('Anthropic image block cache_control round-trip', () => {
               type: 'image_url',
               image_url: { url: 'data:image/png;base64,iVBORw0KGgo=' },
               media_type: 'image/png',
+              cache_control: { type: 'ephemeral' },
             },
             { type: 'text', text: 'what is in this screenshot?' },
           ],
@@ -264,6 +265,92 @@ describe('Anthropic image block cache_control round-trip', () => {
       type: 'base64',
       media_type: 'image/png',
       data: 'iVBORw0KGgo=',
+    });
+    expect(built.messages[0].content.find((b: any) => b.type === 'image').cache_control).toEqual({
+      type: 'ephemeral',
+    });
+  });
+
+  it('forwards raw base64 image data as an Anthropic base64 source', async () => {
+    const built = await buildAnthropicRequest({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: { url: 'iVBORw0KGgo=' },
+              media_type: 'image/png',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(built.messages[0].content[0].source).toEqual({
+      type: 'base64',
+      media_type: 'image/png',
+      data: 'iVBORw0KGgo=',
+    });
+  });
+
+  it('rejects HTTP image URLs instead of forwarding them to Anthropic', async () => {
+    const request = {
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user' as const,
+          content: [
+            {
+              type: 'image_url' as const,
+              image_url: { url: 'http://example.com/shot.png' },
+            },
+          ],
+        },
+      ],
+    };
+
+    await expect(buildAnthropicRequest(request)).rejects.toMatchObject({
+      message: expect.stringMatching(/must use HTTPS/i),
+      routingContext: {
+        statusCode: 400,
+        code: 'invalid_image_source',
+      },
+    });
+  });
+
+  it.each([
+    ['a non-base64 data URI', { image_url: { url: 'data:image/png,not-base64' } }],
+    [
+      'an unsupported image media type',
+      { image_url: { url: 'data:image/svg+xml;base64,PHN2Zz4=' } },
+    ],
+    ['an unsupported URL scheme', { image_url: { url: 'ftp://example.com/shot.png' } }],
+    ['an invalid raw value', { image_url: { url: 'not an image source' } }],
+    ['whitespace-padded raw base64', { image_url: { url: ' iVBORw0KGgo= ' } }],
+    ['a non-string image URL', { image_url: { url: 123 } }],
+    ['a non-string media type', { image_url: { url: 'iVBORw0KGgo=' }, media_type: 123 }],
+  ])('rejects %s', async (_label, imagePart) => {
+    const request = {
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user' as const,
+          content: [{ type: 'image_url' as const, ...imagePart }],
+        },
+      ],
+    };
+
+    await expect(buildAnthropicRequest(request as any)).rejects.toMatchObject({
+      message: expect.stringMatching(/invalid Anthropic image source/i),
+      routingContext: {
+        statusCode: 400,
+        code: 'invalid_image_source',
+      },
     });
   });
 });
