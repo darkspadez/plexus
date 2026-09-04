@@ -720,11 +720,11 @@
   │ [method] transformRequestPayload (line 56)
 
 📁 packages/backend/src/services/dispatch/request-payload-builder.ts:
-  │ [interface] RequestPayload (line 48)
-  │ [function] buildRequestPayload (line 100)
-  │ [function] isNativeOAuthRoute (line 32)
-  │ [function] isOAuthRouteForNative (line 39)
-  │ [function] shouldUsePassThrough (line 53)
+  │ [interface] RequestPayload (line 49)
+  │ [function] buildRequestPayload (line 101)
+  │ [function] isNativeOAuthRoute (line 33)
+  │ [function] isOAuthRouteForNative (line 40)
+  │ [function] shouldUsePassThrough (line 54)
 
 📁 packages/backend/src/services/dispatch/standard-attempt-request.ts:
   │ [interface] StandardAttemptContext (line 62)
@@ -1805,8 +1805,8 @@
   │ [function] convertUnifiedPartsToGemini (line 55)
 
 📁 packages/backend/src/transformers/gemini/request-builder.ts:
-  │ [interface] GenerateContentRequest (line 19)
-  │ [function] buildGeminiRequest (line 55)
+  │ [interface] GenerateContentRequest (line 20)
+  │ [function] buildGeminiRequest (line 56)
 
 📁 packages/backend/src/transformers/gemini/request-parser.ts:
   │ [function] parseGeminiRequest (line 16)
@@ -1828,6 +1828,11 @@
 
 📁 packages/backend/src/transformers/gemini/utils/json-schema.ts:
   │ [function] normalizeJsonSchemaTypes (line 7)
+
+📁 packages/backend/src/transformers/gemini/utils/model-tail.ts:
+  │ [function] appendUserAfterTextOnlyModelTail (line 38)
+  │ [function] ensureContentsEndWithUser (line 50)
+  │ [function] isTextOnlyModelContent (line 19)
 
 📁 packages/backend/src/transformers/gemini/utils/thought-signature.ts:
   │ [function] isValidThoughtSignature (line 16)
