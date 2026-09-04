@@ -48,10 +48,30 @@ export class OpenAITransformer implements Transformer {
         })
       : input.messages;
 
+    // `max_completion_tokens` is the non-deprecated Chat Completions spelling
+    // (required by o-series/GPT-5-style reasoning models); `max_tokens` is the
+    // legacy spelling. They are mutually exclusive upstream (sending both
+    // 400s), so normalize either into unified `max_tokens`, preferring
+    // `max_completion_tokens` when both are present. Conditional spread keeps
+    // the key absent (not `max_tokens: undefined`) when the caller sent
+    // neither — downstream `in`-checks must not see a phantom key.
+    // First valid number wins (`max_completion_tokens` preferred): a garbage
+    // value in one spelling must not shadow a good value in the other via a
+    // bare `??` (e.g. `{max_tokens: 512, max_completion_tokens: "1024"}` must
+    // still normalize to 512 rather than dropping the budget entirely).
+    const mct = input.max_completion_tokens;
+    const legacy = input.max_tokens;
+    const maxTokens =
+      typeof mct === 'number' && mct > 0
+        ? mct
+        : typeof legacy === 'number' && legacy > 0
+          ? legacy
+          : undefined;
+
     return {
       messages,
       model: input.model,
-      max_tokens: input.max_tokens,
+      ...(maxTokens !== undefined ? { max_tokens: maxTokens } : {}),
       temperature: input.temperature,
       stream: input.stream,
       tools: input.tools,
@@ -100,7 +120,32 @@ export class OpenAITransformer implements Transformer {
     // Override with explicitly-transformed fields
     out.model = request.model;
     out.messages = messages;
-    out.max_tokens = request.max_tokens;
+    // `max_tokens` and `max_completion_tokens` are mutually exclusive
+    // upstream (sending both 400s), so emit exactly one spelling. Mirror the
+    // caller's spelling when they sent only one; when they sent both, the
+    // unified value already prefers `max_completion_tokens` (see
+    // parseRequest), so emit that alone rather than a contradictory pair.
+    const callerSentMct = request.originalBody?.max_completion_tokens !== undefined;
+    const callerSentMaxTokens = request.originalBody?.max_tokens !== undefined;
+    if (request.max_tokens !== undefined) {
+      // Only clear the keys when a unified budget exists to re-emit: an
+      // invalid caller value (e.g. a non-numeric budget the parse-time guard
+      // rejected) must pass through untouched so the upstream still 400s on
+      // it instead of silently running uncapped.
+      delete out.max_tokens;
+      delete out.max_completion_tokens;
+      if (callerSentMct && !callerSentMaxTokens) {
+        out.max_completion_tokens = request.max_tokens;
+      } else if (callerSentMaxTokens && !callerSentMct) {
+        out.max_tokens = request.max_tokens;
+      } else if (callerSentMct && callerSentMaxTokens) {
+        out.max_completion_tokens = request.max_tokens;
+      } else {
+        // No caller spelling to mirror (unified value came from middleware
+        // or a default): use the legacy key this wire format defaults to.
+        out.max_tokens = request.max_tokens;
+      }
+    }
     out.temperature = request.temperature;
     out.stream = request.stream;
     out.tools = normalizedTools && normalizedTools.length > 0 ? normalizedTools : undefined;
