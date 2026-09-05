@@ -1860,6 +1860,7 @@ export const api = {
           disableCooldown: val.disable_cooldown === true,
           stallCooldown: val.stall_cooldown === true,
           allow100PercentUtilization: val.allow_100_percent_utilization === true,
+          auto_compat: val.auto_compat === true,
           discount: val.discount,
           headers: val.headers,
           extraBody:
@@ -1909,10 +1910,10 @@ export const api = {
       estimateTokens: provider.estimateTokens,
       useClaudeMasking: provider.useClaudeMasking,
       geminiThinkingEnabled: provider.geminiThinkingEnabled,
-      disable_cooldown: provider.disableCooldown === true ? true : undefined,
-      stall_cooldown: provider.stallCooldown === true ? true : undefined,
-      allow_100_percent_utilization:
-        provider.allow100PercentUtilization === true ? true : undefined,
+      disable_cooldown: provider.disableCooldown === true,
+      stall_cooldown: provider.stallCooldown === true,
+      allow_100_percent_utilization: provider.allow100PercentUtilization === true,
+      auto_compat: provider.auto_compat === true,
       discount: provider.discount,
       headers: provider.headers,
       extraBody: provider.extraBody,
@@ -1969,6 +1970,21 @@ export const api = {
     // Delete old provider only after new one is saved successfully
     if (oldId && oldId !== provider.id) {
       await api.deleteProvider(oldId, false);
+    }
+  },
+
+  updateProviderEnabled: async (providerId: string, enabled: boolean): Promise<void> => {
+    const res = await fetchWithAuth(
+      `${API_BASE}/v0/management/providers/${encodePathPreservingSlashes(providerId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update provider status');
     }
   },
 
