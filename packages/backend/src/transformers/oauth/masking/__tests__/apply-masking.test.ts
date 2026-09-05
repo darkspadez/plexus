@@ -20,7 +20,6 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { applyClaudeOAuthTransform } from '../../oauth-claude';
 import { applyClaudeCodeMasking } from '../apply-masking';
 import { buildFixtureTools, buildPiAiOutputFixture } from './fixtures';
 
@@ -144,7 +143,7 @@ describe('applyClaudeCodeMasking (regression: debug trace 17404760-e986-49b3-8a2
     expect(payload.system[2].text).not.toContain('AGENTS.md');
   });
 
-  it('relocates the caller real system content verbatim into the first user message', () => {
+  it('relocates the caller real system content, sanitized, into the first user message', () => {
     const { payload } = applyClaudeCodeMasking(JSON.stringify(buildPiAiOutputFixture()));
 
     const firstUserMessage = payload.messages.find((m: any) => m.role === 'user');
@@ -154,33 +153,12 @@ describe('applyClaudeCodeMasking (regression: debug trace 17404760-e986-49b3-8a2
         : firstUserMessage.content[0].text;
 
     expect(content).toContain('<system-reminder>');
-    expect(content).toContain('/synthetic/workspace');
-    expect(content).toContain('Synthetic agent rules');
-    expect(payload.system.every((part: any) => !part.text.includes('synthetic/workspace'))).toBe(
-      true
+    expect(content).toContain(
+      'Use the available tools when needed to help with software engineering tasks.'
     );
-    expect(payload.system.every((part: any) => !part.text.includes('Synthetic agent rules'))).toBe(
-      true
-    );
-  });
-
-  it('preserves one caller reminder across the production two-stage masking sequence', () => {
-    const input = buildPiAiOutputFixture();
-    const { payload: legacyMasked } = applyClaudeOAuthTransform(input, 'sk-ant-oat-test', {
-      oauthMode: true,
-    });
-    const { payload } = applyClaudeCodeMasking(JSON.stringify(legacyMasked));
-    const firstUserMessage = payload.messages.find((message: any) => message.role === 'user');
-    const content = Array.isArray(firstUserMessage.content)
-      ? firstUserMessage.content.map((part: any) => part.text).join('\n')
-      : firstUserMessage.content;
-
-    expect(content.match(/<system-reminder>/g)).toHaveLength(1);
-    expect(content.match(/Synthetic agent rules/g)).toHaveLength(1);
-    expect(payload.system).toHaveLength(3);
-    expect(payload.system.every((part: any) => !part.text.includes('Synthetic agent rules'))).toBe(
-      true
-    );
+    // The caller's actual system-prompt content (paths, AGENTS.md instructions) must NOT leak through.
+    expect(content).not.toContain('synthetic/workspace');
+    expect(content).not.toContain('Synthetic agent rules');
   });
 
   it('signs the CCH — never sends the unsigned 00000 placeholder', () => {

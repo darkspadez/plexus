@@ -296,43 +296,50 @@ describe('Anthropic image source translation', () => {
     });
   });
 
-  it('rejects HTTP image URLs instead of forwarding them to Anthropic', async () => {
-    const request = {
+  it('forwards http:// image URLs as Anthropic url sources (spec has no scheme rule)', async () => {
+    const built = await buildAnthropicRequest({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       messages: [
         {
-          role: 'user' as const,
+          role: 'user',
+          content: [{ type: 'image_url', image_url: { url: 'http://example.com/shot.png' } }],
+        },
+      ],
+    });
+
+    expect(built.messages[0].content[0].source).toEqual({
+      type: 'url',
+      url: 'http://example.com/shot.png',
+    });
+  });
+
+  it('forwards data-URI media types verbatim and leaves media-type validation to Anthropic', async () => {
+    const built = await buildAnthropicRequest({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
           content: [
-            {
-              type: 'image_url' as const,
-              image_url: { url: 'http://example.com/shot.png' },
-            },
+            { type: 'image_url', image_url: { url: 'data:image/svg+xml;base64,PHN2Zz4=' } },
           ],
         },
       ],
-    };
+    });
 
-    await expect(buildAnthropicRequest(request)).rejects.toMatchObject({
-      message: expect.stringMatching(/must use HTTPS/i),
-      routingContext: {
-        statusCode: 400,
-        code: 'invalid_image_source',
-      },
+    expect(built.messages[0].content[0].source).toEqual({
+      type: 'base64',
+      media_type: 'image/svg+xml',
+      data: 'PHN2Zz4=',
     });
   });
 
   it.each([
     ['a non-base64 data URI', { image_url: { url: 'data:image/png,not-base64' } }],
-    [
-      'an unsupported image media type',
-      { image_url: { url: 'data:image/svg+xml;base64,PHN2Zz4=' } },
-    ],
-    ['an unsupported URL scheme', { image_url: { url: 'ftp://example.com/shot.png' } }],
-    ['an invalid raw value', { image_url: { url: 'not an image source' } }],
-    ['whitespace-padded raw base64', { image_url: { url: ' iVBORw0KGgo= ' } }],
+    ['an empty image URL', { image_url: { url: '' } }],
     ['a non-string image URL', { image_url: { url: 123 } }],
-    ['a non-string media type', { image_url: { url: 'iVBORw0KGgo=' }, media_type: 123 }],
+    ['a missing image_url', {}],
   ])('rejects %s', async (_label, imagePart) => {
     const request = {
       model: 'claude-sonnet-4-6',

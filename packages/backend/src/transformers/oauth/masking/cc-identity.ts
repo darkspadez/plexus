@@ -24,9 +24,8 @@
  * `cc-billing.ts`), the CC identity line, and the real static CC system
  * prompt — then relocates the caller's actual system content (from pi-ai's
  * injected block[1] and/or the caller's own systemPrompt) into the first
- * user message as a verbatim `<system-reminder>` block. Keeping caller
- * content out of `system[]` preserves the Claude Code fingerprint while
- * retaining its instructions at user-message priority.
+ * user message as a sanitized `<system-reminder>` block, mirroring v1's
+ * `injectClaudeCodeSystemPrompt` / `sanitizeForwardedSystemPrompt`.
  */
 
 import { buildBillingHeaderText, BILLING_HEADER_PREFIX } from './cc-billing';
@@ -92,6 +91,21 @@ const STATIC_CLAUDE_CODE_PROMPT = [
 const CLAUDE_CODE_IDENTITY_TEXT = "You are Claude Code, Anthropic's official CLI for Claude.";
 
 /**
+ * Sanitizes the caller's real system prompt to minimal neutral content
+ * before relocating it into the first user message, so no client-specific
+ * branding/instructions reach Anthropic outside the genuine CC system
+ * prompt. Fixed output regardless of input — same approach v1 uses.
+ */
+function sanitizeForwardedSystemPrompt(text: string): string {
+  if (!text || !text.trim()) {
+    return '';
+  }
+  return `Use the available tools when needed to help with software engineering tasks.
+Keep responses concise and focused on the user's request.
+Prefer acting on the user's task over describing product-specific workflows.`;
+}
+
+/**
  * Returns a NEW messages array with a `<system-reminder>` block prepended
  * to the first user message's content. Never mutates the input array or
  * any message object within it — builds a new message object and a new
@@ -139,7 +153,7 @@ IMPORTANT: this context may or may not be relevant to your tasks. You should not
  * (billing header placeholder + CC identity + static CC system prompt) and
  * relocates whatever real system content was present (pi-ai's own
  * `context.systemPrompt` block, i.e. the caller's real system prompt) into
- * the first user message as a verbatim `<system-reminder>` block.
+ * the first user message as a sanitized `<system-reminder>` block.
  *
  * Must run BEFORE CCH signing (`sign-billing.ts`), since signing hashes
  * over the finalized body and this function is what produces the unsigned
@@ -148,39 +162,26 @@ IMPORTANT: this context may or may not be relevant to your tasks. You should not
  * @param body - Parsed JSON request body, already tool-renamed/deduped
  *   (i.e. `system` is still whatever pi-ai's `buildParams()` produced:
  *   `[{"You are Claude Code..."}, {callerSystemPrompt}]` for an OAuth
- *   token, `[{callerSystemPrompt}]` otherwise, or Anthropic's string form)
+ *   token, or just `[{callerSystemPrompt}]` otherwise)
  * @returns New body object with `system[]` replaced and `messages` updated
  *   (does not mutate the input)
  */
 export function injectClaudeCodeIdentity(body: any): any {
   const result = { ...body };
 
-  const existingSystem = Array.isArray(body.system)
-    ? body.system
-    : typeof body.system === 'string'
-      ? [{ type: 'text', text: body.system }]
-      : [];
-  const systemText = existingSystem.map((part: any) =>
-    typeof part?.text === 'string' ? part.text : ''
-  );
-  const hasCanonicalIdentity =
-    systemText.length >= 3 &&
-    systemText[0]?.startsWith(BILLING_HEADER_PREFIX) &&
-    systemText[1] === CLAUDE_CODE_IDENTITY_TEXT &&
-    systemText[2] === STATIC_CLAUDE_CODE_PROMPT;
+  const existingSystem = Array.isArray(body.system) ? body.system : [];
 
-  // Treat every non-canonical system block as caller content. Only the full
-  // generated three-block identity can be safely distinguished from caller
-  // text; filtering individual strings would silently drop valid prompts
-  // that happen to match one of those strings.
+  // Collect all real text content (identity/billing blocks excluded) for
+  // relocation — i.e. the caller's own system prompt, however pi-ai framed
+  // it. Mirrors v1's injectClaudeCodeSystemPrompt exactly.
   const userSystemParts: string[] = [];
-  for (const [index, part] of existingSystem.entries()) {
+  for (const part of existingSystem) {
     if (part?.type !== 'text') continue;
-    const rawText = typeof part.text === 'string' ? part.text : '';
-    const normalizedText = rawText.trim();
-    if (!normalizedText) continue;
-    if (hasCanonicalIdentity && index < 3) continue;
-    userSystemParts.push(rawText);
+    const txt = typeof part.text === 'string' ? part.text.trim() : '';
+    if (!txt) continue;
+    if (txt.startsWith(BILLING_HEADER_PREFIX)) continue;
+    if (txt === CLAUDE_CODE_IDENTITY_TEXT) continue;
+    userSystemParts.push(txt);
   }
 
   result.system = [
@@ -190,9 +191,9 @@ export function injectClaudeCodeIdentity(body: any): any {
   ];
 
   if (userSystemParts.length > 0) {
-    const callerSystemPrompt = userSystemParts.join('\n\n');
-    if (callerSystemPrompt.trim()) {
-      result.messages = prependToFirstUserMessage(body.messages, callerSystemPrompt);
+    const sanitized = sanitizeForwardedSystemPrompt(userSystemParts.join('\n\n'));
+    if (sanitized.trim()) {
+      result.messages = prependToFirstUserMessage(body.messages, sanitized);
     }
   }
 
