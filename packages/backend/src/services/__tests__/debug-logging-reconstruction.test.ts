@@ -1,5 +1,5 @@
 import { once } from 'node:events';
-import { describe, expect, test, beforeEach } from 'vitest';
+import { describe, expect, test, beforeEach, vi } from 'vitest';
 import { registerSpy } from '../../../test/test-utils';
 import { DebugLoggingInspector } from '../inspectors/debug-logging';
 import { DebugManager } from '../observability/debug-manager';
@@ -177,6 +177,39 @@ describe('DebugLoggingInspector Reconstruction', () => {
       }
       stream.end();
     };
+
+    test('finalizes a completed Responses stream before the transport ends', () => {
+      const completedRequestId = 'test-responses-completed-before-end';
+      const onResponsesTerminal = vi.fn();
+      const inspector = new DebugLoggingInspector(completedRequestId, 'raw', onResponsesTerminal);
+      const stream = inspector.createInspector('responses');
+      const completedEvent = `data: ${JSON.stringify({
+        type: 'response.completed',
+        response: {
+          id: 'resp_completed',
+          object: 'response',
+          status: 'completed',
+          model: 'gpt-4o',
+          output: [],
+          usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+        },
+      })}\n\n`;
+
+      stream.write(Buffer.from(completedEvent.slice(0, 40)));
+      expect(DebugManager.getInstance().getReconstructedRawResponse(completedRequestId)).toBeNull();
+
+      stream.write(Buffer.from(completedEvent.slice(40)));
+
+      const log = DebugManager.getInstance().getPendingLog(completedRequestId);
+      expect(onResponsesTerminal).toHaveBeenCalledTimes(1);
+      expect(log?.rawResponse).toBe(completedEvent);
+      expect(log?.rawResponseSnapshot).toMatchObject({
+        id: 'resp_completed',
+        status: 'completed',
+        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+      });
+      stream.destroy();
+    });
 
     test('response.failed captures status, error, and usage (mid-stream failure)', async () => {
       const failedRequestId = 'test-responses-failed';

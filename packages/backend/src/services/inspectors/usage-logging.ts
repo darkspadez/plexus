@@ -147,6 +147,12 @@ export class UsageInspector extends PassThrough {
   }
 
   override _flush(callback: Function) {
+    this.finalize();
+    callback();
+  }
+
+  finalize(): void {
+    if (this._flushed) return;
     this._flushed = true;
     const stats = {
       inputTokens: 0,
@@ -319,10 +325,8 @@ export class UsageInspector extends PassThrough {
 
       logger.debug(`Request ${this.usageRecord.requestId} usage analysis complete.`);
       DebugManager.getInstance().flush(this.usageRecord.requestId!);
-      callback();
     } catch (err) {
       logger.error(`Error analyzing usage for ${this.usageRecord.requestId}:`, err);
-      callback();
     }
   }
 
