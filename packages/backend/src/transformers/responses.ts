@@ -17,6 +17,7 @@ import {
   UnifiedClientToolCall,
   UnifiedImageGenerationCall,
   UnifiedMessage,
+  UnifiedUsage,
 } from '../types/unified';
 import { createParser } from 'eventsource-parser';
 import { encode } from 'eventsource-encoder';
@@ -40,6 +41,43 @@ function toUnifiedImageGenerationCall(item: any): UnifiedImageGenerationCall {
     ...(typeof item.id === 'string' ? { id: item.id } : {}),
     ...(typeof item.status === 'string' ? { status: item.status } : {}),
     result: item.result,
+  };
+}
+
+/**
+ * Rebuilds the wire `usage` object for every Responses-format payload we
+ * emit (the unary `formatResponse` body and each terminal streaming event:
+ * response.completed on stream end, response.completed on finish_reason,
+ * response.incomplete and response.failed). Single source of truth so the
+ * four sites can never drift apart.
+ *
+ * `input_tokens` is the TOTAL input (uncached + cached + cache writes),
+ * matching the Responses API contract, because the unified layer carries
+ * those split out (see normalizeOpenAIResponsesUsage).
+ *
+ * `image_tokens` is emitted inside the detail blocks ONLY when the unified
+ * usage actually carries it — providers that report no image tokens (every
+ * text-only turn) must produce exactly the payload they produced before this
+ * field existed, so an omitted detail stays omitted rather than becoming 0.
+ */
+function buildResponsesUsagePayload(usage: UnifiedUsage | null | undefined): any {
+  if (!usage) return undefined;
+
+  return {
+    input_tokens:
+      (usage.input_tokens || 0) + (usage.cached_tokens || 0) + (usage.cache_creation_tokens || 0),
+    output_tokens: usage.output_tokens,
+    total_tokens: usage.total_tokens,
+    input_tokens_details: {
+      cached_tokens: usage.cached_tokens || 0,
+      ...(usage.input_image_tokens !== undefined ? { image_tokens: usage.input_image_tokens } : {}),
+    },
+    output_tokens_details: {
+      reasoning_tokens: usage.reasoning_tokens || 0,
+      ...(usage.output_image_tokens !== undefined
+        ? { image_tokens: usage.output_image_tokens }
+        : {}),
+    },
   };
 }
 
@@ -615,11 +653,6 @@ export class ResponsesTransformer implements Transformer {
    */
   async formatResponse(response: UnifiedChatResponse): Promise<any> {
     const outputItems = this.convertChatResponseToOutputItems(response);
-    const totalInputTokens = response.usage
-      ? (response.usage.input_tokens || 0) +
-        (response.usage.cached_tokens || 0) +
-        (response.usage.cache_creation_tokens || 0)
-      : 0;
 
     return {
       id: this.generateResponseId(),
@@ -629,19 +662,7 @@ export class ResponsesTransformer implements Transformer {
       status: 'completed',
       model: response.model,
       output: outputItems,
-      usage: response.usage
-        ? {
-            input_tokens: totalInputTokens,
-            input_tokens_details: {
-              cached_tokens: response.usage.cached_tokens || 0,
-            },
-            output_tokens: response.usage.output_tokens,
-            output_tokens_details: {
-              reasoning_tokens: response.usage.reasoning_tokens || 0,
-            },
-            total_tokens: response.usage.total_tokens,
-          }
-        : undefined,
+      usage: buildResponsesUsagePayload(response.usage),
       plexus: response.plexus,
     };
   }
@@ -1903,24 +1924,6 @@ export class ResponsesTransformer implements Transformer {
         .map(([, item]) => item);
     };
 
-    const buildUsagePayload = (usage: any) =>
-      usage
-        ? {
-            input_tokens:
-              (usage.input_tokens || 0) +
-              (usage.cached_tokens || 0) +
-              (usage.cache_creation_tokens || 0),
-            output_tokens: usage.output_tokens,
-            total_tokens: usage.total_tokens,
-            input_tokens_details: {
-              cached_tokens: usage.cached_tokens || 0,
-            },
-            output_tokens_details: {
-              reasoning_tokens: usage.reasoning_tokens || 0,
-            },
-          }
-        : undefined;
-
     return new ReadableStream({
       async start(controller) {
         try {
@@ -1943,22 +1946,7 @@ export class ResponsesTransformer implements Transformer {
                   status: 'completed',
                   model: responseModel,
                   output: outputItems,
-                  usage: lastUsage
-                    ? {
-                        input_tokens:
-                          (lastUsage.input_tokens || 0) +
-                          (lastUsage.cached_tokens || 0) +
-                          (lastUsage.cache_creation_tokens || 0),
-                        output_tokens: lastUsage.output_tokens,
-                        total_tokens: lastUsage.total_tokens,
-                        input_tokens_details: {
-                          cached_tokens: lastUsage.cached_tokens || 0,
-                        },
-                        output_tokens_details: {
-                          reasoning_tokens: lastUsage.reasoning_tokens || 0,
-                        },
-                      }
-                    : undefined,
+                  usage: buildResponsesUsagePayload(lastUsage),
                 },
               });
               break;
@@ -2001,7 +1989,7 @@ export class ResponsesTransformer implements Transformer {
                     model: responseModel,
                     output: outputItems,
                     incomplete_details: unifiedChunk.incomplete_details,
-                    usage: buildUsagePayload(lastUsage),
+                    usage: buildResponsesUsagePayload(lastUsage),
                   },
                 });
               } else {
@@ -2018,7 +2006,7 @@ export class ResponsesTransformer implements Transformer {
                       code: err.code || 'server_error',
                       message: err.message || 'The model response failed to complete.',
                     },
-                    usage: buildUsagePayload(lastUsage),
+                    usage: buildResponsesUsagePayload(lastUsage),
                   },
                 });
               }
@@ -2158,22 +2146,7 @@ export class ResponsesTransformer implements Transformer {
                   status: 'completed',
                   model: responseModel,
                   output: outputItems,
-                  usage: lastUsage
-                    ? {
-                        input_tokens:
-                          (lastUsage.input_tokens || 0) +
-                          (lastUsage.cached_tokens || 0) +
-                          (lastUsage.cache_creation_tokens || 0),
-                        output_tokens: lastUsage.output_tokens,
-                        total_tokens: lastUsage.total_tokens,
-                        input_tokens_details: {
-                          cached_tokens: lastUsage.cached_tokens || 0,
-                        },
-                        output_tokens_details: {
-                          reasoning_tokens: lastUsage.reasoning_tokens || 0,
-                        },
-                      }
-                    : undefined,
+                  usage: buildResponsesUsagePayload(lastUsage),
                 },
               });
               break;

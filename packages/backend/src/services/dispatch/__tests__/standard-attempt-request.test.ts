@@ -83,6 +83,7 @@ function makeHost(overrides: Partial<RequestManagerHost> = {}): RequestManagerHo
     buildRequestUrl: vi.fn(() => 'https://example.test/v1/chat/completions'),
     buildTimeoutError: vi.fn(() => new Error('timeout')),
     createAttemptTimeout: vi.fn(),
+    dispatchImageGenerations: vi.fn(async () => ({}) as any),
     emitRoutingUpdate: vi.fn(),
     executeProviderRequest: vi.fn(),
     formatFailureReason: vi.fn((error: any) => error?.message ?? 'error'),

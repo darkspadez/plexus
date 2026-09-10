@@ -1,9 +1,17 @@
 import { logger } from '../../utils/logger';
-import { getConfig, ModelTargetGroup, SelectorType } from '../../config';
+import {
+  getConfig,
+  ModelConfig,
+  ModelTargetGroup,
+  ProviderConfig,
+  SelectorType,
+} from '../../config';
 import { CooldownManager } from '../runtime/cooldown-manager';
 import { ProbeService } from '../probes/probe-service';
+import { PendingTasks } from '../runtime/pending-tasks';
 
 type TargetKey = `${string}:${string}`;
+type ModelKind = NonNullable<ModelConfig['type']>;
 
 interface TargetState {
   lastProbedAt: number;
@@ -11,6 +19,26 @@ interface TargetState {
 }
 
 const PERFORMANCE_SELECTORS: SelectorType[] = ['latency', 'performance', 'e2e_performance'];
+
+/**
+ * Declared `type` of a concrete target: the provider's model config first,
+ * the alias-level declaration as the fallback. `undefined` when neither
+ * declares one — an untyped model is a text model.
+ *
+ * `models` may be the shorthand `string[]` form, which carries no types.
+ */
+function declaredModelType(
+  providerCfg: ProviderConfig,
+  model: string,
+  aliasType: ModelKind | undefined
+): ModelKind | undefined {
+  const models = providerCfg.models;
+  if (models && !Array.isArray(models)) {
+    const declared = models[model]?.type;
+    if (declared) return declared;
+  }
+  return aliasType;
+}
 
 /**
  * BackgroundExplorer keeps performance data (TTFT / TPS / E2E TPS) fresh by
@@ -28,6 +56,8 @@ export class BackgroundExplorer {
   private state = new Map<TargetKey, TargetState>();
   private queue: Array<{ provider: string; model: string }> = [];
   private activeWorkers = 0;
+  private shuttingDown = false;
+  private tasks = new PendingTasks();
   private readonly processStartTime = Date.now();
 
   private constructor(probeService: ProbeService) {
@@ -54,9 +84,13 @@ export class BackgroundExplorer {
    * `lastProbedAt` is older than the staleness threshold, that is healthy
    * (not on cooldown), and that is not already in flight, enqueue a probe.
    *
+   * Non-text targets are skipped: every background probe is chat-shaped (see
+   * probe-request.ts), so `aliasType` is passed in only to recognise them.
+   *
    * Non-blocking. Returns immediately. Safe to call on every live request.
    */
-  maybeTrigger(group: ModelTargetGroup): void {
+  maybeTrigger(group: ModelTargetGroup, aliasType?: ModelKind): void {
+    if (this.shuttingDown) return;
     const config = getConfig();
     const bg = config.backgroundExploration;
     if (!bg || bg.enabled !== true) {
@@ -80,6 +114,18 @@ export class BackgroundExplorer {
       const providerCfg = providers[target.provider];
       if (!providerCfg || providerCfg.enabled === false) continue;
 
+      // Probes are CHAT-shaped, so a non-text target can never answer one.
+      // For an `image` target that is not merely wasteful: the chat-to-image
+      // bridge turns a chat-shaped request naming an image model into a real
+      // image generation, so every staleness tick would bill an image.
+      const modelType = declaredModelType(providerCfg, target.model, aliasType);
+      if (modelType && modelType !== 'text') {
+        logger.debug(
+          `BackgroundExplorer: skipping ${target.provider}/${target.model} — model type '${modelType}' is not probeable with a chat probe`
+        );
+        continue;
+      }
+
       const key = this.keyFor(target.provider, target.model);
       let st = this.state.get(key);
       if (!st) {
@@ -94,22 +140,24 @@ export class BackgroundExplorer {
       // we don't want to block the live-request path waiting on it. The
       // worker re-checks cooldown right before probing as well.
       const captured = st;
-      cooldownMgr
-        .isProviderHealthy(target.provider, target.model)
-        .then((healthy) => {
-          if (!healthy) return;
-          if (captured.inFlight) return;
-          // Re-check staleness in case another trigger raced us.
-          if (Date.now() - captured.lastProbedAt < thresholdMs) return;
+      this.tasks.track(
+        cooldownMgr
+          .isProviderHealthy(target.provider, target.model)
+          .then((healthy) => {
+            if (!healthy || this.shuttingDown) return;
+            if (captured.inFlight) return;
+            // Re-check staleness in case another trigger raced us.
+            if (Date.now() - captured.lastProbedAt < thresholdMs) return;
 
-          this.queue.push({ provider: target.provider!, model: target.model! });
-          this.pumpWorkers();
-        })
-        .catch((err) => {
-          logger.debug(
-            `BackgroundExplorer: cooldown check failed for ${target.provider}/${target.model}: ${err?.message ?? err}`
-          );
-        });
+            this.queue.push({ provider: target.provider!, model: target.model! });
+            this.pumpWorkers();
+          })
+          .catch((err) => {
+            logger.debug(
+              `BackgroundExplorer: cooldown check failed for ${target.provider}/${target.model}: ${err?.message ?? err}`
+            );
+          })
+      );
     }
   }
 
@@ -118,6 +166,7 @@ export class BackgroundExplorer {
   }
 
   private pumpWorkers(): void {
+    if (this.shuttingDown) return;
     const config = getConfig();
     const bg = config.backgroundExploration;
     if (!bg || bg.enabled !== true) return;
@@ -126,13 +175,13 @@ export class BackgroundExplorer {
     while (this.activeWorkers < concurrency && this.queue.length > 0) {
       this.activeWorkers++;
       // Fire and forget; the worker manages its own lifecycle.
-      void this.worker();
+      void this.tasks.track(this.worker());
     }
   }
 
   private async worker(): Promise<void> {
     try {
-      while (this.queue.length > 0) {
+      while (!this.shuttingDown && this.queue.length > 0) {
         const next = this.queue.shift();
         if (!next) break;
 
@@ -146,7 +195,7 @@ export class BackgroundExplorer {
         const healthy = await CooldownManager.getInstance()
           .isProviderHealthy(next.provider, next.model)
           .catch(() => false);
-        if (!healthy) {
+        if (!healthy || this.shuttingDown) {
           logger.debug(
             `BackgroundExplorer: skipping probe for ${next.provider}/${next.model} — on cooldown`
           );
@@ -175,5 +224,12 @@ export class BackgroundExplorer {
     } finally {
       this.activeWorkers--;
     }
+  }
+
+  /** Discard queued probes and wait for probes already producing usage records. */
+  async shutdown(): Promise<void> {
+    this.shuttingDown = true;
+    this.queue.length = 0;
+    await this.tasks.drain();
   }
 }

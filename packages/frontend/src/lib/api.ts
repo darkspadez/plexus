@@ -1,4 +1,5 @@
 import { formatNumber, formatPoints } from './format';
+import { isOAuthPlaceholderUrl } from '@plexus/shared';
 import { normalizeApiAccessList } from './apiFormats';
 import { dedupeAliasTargets, dedupeById, dedupeModels, dedupeStrings } from './modelOptions';
 
@@ -20,9 +21,9 @@ function inferProviderTypes(apiBaseUrl?: string | Record<string, string>): strin
 
   if (typeof apiBaseUrl === 'string') {
     // Single URL - infer type from URL pattern
-    const url = apiBaseUrl.toLowerCase();
+    const url = apiBaseUrl.trim().toLowerCase();
 
-    if (url.startsWith('oauth://')) {
+    if (isOAuthPlaceholderUrl(apiBaseUrl)) {
       return ['oauth'];
     }
 
@@ -1317,6 +1318,31 @@ function aliasToConfigPayload(alias: Alias): Record<string, unknown> {
       ),
     })),
   };
+}
+
+/**
+ * A model entry returned by `GET /v0/management/oauth/models`. Codex is the one
+ * OAuth provider whose list is account-scoped and fetched live, so entries can
+ * carry a modality hint, the protocols they are reachable through, and the
+ * upstream's own listing hint (`hide` models work but are not advertised).
+ */
+export interface OAuthDiscoveredModel {
+  id: string;
+  name?: string;
+  context_length?: number;
+  description?: string;
+  pricing?: { prompt?: string; completion?: string };
+  type?: 'text' | 'image';
+  access_via?: string[];
+  visibility?: 'list' | 'hide';
+}
+
+export interface OAuthProviderModelsResult {
+  models: OAuthDiscoveredModel[];
+  /** `catalog` means the live Codex lookup was unavailable and we fell back. */
+  source: 'codex-backend' | 'catalog';
+  /** Present only on a fallback — a warning, not a hard error. */
+  warning?: string;
 }
 
 export const api = {
@@ -2801,30 +2827,27 @@ export const api = {
   },
 
   getOAuthProviderModels: async (
-    providerId: string
-  ): Promise<
-    {
-      id: string;
-      name?: string;
-      context_length?: number;
-      pricing?: { prompt?: string; completion?: string };
-    }[]
-  > => {
-    const query = new URLSearchParams({ providerId }).toString();
-    const res = await fetchWithAuth(`${API_BASE}/v0/management/oauth/models?${query}`);
+    providerId: string,
+    accountId?: string
+  ): Promise<OAuthProviderModelsResult> => {
+    const query = new URLSearchParams({ providerId });
+    const trimmedAccountId = accountId?.trim();
+    if (trimmedAccountId) query.set('accountId', trimmedAccountId);
+    const res = await fetchWithAuth(`${API_BASE}/v0/management/oauth/models?${query.toString()}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to fetch OAuth provider models');
     }
     const json = (await res.json()) as {
-      data: {
-        id: string;
-        name?: string;
-        context_length?: number;
-        pricing?: { prompt?: string; completion?: string };
-      }[];
+      data?: OAuthDiscoveredModel[];
+      source?: 'codex-backend' | 'catalog';
+      warning?: string;
     };
-    return json.data || [];
+    return {
+      models: json.data || [],
+      source: json.source ?? 'catalog',
+      ...(json.warning ? { warning: json.warning } : {}),
+    };
   },
 
   getMcpServers: async (): Promise<Record<string, McpServer>> => {

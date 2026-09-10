@@ -1,9 +1,25 @@
 import { PassThrough } from 'stream';
+import { createParser } from 'eventsource-parser';
 import { logger } from '../../utils/logger';
 import { BaseInspector } from './base';
 import { DebugManager } from '../observability/debug-manager';
 
 const MAX_DEBUG_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
+const RESPONSES_TERMINAL_EVENT_TYPES = new Set([
+  'response.completed',
+  'response.failed',
+  'response.incomplete',
+]);
+
+/**
+ * Provider API types whose "raw" stream is a stream of unified chunk OBJECTS
+ * rather than provider SSE bytes. A non-objectMode PassThrough THROWS when an
+ * object is written to it, which would tear down the client's stream, so the
+ * tap must be created in object mode for these:
+ *   - `images`: the auto-bridge (services/dispatch/image-model-bridge.ts)
+ *     synthesizes unified chunks directly, with no provider wire in between.
+ */
+const OBJECT_CHUNK_API_TYPES = new Set(['oauth', 'images']);
 
 export class DebugLoggingInspector extends BaseInspector {
   private debugManager = DebugManager.getInstance();
@@ -16,14 +32,20 @@ export class DebugLoggingInspector extends BaseInspector {
   private totalSize = 0;
   private truncated = false;
   private finalized = false;
+  private responsesEventParser: ReturnType<typeof createParser> | null = null;
 
-  constructor(requestId: string, mode: 'raw' | 'transformed' = 'raw') {
+  constructor(
+    requestId: string,
+    mode: 'raw' | 'transformed' = 'raw',
+    private readonly onResponsesTerminal?: () => void
+  ) {
     super(requestId);
     this.mode = mode;
   }
 
   createInspector(providerApiType: string): PassThrough {
     this.providerApiType = providerApiType;
+    this.initializeResponsesTerminalEventDetection();
 
     // Capture happens synchronously in the transform hook (i.e. at write()
     // time), NOT in a 'data' listener: 'data' emission for the very first
@@ -32,7 +54,7 @@ export class DebugLoggingInspector extends BaseInspector {
     // With write-time capture, finalize() deterministically sees every chunk
     // written up to the instant it runs.
     const inspector = new PassThrough({
-      ...(providerApiType === 'oauth' ? { objectMode: true } : {}),
+      ...(OBJECT_CHUNK_API_TYPES.has(providerApiType) ? { objectMode: true } : {}),
       transform: (chunk: any, _encoding, callback) => {
         this.captureChunk(chunk);
         callback(null, chunk);
@@ -85,6 +107,29 @@ export class DebugLoggingInspector extends BaseInspector {
 
     this.totalSize = newSize;
     this.bodyChunks.push(chunkStr);
+    this.responsesEventParser?.feed(chunkStr);
+  }
+
+  private initializeResponsesTerminalEventDetection(): void {
+    if (this.providerApiType !== 'responses') return;
+
+    this.responsesEventParser = createParser({
+      onEvent: (event) => {
+        try {
+          const responseEvent = JSON.parse(event.data);
+          if (RESPONSES_TERMINAL_EVENT_TYPES.has(responseEvent.type) && !this.finalized) {
+            // Codex may close its HTTP connection immediately after receiving
+            // this terminal event. Finalize before the chunk continues to the
+            // client so the completed response and usage are available during
+            // teardown.
+            this.finalize();
+            this.onResponsesTerminal?.();
+          }
+        } catch {
+          // Non-JSON SSE frames cannot be Responses terminal events.
+        }
+      },
+    });
   }
 
   /**
@@ -126,6 +171,12 @@ export class DebugLoggingInspector extends BaseInspector {
         case 'oauth':
           reconstructed = this.reconstructOAuth(rawBody);
           break;
+        // Bridged image output (services/dispatch/image-model-bridge.ts) is
+        // already unified — there is no provider wire format to reconstruct,
+        // and its usage is recorded from the client-facing transformed
+        // snapshot instead. No-op rather than a spurious "Unknown
+        // providerApiType" warning on every bridged stream.
+        case 'images':
         case 'unknown':
           break;
         default:

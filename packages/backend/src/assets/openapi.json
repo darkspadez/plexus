@@ -8322,7 +8322,7 @@
           "Management — OAuth"
         ],
         "summary": "List models known to an OAuth provider (admin only)",
-        "description": "Returns the list of models available from a specific OAuth provider.\n\n## Data source\n\nThis endpoint returns models from the pi-ai static catalog. It's used\nto populate dropdowns in the UI when configuring provider targets.\n\n## Response fields\n\n- `id` — Model identifier (e.g. `gpt-5.4`)\n- `name` — Human-readable model name\n- `context_length` — Maximum context window in tokens\n- `pricing` — Token pricing (if available)\n\n## Note\n\nThis is a static catalog — it doesn't query the provider's live API.\nUse `/v1/openrouter/models` or `/v1/models` to get the currently\nconfigured model list.\n\n**Admin only** — limited principals receive 403.\n",
+        "description": "Returns the list of models available from a specific OAuth provider.\n\n## Data source\n\nFor most providers this is the pi-ai static catalog. For `openai-codex` the\ngateway asks the ChatGPT backend for the models the signed-in account may\nactually use (the account-scoped list), then appends the Codex image models,\nwhich the backend never lists. If that call fails — no credentials, upstream\nerror, timeout — the response degrades to the static catalog plus the image\nmodels and carries a `warning`.\n\nIt's used to populate dropdowns in the UI when configuring provider targets.\n\n## Response fields\n\n- `data[].id` — Model identifier (e.g. `gpt-5.4`)\n- `data[].name` — Human-readable model name\n- `data[].context_length` — Maximum context window in tokens\n- `data[].pricing` — Token pricing (if available)\n- `data[].type` — `text` or `image` (image models cannot serve chat)\n- `data[].access_via` — Target protocols the model can be reached through\n  (e.g. `codex-images`)\n- `data[].visibility` — Upstream listing hint: `list` (advertised) or\n  `hide` (usable but not advertised)\n- `source` — `codex-backend` when the list came from the live Codex backend,\n  `catalog` when it came from the pi-ai static catalog\n- `warning` — Present only when live discovery was attempted and failed\n\n## Note\n\nApart from `openai-codex`, this is a static catalog — it doesn't query the\nprovider's live API. Use `/v1/openrouter/models` or `/v1/models` to get the\ncurrently configured model list.\n\n**Admin only** — limited principals receive 403.\n",
         "security": [
           {
             "AdminKey": []
@@ -8337,11 +8337,20 @@
               "type": "string"
             },
             "description": "Provider ID to list models for."
+          },
+          {
+            "in": "query",
+            "name": "accountId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "OAuth account whose entitlement should be used. Only honoured for\n`openai-codex` live discovery; omit to use the provider's default\naccount.\n"
           }
         ],
         "responses": {
           "200": {
-            "description": "Model list (pi-ai static catalog).",
+            "description": "Model list (live Codex list or pi-ai static catalog).",
             "content": {
               "application/json": {
                 "schema": {
@@ -8361,6 +8370,29 @@
                           "context_length": {
                             "type": "integer"
                           },
+                          "description": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "text",
+                              "image"
+                            ]
+                          },
+                          "access_via": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "visibility": {
+                            "type": "string",
+                            "enum": [
+                              "list",
+                              "hide"
+                            ]
+                          },
                           "pricing": {
                             "type": "object",
                             "properties": {
@@ -8374,6 +8406,18 @@
                           }
                         }
                       }
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "codex-backend",
+                        "catalog"
+                      ],
+                      "description": "Where the list came from."
+                    },
+                    "warning": {
+                      "type": "string",
+                      "description": "Why live discovery was skipped or failed. Present only when\nthe response fell back to the static catalog.\n"
                     }
                   }
                 }
@@ -11592,6 +11636,26 @@
               },
               "cost": {
                 "type": "number"
+              },
+              "input_tokens_details": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Per-modality input token detail, forwarded as received when the upstream reports it (for example `image_tokens`). Omitted by the `/v1/images` response, which projects only the flat token counts.",
+                "properties": {
+                  "image_tokens": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "output_tokens_details": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Per-modality output token detail, forwarded as received when the upstream reports it (for example `image_tokens`). Omitted by the `/v1/images` response, which projects only the flat token counts.",
+                "properties": {
+                  "image_tokens": {
+                    "type": "integer"
+                  }
+                }
               }
             }
           }

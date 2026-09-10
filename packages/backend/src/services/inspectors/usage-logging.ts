@@ -147,6 +147,12 @@ export class UsageInspector extends PassThrough {
   }
 
   override _flush(callback: Function) {
+    this.finalize();
+    callback();
+  }
+
+  finalize(): void {
+    if (this._flushed) return;
     this._flushed = true;
     const stats = {
       inputTokens: 0,
@@ -272,22 +278,26 @@ export class UsageInspector extends PassThrough {
       // Record quota usage after costs are calculated (fire-and-forget) —
       // against the FINAL attempt's resolved provider/model.
       if (this.quotaEnforcer && this.keyName) {
-        recordQuotaUsage(
-          this.keyName,
-          this.usageRecord.finalAttemptProvider,
-          this.usageRecord.finalAttemptModel,
-          {
-            tokensInput: this.usageRecord.tokensInput,
-            tokensOutput: this.usageRecord.tokensOutput,
-            tokensCached: this.usageRecord.tokensCached,
-            tokensCacheWrite: this.usageRecord.tokensCacheWrite,
-            tokensReasoning: this.usageRecord.tokensReasoning,
-            costTotal: this.usageRecord.costTotal,
-          },
-          this.quotaEnforcer
-        ).catch((err) => {
-          logger.error(`Failed to record quota usage for ${this.keyName}:`, err);
-        });
+        this.usageStorage
+          .trackFinalization(
+            recordQuotaUsage(
+              this.keyName,
+              this.usageRecord.finalAttemptProvider,
+              this.usageRecord.finalAttemptModel,
+              {
+                tokensInput: this.usageRecord.tokensInput,
+                tokensOutput: this.usageRecord.tokensOutput,
+                tokensCached: this.usageRecord.tokensCached,
+                tokensCacheWrite: this.usageRecord.tokensCacheWrite,
+                tokensReasoning: this.usageRecord.tokensReasoning,
+                costTotal: this.usageRecord.costTotal,
+              },
+              this.quotaEnforcer
+            )
+          )
+          .catch((err) => {
+            logger.error(`Failed to record quota usage for ${this.keyName}:`, err);
+          });
       }
 
       if (
@@ -319,10 +329,8 @@ export class UsageInspector extends PassThrough {
 
       logger.debug(`Request ${this.usageRecord.requestId} usage analysis complete.`);
       DebugManager.getInstance().flush(this.usageRecord.requestId!);
-      callback();
     } catch (err) {
       logger.error(`Error analyzing usage for ${this.usageRecord.requestId}:`, err);
-      callback();
     }
   }
 
