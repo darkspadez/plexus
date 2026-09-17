@@ -12,8 +12,14 @@ import {
 import type { Provider } from '../lib/api';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { EmptyState } from '../components/ui/EmptyState';
+import { FormField } from '../components/ui/FormField';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Switch } from '../components/ui/Switch';
 import { PageContainer } from '../components/layout/PageContainer';
 import { PageHeader } from '../components/layout/PageHeader';
+import { cn } from '../lib/cn';
 import { useToast } from '../contexts/ToastContext';
 
 const DEFAULT_CODE = `const response = await ctx.fetch(
@@ -173,85 +179,101 @@ export function CustomQuotaCheckers() {
       />
       <PageContainer>
         <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
-          <Card className="h-fit p-2">
+          <Card className="h-fit" flush>
             {checkers.length === 0 ? (
-              <p className="p-3 text-xs text-text-secondary">No custom quota checkers yet.</p>
+              <EmptyState
+                variant="dense"
+                icon={<Code2 />}
+                title="No checkers yet"
+                description="Create one to add a custom quota integration."
+              />
             ) : (
-              checkers.map((checker) => (
-                <button
-                  key={checker.id}
-                  type="button"
-                  onClick={() => selectChecker(checker)}
-                  className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs ${selectedId === checker.id ? 'bg-primary/15 text-primary' : 'text-text-secondary hover:bg-bg-hover hover:text-text'}`}
-                >
-                  <Code2 size={14} />
-                  <span className="min-w-0 truncate">{checker.displayName || checker.id}</span>
-                </button>
-              ))
+              <div className="flex flex-col gap-0.5 p-2">
+                {checkers.map((checker) => (
+                  <button
+                    key={checker.id}
+                    type="button"
+                    onClick={() => selectChecker(checker)}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors duration-150',
+                      selectedId === checker.id
+                        ? 'bg-accent-subtle text-accent'
+                        : 'text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
+                    )}
+                  >
+                    <Code2 size={14} />
+                    <span className="min-w-0 truncate">{checker.displayName || checker.id}</span>
+                  </button>
+                ))}
+              </div>
             )}
           </Card>
+
           <Card className="p-4">
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="text-xs text-text-secondary">
-                Type / ID
-                <input
-                  className="mt-1 h-8 w-full rounded border border-border-glass bg-bg-glass px-2 text-sm text-text"
-                  value={draft.id}
-                  disabled={Boolean(selectedId)}
-                  onChange={(event) => setDraft({ ...draft, id: event.target.value })}
-                />
-              </label>
-              <label className="text-xs text-text-secondary">
-                Display name
-                <input
-                  className="mt-1 h-8 w-full rounded border border-border-glass bg-bg-glass px-2 text-sm text-text"
-                  value={draft.displayName}
-                  onChange={(event) => setDraft({ ...draft, displayName: event.target.value })}
-                />
-              </label>
-            </div>
-            <label className="mt-3 flex items-center gap-2 text-xs text-text-secondary">
-              <input
-                type="checkbox"
-                checked={draft.enabled}
-                onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
+              <Input
+                label="Type / ID"
+                value={draft.id}
+                disabled={Boolean(selectedId)}
+                hint={selectedId ? 'The id is fixed once the checker is saved.' : undefined}
+                onChange={(event) => setDraft({ ...draft, id: event.target.value })}
               />
-              Enabled
-            </label>
-            <label className="mt-3 block text-xs text-text-secondary">
-              JavaScript function body
+              <Input
+                label="Display name"
+                value={draft.displayName}
+                onChange={(event) => setDraft({ ...draft, displayName: event.target.value })}
+              />
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-sans text-[12px] font-medium text-foreground">Enabled</div>
+                <div className="font-sans text-[11px] text-foreground-subtle">
+                  Providers may select this checker only while it is enabled.
+                </div>
+              </div>
+              <Switch
+                checked={draft.enabled}
+                onChange={(checked) => setDraft({ ...draft, enabled: checked })}
+                aria-label="Checker enabled"
+              />
+            </div>
+
+            <FormField
+              label="JavaScript function body"
+              hint="Runs server-side with ctx.fetch / ctx.getOption / ctx.balance available."
+              className="mt-3"
+            >
               <textarea
-                className="mt-1 min-h-[420px] w-full rounded border border-border-glass bg-bg-deep p-3 font-mono text-xs leading-relaxed text-text outline-none focus:border-primary"
+                className="min-h-[420px] w-full rounded-md border border-border bg-surface-sunken p-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:border-accent"
                 value={draft.code}
                 onChange={(event) => setDraft({ ...draft, code: event.target.value })}
                 spellCheck={false}
               />
-            </label>
+            </FormField>
+
             <div className="mt-3 flex flex-wrap items-end gap-2">
-              <label className="min-w-48 flex-1 text-xs text-text-secondary">
-                Test against provider
-                <select
-                  className="mt-1 h-8 w-full rounded border border-border-glass bg-bg-glass px-2 text-sm text-text"
+              <div className="min-w-48 flex-1">
+                <Select
+                  label="Test against provider"
                   value={testProvider}
-                  onChange={(event) => setTestProvider(event.target.value)}
-                >
-                  <option value="">Select a provider</option>
-                  {providers.map((provider) => (
-                    <option key={provider.id} value={provider.id}>
-                      {provider.name || provider.id}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="min-w-48 flex-1 text-xs text-text-secondary">
-                Test options (JSON)
-                <input
-                  className="mt-1 h-8 w-full rounded border border-border-glass bg-bg-glass px-2 font-mono text-xs text-text"
+                  onChange={setTestProvider}
+                  placeholder="Select a provider"
+                  options={providers.map((provider) => ({
+                    value: provider.id,
+                    label: provider.name || provider.id,
+                  }))}
+                />
+              </div>
+              <div className="min-w-48 flex-1">
+                <Input
+                  label="Test options (JSON)"
+                  className="font-mono text-xs"
                   value={testOptionsText}
                   onChange={(event) => setTestOptionsText(event.target.value)}
                   spellCheck={false}
                 />
-              </label>
+              </div>
               <Button
                 type="button"
                 variant="secondary"
@@ -263,8 +285,11 @@ export function CustomQuotaCheckers() {
               >
                 Test code
               </Button>
-              {testMessage && <span className="text-xs text-text-secondary">{testMessage}</span>}
             </div>
+            {testMessage && (
+              <p className="mt-2 font-sans text-xs text-foreground-muted">{testMessage}</p>
+            )}
+
             <div className="mt-4 flex items-center justify-end gap-2">
               {selectedId && (
                 <Button variant="danger" size="sm" onClick={remove} leftIcon={<Trash2 size={14} />}>

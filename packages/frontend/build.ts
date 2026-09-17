@@ -87,8 +87,13 @@ const runBuild = async () => {
 
   // HTML Injection
   let html = await readFile('index.html', 'utf-8');
-  html = html.replace('src="./src/main.tsx"', 'src="main.js"');
-  html = html.replace('src="/src/main.tsx"', 'src="main.js"'); // Handle both absolute/relative
+  // Asset URLs must be absolute under publicPath. A relative "main.js" resolves
+  // against the current route, so a direct load of a nested route such as
+  // /ui/providers/custom-checkers would request /ui/providers/main.js — which the
+  // SPA fallback answers with index.html, and the browser silently fails to parse
+  // that as JavaScript, rendering a blank page.
+  html = html.replace('src="./src/main.tsx"', 'src="/ui/main.js"');
+  html = html.replace('src="/src/main.tsx"', 'src="/ui/main.js"'); // Handle both absolute/relative
   html = html.replace('type="module"', '');
 
   // Inject Favicons and Manifest. SVG comes first so modern browsers prefer
@@ -96,11 +101,11 @@ const runBuild = async () => {
   // (SVG is named plexus-icon.svg rather than favicon.svg to avoid an
   // output-collision with favicon.ico / favicon-*.png in --compile bundling.)
   const faviconHtml = `
-    <link rel="icon" type="image/svg+xml" href="plexus-icon.svg">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-    <link rel="manifest" href="site.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="/ui/plexus-icon.svg">
+    <link rel="apple-touch-icon" sizes="180x180" href="/ui/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/ui/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/ui/favicon-16x16.png">
+    <link rel="manifest" href="/ui/site.webmanifest">
     `;
 
   if (!html.includes('rel="manifest"')) {
@@ -109,8 +114,8 @@ const runBuild = async () => {
 
   if (existsSync('dist/main.css')) {
     // Check if link already exists to avoid dupes
-    if (!html.includes('href="main.css"')) {
-      html = html.replace('</head>', '  <link rel="stylesheet" href="main.css">\n  </head>');
+    if (!html.includes('href="/ui/main.css"')) {
+      html = html.replace('</head>', '  <link rel="stylesheet" href="/ui/main.css">\n  </head>');
     }
   }
 

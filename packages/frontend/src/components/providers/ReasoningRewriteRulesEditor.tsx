@@ -2,10 +2,11 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { DebouncedInput } from '../ui/DebouncedInput';
+import { getAdapterName, normalizeAdapterEntries } from './model-editor/adapter-utils';
 
 interface Props {
   /** Current adapter entries for the scope (provider-level or model-level). */
-  adapters: any[];
+  adapters: unknown;
   /** Called with the new adapter entry array whenever a rule changes. */
   onChange: (adapters: any[]) => void;
 }
@@ -21,16 +22,15 @@ interface Props {
  * paths afterward (see backend reasoning-rewrite.adapter.ts for semantics).
  */
 export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
-  const entry = adapters.find(
-    (e: any) => (typeof e === 'string' ? e : e.name) === 'reasoning_rewrite'
-  );
+  const adapterEntries = normalizeAdapterEntries(adapters);
+  const entry = adapterEntries.find((e: any) => getAdapterName(e) === 'reasoning_rewrite');
   if (!entry || typeof entry === 'string') return null;
   const rules: any[] = entry.options?.rules ?? [];
 
   const applyRules = (updated: any[]) => {
     onChange(
-      adapters.map((e: any) =>
-        typeof e !== 'string' && e.name === 'reasoning_rewrite'
+      adapterEntries.map((e: any) =>
+        typeof e !== 'string' && getAdapterName(e) === 'reasoning_rewrite'
           ? { ...e, options: { ...e.options, rules: updated } }
           : e
       )
@@ -46,10 +46,10 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
         paddingTop: '6px',
       }}
     >
-      <div className="font-body text-[11px] font-medium text-text-secondary mb-1">
+      <div className="font-sans text-[11px] font-medium text-foreground-muted mb-1">
         Reasoning Rewrite Rules
       </div>
-      <div className="font-body text-[10px] text-text-muted mb-2" style={{ lineHeight: 1.3 }}>
+      <div className="font-sans text-[10px] text-foreground-muted mb-2" style={{ lineHeight: 1.3 }}>
         Map unified reasoning fields to provider-specific formats. Each rule reads a source field
         and writes one or more targets.
       </div>
@@ -90,7 +90,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
             {/* When operator */}
             <div style={{ flex: 0.7 }}>
               <select
-                className="w-full py-1 pl-2 pr-2 font-body text-[11px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                 value={rule.when?.op ?? ''}
                 onChange={(e) => {
                   const op = e.target.value;
@@ -172,7 +172,9 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
             </Button>
           </div>
           {/* Rewrites */}
-          <div className="font-body text-[10px] font-medium text-text-muted mb-1">Rewrites</div>
+          <div className="font-sans text-[10px] font-medium text-foreground-muted mb-1">
+            Rewrites
+          </div>
           {(rule.rewrites ?? []).map((rw: any, rwIdx: number) => (
             <div
               key={rwIdx}
@@ -206,7 +208,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
               {/* Value type selector */}
               <div style={{ flex: 0.7 }}>
                 <select
-                  className="w-full py-1 pl-2 pr-2 font-body text-[11px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary"
+                  className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
                   value={
                     rw.value === null
                       ? 'null'
@@ -271,11 +273,13 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
                 {(() => {
                   if (rw.value === null)
                     return (
-                      <span className="font-body text-[11px] text-text-muted italic">null</span>
+                      <span className="font-sans text-[11px] text-foreground-muted italic">
+                        null
+                      </span>
                     );
                   if (rw.value?.from === 'source')
                     return (
-                      <span className="font-body text-[11px] text-text-muted italic">
+                      <span className="font-sans text-[11px] text-foreground-muted italic">
                         passthrough
                       </span>
                     );
@@ -421,7 +425,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
             }}
             style={{ marginLeft: '8px', padding: '2px 6px' }}
           >
-            <Plus size={12} /> <span className="font-body text-[10px]">Rewrite</span>
+            <Plus size={12} /> <span className="font-sans text-[10px]">Rewrite</span>
           </Button>
           {/* Strip paths */}
           <div
@@ -430,7 +434,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
               margin: '6px 0 4px 0',
             }}
           />
-          <div className="font-body text-[10px] font-medium text-text-muted mb-1">
+          <div className="font-sans text-[10px] font-medium text-foreground-muted mb-1">
             Strip paths (remove from payload after rewrite)
           </div>
           <div
@@ -444,7 +448,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
             {(rule.strip ?? []).map((stripPath: string, sIdx: number) => (
               <div key={sIdx} style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
                 <div
-                  className="font-body text-[11px] text-text"
+                  className="font-sans text-[11px] text-foreground"
                   style={{
                     padding: '2px 8px',
                     background: 'var(--color-bg-glass)',
@@ -514,7 +518,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
         }}
         style={{ marginTop: '2px' }}
       >
-        <Plus size={12} /> <span className="font-body text-[10px]">Rule</span>
+        <Plus size={12} /> <span className="font-sans text-[10px]">Rule</span>
       </Button>
     </div>
   );

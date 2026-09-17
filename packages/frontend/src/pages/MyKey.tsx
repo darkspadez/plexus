@@ -179,8 +179,10 @@ export const MyKey: React.FC = () => {
               <dd className="text-foreground break-words">
                 {allowedModels.length > 0 ? allowedModels.join(', ') : 'Any (unrestricted)'}
               </dd>
-              <dt className="text-text-muted">Raw provider access</dt>
-              <dd className="text-text">{info.allowRawPassthrough ? 'Enabled' : 'Disabled'}</dd>
+              <dt className="text-foreground-muted">Raw provider access</dt>
+              <dd className="text-foreground">
+                {info.allowRawPassthrough ? 'Enabled' : 'Disabled'}
+              </dd>
             </dl>
           </Card>
 

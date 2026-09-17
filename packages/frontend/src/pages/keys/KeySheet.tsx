@@ -15,6 +15,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
+import { Switch } from '../../components/ui/Switch';
 import { TagSelect } from '../../components/ui/TagSelect';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
@@ -82,6 +83,7 @@ export const KeySheet: React.FC<Props> = ({
         excludedModels: initial.excludedModels ?? [],
         excludedProviders: initial.excludedProviders ?? [],
         allowedIps: initial.allowedIps ?? [],
+        allowRawPassthrough: initial.allowRawPassthrough === true,
         // Expiry is create-only — never re-submitted on edit (see toKeyConfig).
         expiryAmount: '',
         expiryUnit: 'days',
@@ -315,6 +317,24 @@ export const KeySheet: React.FC<Props> = ({
         <p className="text-xs text-foreground-muted -mt-2">
           Optional allowlist. If set, routing is limited to these provider IDs.
         </p>
+
+        {/* Allow Raw Provider Access */}
+        <Controller
+          control={control}
+          name="allowRawPassthrough"
+          render={({ field }) => (
+            <label className="flex items-start gap-2 py-1 cursor-pointer">
+              <Switch checked={field.value ?? false} onChange={field.onChange} />
+              <div>
+                <div className="text-[13px] text-foreground">Allow Raw Provider Access</div>
+                <div className="text-xs text-foreground-muted leading-snug">
+                  Privileged capability. This key may call any endpoint on raw-enabled providers
+                  permitted by its provider allow/deny lists. Model restrictions do not apply.
+                </div>
+              </div>
+            </label>
+          )}
+        />
 
         {/* Allowed IPs */}
         <Controller

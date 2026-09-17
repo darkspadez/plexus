@@ -31,6 +31,13 @@ export const keyFormSchema = z.object({
   excludedModels: z.array(z.string()),
   excludedProviders: z.array(z.string()),
   allowedIps: z.array(z.string()),
+  // Privileged capability — lets the key call any endpoint on raw-enabled
+  // providers permitted by its provider allow/deny lists (model
+  // restrictions do not apply). Mirrors KeyConfig.allowRawPassthrough.
+  // Optional or omitted is falsy — the sheet treats an unset checkbox the
+  // same as `false`, and existing test/form fixtures that predate this field
+  // stay valid without needing an update.
+  allowRawPassthrough: z.boolean().optional(),
   // Create-only expiry input (hidden/ignored by the sheet when editing).
   // Empty string == "never expires"; otherwise must be a positive whole
   // number — mirrors upstream's `!Number.isInteger(amount) || amount <= 0`
@@ -76,6 +83,7 @@ export function toKeyConfig(values: KeyFormValues): KeyConfig {
     excludedModels: values.excludedModels,
     excludedProviders: values.excludedProviders,
     allowedIps: values.allowedIps,
+    ...(values.allowRawPassthrough ? { allowRawPassthrough: true } : {}),
     ...(amount
       ? { expiresInMinutes: amount * EXPIRY_MINUTES_PER_UNIT[values.expiryUnit ?? 'days'] }
       : {}),
@@ -92,6 +100,7 @@ export const KEY_FORM_DEFAULTS: KeyFormValues = {
   excludedModels: [],
   excludedProviders: [],
   allowedIps: [],
+  allowRawPassthrough: false,
   expiryAmount: '',
   expiryUnit: 'days',
 };

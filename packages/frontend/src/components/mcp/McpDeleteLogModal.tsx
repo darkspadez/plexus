@@ -1,0 +1,44 @@
+import { Button } from '../ui/Button';
+import { Modal } from '../ui/Modal';
+
+interface McpDeleteLogModalProps {
+  isOpen: boolean;
+  isDeletingLogs: boolean;
+  onClose: () => void;
+  onConfirm: () => void | Promise<void>;
+}
+
+export function McpDeleteLogModal({
+  isOpen,
+  isDeletingLogs,
+  onClose,
+  onConfirm,
+}: McpDeleteLogModalProps) {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="sm"
+      title="Confirm Deletion"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={onConfirm}
+            disabled={isDeletingLogs}
+            isLoading={isDeletingLogs}
+          >
+            Delete Log
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm text-foreground-muted">
+        Are you sure you want to delete this MCP log entry?
+      </p>
+    </Modal>
+  );
+}

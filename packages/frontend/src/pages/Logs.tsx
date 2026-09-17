@@ -33,8 +33,8 @@ import {
 import { isClipboardAvailable, copyToClipboard } from '../lib/clipboard';
 import { DateTimePicker } from '../components/ui/DateTimePicker';
 import {
-  ChevronLeft,
   ChevronRight,
+  ChevronLeft,
   Trash2,
   Bug,
   Zap,
@@ -208,9 +208,15 @@ const LogKeyCell = React.memo(({ log }: { log: UsageRecord }) => (
     )}
     title={log.sourceIp ? `IP: ${log.sourceIp}` : undefined}
   >
-    <span className="truncate text-sm font-medium">{log.apiKey || '-'}</span>
+    {/* Full key name on hover — long names still truncate visually, but
+        aren't lost (upstream #855). */}
+    <span className="truncate text-sm font-medium" title={log.apiKey || undefined}>
+      {log.apiKey || '-'}
+    </span>
     {log.attribution && (
-      <span className="truncate text-xs text-foreground-muted">{log.attribution}</span>
+      <span className="truncate text-xs text-foreground-muted" title={log.attribution}>
+        {log.attribution}
+      </span>
     )}
   </div>
 ));
@@ -354,16 +360,22 @@ const LogCostCell = React.memo(({ log }: { log: UsageRecord }) => {
   // display currency is applied at format time.
   const { currency, rate, symbol } = useCurrency();
 
-  if (log.costTotal == null || log.costTotal === 0) {
+  if (log.costTotal == null) {
     return <span className="font-mono text-sm text-foreground-muted">-</span>;
   }
 
-  const costLabel = formatCostIn(log.costTotal, {
-    currency,
-    rate,
-    symbol,
-    decimals: 6,
-  });
+  // A genuinely-zero cost (e.g. a cached/free response) still has a cost
+  // source worth surfacing on hover — only the label collapses to a dash.
+  // Keeps the placeholder's alignment either way (upstream #837).
+  const costLabel =
+    log.costTotal === 0
+      ? '-'
+      : formatCostIn(log.costTotal, {
+          currency,
+          rate,
+          symbol,
+          decimals: 6,
+        });
 
   return (
     <div className="whitespace-nowrap font-mono text-sm font-medium tabular-nums">

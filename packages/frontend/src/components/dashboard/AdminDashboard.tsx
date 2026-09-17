@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -9,6 +9,8 @@ import {
   Timer,
   Zap,
 } from 'lucide-react';
+import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
+import { SortableContext } from '@dnd-kit/sortable';
 import { PageHeader } from '../layout/PageHeader';
 import { PageContainer } from '../layout/PageContainer';
 import { TimeRangeSelector, type TimeRange } from './TimeRangeSelector';
@@ -16,6 +18,9 @@ import { MetricsOverviewCard, type MetricDelta, type MetricItem } from './Metric
 import { ServiceAlertsCard } from './ServiceAlertsCard';
 import { ErrorsByProviderCard } from './ErrorsByProviderCard';
 import { TimelineChart } from './TimelineChart';
+import { ConcurrencyCard, ModelTimelineCard } from './cards';
+import { LiveDashboardModal } from './modals';
+import type { ModalCardId } from './liveTypes';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useUsageSummary } from '../../hooks/queries/useUsage';
@@ -26,6 +31,9 @@ import {
   useClearSingleCooldown,
 } from '../../hooks/queries/useDashboard';
 import { useGrafanaUrl } from '../../hooks/queries/useConfig';
+import { useLiveDashboardData } from '../../hooks/useLiveDashboardData';
+import { useCardPositions } from '../../hooks/useCardPositions';
+import type { CardId } from '../../types/card';
 import {
   formatCost,
   formatMs,
@@ -45,12 +53,23 @@ import {
 } from './kpi-deltas';
 
 /**
+ * The salvage set: only these two cards from upstream's 10-card Live Metrics
+ * tab survive as user-orderable drill-ins on AdminDashboard. This is
+ * intentionally a subset of the full `CardId` union (see types/card.ts) —
+ * `useCardPositions` accepts a `defaultOrder` override for exactly this case,
+ * so `CardId`/`DEFAULT_CARD_ORDER` themselves are left untouched (they are
+ * also relied on by `CardLayoutCard`, owned by another agent).
+ */
+const LIVE_CARD_ORDER: CardId[] = ['concurrency', 'modelstack'];
+
+/**
  * Single-page admin dashboard that replaces the old Live Metrics / Usage
  * Analytics / Performance tab set. Composes MetricsOverviewCard,
  * TimelineChart, ServiceAlertsCard and ErrorsByProviderCard around one
- * shared time range control. Only rendered
- * for non-limited (admin) principals — `OverallTab` remains the limited-key
- * view.
+ * shared time range control, plus a small user-orderable drag-and-drop grid
+ * of two drill-in cards salvaged from the old Live Metrics tab (Concurrency,
+ * Model Stack) — see docs/DESIGN_MIGRATION.md. Only rendered for
+ * non-limited (admin) principals — `OverallTab` remains the limited-key view.
  */
 export const AdminDashboard: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -113,6 +132,96 @@ export const AdminDashboard: React.FC = () => {
 
   const cooldowns = dashboardQuery.data?.cooldowns ?? [];
   const grafanaUrl = grafanaUrlQuery.data?.grafanaUrl ?? '';
+
+  // ---------------------------------------------------------------------------
+  // Salvaged Live Metrics cards -- Concurrency + Model Stack, as a small
+  // user-orderable drag-and-drop grid below the KPI/timeline/alerts section.
+  // See docs/DESIGN_MIGRATION.md for why the other 8 cards were dropped.
+  // ---------------------------------------------------------------------------
+  const liveData = useLiveDashboardData();
+  const { positions: livePositions, reorderCards: reorderLiveCards } =
+    useCardPositions(LIVE_CARD_ORDER);
+  const [activeLiveCardId, setActiveLiveCardId] = useState<CardId | null>(null);
+  const [liveModalOpen, setLiveModalOpen] = useState(false);
+  const [liveModalCard, setLiveModalCard] = useState<ModalCardId | null>(null);
+
+  const openLiveModal = useCallback((card: ModalCardId) => {
+    setLiveModalCard(card);
+    setLiveModalOpen(true);
+  }, []);
+
+  const closeLiveModal = useCallback(() => {
+    setLiveModalOpen(false);
+    setLiveModalCard(null);
+  }, []);
+
+  const handleLiveDragStart = useCallback((event: DragStartEvent) => {
+    setActiveLiveCardId(event.active.id as CardId);
+  }, []);
+
+  const handleLiveDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      setActiveLiveCardId(null);
+
+      if (over && active.id !== over.id) {
+        const oldIndex = livePositions.findIndex((p) => p.id === active.id);
+        const newIndex = livePositions.findIndex((p) => p.id === over.id);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          reorderLiveCards(oldIndex, newIndex);
+        }
+      }
+    },
+    [livePositions, reorderLiveCards]
+  );
+
+  const handleLiveDragCancel = useCallback(() => {
+    setActiveLiveCardId(null);
+  }, []);
+
+  const orderedLiveCardIds = useMemo<CardId[]>(() => {
+    if (livePositions.length === 0) {
+      return LIVE_CARD_ORDER;
+    }
+
+    const next = [...livePositions]
+      .sort((a, b) => a.order - b.order)
+      .map((position) => position.id)
+      .filter((id): id is CardId => LIVE_CARD_ORDER.includes(id));
+
+    const missing = LIVE_CARD_ORDER.filter((id) => !next.includes(id));
+    return [...next, ...missing];
+  }, [livePositions]);
+
+  const renderLiveCard = (cardId: CardId, index: number, isOverlay = false) => {
+    switch (cardId) {
+      case 'concurrency':
+        return (
+          <ConcurrencyCard
+            index={index}
+            isOverlay={isOverlay}
+            onClick={() => openLiveModal('concurrency')}
+            concurrencyLoading={liveData.concurrencyLoading}
+            concurrencyHistory={liveData.concurrencyHistory}
+            totalConcurrentRequests={liveData.totalConcurrentRequests}
+            concurrencyProviders={liveData.concurrencyProviders}
+          />
+        );
+      case 'modelstack':
+        return (
+          <ModelTimelineCard
+            index={index}
+            isOverlay={isOverlay}
+            onClick={() => openLiveModal('modelstack')}
+            loading={liveData.modelTimelineLoading}
+            modelTimeline={liveData.modelTimeline}
+            liveWindowMinutes={liveData.liveWindowMinutes}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   const activeRequests = useMemo(
     () => (concurrencyQuery.data ?? []).reduce((acc, item) => acc + Number(item.count || 0), 0),
@@ -261,7 +370,37 @@ export const AdminDashboard: React.FC = () => {
           />
           <ErrorsByProviderCard timeRange={timeRange} startDate={startDate} endDate={endDate} />
         </div>
+
+        {/* Salvaged Live Metrics drill-in cards -- user-orderable via drag handle. */}
+        <DndContext
+          onDragStart={handleLiveDragStart}
+          onDragEnd={handleLiveDragEnd}
+          onDragCancel={handleLiveDragCancel}
+        >
+          <SortableContext items={orderedLiveCardIds}>
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+              {orderedLiveCardIds.map((cardId, index) => (
+                <div key={cardId} className="min-w-0">
+                  {renderLiveCard(cardId, index)}
+                </div>
+              ))}
+            </div>
+          </SortableContext>
+
+          <DragOverlay>
+            {activeLiveCardId ? (
+              <div className="w-[min(100%,720px)]">{renderLiveCard(activeLiveCardId, 0, true)}</div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </PageContainer>
+
+      <LiveDashboardModal
+        isOpen={liveModalOpen}
+        onClose={closeLiveModal}
+        modalCard={liveModalCard}
+        data={liveData}
+      />
     </div>
   );
 };

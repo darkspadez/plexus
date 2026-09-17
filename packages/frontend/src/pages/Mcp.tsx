@@ -1,47 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import {
-  api,
-  McpServer,
-  McpServerKey,
-  McpLogRecord,
-  McpOAuthClientRecord,
-  McpOAuthTokenRecord,
-} from '../lib/api';
+import { useEffect, useState } from 'react';
+import { api, McpServer, McpServerKey, McpOAuthClientRecord } from '../lib/api';
 import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
-import { Modal } from '../components/ui/Modal';
-import { Input } from '../components/ui/Input';
-import { Skeleton } from '../components/ui/Skeleton';
-import { SearchInput } from '../components/ui/SearchInput';
 import { CopyButton } from '../components/ui/CopyButton';
-import { EmptyState } from '../components/ui/EmptyState';
+import { Skeleton } from '../components/ui/Skeleton';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
-import { useToast } from '../contexts/ToastContext';
-import { DataTable } from '../components/ui/DataTable';
-import { Pill } from '../components/chips';
-import type { ColumnDef } from '@tanstack/react-table';
-import {
-  Plus,
-  Trash2,
-  Edit2,
-  AlertTriangle,
-  CheckCircle,
-  Zap,
-  ZapOff,
-  Download,
-  Package,
-  Copy,
-  PlugZap,
-  RefreshCw,
-  KeyRound,
-  ShieldOff,
-  ShieldCheck,
-} from 'lucide-react';
+import { McpServerTable } from '../components/mcp/McpServerTable';
+import { McpOAuthClientsCard } from '../components/mcp/McpOAuthClientsCard';
+import { McpUsageLogsCard } from '../components/mcp/McpUsageLogsCard';
+import { McpKeyManagementModal } from '../components/mcp/McpKeyManagementModal';
+import { McpDeleteLogsModal } from '../components/mcp/McpDeleteLogsModal';
+import { McpDeleteLogModal } from '../components/mcp/McpDeleteLogModal';
 import { McpServerSheet } from './mcp/McpServerSheet';
-import { Switch } from '../components/ui/Switch';
-import { cn } from '../lib/cn';
+import { useToast } from '../contexts/ToastContext';
+import { Download, Package, Plus } from 'lucide-react';
+import { isClipboardAvailable, copyToClipboard } from '../lib/clipboard';
+import { SECTION_NAMES } from '../lib/nav';
 import {
   useMcpServers,
   useMcpEnabled,
@@ -52,9 +26,7 @@ import {
   useDeleteAllMcpLogs,
   MCP_SERVERS_KEY,
 } from '../hooks/queries/useMcp';
-import { formatMs, formatResetsIn } from '../lib/format';
-import { isClipboardAvailable, copyToClipboard } from '../lib/clipboard';
-import { SECTION_NAMES } from '../lib/nav';
+import { useQueryClient } from '@tanstack/react-query';
 import plexusCliSkill from '../../../../.agents/skills/plexus-cli/SKILL.md' with { type: 'text' };
 import plexusRestApiSkill from '../../../../.agents/skills/plexus-rest-api/SKILL.md' with {
   type: 'text',
@@ -62,9 +34,6 @@ import plexusRestApiSkill from '../../../../.agents/skills/plexus-rest-api/SKILL
 
 const CLI_BUNX_COMMAND = 'bunx @mcowger/plexus-cli';
 const CLI_GLOBAL_INSTALL_COMMAND = 'bun install -g @mcowger/plexus-cli';
-
-/** Row model for the servers DataTable: the pinned Plexus Management entry + configured servers. */
-type McpServerRow = { kind: 'management' } | { kind: 'server'; name: string };
 
 export const McpPage: React.FC = () => {
   const toast = useToast();
@@ -78,12 +47,13 @@ export const McpPage: React.FC = () => {
   // Logs query state (controlled externally so user can paginate/search)
   const [logsQueryOffset, setLogsQueryOffset] = useState(0);
   const [logsActiveFilters, setLogsActiveFilters] = useState({ serverName: '', apiKey: '' });
+  const logsLimit = 20;
   const { data: logsData, isLoading: logsLoading } = useMcpLogs(
-    20,
+    logsLimit,
     logsQueryOffset,
     logsActiveFilters
   );
-  const logs: McpLogRecord[] = logsData?.data ?? [];
+  const logs = logsData?.data ?? [];
   const logsTotal = Number(logsData?.total) || 0;
 
   // Mutations
@@ -91,7 +61,9 @@ export const McpPage: React.FC = () => {
   const toggleMcpEnabledMutation = useToggleMcpEnabled();
   const deleteMcpLogMutation = useDeleteMcpLog();
   const deleteAllMcpLogsMutation = useDeleteAllMcpLogs();
+  const isDeletingLogs = deleteMcpLogMutation.isPending || deleteAllMcpLogsMutation.isPending;
 
+  // Add/edit server sheet (react-hook-form + zod — see pages/mcp/McpServerSheet.tsx)
   const [isServerSheetOpen, setIsServerSheetOpen] = useState(false);
   const [editingServerName, setEditingServerName] = useState<string | null>(null);
   const [editingServer, setEditingServer] = useState<McpServer | null>(null);
@@ -116,7 +88,6 @@ export const McpPage: React.FC = () => {
 
   // Logs UI state (input filters before submitting search)
   const [logsFilters, setLogsFilters] = useState({ serverName: '', apiKey: '' });
-  const logsLimit = 20;
 
   // OAuth clients/tokens state
   const [oauthClients, setOauthClients] = useState<McpOAuthClientRecord[]>([]);
@@ -134,8 +105,6 @@ export const McpPage: React.FC = () => {
   // Single log delete state
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
   const [isSingleDeleteModalOpen, setIsSingleDeleteModalOpen] = useState(false);
-
-  const isDeletingLogs = deleteMcpLogMutation.isPending || deleteAllMcpLogsMutation.isPending;
 
   const handleLogSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,6 +184,12 @@ export const McpPage: React.FC = () => {
     }
   };
 
+  const handleToggleMcpEnabled = (enabled: boolean) => {
+    toggleMcpEnabledMutation.mutate(enabled, {
+      onSuccess: () => toast.success(`MCP server ${enabled ? 'enabled' : 'disabled'}`),
+    });
+  };
+
   const loadServerKeys = async (serverName: string) => {
     setIsLoadingKeys(true);
     try {
@@ -265,13 +240,6 @@ export const McpPage: React.FC = () => {
     } catch (e) {
       toast.error((e as Error).message);
     }
-  };
-
-  const handleToggleMcpEnabled = (enabled: boolean) => {
-    toggleMcpEnabledMutation.mutate(enabled, {
-      onSuccess: () => toast.success(`MCP server ${enabled ? 'enabled' : 'disabled'}`),
-      onError: (e: any) => toast.error('Failed to update MCP server state', e.message),
-    });
   };
 
   // ---------------------------------------------------------------------------
@@ -384,8 +352,6 @@ export const McpPage: React.FC = () => {
   };
 
   const serverNames = Object.keys(servers);
-  const logsCurrentPage = Math.floor(logsQueryOffset / logsLimit);
-
   const mcpPathForServer = (name: string) => `/mcp/${name}`;
 
   const handleCopyMcpPath = async (path: string) => {
@@ -400,146 +366,6 @@ export const McpPage: React.FC = () => {
       toast.error('Failed to copy path');
     }
   };
-
-  // --- Servers table (shared DataTable) ---
-  const mcpServerRows: McpServerRow[] = [
-    { kind: 'management' },
-    ...serverNames.map((name) => ({ kind: 'server' as const, name })),
-  ];
-
-  const mcpServerColumns: ColumnDef<McpServerRow>[] = [
-    {
-      id: 'name',
-      header: 'Name',
-      meta: { priority: 'high', mobileTitle: true },
-      cell: ({ row }) => {
-        const r = row.original;
-        if (r.kind === 'management') {
-          return <span className="font-medium text-foreground">Plexus Management</span>;
-        }
-        return (
-          <div className="flex items-center gap-2">
-            <Edit2 size={12} className="opacity-50" />
-            <span className="font-medium">{r.name}</span>
-          </div>
-        );
-      },
-    },
-    {
-      id: 'upstream',
-      header: 'Upstream',
-      meta: { priority: 'medium' },
-      cell: ({ row }) => {
-        const r = row.original;
-        if (r.kind === 'management') {
-          return <span className="text-xs text-foreground-muted">—</span>;
-        }
-        const server = servers[r.name];
-        return (
-          <div className="max-w-[400px] truncate text-sm">
-            {server.mode === 'local_http'
-              ? `${server.launcher} ${server.package} → 127.0.0.1:${server.port}${server.path || '/mcp'}`
-              : server.upstream_url}
-          </div>
-        );
-      },
-    },
-    {
-      id: 'path',
-      header: 'Path',
-      meta: { priority: 'medium' },
-      cell: ({ row }) => {
-        const r = row.original;
-        const path = r.kind === 'management' ? '/mcp/plexus' : mcpPathForServer(r.name);
-        return (
-          <div
-            className="flex items-center gap-2 whitespace-nowrap"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <span className="font-mono text-xs">{path}</span>
-            <button
-              type="button"
-              onClick={() => handleCopyMcpPath(path)}
-              className="rounded p-1 text-foreground-muted hover:bg-surface-elevated hover:text-foreground"
-              title="Copy path"
-              aria-label={`Copy ${path}`}
-            >
-              <Copy size={13} />
-            </button>
-          </div>
-        );
-      },
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      meta: { priority: 'medium' },
-      cell: ({ row }) => {
-        const r = row.original;
-        if (r.kind === 'management') {
-          return (
-            <div onClick={(e) => e.stopPropagation()}>
-              <Switch
-                checked={mcpEnabled}
-                onChange={(val) => handleToggleMcpEnabled(val)}
-                size="sm"
-              />
-            </div>
-          );
-        }
-        const server = servers[r.name];
-        return (
-          <div onClick={(e) => e.stopPropagation()}>
-            <Switch
-              checked={server.enabled !== false}
-              onChange={(val) => handleToggleEnabled(r.name, val)}
-              size="sm"
-            />
-          </div>
-        );
-      },
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      meta: { priority: 'low', align: 'right' },
-      cell: ({ row }) => {
-        const r = row.original;
-        if (r.kind === 'management') return null;
-        const server = servers[r.name];
-        return (
-          <div className="flex items-center justify-end gap-1">
-            {server?.mode !== 'local_http' && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleManageKeys(r.name);
-                }}
-                className="text-foreground-muted hover:text-foreground"
-                title="Manage load-balanced keys"
-                aria-label={`Manage keys for ${r.name}`}
-              >
-                <KeyRound size={14} />
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(r.name);
-              }}
-              className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
-            >
-              <Trash2 size={14} />
-            </Button>
-          </div>
-        );
-      },
-    },
-  ];
 
   const handleCopySkill = async (skill: string, name: string) => {
     const canCopy = isClipboardAvailable();
@@ -570,234 +396,6 @@ export const McpPage: React.FC = () => {
   const handleDownloadSkill = (skill: string, filename: string) => {
     triggerDownload(skill, filename, 'text/markdown');
   };
-
-  // ---------------------------------------------------------------------------
-  // MCP OAuth tokens — TanStack column definitions (shared by every client card)
-  // ---------------------------------------------------------------------------
-  const oauthTokenColumns = React.useMemo<ColumnDef<McpOAuthTokenRecord>[]>(
-    () => [
-      {
-        id: 'keyName',
-        header: 'Key name',
-        meta: { priority: 'high', mobileTitle: true },
-        cell: ({ row }) => (
-          <span className="font-mono text-xs text-foreground">{row.original.keyName}</span>
-        ),
-      },
-      {
-        id: 'scope',
-        header: 'Scope',
-        meta: { priority: 'medium', mobileLabel: 'Scope' },
-        cell: ({ row }) => (
-          <span className="text-xs text-foreground-muted">{row.original.scope || '-'}</span>
-        ),
-      },
-      {
-        id: 'expires',
-        header: 'Access expires',
-        meta: { priority: 'medium', mobileLabel: 'Access expires' },
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap text-xs text-foreground-muted">
-            {new Date(row.original.accessTokenExpiresAt).toLocaleString()}
-          </span>
-        ),
-      },
-      {
-        id: 'issued',
-        header: 'Issued',
-        meta: { priority: 'low', mobileLabel: 'Issued' },
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap text-xs text-foreground-muted">
-            {new Date(row.original.createdAt).toLocaleString()}
-          </span>
-        ),
-      },
-      {
-        id: 'action',
-        header: 'Action',
-        meta: { priority: 'high', align: 'right' },
-        cell: ({ row }) => (
-          <Button
-            size="sm"
-            variant="danger"
-            onClick={() => handleRevokeOAuthToken(row.original.id)}
-            isLoading={revokingTokenId === row.original.id}
-            leftIcon={<ShieldOff size={13} />}
-          >
-            Revoke
-          </Button>
-        ),
-      },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [revokingTokenId]
-  );
-
-  // ---------------------------------------------------------------------------
-  // MCP Logs — TanStack column definitions
-  // ---------------------------------------------------------------------------
-  const logsColumns = React.useMemo<ColumnDef<McpLogRecord>[]>(
-    () => [
-      {
-        id: 'date',
-        header: 'Date',
-        meta: { priority: 'high', mobileTitle: true },
-        cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="font-medium text-foreground">
-              {new Date(row.original.created_at).toLocaleTimeString()}
-            </span>
-            <span className="text-[11px] text-foreground-muted">
-              {new Date(row.original.created_at).toISOString().split('T')[0]}
-            </span>
-          </div>
-        ),
-      },
-      {
-        id: 'key',
-        header: 'Key',
-        meta: { priority: 'high', mobileLabel: 'Key' },
-        cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="font-medium text-foreground">{row.original.api_key || '-'}</span>
-            {row.original.attribution && (
-              <span className="text-[11px] text-foreground-muted">{row.original.attribution}</span>
-            )}
-          </div>
-        ),
-      },
-      {
-        id: 'server',
-        header: 'Server',
-        meta: { priority: 'high', mobileLabel: 'Server' },
-        cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="font-medium text-foreground">{row.original.server_name}</span>
-            <span
-              className="text-[11px] text-foreground-muted truncate max-w-[200px] block"
-              title={row.original.upstream_url}
-            >
-              {row.original.upstream_url}
-            </span>
-          </div>
-        ),
-      },
-      {
-        id: 'method',
-        header: 'Method',
-        meta: { priority: 'medium', mobileLabel: 'Method' },
-        cell: ({ row }) => (
-          <div className="flex flex-col gap-0.5">
-            <span
-              className={cn(
-                'text-xs font-semibold',
-                row.original.method === 'GET'
-                  ? 'text-info'
-                  : row.original.method === 'POST'
-                    ? 'text-success'
-                    : 'text-danger'
-              )}
-            >
-              {row.original.method}
-            </span>
-            <div className="flex items-center gap-1">
-              {row.original.is_streamed ? (
-                <Zap size={11} className="text-info" />
-              ) : (
-                <ZapOff size={11} className="text-foreground-muted" />
-              )}
-              <span className="text-[10px] text-foreground-muted">
-                {row.original.is_streamed ? 'streamed' : 'buffered'}
-              </span>
-            </div>
-          </div>
-        ),
-      },
-      {
-        id: 'rpc',
-        header: 'RPC Method',
-        meta: { priority: 'medium', mobileLabel: 'RPC' },
-        cell: ({ row }) => (
-          <div className="flex flex-col gap-0.5">
-            <span className="font-mono text-xs text-foreground">
-              {row.original.jsonrpc_method || <span className="text-foreground-muted">-</span>}
-            </span>
-            {row.original.tool_name && (
-              <span className="font-mono text-xs text-info" title={row.original.tool_name}>
-                {row.original.tool_name}
-              </span>
-            )}
-          </div>
-        ),
-      },
-      {
-        id: 'duration',
-        header: 'Duration',
-        meta: { priority: 'low', mobileLabel: 'Duration', align: 'right' },
-        cell: ({ row }) => (
-          <span className="text-xs tabular-nums text-foreground">
-            {row.original.duration_ms != null ? formatMs(row.original.duration_ms) : '-'}
-          </span>
-        ),
-      },
-      {
-        id: 'status',
-        header: 'Status',
-        meta: { priority: 'high', mobileLabel: 'Status' },
-        cell: ({ row }) => {
-          const log = row.original;
-          const isError = !!log.error_code;
-          const isSuccess =
-            log.response_status != null && log.response_status >= 200 && log.response_status < 300;
-
-          return (
-            <div className="flex flex-col gap-1">
-              <div
-                className={cn(
-                  'inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-xl text-xs font-medium border',
-                  isError || !isSuccess
-                    ? 'text-danger border-danger/30 bg-danger-subtle'
-                    : 'text-success border-success/30 bg-success-subtle'
-                )}
-                style={{ width: '52px' }}
-              >
-                {isError ? <AlertTriangle size={12} /> : <CheckCircle size={12} />}
-                <span className="font-semibold">{log.response_status ?? '?'}</span>
-              </div>
-              {log.error_message && (
-                <span
-                  className="text-danger text-[11px] block truncate max-w-[160px]"
-                  title={log.error_message}
-                >
-                  {log.error_message}
-                </span>
-              )}
-            </div>
-          );
-        },
-      },
-      {
-        id: 'delete',
-        header: '',
-        meta: { priority: 'high', align: 'right' },
-        cell: ({ row }) => (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteLog(row.original.request_id);
-            }}
-            className="text-foreground-muted p-1 rounded cursor-pointer transition-colors hover:bg-danger-subtle hover:text-danger"
-            title="Delete log"
-          >
-            <Trash2 size={14} />
-          </button>
-        ),
-      },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
 
   if (isLoading) {
     return (
@@ -898,287 +496,50 @@ export const McpPage: React.FC = () => {
       />
       <PageContainer>
         <div className="flex flex-col gap-6">
-          {/* Servers table */}
-          <DataTable<McpServerRow>
-            title="MCP Servers"
-            columns={mcpServerColumns}
-            data={mcpServerRows}
-            getRowKey={(r) => (r.kind === 'management' ? '__management__' : r.name)}
-            onRowClick={(r) => {
-              if (r.kind === 'server') handleEdit(r.name);
-            }}
-            rowClassName={(r) =>
-              r.kind === 'management'
-                ? 'bg-accent/5 border-accent/20 cursor-default hover:bg-accent/5 hover:border-accent/20'
-                : ''
-            }
-            emptyTitle="No MCP servers yet"
-            emptyDescription="Add a server to expose its tools through the gateway."
-            emptyIcon={<PlugZap />}
-            emptyAction={
-              <Button leftIcon={<Plus size={14} />} onClick={handleAddNew}>
-                Add server
-              </Button>
-            }
-            mobileActions={(r) =>
-              r.kind === 'server' ? (
-                <>
-                  {servers[r.name]?.mode !== 'local_http' && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleManageKeys(r.name);
-                      }}
-                      className="text-foreground-muted"
-                      aria-label={`Manage keys for ${r.name}`}
-                    >
-                      <KeyRound size={14} />
-                    </Button>
-                  )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(r.name);
-                    }}
-                    className="text-danger"
-                    aria-label={`Delete ${r.name}`}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
-                </>
-              ) : null
-            }
+          <McpServerTable
+            servers={servers}
+            serverNames={serverNames}
+            mcpEnabled={mcpEnabled}
+            onEdit={handleEdit}
+            onManageKeys={handleManageKeys}
+            onToggleEnabled={handleToggleEnabled}
+            onToggleMcpEnabled={handleToggleMcpEnabled}
+            onDelete={handleDelete}
+            mcpPathForServer={mcpPathForServer}
+            onCopyMcpPath={handleCopyMcpPath}
           />
 
-          {/* ── OAuth Clients + Tokens ── */}
-          <Card
-            title="MCP OAuth Clients"
-            extra={
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={loadOAuthClients}
-                isLoading={oauthClientsLoading}
-                leftIcon={<RefreshCw size={14} />}
-              >
-                Refresh
-              </Button>
-            }
-          >
-            <div className="flex flex-col gap-3">
-              <p className="m-0 text-xs text-foreground-muted">
-                Registered OAuth clients and their active tokens. Tokens show the bound Plexus API
-                key name only; raw secrets are never displayed.
-              </p>
-
-              {oauthClientsLoading ? (
-                <div className="flex flex-col gap-3">
-                  <Skeleton height={160} className="w-full" />
-                  <Skeleton height={160} className="w-full" />
-                </div>
-              ) : oauthClients.length === 0 ? (
-                <EmptyState
-                  variant="dense"
-                  icon={<ShieldCheck />}
-                  title="No OAuth clients"
-                  description="No MCP OAuth clients registered yet."
-                />
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {oauthClients.map((client) => (
-                    <article
-                      key={client.clientId}
-                      className={cn(
-                        'rounded-lg border border-border bg-surface-sunken p-3',
-                        client.status === 'disabled' && 'opacity-60'
-                      )}
-                    >
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
-                            <KeyRound size={15} className="text-accent" />
-                            <span>{client.clientName || 'Unnamed client'}</span>
-                            <Pill
-                              size="sm"
-                              tone={client.status === 'disabled' ? 'danger' : 'success'}
-                              className="uppercase tracking-wider"
-                            >
-                              {client.status === 'disabled' ? 'Disabled' : 'Active'}
-                            </Pill>
-                          </div>
-                          <div className="mt-1 break-all font-mono text-xs text-foreground-muted">
-                            {client.clientId}
-                          </div>
-                          <div className="mt-2 text-xs text-foreground-subtle">
-                            Created {new Date(client.createdAt).toLocaleString()}
-                          </div>
-                        </div>
-                        <div className="min-w-0 lg:max-w-[45%]">
-                          <div className="text-[10px] uppercase tracking-wider text-foreground-subtle">
-                            Redirect URIs
-                          </div>
-                          <div className="mt-1 flex flex-col gap-1">
-                            {client.redirectUris.map((uri) => (
-                              <code
-                                key={uri}
-                                className="break-all rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-foreground-muted"
-                              >
-                                {uri}
-                              </code>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 border-t border-border pt-3">
-                        <DataTable<McpOAuthTokenRecord>
-                          title={
-                            <span className="text-[10px] uppercase tracking-wider text-foreground-subtle">
-                              Active tokens
-                            </span>
-                          }
-                          columns={oauthTokenColumns}
-                          data={client.tokens}
-                          getRowKey={(token) => token.id}
-                          emptyTitle="No active tokens"
-                          emptyDescription="No active tokens for this client."
-                          emptyIcon={<KeyRound />}
-                          breakpoint="lg"
-                          mobileActions={(token) => (
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              onClick={() => handleRevokeOAuthToken(token.id)}
-                              isLoading={revokingTokenId === token.id}
-                              leftIcon={<ShieldOff size={13} />}
-                            >
-                              Revoke
-                            </Button>
-                          )}
-                        />
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
-                        {client.status === 'disabled' ? (
-                          <Button
-                            size="sm"
-                            variant="primary"
-                            onClick={() => handleToggleOAuthClientStatus(client)}
-                            isLoading={updatingClientId === client.clientId}
-                            leftIcon={<ShieldCheck size={13} />}
-                          >
-                            Enable
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => handleToggleOAuthClientStatus(client)}
-                            isLoading={updatingClientId === client.clientId}
-                            leftIcon={<ShieldOff size={13} />}
-                          >
-                            Disable
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => handleRevokeAllOAuthTokens(client.clientId)}
-                          isLoading={revokingAllClientId === client.clientId}
-                          leftIcon={<KeyRound size={13} />}
-                        >
-                          Revoke all tokens
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => handleDeleteOAuthClient(client.clientId)}
-                          isLoading={deletingClientId === client.clientId}
-                          leftIcon={<Trash2 size={13} />}
-                        >
-                          Delete client
-                        </Button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* ── Usage Logs table ── */}
-          <DataTable<McpLogRecord>
-            title="MCP Usage Logs"
-            headerSlot={
-              <form onSubmit={handleLogSearch} className="flex flex-wrap items-end gap-2 p-3">
-                <div className="w-full sm:w-56">
-                  <SearchInput
-                    placeholder="Filter by Server..."
-                    value={logsFilters.serverName}
-                    onChange={(v) => setLogsFilters({ ...logsFilters, serverName: v })}
-                  />
-                </div>
-                <div className="w-full sm:w-56">
-                  <SearchInput
-                    placeholder="Filter by Key..."
-                    value={logsFilters.apiKey}
-                    onChange={(v) => setLogsFilters({ ...logsFilters, apiKey: v })}
-                  />
-                </div>
-                <Button type="submit" variant="primary" size="md">
-                  Search
-                </Button>
-                <Button
-                  onClick={handleDeleteAllLogs}
-                  variant="danger"
-                  size="md"
-                  leftIcon={<Trash2 size={14} />}
-                  disabled={logs.length === 0}
-                  type="button"
-                >
-                  Delete All
-                </Button>
-              </form>
-            }
-            columns={logsColumns}
-            data={logs}
-            loading={logsLoading}
-            getRowKey={(row) => row.request_id}
-            emptyTitle={
-              logsActiveFilters.serverName || logsActiveFilters.apiKey
-                ? 'No MCP logs found'
-                : 'No MCP logs yet'
-            }
-            emptyDescription={
-              logsActiveFilters.serverName || logsActiveFilters.apiKey
-                ? 'Try adjusting your search filters.'
-                : 'Tool calls through configured servers appear here.'
-            }
-            emptyIcon={<PlugZap />}
-            breakpoint="lg"
-            pagination={{
-              page: logsCurrentPage,
-              pageSize: logsLimit,
-              total: logsTotal,
-              onPageChange: (page) => setLogsQueryOffset(page * logsLimit),
-            }}
-            mobileActions={(row) => (
-              <button
-                type="button"
-                onClick={() => handleDeleteLog(row.request_id)}
-                className="text-foreground-muted p-1 rounded cursor-pointer transition-colors hover:bg-danger-subtle hover:text-danger"
-                aria-label="Delete MCP log"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
+          <McpOAuthClientsCard
+            oauthClients={oauthClients}
+            oauthClientsLoading={oauthClientsLoading}
+            revokingTokenId={revokingTokenId}
+            updatingClientId={updatingClientId}
+            deletingClientId={deletingClientId}
+            revokingAllClientId={revokingAllClientId}
+            onRefresh={loadOAuthClients}
+            onRevokeToken={handleRevokeOAuthToken}
+            onToggleClientStatus={handleToggleOAuthClientStatus}
+            onRevokeAllTokens={handleRevokeAllOAuthTokens}
+            onDeleteClient={handleDeleteOAuthClient}
           />
 
-          {/* ── Server Edit/Add Sheet ── */}
+          <McpUsageLogsCard
+            logs={logs}
+            logsTotal={logsTotal}
+            logsLoading={logsLoading}
+            logsLimit={logsLimit}
+            logsOffset={logsQueryOffset}
+            logsFilters={logsFilters}
+            onFiltersChange={setLogsFilters}
+            onSearch={handleLogSearch}
+            onDeleteAll={handleDeleteAllLogs}
+            onDeleteLog={handleDeleteLog}
+            onOffsetChange={setLogsQueryOffset}
+          />
+
+          {/* Add/edit server — react-hook-form + zod sheet. Supersedes upstream's
+              raw controlled-input McpServerEditorModal, which was removed rather
+              than left unreachable alongside this one. */}
           <McpServerSheet
             open={isServerSheetOpen}
             onOpenChange={setIsServerSheetOpen}
@@ -1187,184 +548,39 @@ export const McpPage: React.FC = () => {
             servers={servers}
           />
 
-          {/* ── Manage Keys Modal ── */}
-          <Modal
-            isOpen={keyManagementServerName !== null}
+          <McpKeyManagementModal
+            serverName={keyManagementServerName}
+            authScheme={
+              keyManagementServerName ? servers[keyManagementServerName]?.auth_scheme : undefined
+            }
+            serverKeys={serverKeys}
+            isLoadingKeys={isLoadingKeys}
+            newServerKey={newServerKey}
+            onNewServerKeyChange={setNewServerKey}
+            isSavingKey={isSavingKey}
             onClose={() => setKeyManagementServerName(null)}
-            title={
-              keyManagementServerName ? `Manage Keys: ${keyManagementServerName}` : 'Manage Keys'
-            }
-            footer={
-              <Button variant="secondary" onClick={() => setKeyManagementServerName(null)}>
-                Close
-              </Button>
-            }
-          >
-            <div className="flex flex-col gap-4">
-              <div className="rounded-md border border-border bg-surface-elevated p-3 text-sm text-foreground-muted">
-                <p>
-                  These keys are load-balanced (round robin) and rotated automatically when a rate
-                  limit or quota is exceeded. They are injected using the server&apos;s configured{' '}
-                  <strong>Auth Scheme</strong>:{' '}
-                  <span className="rounded bg-surface-sunken px-1 py-0.5 font-mono text-foreground">
-                    {keyManagementServerName && servers[keyManagementServerName]?.auth_scheme
-                      ? servers[keyManagementServerName].auth_scheme
-                      : 'None (keys will not be sent)'}
-                  </span>
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                <div className="min-w-0 flex-1">
-                  <Input
-                    label="New Key"
-                    value={newServerKey}
-                    onChange={(e) => setNewServerKey(e.target.value)}
-                    placeholder="Paste key value"
-                  />
-                </div>
-                <Button
-                  onClick={handleAddServerKey}
-                  disabled={isSavingKey || !newServerKey.trim()}
-                  isLoading={isSavingKey}
-                  className="w-full sm:w-auto"
-                >
-                  Add Key
-                </Button>
-              </div>
+            onAddKey={handleAddServerKey}
+            onDeleteKey={handleDeleteServerKey}
+            onClearCooldown={handleClearServerKeyCooldown}
+          />
 
-              {isLoadingKeys ? (
-                <p className="text-sm text-foreground-muted">Loading keys...</p>
-              ) : serverKeys.length === 0 ? (
-                <p className="text-sm text-foreground-muted">No keys configured.</p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {serverKeys.map((key) => {
-                    const isExhausted =
-                      key.cooldown_until !== null &&
-                      new Date(key.cooldown_until).getTime() > Date.now();
-                    return (
-                      <div
-                        key={key.id}
-                        className="flex flex-col gap-3 rounded-md border border-border bg-surface-elevated p-3 sm:flex-row sm:items-center"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div
-                            className="truncate font-mono text-sm text-foreground"
-                            title={key.key}
-                          >
-                            {key.key}
-                          </div>
-                          <div
-                            className={cn(
-                              'mt-1 text-xs font-medium',
-                              !key.is_active || isExhausted ? 'text-warning' : 'text-success'
-                            )}
-                          >
-                            {!key.is_active
-                              ? 'Inactive'
-                              : isExhausted
-                                ? `Exhausted, ${formatResetsIn(key.cooldown_until)}`
-                                : 'Active'}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          {isExhausted && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => handleClearServerKeyCooldown(key.id)}
-                            >
-                              Clear Cooldown
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => handleDeleteServerKey(key.id)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </Modal>
-
-          {/* ── Delete All Logs Modal ── */}
-          <Modal
+          <McpDeleteLogsModal
             isOpen={isDeleteLogsModalOpen}
+            deleteLogsMode={deleteLogsMode}
+            olderThanDays={olderThanDays}
+            isDeletingLogs={isDeletingLogs}
             onClose={() => setIsDeleteLogsModalOpen(false)}
-            title="Confirm Deletion"
-            footer={
-              <>
-                <Button variant="secondary" onClick={() => setIsDeleteLogsModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button variant="danger" onClick={confirmDeleteAllLogs} disabled={isDeletingLogs}>
-                  {isDeletingLogs ? 'Deleting...' : 'Delete Logs'}
-                </Button>
-              </>
-            }
-          >
-            <div className="flex flex-col gap-4">
-              <p>Select which MCP logs you would like to delete:</p>
+            onModeChange={setDeleteLogsMode}
+            onOlderThanDaysChange={setOlderThanDays}
+            onConfirm={confirmDeleteAllLogs}
+          />
 
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="radio"
-                  id="mcp-delete-older"
-                  name="deleteLogsMode"
-                  checked={deleteLogsMode === 'older'}
-                  onChange={() => setDeleteLogsMode('older')}
-                />
-                <label htmlFor="mcp-delete-older">Delete logs older than</label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={olderThanDays}
-                  onChange={(e) => setOlderThanDays(parseInt(e.target.value) || 1)}
-                  style={{ width: '60px', padding: '4px 8px' }}
-                  disabled={deleteLogsMode !== 'older'}
-                />
-                <span>days</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  id="mcp-delete-all"
-                  name="deleteLogsMode"
-                  checked={deleteLogsMode === 'all'}
-                  onChange={() => setDeleteLogsMode('all')}
-                />
-                <label htmlFor="mcp-delete-all" className="text-danger">
-                  Delete ALL logs (Cannot be undone)
-                </label>
-              </div>
-            </div>
-          </Modal>
-
-          {/* ── Single Log Delete Modal ── */}
-          <Modal
+          <McpDeleteLogModal
             isOpen={isSingleDeleteModalOpen}
+            isDeletingLogs={isDeletingLogs}
             onClose={() => setIsSingleDeleteModalOpen(false)}
-            title="Confirm Deletion"
-            footer={
-              <>
-                <Button variant="secondary" onClick={() => setIsSingleDeleteModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button variant="danger" onClick={confirmDeleteSingleLog} disabled={isDeletingLogs}>
-                  {isDeletingLogs ? 'Deleting...' : 'Delete Log'}
-                </Button>
-              </>
-            }
-          >
-            <p>Are you sure you want to delete this MCP log entry?</p>
-          </Modal>
+            onConfirm={confirmDeleteSingleLog}
+          />
         </div>
       </PageContainer>
     </div>

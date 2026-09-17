@@ -90,7 +90,7 @@ export function FetchModelsModal({
           </div>
         )}
         {fetchWarning && (
-          <div className="rounded-sm border border-amber-500/30 bg-amber-500/10 p-3 font-body text-[13px] text-amber-400">
+          <div className="rounded-sm border border-amber-500/30 bg-amber-500/10 p-3 font-sans text-[13px] text-amber-400">
             {fetchWarning}
           </div>
         )}
@@ -148,7 +148,7 @@ export function FetchModelsModal({
                           )}
                           {isHidden && (
                             <span
-                              className="font-body text-[10px] tracking-wider text-text-muted uppercase"
+                              className="font-sans text-[10px] tracking-wider text-foreground-muted uppercase"
                               title="Served by the provider but not advertised in its own model picker"
                             >
                               hidden

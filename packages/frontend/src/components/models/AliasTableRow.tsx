@@ -141,10 +141,10 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
                         className={`flex items-center gap-1.5 text-[11px] transition-opacity ${
                           isTargetDisabled
                             ? 'opacity-70 line-through text-danger'
-                            : 'text-text-secondary'
+                            : 'text-foreground-muted'
                         }`}
                       >
-                        <Link2 size={12} className="text-primary opacity-70" />
+                        <Link2 size={12} className="text-accent opacity-70" />
                         <Switch
                           checked={t.enabled !== false}
                           onChange={(val) => onToggleTarget(alias, groupIdx, targetIdx, val)}

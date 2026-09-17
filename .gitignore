@@ -80,6 +80,8 @@ docs/openapi.yaml
 # Compiled binaries
 plexus-
 plexus
+!packages/backend/src/routes/mcp/plexus/
+!packages/backend/src/routes/mcp/plexus/**
 
 # Profiling output
 .prof/
