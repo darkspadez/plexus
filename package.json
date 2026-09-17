@@ -2,14 +2,15 @@
   "name": "plexus2",
   "module": "index.ts",
   "devDependencies": {
-    "@biomejs/biome": "2.5.7",
-    "@redocly/cli": "^2.46.0",
-    "agent-browser": "^0.33.2",
-    "bun-types": "1.3.14",
-    "lefthook": "^2.1.10",
+    "@biomejs/biome": "2.5.13",
+    "@redocly/cli": "^2.52.0",
+    "@vitest/coverage-istanbul": "5.0.0",
+    "agent-browser": "^0.37.1",
+    "bun-types": "1.4.2",
+    "lefthook": "^2.1.12",
     "octokit": "^5.0.5",
-    "typescript-language-server": "^5.3.0",
-    "vitest": "^4.1.10",
+    "typescript-language-server": "^6.0.0",
+    "vitest": "^5.0.0",
     "yaml": "^2.9.0"
   },
   "private": true,
@@ -49,6 +50,7 @@
     "build:bin": "bun run build:frontend:if-needed && bun build packages/backend/src/index.ts packages/backend/drizzle/migrations/*.sql packages/backend/drizzle/migrations_pg/*.sql packages/frontend/dist/*.png packages/frontend/dist/*.ico packages/frontend/dist/*.svg packages/frontend/dist/*.webmanifest --compile --asset-naming=\"[name].[ext]\" --outfile plexus",
     "typecheck": "bun run --workspaces typecheck",
     "test": "cd packages/backend && bun run test",
+    "test:coverage": "cd packages/backend && bun run test:coverage",
     "test:force": "cd packages/backend && bun run test:force-all",
     "test:watch": "cd packages/backend && bun run test:watch",
     "release": "bun run scripts/release.ts",
@@ -70,12 +72,17 @@
     "lint:openapi": "bunx @redocly/cli lint docs/openapi/openapi.yaml",
     "bundle:openapi": "bunx @redocly/cli bundle docs/openapi/openapi.yaml -o docs/openapi.yaml",
     "generate:openapi:asset": "bunx @redocly/cli bundle docs/openapi/openapi.yaml -o packages/backend/src/assets/openapi.json",
+    "generate:repomap": "ctags -R --languages=TypeScript,JavaScript --kinds-TypeScript=cifm --fields=+neK --output-format=json --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='*.test.ts' --exclude='*.spec.ts' --exclude='__tests__' --exclude='packages/backend/src/assets/*' --exclude='packages/backend/drizzle/migrations*' -f - packages/ | jq -s -r 'map(select(._type == \"tag\" and .path != null)) | group_by(.path)[] | \"\\n📁 \" + .[0].path + \":\\n\" + (map(\"  │ [\" + (.kind // \"symbol\") + \"] \" + .name + \" (line \" + (.line|tostring) + \")\") | join(\"\\n\"))' > .repomap.txt",
     "preview:openapi": "bunx @redocly/cli preview-docs docs/openapi/openapi.yaml",
     "sync:openapi": "bun run scripts/sync-openapi.ts",
     "sync:openapi:write": "bun run scripts/sync-openapi.ts --write",
     "sync:openapi:types": "bun run bundle:openapi && bunx openapi-typescript docs/openapi.yaml -o scripts/openapi-types.ts",
     "generate-migrations": "bun run scripts/generate-migrations.ts",
     "review": "bash .lefthook/pre-push/pr-agent-review.sh --manual",
+    "code:review:staged": "cora review --staged --severity major",
+    "code:review:unstaged": "cora review --unstaged --severity major",
+    "code:review:branch": "cora review --base origin/main --severity major",
+    "code:review:commit": "cora review --commit HEAD --severity major",
     "deploy:staging": "bun run scripts/deploy-staging.ts"
   },
   "type": "module",
@@ -83,6 +90,6 @@
     "packages/*"
   ],
   "dependencies": {
-    "@earendil-works/pi-ai": "0.84.1"
+    "@earendil-works/pi-ai": "0.85.1"
   }
 }

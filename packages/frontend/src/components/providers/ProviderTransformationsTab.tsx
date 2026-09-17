@@ -6,10 +6,10 @@ import { Select } from '../ui/Select';
 import { Switch } from '../ui/Switch';
 import { SectionCard } from '../ui/SectionCard';
 import { cn } from '../../lib/cn';
-import { GPU_PROFILE_OPTIONS, resolveGpuParams } from '@plexus/shared';
 import type { CompactionSettings } from '../../lib/api';
 import { ToggleRow } from './ToggleRow';
 import { KVSection, NotConfigured } from './KVSection';
+import { ReasoningRewriteRulesEditor } from './ReasoningRewriteRulesEditor';
 import type { ProviderFormApi } from '../../hooks/useProviderForm';
 
 export const KNOWN_ADAPTERS: { value: string; label: string; description: string }[] = [
@@ -192,51 +192,8 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
         </div>
       </SectionCard>
 
-      <SectionCard title="GPU & Cost">
+      <SectionCard title="Cost">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
-          <Select
-            label="GPU Profile"
-            value={editingProvider.gpu_profile || ''}
-            onChange={(value) => {
-              if (!value) {
-                const resolved = resolveGpuParams('B200');
-                setEditingProvider({
-                  ...editingProvider,
-                  gpu_profile: undefined,
-                  gpu_ram_gb: resolved.ram_gb,
-                  gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                  gpu_flops_tflop: resolved.flops_tflop,
-                  gpu_power_draw_watts: resolved.power_draw_watts,
-                });
-              } else if (value === 'custom') {
-                const resolved = resolveGpuParams('custom', {
-                  ram_gb: editingProvider.gpu_ram_gb,
-                  bandwidth_tb_s: editingProvider.gpu_bandwidth_tb_s,
-                  flops_tflop: editingProvider.gpu_flops_tflop,
-                  power_draw_watts: editingProvider.gpu_power_draw_watts,
-                });
-                setEditingProvider({
-                  ...editingProvider,
-                  gpu_profile: 'custom',
-                  gpu_ram_gb: resolved.ram_gb,
-                  gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                  gpu_flops_tflop: resolved.flops_tflop,
-                  gpu_power_draw_watts: resolved.power_draw_watts,
-                });
-              } else {
-                const resolved = resolveGpuParams(value);
-                setEditingProvider({
-                  ...editingProvider,
-                  gpu_profile: value,
-                  gpu_ram_gb: resolved.ram_gb,
-                  gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-                  gpu_flops_tflop: resolved.flops_tflop,
-                  gpu_power_draw_watts: resolved.power_draw_watts,
-                });
-              }
-            }}
-            options={[{ value: '', label: 'Default (B200)' }, ...GPU_PROFILE_OPTIONS]}
-          />
           <Input
             label="Discount"
             hint="e.g. 10 → pays 90%"
@@ -253,70 +210,10 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
               <span className="pointer-events-none text-[11px] text-foreground-subtle">%</span>
             }
           />
-          {editingProvider.gpu_profile === 'custom' && (
-            <div className="grid grid-cols-1 gap-2 rounded-md border border-border bg-surface-sunken p-2 sm:grid-cols-2 sm:col-span-2">
-              <Input
-                label="RAM (GB)"
-                type="number"
-                step="1"
-                min="1"
-                placeholder="e.g. 80"
-                value={editingProvider.gpu_ram_gb || ''}
-                onChange={(e) =>
-                  setEditingProvider({
-                    ...editingProvider,
-                    gpu_ram_gb: parseFloat(e.target.value) || undefined,
-                  })
-                }
-              />
-              <Input
-                label="Bandwidth (TB/s)"
-                type="number"
-                step="0.1"
-                min="0.1"
-                placeholder="e.g. 3.35"
-                value={editingProvider.gpu_bandwidth_tb_s || ''}
-                onChange={(e) =>
-                  setEditingProvider({
-                    ...editingProvider,
-                    gpu_bandwidth_tb_s: parseFloat(e.target.value) || undefined,
-                  })
-                }
-              />
-              <Input
-                label="FLOPS (TFLOPs)"
-                type="number"
-                step="100"
-                min="1"
-                placeholder="e.g. 4000"
-                value={editingProvider.gpu_flops_tflop || ''}
-                onChange={(e) =>
-                  setEditingProvider({
-                    ...editingProvider,
-                    gpu_flops_tflop: parseFloat(e.target.value) || undefined,
-                  })
-                }
-              />
-              <Input
-                label="Power (Watts)"
-                type="number"
-                step="10"
-                min="1"
-                placeholder="e.g. 700"
-                value={editingProvider.gpu_power_draw_watts || ''}
-                onChange={(e) =>
-                  setEditingProvider({
-                    ...editingProvider,
-                    gpu_power_draw_watts: parseInt(e.target.value, 10) || undefined,
-                  })
-                }
-              />
-            </div>
-          )}
         </div>
       </SectionCard>
 
-      {/* Provider Adapters — includes Web Search Coercion options */}
+      {/* Provider Adapters — includes Reasoning Rewrite and Web Search Coercion options */}
       <SectionCard
         size="sm"
         title="Provider Adapters"
@@ -341,10 +238,7 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
           </div>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {KNOWN_ADAPTERS.filter(
-              (a) =>
-                a.value !== 'model_override' &&
-                a.value !== 'reasoning_rewrite' &&
-                a.value !== 'web_search_coercion'
+              (a) => a.value !== 'model_override' && a.value !== 'web_search_coercion'
             ).map((a) => {
               const adapterEntries: any[] = editingProvider.adapter ?? [];
               const active = adapterEntries.some(
@@ -383,6 +277,12 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
                 </label>
               );
             })}
+
+            {/* Reasoning Rewrite rules editor (shared with per-model UI) */}
+            <ReasoningRewriteRulesEditor
+              adapters={editingProvider.adapter ?? []}
+              onChange={(next: any[]) => setEditingProvider({ ...editingProvider, adapter: next })}
+            />
 
             {/* Web Search Coercion — inline options editor */}
             {(() => {

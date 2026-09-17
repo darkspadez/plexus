@@ -1,4 +1,5 @@
 import { formatNumber, formatPoints } from './format';
+import { isOAuthPlaceholderUrl } from '@plexus/shared';
 import { normalizeApiAccessList } from './apiFormats';
 import { dedupeAliasTargets, dedupeById, dedupeModels, dedupeStrings } from './modelOptions';
 
@@ -20,9 +21,9 @@ function inferProviderTypes(apiBaseUrl?: string | Record<string, string>): strin
 
   if (typeof apiBaseUrl === 'string') {
     // Single URL - infer type from URL pattern
-    const url = apiBaseUrl.toLowerCase();
+    const url = apiBaseUrl.trim().toLowerCase();
 
-    if (url.startsWith('oauth://')) {
+    if (isOAuthPlaceholderUrl(apiBaseUrl)) {
       return ['oauth'];
     }
 
@@ -144,7 +145,6 @@ export interface UsageData {
   outputTokens: number;
   cachedTokens: number;
   cacheWriteTokens: number;
-  kwhUsed: number;
   errors: number;
 }
 
@@ -155,7 +155,6 @@ export interface TodayMetrics {
   reasoningTokens: number;
   cachedTokens: number;
   cacheWriteTokens: number;
-  kwhUsed: number;
   totalCost: number;
 }
 
@@ -221,6 +220,7 @@ export interface Provider {
   enabled: boolean;
   disableCooldown?: boolean;
   stallCooldown?: boolean;
+  allow100PercentUtilization?: boolean;
   estimateTokens?: boolean;
   useClaudeMasking?: boolean;
   geminiThinkingEnabled?: boolean;
@@ -238,12 +238,6 @@ export interface Provider {
     enabled: boolean;
     intervalMinutes: number;
   };
-  // GPU Profile settings for inference energy calculation
-  gpu_profile?: string;
-  gpu_ram_gb?: number;
-  gpu_bandwidth_tb_s?: number;
-  gpu_flops_tflop?: number;
-  gpu_power_draw_watts?: number;
   adapter?: any[];
   timeoutMs?: number;
   maxConcurrency?: number | null;
@@ -492,7 +486,13 @@ export type AliasMetadata =
 export interface AliasTargetGroup {
   name: string;
   selector: string;
-  targets: Array<{ provider: string; model: string; apiType?: string[]; enabled?: boolean }>;
+  targets: Array<{
+    provider?: string;
+    model?: string;
+    alias?: string;
+    apiType?: string[];
+    enabled?: boolean;
+  }>;
 }
 
 export type PreferredApiValue = 'chat_completions' | 'messages' | 'gemini' | 'responses';
@@ -506,17 +506,6 @@ export interface Alias {
   advanced?: AliasBehavior[];
   metadata?: AliasMetadata;
   use_image_fallthrough?: boolean;
-  // Model architecture override for inference energy calculation
-  model_architecture?: {
-    total_params?: number;
-    active_params?: number;
-    layers?: number;
-    heads?: number;
-    kv_lora_rank?: number;
-    qk_rope_head_dim?: number;
-    context_length?: number;
-    dtype?: 'fp16' | 'bf16' | 'fp8' | 'fp8_e4m3' | 'fp8_e5m2' | 'nvfp4' | 'int4' | 'int8';
-  };
   enforce_limits?: boolean;
   sticky_session?: boolean;
   preferred_api?: Array<PreferredApiValue>;
@@ -573,6 +562,7 @@ export interface UsageRecord {
   finalAttemptModel?: string | null;
   allAttemptedProviders?: string | null;
   outgoingApiType?: string;
+  reasoningEffort?: string | null;
   tokensInput?: number;
   tokensOutput?: number;
   tokensReasoning?: number;
@@ -612,8 +602,8 @@ export interface UsageRecord {
   isVisionFallthrough?: boolean;
   isDescriptorRequest?: boolean;
   visionFallthroughModel?: string | null;
-  // Energy estimation
-  kwhUsed?: number;
+  // Measured energy usage (e.g. reported by Neuralwatt-backed providers)
+  kwhUsed?: number | null;
   // Provider-reported cost
   providerReportedCost?: number;
 }
@@ -627,13 +617,17 @@ interface BackendResponse<T> {
 interface UsageSummarySeriesPoint {
   bucketStartMs: number;
   requests: number;
+  errors: number;
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens: number;
   cachedTokens: number;
   cacheWriteTokens: number;
-  kwhUsed: number;
   tokens: number;
-  errors: number;
+  totalCost: number;
+  avgDurationMs: number;
+  avgTtftMs: number;
+  avgTokensPerSec: number;
 }
 
 /**
@@ -642,16 +636,46 @@ interface UsageSummarySeriesPoint {
  */
 export interface UsageSummaryWindowStats {
   totalRequests: number;
+  totalErrors: number;
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens: number;
   cachedTokens: number;
   cacheWriteTokens: number;
   totalCost: number;
-  totalKwhUsed: number;
   avgDurationMs: number;
   totalDurationMs: number;
-  totalErrors: number;
+  avgTtftMs: number;
+  avgTokensPerSec: number;
+  successRate: number;
+}
+
+export type UsageSummaryBreakdown = 'provider' | 'modelAlias' | 'apiKey' | 'status';
+export type UsageSummaryExclusion = 'directModels' | 'probe';
+
+export interface UsageSummaryGroup {
+  name: string;
+  requests: number;
+  errors: number;
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  cachedTokens: number;
+  cacheWriteTokens: number;
+  totalTokens: number;
+  totalCost: number;
+  avgDurationMs: number;
+  totalDurationMs: number;
+  avgTtftMs: number;
+  avgTokensPerSec: number;
+  successRate: number;
+}
+
+export interface UsageSummaryBreakdownResult {
+  items: UsageSummaryGroup[];
+  totalDimensions: number;
+  truncated: boolean;
 }
 
 export interface UsageSummaryResponse {
@@ -661,6 +685,7 @@ export interface UsageSummaryResponse {
   /** `null` when `range` is `all` — there is no prior window to compare against. */
   prevStats: UsageSummaryWindowStats | null;
   today: TodayMetrics;
+  grouped?: Partial<Record<UsageSummaryBreakdown, UsageSummaryBreakdownResult>>;
 }
 
 /**
@@ -715,6 +740,71 @@ const configRequestCache = new Map<string, { expiresAt: number; promise: Promise
 export interface QuotaCheckerType {
   type: string;
   displayName: string;
+  custom?: boolean;
+}
+
+export interface CustomQuotaChecker {
+  id: string;
+  type: string;
+  displayName: string;
+  code: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchCustomQuotaCheckers(): Promise<CustomQuotaChecker[]> {
+  const response = await fetchWithAuth(`${API_BASE}/v0/management/custom-checkers`);
+  if (!response.ok) throw new Error('Failed to fetch custom quota checkers');
+  return response.json();
+}
+
+export async function saveCustomQuotaChecker(
+  id: string,
+  payload: { displayName: string; code: string; enabled: boolean }
+): Promise<CustomQuotaChecker> {
+  const response = await fetchWithAuth(
+    `${API_BASE}/v0/management/custom-checkers/${encodeURIComponent(id)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...payload }),
+    }
+  );
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || 'Failed to save custom quota checker');
+  }
+  return response.json();
+}
+
+export async function deleteCustomQuotaChecker(id: string): Promise<void> {
+  const response = await fetchWithAuth(
+    `${API_BASE}/v0/management/custom-checkers/${encodeURIComponent(id)}`,
+    {
+      method: 'DELETE',
+    }
+  );
+  if (!response.ok) throw new Error('Failed to delete custom quota checker');
+}
+
+export async function testCustomQuotaChecker(
+  id: string,
+  provider: string,
+  options: Record<string, unknown>,
+  code?: string
+): Promise<{ success: boolean; meters: import('../types/quota').Meter[]; error?: string }> {
+  const response = await fetchWithAuth(
+    `${API_BASE}/v0/management/custom-checkers/${encodeURIComponent(id)}/test`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, options, ...(code ? { code } : {}) }),
+    }
+  );
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Custom quota checker test failed');
+  return result;
 }
 
 export interface QuotaCheckersResponse {
@@ -737,9 +827,6 @@ export async function fetchQuotaCheckers(): Promise<QuotaCheckersResponse> {
     ),
   };
 }
-
-// Re-export GpuProfileOption from shared package for use by other components
-export type { GpuProfileOption } from '@plexus/shared';
 
 const normalizeProviderQuotaChecker = (checker?: {
   type?: string;
@@ -766,7 +853,6 @@ const USAGE_PAGE_FIELDS: UsageRecordField[] = [
   'tokensOutput',
   'tokensCached',
   'tokensCacheWrite',
-  'kwhUsed',
   'incomingModelAlias',
   'provider',
   'apiKey',
@@ -854,7 +940,6 @@ const buildSummarySeries = (summary: UsageSummaryResponse, now: Date): UsageData
       outputTokens,
       cachedTokens,
       cacheWriteTokens,
-      kwhUsed: point?.kwhUsed || 0,
       errors: point?.errors || 0,
     };
   }
@@ -925,7 +1010,10 @@ const fetchUsageSummary = async (
   range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all',
   cache = true,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  breakdowns: UsageSummaryBreakdown[] = [],
+  breakdownLimit = 10,
+  exclusions: UsageSummaryExclusion[] = []
 ) => {
   const searchParams = new URLSearchParams();
   searchParams.set('range', range);
@@ -933,6 +1021,16 @@ const fetchUsageSummary = async (
   if (range === 'custom' && startDate && endDate) {
     searchParams.set('startDate', startDate);
     searchParams.set('endDate', endDate);
+  }
+
+  const normalizedBreakdowns = Array.from(new Set(breakdowns)).sort();
+  if (normalizedBreakdowns.length > 0) {
+    searchParams.set('breakdowns', normalizedBreakdowns.join(','));
+    searchParams.set('breakdownLimit', String(breakdownLimit));
+  }
+  const normalizedExclusions = Array.from(new Set(exclusions)).sort();
+  if (normalizedExclusions.length > 0) {
+    searchParams.set('exclude', normalizedExclusions.join(','));
   }
 
   const queryString = searchParams.toString();
@@ -1216,20 +1314,51 @@ function aliasToConfigPayload(alias: Alias): Record<string, unknown> {
     ...(alias.metadata && { metadata: alias.metadata }),
     ...(alias.pi_model && { pi_model: alias.pi_model }),
     ...(alias.compaction && { compaction: alias.compaction }),
-    ...(alias.model_architecture && { model_architecture: alias.model_architecture }),
     ...(alias.extraBody && Object.keys(alias.extraBody).length > 0
       ? { extraBody: alias.extraBody }
       : {}),
     target_groups: targetGroups.map((group) => ({
       name: group.name,
       selector: group.selector,
-      targets: group.targets.map((target) => ({
-        provider: target.provider,
-        model: target.model,
-        ...(target.enabled === false && { enabled: false }),
-      })),
+      targets: group.targets.map((target) =>
+        target.alias
+          ? {
+              alias: target.alias,
+              ...(target.enabled === false && { enabled: false }),
+            }
+          : {
+              provider: target.provider,
+              model: target.model,
+              ...(target.enabled === false && { enabled: false }),
+            }
+      ),
     })),
   };
+}
+
+/**
+ * A model entry returned by `GET /v0/management/oauth/models`. Codex is the one
+ * OAuth provider whose list is account-scoped and fetched live, so entries can
+ * carry a modality hint, the protocols they are reachable through, and the
+ * upstream's own listing hint (`hide` models work but are not advertised).
+ */
+export interface OAuthDiscoveredModel {
+  id: string;
+  name?: string;
+  context_length?: number;
+  description?: string;
+  pricing?: { prompt?: string; completion?: string };
+  type?: 'text' | 'image';
+  access_via?: string[];
+  visibility?: 'list' | 'hide';
+}
+
+export interface OAuthProviderModelsResult {
+  models: OAuthDiscoveredModel[];
+  /** `catalog` means the live Codex lookup was unavailable and we fell back. */
+  source: 'codex-backend' | 'catalog';
+  /** Present only on a fallback — a warning, not a hard error. */
+  warning?: string;
 }
 
 export const api = {
@@ -1339,7 +1468,6 @@ export const api = {
           reasoningTokens: 0,
           cachedTokens: 0,
           cacheWriteTokens: 0,
-          kwhUsed: 0,
           totalCost: 0,
         },
       };
@@ -1351,9 +1479,9 @@ export const api = {
    *
    * Returns the untransformed backend payload including `stats` (selected
    * range window), `prevStats` (preceding equal-length window, `null` for
-   * `range=all`) and `today` roll-ups. Used by the Overall dashboard tab to
-   * compute range-scoped totals without having to duplicate the endpoint
-   * definition.
+   * `range=all`), optional grouped breakdowns, and `today` roll-ups. Used by
+   * the Overall dashboard tab to compute range-scoped totals without having
+   * to duplicate the endpoint definition.
    *
    * The backend auto-scopes this endpoint to the calling limited user's
    * key, so admin callers see global totals and api-key callers see only
@@ -1363,10 +1491,21 @@ export const api = {
     range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all' = 'day',
     cache = true,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    breakdowns: UsageSummaryBreakdown[] = [],
+    breakdownLimit = 10,
+    exclusions: UsageSummaryExclusion[] = []
   ): Promise<UsageSummaryResponse | null> => {
     try {
-      return await fetchUsageSummary(range, cache, startDate, endDate);
+      return await fetchUsageSummary(
+        range,
+        cache,
+        startDate,
+        endDate,
+        breakdowns,
+        breakdownLimit,
+        exclusions
+      );
     } catch (e) {
       console.error('API Error getUsageSummary', e);
       return null;
@@ -1412,7 +1551,6 @@ export const api = {
           'tokensReasoning',
           'tokensCached',
           'tokensCacheWrite',
-          'kwhUsed',
           'costTotal',
         ],
         cache: true,
@@ -1425,7 +1563,6 @@ export const api = {
         reasoningTokens: 0,
         cachedTokens: 0,
         cacheWriteTokens: 0,
-        kwhUsed: 0,
         totalCost: 0,
       };
 
@@ -1436,7 +1573,6 @@ export const api = {
         metrics.reasoningTokens += r.tokensReasoning || 0;
         metrics.cachedTokens += r.tokensCached || 0;
         metrics.cacheWriteTokens += r.tokensCacheWrite || 0;
-        metrics.kwhUsed += r.kwhUsed || 0;
         metrics.totalCost += r.costTotal || 0;
       });
 
@@ -1450,7 +1586,6 @@ export const api = {
         reasoningTokens: 0,
         cachedTokens: 0,
         cacheWriteTokens: 0,
-        kwhUsed: 0,
         totalCost: 0,
       };
     }
@@ -1821,6 +1956,7 @@ export const api = {
             val.geminiThinkingEnabled === true || val.gemini_thinking_enabled === true,
           disableCooldown: val.disable_cooldown === true,
           stallCooldown: val.stall_cooldown === true,
+          allow100PercentUtilization: val.allow_100_percent_utilization === true,
           discount: val.discount,
           headers: val.headers,
           extraBody:
@@ -1871,8 +2007,9 @@ export const api = {
       estimateTokens: provider.estimateTokens,
       useClaudeMasking: provider.useClaudeMasking,
       geminiThinkingEnabled: provider.geminiThinkingEnabled,
-      disable_cooldown: provider.disableCooldown === true ? true : undefined,
-      stall_cooldown: provider.stallCooldown === true ? true : undefined,
+      disable_cooldown: provider.disableCooldown === true,
+      stall_cooldown: provider.stallCooldown === true,
+      allow_100_percent_utilization: provider.allow100PercentUtilization === true,
       discount: provider.discount,
       headers: provider.headers,
       extraBody: provider.extraBody,
@@ -1890,17 +2027,6 @@ export const api = {
         intervalMinutes: Math.max(1, provider.modelAutosync?.intervalMinutes || 60),
       },
       ...(provider.compaction && { compaction: provider.compaction }),
-      // GPU Profile settings — always send resolved numeric fields so backend
-      // never needs to resolve profile names. gpu_profile is a display hint only.
-      ...(provider.gpu_profile ? { gpu_profile: provider.gpu_profile } : {}),
-      ...(provider.gpu_ram_gb != null ? { gpu_ram_gb: provider.gpu_ram_gb } : {}),
-      ...(provider.gpu_bandwidth_tb_s != null
-        ? { gpu_bandwidth_tb_s: provider.gpu_bandwidth_tb_s }
-        : {}),
-      ...(provider.gpu_flops_tflop != null ? { gpu_flops_tflop: provider.gpu_flops_tflop } : {}),
-      ...(provider.gpu_power_draw_watts != null
-        ? { gpu_power_draw_watts: provider.gpu_power_draw_watts }
-        : {}),
       adapter: provider.adapter ?? [],
       ...(provider.timeoutMs != null ? { timeoutMs: provider.timeoutMs } : {}),
       ...(provider.maxConcurrency != null ? { maxConcurrency: provider.maxConcurrency } : {}),
@@ -1942,6 +2068,21 @@ export const api = {
     // Delete old provider only after new one is saved successfully
     if (oldId && oldId !== provider.id) {
       await api.deleteProvider(oldId, false);
+    }
+  },
+
+  updateProviderEnabled: async (providerId: string, enabled: boolean): Promise<void> => {
+    const res = await fetchWithAuth(
+      `${API_BASE}/v0/management/providers/${encodePathPreservingSlashes(providerId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update provider status');
     }
   },
 
@@ -2106,6 +2247,13 @@ export const api = {
 
       Object.entries(aliasMap).forEach(([key, val]) => {
         const readTarget = (t: any) => {
+          if (t.alias) {
+            return {
+              alias: t.alias as string,
+              enabled: t.enabled !== false,
+            };
+          }
+
           const providerConfig = providers[t.provider];
           const inferredTypes =
             providerConfig?.type || inferProviderTypes(providerConfig?.api_base_url);
@@ -2141,7 +2289,6 @@ export const api = {
           sticky_session: val.sticky_session ?? true,
           advanced: val.advanced || [],
           metadata: val.metadata,
-          model_architecture: val.model_architecture,
           preferred_api: val.preferred_api || [],
           pi_model: val.pi_model,
           extraBody:
@@ -2752,30 +2899,27 @@ export const api = {
   },
 
   getOAuthProviderModels: async (
-    providerId: string
-  ): Promise<
-    {
-      id: string;
-      name?: string;
-      context_length?: number;
-      pricing?: { prompt?: string; completion?: string };
-    }[]
-  > => {
-    const query = new URLSearchParams({ providerId }).toString();
-    const res = await fetchWithAuth(`${API_BASE}/v0/management/oauth/models?${query}`);
+    providerId: string,
+    accountId?: string
+  ): Promise<OAuthProviderModelsResult> => {
+    const query = new URLSearchParams({ providerId });
+    const trimmedAccountId = accountId?.trim();
+    if (trimmedAccountId) query.set('accountId', trimmedAccountId);
+    const res = await fetchWithAuth(`${API_BASE}/v0/management/oauth/models?${query.toString()}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to fetch OAuth provider models');
     }
     const json = (await res.json()) as {
-      data: {
-        id: string;
-        name?: string;
-        context_length?: number;
-        pricing?: { prompt?: string; completion?: string };
-      }[];
+      data?: OAuthDiscoveredModel[];
+      source?: 'codex-backend' | 'catalog';
+      warning?: string;
     };
-    return json.data || [];
+    return {
+      models: json.data || [],
+      source: json.source ?? 'catalog',
+      ...(json.warning ? { warning: json.warning } : {}),
+    };
   },
 
   getMcpServers: async (): Promise<Record<string, McpServer>> => {
@@ -3315,40 +3459,6 @@ export const api = {
   }> => {
     const res = await fetchWithAuth(`${API_BASE}/v0/management/self/quota`);
     if (!res.ok) throw new Error('Failed to fetch quota status');
-    return res.json();
-  },
-
-  /**
-   * Fetches model architecture from Hugging Face via the backend API.
-   * This centralizes the HF API calls on the backend to avoid CORS issues
-   * and provide consistent caching.
-   *
-   * @param modelId - The Hugging Face model ID (e.g., 'moonshotai/Kimi-K2.5')
-   * @returns Model architecture data including total_params, active_params, layers, etc.
-   */
-  fetchHuggingFaceModelArchitecture: async (
-    modelId: string
-  ): Promise<{
-    success: boolean;
-    model_id: string;
-    architecture: {
-      total_params?: number;
-      active_params?: number;
-      layers?: number;
-      heads?: number;
-      kv_lora_rank?: number;
-      qk_rope_head_dim?: number;
-      context_length?: number;
-      dtype?: string;
-    };
-  }> => {
-    const res = await fetchWithAuth(
-      `${API_BASE}/v0/management/models/huggingface/${encodeURIComponent(modelId)}`
-    );
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: { message: 'Unknown error' } }));
-      throw new Error(err.error?.message || `Failed to fetch model architecture: ${res.status}`);
-    }
     return res.json();
   },
 

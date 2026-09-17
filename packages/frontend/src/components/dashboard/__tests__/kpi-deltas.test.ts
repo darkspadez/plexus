@@ -18,10 +18,13 @@ const windowStats = (
   outputTokens: 300,
   cachedTokens: 200,
   cacheWriteTokens: 100,
+  reasoningTokens: 0,
   totalCost: 2,
-  totalKwhUsed: 0.5,
   avgDurationMs: 800,
   totalDurationMs: 80_000,
+  avgTtftMs: 200,
+  avgTokensPerSec: 40,
+  successRate: 95,
   totalErrors: 5,
   ...overrides,
 });
@@ -69,7 +72,7 @@ describe('buildKpiDeltas', () => {
       inputTokens: 500,
       cachedTokens: 500, // 50% hit rate
       totalCost: 3,
-      totalKwhUsed: 0.75,
+      avgTokensPerSec: 60,
       avgDurationMs: 600,
       totalErrors: 12, // 10% error rate
     });
@@ -79,7 +82,7 @@ describe('buildKpiDeltas', () => {
       inputTokens: 600,
       cachedTokens: 400, // 40% hit rate
       totalCost: 2,
-      totalKwhUsed: 0.5,
+      avgTokensPerSec: 40,
       avgDurationMs: 800,
       totalErrors: 8, // 8% error rate
     });
@@ -92,7 +95,7 @@ describe('buildKpiDeltas', () => {
     expect(deltas.tokens).toBeCloseTo(50, 8);
     expect(deltas.cacheHit).toBeCloseTo(10, 8); // 50% - 40% = +10pp
     expect(deltas.cost).toBeCloseTo(50, 8);
-    expect(deltas.energy).toBeCloseTo(50, 8);
+    expect(deltas.throughput).toBeCloseTo(50, 8); // 60 t/s vs 40 t/s
   });
 
   it('returns all nulls without a previous window (range=all)', () => {
@@ -126,7 +129,7 @@ describe('buildKpiDeltas', () => {
       cachedTokens: 0,
       cacheWriteTokens: 0,
       totalCost: 0,
-      totalKwhUsed: 0,
+      avgTokensPerSec: 0,
       avgDurationMs: 0,
       totalErrors: 0,
     });
@@ -136,11 +139,11 @@ describe('buildKpiDeltas', () => {
     expect(deltas.errorRate).toBeNull();
     expect(deltas.avgLatency).toBeNull();
     expect(deltas.cacheHit).toBeNull();
+    expect(deltas.throughput).toBeNull();
     // Volume drops to zero are real signal: -100%.
     expect(deltas.requests).toBeCloseTo(-100, 8);
     expect(deltas.tokens).toBeCloseTo(-100, 8);
     expect(deltas.cost).toBeCloseTo(-100, 8);
-    expect(deltas.energy).toBeCloseTo(-100, 8);
   });
 
   it('nulls the cache-hit delta when either window lacks prompt tokens', () => {

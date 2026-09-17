@@ -6,6 +6,7 @@
   <a href="https://discord.com/channels/292942011261124608/1503831216095367239">Discord</a> ·
   <a href="docs/openapi/openapi.yaml">API reference</a> ·
   <a href="docs/CONFIGURATION.md">Configuration</a> ·
+  <a href="docs/CUSTOM_QUOTA_CHECKERS.md">Custom quota checkers</a> ·
   <a href="docs/INSTALLATION.md">Installation</a> ·
   <a href="docs/TESTING.md">Testing</a>
 </p>
@@ -15,7 +16,7 @@ Plexus sits in front of your LLM providers so clients can use one consistent API
 ## Why Plexus
 
 - **Keep client code stable.** Accept OpenAI Chat Completions and Responses, Anthropic Messages, Gemini native requests, embeddings, audio, images, streaming, and tool use.
-- **Route on your terms.** Map aliases to one or more targets with `random`, `in_order`, `cost`, `performance`, `latency`, or `e2e_performance` selection.
+- **Route on your terms.** Map aliases to one or more targets with `random`, `in_order`, `cost`, `performance`, `latency`, `usage`, `quota`, or `e2e_performance` selection.
 - **Operate with evidence.** Inspect request logs, tokens, cost, latency, live throughput, provider health, and per-key quotas from the dashboard.
 - **Stay resilient.** Apply exponential cooldowns, fail over failed providers, detect stalled streams, and use vision fallthrough for non-vision targets.
 

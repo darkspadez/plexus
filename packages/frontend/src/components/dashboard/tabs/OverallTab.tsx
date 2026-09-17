@@ -9,36 +9,34 @@
  * Data sources (all already force-scoped to the caller's key on the backend):
  *   - `getSelfMe`          → identity (key name, allowedProviders, allowedModels,
  *                             quota assignment, comment)
- *   - `getUsageSummary`    → aggregated totals for the selected time range plus
- *                             an embedded 7-day / today roll-up
- *   - `getUsageByProvider` → per-provider request + token totals
- *   - `getUsageByModel`    → per-model (alias) request + token totals
+ *   - `getUsageSummary`    → aggregated totals plus grouped provider / model-alias
+ *                             breakdowns for the selected time range, including a
+ *                             custom start/end window
  *   - `getSelfQuota`       → per-quota progress for the caller's key
  *                             (`quotas[]`, most-constrained rendered first)
  *
- * All calls fire in parallel inside a single `useEffect`. There is no polling;
- * a manual refresh is triggered by changing the time range.
+ * Each source is fetched through its own React Query hook, so results are
+ * cached and re-fetched independently. There is no polling; a refetch is
+ * triggered by changing the time range (or the custom date window).
  */
 
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Key, Layers, Boxes, Gauge, Activity, AlertTriangle, Users } from 'lucide-react';
-import { type PieChartDataPoint, type QuotaStatusEntry } from '../../../lib/api';
+import { api, type PieChartDataPoint, type QuotaStatusEntry } from '../../../lib/api';
 import { formatNumber, formatTokens, formatCostIn, formatResetsIn } from '../../../lib/format';
 import { useCurrency } from '../../../lib/CurrencyContext';
 import { Card } from '../../ui/Card';
 import { EmptyState } from '../../ui/EmptyState';
+import { Skeleton } from '../../ui/Skeleton';
 import { QuotaProgressBar } from '../../quota/QuotaProgressBar';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 import { Pill } from '../../chips/Pill';
 import { statusForPercent, formatQuotaValue, sortMostConstrainedFirst } from '../../../lib/quota';
-import {
-  useUsageSummary,
-  useUsageByProviderForOverall,
-  useUsageByModelForOverall,
-} from '../../../hooks/queries/useUsage';
+import type { CustomDateRange } from '../../../lib/date';
 import { useSelfMe, useSelfQuota } from '../../../hooks/queries/useMyKey';
 
-type TimeRange = 'hour' | 'day' | 'week' | 'month';
+type TimeRange = 'hour' | 'day' | 'week' | 'month' | 'custom';
 
 interface SelfInfo {
   role: 'admin' | 'limited';
@@ -56,6 +54,7 @@ interface SummaryStats {
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens: number;
   cachedTokens: number;
   cacheWriteTokens: number;
   todayCost: number;
@@ -124,57 +123,64 @@ const BreakdownList: React.FC<{
 export const OverallTab: React.FC = () => {
   const { currency, rate, symbol } = useCurrency();
   const [timeRange, setTimeRange] = useState<TimeRange>('day');
+  const [customDateRange, setCustomDateRange] = useState<CustomDateRange | null>(null);
 
   const selfMeQuery = useSelfMe();
   const selfQuotaQuery = useSelfQuota();
-  const summaryQuery = useUsageSummary(timeRange);
-  const providerQuery = useUsageByProviderForOverall(timeRange);
-  const modelQuery = useUsageByModelForOverall(timeRange);
+
+  const startDate = timeRange === 'custom' ? customDateRange?.start.toISOString() : undefined;
+  const endDate = timeRange === 'custom' ? customDateRange?.end.toISOString() : undefined;
+
+  // A single grouped summary call replaces separate provider/model-alias
+  // fetches: `getUsageSummary` returns both the range totals and, when asked
+  // for `breakdowns`, per-dimension roll-ups in the same response.
+  const summaryQuery = useQuery({
+    queryKey: ['usage-summary-overall', timeRange, startDate, endDate],
+    queryFn: () =>
+      api.getUsageSummary(timeRange, true, startDate, endDate, ['provider', 'modelAlias'], 10, [
+        'directModels',
+        'probe',
+      ]),
+    enabled: timeRange !== 'custom' || !!customDateRange,
+  });
 
   const info = (selfMeQuery.data as SelfInfo | undefined) ?? null;
   const quotas: QuotaStatusEntry[] | null = selfQuotaQuery.isError
     ? null
     : (selfQuotaQuery.data?.quotas ?? null);
   const quotaError = selfQuotaQuery.isError;
-  const providerData: PieChartDataPoint[] = providerQuery.data ?? [];
-  const modelData: PieChartDataPoint[] = modelQuery.data ?? [];
 
-  const loading =
-    selfMeQuery.isLoading ||
-    summaryQuery.isLoading ||
-    providerQuery.isLoading ||
-    modelQuery.isLoading ||
-    selfQuotaQuery.isLoading;
+  const providerData: PieChartDataPoint[] = (summaryQuery.data?.grouped?.provider?.items ?? []).map(
+    (item) => ({
+      name: item.name,
+      requests: item.requests,
+      tokens: item.totalTokens,
+    })
+  );
+  const modelData: PieChartDataPoint[] = (summaryQuery.data?.grouped?.modelAlias?.items ?? [])
+    .filter((item) => !item.name.startsWith('direct/'))
+    .map((item) => ({
+      name: item.name,
+      requests: item.requests,
+      tokens: item.totalTokens,
+    }));
 
-  // Derive summary stats from the series data (same client-side aggregation as before)
+  const loading = selfMeQuery.isLoading || selfQuotaQuery.isLoading || summaryQuery.isLoading;
+
   const summary = useMemo<SummaryStats | null>(() => {
     const res = summaryQuery.data;
     if (!res) return null;
-    // res is the raw UsageSummaryResponse from getUsageSummary
-    const raw = res as any;
-    const series: any[] = raw?.series || [];
-    const today = raw?.today;
-    const totals = series.reduce(
-      (acc: any, p: any) => {
-        acc.requests += p.requests || 0;
-        acc.inputTokens += p.inputTokens || 0;
-        acc.outputTokens += p.outputTokens || 0;
-        acc.cachedTokens += p.cachedTokens || 0;
-        acc.cacheWriteTokens += p.cacheWriteTokens || 0;
-        return acc;
-      },
-      { requests: 0, inputTokens: 0, outputTokens: 0, cachedTokens: 0, cacheWriteTokens: 0 }
-    );
+    const stats = res.stats;
     return {
       range: timeRange,
-      totalRequests: totals.requests,
-      totalTokens:
-        totals.inputTokens + totals.outputTokens + totals.cachedTokens + totals.cacheWriteTokens,
-      inputTokens: totals.inputTokens,
-      outputTokens: totals.outputTokens,
-      cachedTokens: totals.cachedTokens,
-      cacheWriteTokens: totals.cacheWriteTokens,
-      todayCost: today?.totalCost ?? 0,
+      totalRequests: stats.totalRequests,
+      totalTokens: stats.totalTokens,
+      inputTokens: stats.inputTokens,
+      outputTokens: stats.outputTokens,
+      reasoningTokens: stats.reasoningTokens,
+      cachedTokens: stats.cachedTokens,
+      cacheWriteTokens: stats.cacheWriteTokens,
+      todayCost: res.today?.totalCost ?? 0,
     };
   }, [summaryQuery.data, timeRange]);
 
@@ -193,9 +199,14 @@ export const OverallTab: React.FC = () => {
         <TimeRangeSelector
           value={timeRange}
           onChange={(r) => {
-            if (r !== 'custom' && r !== 'all') setTimeRange(r);
+            if (r !== 'all') {
+              setTimeRange(r);
+              if (r !== 'custom') setCustomDateRange(null);
+            }
           }}
-          options={['hour', 'day', 'week', 'month']}
+          customRange={customDateRange}
+          onCustomRangeChange={setCustomDateRange}
+          options={['hour', 'day', 'week', 'month', 'custom']}
         />
       </header>
 
@@ -361,7 +372,7 @@ export const OverallTab: React.FC = () => {
         extra={<Activity size={16} className="text-foreground-subtle" />}
       >
         {loading && !summary ? (
-          <p className="text-sm text-foreground-subtle">Loading…</p>
+          <Skeleton height={120} className="w-full" />
         ) : !summary ? (
           <EmptyState variant="fill" title="No usage recorded in this range." />
         ) : (
@@ -399,7 +410,7 @@ export const OverallTab: React.FC = () => {
       >
         <Card title="Requests by provider" className="min-w-0">
           {loading && !providerData.length ? (
-            <p className="text-sm text-foreground-subtle">Loading…</p>
+            <Skeleton height={180} className="w-full" />
           ) : (
             <BreakdownList
               data={providerData}
@@ -411,7 +422,7 @@ export const OverallTab: React.FC = () => {
 
         <Card title="Tokens by provider" className="min-w-0">
           {loading && !providerData.length ? (
-            <p className="text-sm text-foreground-subtle">Loading…</p>
+            <Skeleton height={180} className="w-full" />
           ) : (
             <BreakdownList
               data={providerData}
@@ -423,7 +434,7 @@ export const OverallTab: React.FC = () => {
 
         <Card title="Requests by model alias" className="min-w-0">
           {loading && !modelData.length ? (
-            <p className="text-sm text-foreground-subtle">Loading…</p>
+            <Skeleton height={180} className="w-full" />
           ) : (
             <BreakdownList
               data={modelData}
@@ -435,7 +446,7 @@ export const OverallTab: React.FC = () => {
 
         <Card title="Tokens by model alias" className="min-w-0">
           {loading && !modelData.length ? (
-            <p className="text-sm text-foreground-subtle">Loading…</p>
+            <Skeleton height={180} className="w-full" />
           ) : (
             <BreakdownList
               data={modelData}

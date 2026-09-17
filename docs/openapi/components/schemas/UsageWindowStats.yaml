@@ -6,33 +6,44 @@ properties:
   totalRequests:
     type: integer
     description: Total requests in the window.
+  totalErrors:
+    type: integer
+    description: Total non-success requests in the window.
   totalTokens:
     type: integer
-    description: Total tokens (input + output + cached + cacheWrite) in the window.
+    description: >
+      Total tokens (input + output + reasoning + cached + cacheWrite) in
+      the window.
   inputTokens:
     type: integer
-    description: Input tokens in the window.
+    description: Total uncached input tokens.
   outputTokens:
     type: integer
-    description: Output tokens in the window.
+    description: Total output tokens.
+  reasoningTokens:
+    type: integer
+    description: Total reasoning tokens.
   cachedTokens:
     type: integer
-    description: Cached (cache-read) tokens in the window.
+    description: Total cached input tokens.
   cacheWriteTokens:
     type: integer
-    description: Cache-write tokens in the window.
+    description: Total cache-write tokens.
   totalCost:
     type: number
-    description: Total cost in dollars in the window.
-  totalKwhUsed:
-    type: number
-    description: Total energy usage in the window.
+    description: Total request cost in the window.
   avgDurationMs:
     type: number
     description: Average request duration in milliseconds.
   totalDurationMs:
     type: integer
     description: Sum of all request durations in milliseconds.
-  totalErrors:
-    type: integer
-    description: Number of non-success requests in the window.
+  avgTtftMs:
+    type: number
+    description: Average time to first token in milliseconds.
+  avgTokensPerSec:
+    type: number
+    description: Average reported tokens per second.
+  successRate:
+    type: number
+    description: Percentage of requests whose status is success.

@@ -10,6 +10,7 @@ import {
   X,
   Download,
   Info,
+  AlertTriangle,
 } from 'lucide-react';
 import { CopyButton } from '../ui/CopyButton';
 import { Button } from '../ui/Button';
@@ -26,16 +27,38 @@ import type { Provider } from '../../lib/api';
 import { api } from '../../lib/api';
 import { KNOWN_ADAPTERS } from './ProviderTransformationsTab';
 import { NotConfigured } from './KVSection';
+import { ReasoningRewriteRulesEditor } from './ReasoningRewriteRulesEditor';
 import { apiAccessToKey, hasApiAccess, toggleApiAccess } from '../../lib/apiFormats';
 
-const API_ACCESS_OPTIONS = [
+type ApiAccessOption = { type: string; label: string };
+
+const API_ACCESS_OPTIONS: readonly ApiAccessOption[] = [
   { type: 'chat', label: 'chat' },
   { type: 'completions', label: 'completions' },
   { type: 'messages', label: 'messages' },
   { type: 'gemini', label: 'gemini' },
   { type: 'responses', label: 'responses' },
   { type: 'ollama', label: 'ollama' },
-] as const;
+];
+
+// HTTP image protocols — every one needs a reachable base URL, so none of them
+// can be served by an OAuth provider.
+const IMAGE_API_ACCESS_OPTIONS: readonly ApiAccessOption[] = [
+  { type: 'chat', label: 'OpenAI-compatible' },
+  { type: 'openai-images', label: 'OpenAI Images' },
+  { type: 'openrouter-images', label: 'OpenRouter Images' },
+  { type: 'gemini', label: 'Gemini Images' },
+];
+
+// The only image protocol an `openai-codex` OAuth provider can dispatch: the
+// backend rejects any other image target on an OAuth route with a 400.
+const CODEX_IMAGE_API_ACCESS_OPTIONS: readonly ApiAccessOption[] = [
+  { type: 'codex-images', label: 'Codex Images (ChatGPT OAuth)' },
+];
+
+const CODEX_OAUTH_PROVIDER = 'openai-codex';
+const DEFAULT_IMAGE_ACCESS = 'openai-images';
+const CODEX_IMAGE_ACCESS = 'codex-images';
 
 const GPT5_SUPPRESSION_ADAPTER = 'suppress_unsupported_gpt5_options';
 
@@ -61,10 +84,14 @@ const getApiBadgeClass = (apiType: string): string => {
       return 'bg-[#a855f7] text-white border-none';
     case 'speech':
       return 'bg-[#f97316] text-white border-none';
-    case 'images':
+    case 'openai-images':
       return 'bg-[#d946ef] text-white border-none';
     case 'responses':
       return 'bg-[#06b6d4] text-white border-none';
+    case 'openrouter-images':
+      return 'bg-[#7c3aed] text-white border-none';
+    case 'codex-images':
+      return 'bg-[#10a37f] text-white border-none';
     case 'ollama':
       return 'bg-[#1a5f7a] text-white border-none';
     default:
@@ -137,6 +164,7 @@ interface Props {
   onTestModel: (providerId: string, modelId: string, modelType?: string) => void;
   getApiBaseUrlMap: () => Record<string, string>;
   isNewProvider: boolean;
+  isOAuthMode: boolean;
 }
 
 export function ProviderModelsEditor({
@@ -159,6 +187,7 @@ export function ProviderModelsEditor({
   onDismissTestMessage,
   getApiBaseUrlMap,
   isNewProvider,
+  isOAuthMode,
 }: Props) {
   const [modelAdaptersOpen, setModelAdaptersOpen] = useState<Record<string, boolean>>({});
   const [modelAdvancedOpen, setModelAdvancedOpen] = useState<Record<string, boolean>>({});
@@ -190,6 +219,16 @@ export function ProviderModelsEditor({
       setPiProviderCustom(true);
     }
   }, [piAiProvider, piProviders]);
+
+  // Codex Images rides the provider's ChatGPT OAuth session instead of a base
+  // URL, so it is offered only on an OAuth provider whose backend is Codex —
+  // and there it is the only image protocol the dispatcher will accept.
+  const isCodexOAuthProvider =
+    isOAuthMode && editingProvider.oauthProvider === CODEX_OAUTH_PROVIDER;
+  const imageAccessOptions = isCodexOAuthProvider
+    ? CODEX_IMAGE_API_ACCESS_OPTIONS
+    : IMAGE_API_ACCESS_OPTIONS;
+  const defaultImageAccess = isCodexOAuthProvider ? CODEX_IMAGE_ACCESS : DEFAULT_IMAGE_ACCESS;
 
   useEffect(() => {
     if (!piAiProvider) {
@@ -352,7 +391,10 @@ export function ProviderModelsEditor({
                         else if (newType === 'speech')
                           updateModelConfig(mId, { type: newType, access_via: ['speech'] });
                         else if (newType === 'image')
-                          updateModelConfig(mId, { type: newType, access_via: ['images'] });
+                          updateModelConfig(mId, {
+                            type: newType,
+                            access_via: [defaultImageAccess],
+                          });
                         else updateModelConfig(mId, { type: newType });
                       }}
                       options={[
@@ -364,82 +406,91 @@ export function ProviderModelsEditor({
                       ]}
                     />
 
-                    {(!mCfg.type || mCfg.type === 'text') && (
+                    {(!mCfg.type || mCfg.type === 'text' || mCfg.type === 'image') && (
                       <div className="flex flex-col gap-1">
                         <label className="font-sans text-[11px] font-medium text-foreground-muted">
                           Access Via
                         </label>
                         <div className="flex flex-wrap gap-1 justify-start">
-                          {API_ACCESS_OPTIONS.map((option) => {
-                            const key = apiAccessToKey(option);
-                            const selected = hasApiAccess(mCfg.access_via, key);
-                            return (
-                              <div key={key} className="flex items-center gap-2">
-                                <label className="flex cursor-pointer items-center gap-[3px]">
-                                  <input
-                                    type="checkbox"
-                                    checked={selected}
-                                    onChange={() => {
-                                      let next = toggleApiAccess(mCfg.access_via, option);
-                                      if (key === 'responses' && selected) {
-                                        next = next.filter(
-                                          (entry) => apiAccessToKey(entry) !== 'responses:lite'
-                                        );
-                                      }
-                                      updateModelConfig(mId, { access_via: next });
-                                    }}
-                                  />
-                                  <span
-                                    className={cn(
-                                      'inline-flex items-center rounded-xl px-1.5 py-0.5 text-[10px] font-medium',
-                                      getApiBadgeClass(option.type),
-                                      selected ? 'opacity-100' : 'opacity-50'
-                                    )}
-                                  >
-                                    {option.label}
-                                  </span>
-                                </label>
-                                {key === 'responses' && selected && (
-                                  <div className="flex items-center gap-1">
-                                    <label className="flex cursor-pointer items-center gap-1.5 font-sans text-[11px] text-foreground-muted">
-                                      <input
-                                        type="checkbox"
-                                        checked={hasApiAccess(mCfg.access_via, 'responses:lite')}
-                                        onChange={() => {
-                                          const next = toggleApiAccess(mCfg.access_via, {
-                                            type: 'responses',
-                                            subtype: 'lite',
+                          {(mCfg.type === 'image' ? imageAccessOptions : API_ACCESS_OPTIONS).map(
+                            (option) => {
+                              const key = apiAccessToKey(option);
+                              const selected = hasApiAccess(mCfg.access_via, key);
+                              return (
+                                <div key={key} className="flex items-center gap-2">
+                                  <label className="flex cursor-pointer items-center gap-[3px]">
+                                    <input
+                                      type="checkbox"
+                                      checked={selected}
+                                      onChange={() => {
+                                        if (mCfg.type === 'image') {
+                                          updateModelConfig(mId, {
+                                            access_via: selected ? [] : [key],
                                           });
-                                          updateModelConfig(mId, { access_via: next });
-                                        }}
-                                      />
-                                      <span>Lite</span>
-                                    </label>
-                                    <Tooltip
-                                      position="top"
-                                      content={
-                                        <div className="w-64 whitespace-normal font-sans leading-relaxed">
-                                          Passes Codex-specific Responses input through unchanged,
-                                          including additional tools. Enable only for targets known
-                                          to support Responses Lite—usually direct OpenAI or Codex
-                                          endpoints. Most OpenAI-compatible proxies do not support
-                                          it.
-                                        </div>
-                                      }
+                                          return;
+                                        }
+
+                                        let next = toggleApiAccess(mCfg.access_via, option);
+                                        if (key === 'responses' && selected) {
+                                          next = next.filter(
+                                            (entry) => apiAccessToKey(entry) !== 'responses:lite'
+                                          );
+                                        }
+                                        updateModelConfig(mId, { access_via: next });
+                                      }}
+                                    />
+                                    <span
+                                      className={cn(
+                                        'inline-flex items-center rounded-xl px-1.5 py-0.5 text-[10px] font-medium',
+                                        getApiBadgeClass(option.type),
+                                        selected ? 'opacity-100' : 'opacity-50'
+                                      )}
                                     >
-                                      <button
-                                        type="button"
-                                        aria-label="About Responses Lite"
-                                        className="flex h-4 w-4 items-center justify-center rounded-full text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                                      {option.label}
+                                    </span>
+                                  </label>
+                                  {key === 'responses' && selected && (
+                                    <div className="flex items-center gap-1">
+                                      <label className="flex cursor-pointer items-center gap-1.5 font-sans text-[11px] text-foreground-muted">
+                                        <input
+                                          type="checkbox"
+                                          checked={hasApiAccess(mCfg.access_via, 'responses:lite')}
+                                          onChange={() => {
+                                            const next = toggleApiAccess(mCfg.access_via, {
+                                              type: 'responses',
+                                              subtype: 'lite',
+                                            });
+                                            updateModelConfig(mId, { access_via: next });
+                                          }}
+                                        />
+                                        <span>Lite</span>
+                                      </label>
+                                      <Tooltip
+                                        position="top"
+                                        content={
+                                          <div className="w-64 whitespace-normal font-sans leading-relaxed">
+                                            Passes Codex-specific Responses input through unchanged,
+                                            including additional tools. Enable only for targets
+                                            known to support Responses Lite—usually direct OpenAI or
+                                            Codex endpoints. Most OpenAI-compatible proxies do not
+                                            support it.
+                                          </div>
+                                        }
                                       >
-                                        <Info size={12} />
-                                      </button>
-                                    </Tooltip>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                                        <button
+                                          type="button"
+                                          aria-label="About Responses Lite"
+                                          className="flex h-4 w-4 items-center justify-center rounded-full text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                                        >
+                                          <Info size={12} />
+                                        </button>
+                                      </Tooltip>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                          )}
                         </div>
                         {(!mCfg.access_via || mCfg.access_via.length === 0) && (
                           <span className="font-sans text-[11px] text-foreground-subtle italic">
@@ -464,6 +515,40 @@ export function ProviderModelsEditor({
                           }
                           return null;
                         })()}
+                        {mCfg.type === 'image' && (
+                          <div className="flex items-start gap-2 py-1.5 px-2 bg-info/10 border border-info/30 rounded-sm">
+                            <Info size={14} className="text-info shrink-0 mt-0.5" />
+                            <span className="text-[11px] text-info">
+                              {isCodexOAuthProvider ? (
+                                <>
+                                  Codex Images is the only image protocol available on a ChatGPT
+                                  OAuth provider. Requests are signed with the provider&apos;s OAuth
+                                  session, so no base URL is needed.
+                                </>
+                              ) : (
+                                <>
+                                  Choose one image protocol. OpenRouter Images targets the dedicated{' '}
+                                  <code>/api/v1/images</code> endpoint; OpenAI-compatible and Gemini
+                                  Images use their native adapters.
+                                </>
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        {mCfg.type === 'image' &&
+                          isCodexOAuthProvider &&
+                          (mCfg.access_via?.length ?? 0) > 0 &&
+                          !hasApiAccess(mCfg.access_via, CODEX_IMAGE_ACCESS) && (
+                            <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
+                              <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
+                              <span className="text-[11px] text-warning">
+                                This model still targets an HTTP image protocol, which a ChatGPT
+                                OAuth provider cannot serve. Select{' '}
+                                <span className="font-semibold">Codex Images (ChatGPT OAuth)</span>{' '}
+                                above.
+                              </span>
+                            </div>
+                          )}
                       </div>
                     )}
 
@@ -1176,624 +1261,18 @@ export function ProviderModelsEditor({
                         </div>
                       );
                     })()}
-                    {/* reasoning_rewrite rules editor */}
+                    {/* reasoning_rewrite rules editor (shared component) */}
                     {(() => {
                       const modelAdapters: any[] = mCfg.adapter
                         ? Array.isArray(mCfg.adapter)
                           ? mCfg.adapter
                           : [mCfg.adapter]
                         : [];
-                      const rewriteEntry = modelAdapters.find(
-                        (e: any) => (typeof e === 'string' ? e : e.name) === 'reasoning_rewrite'
-                      );
-                      if (!rewriteEntry || typeof rewriteEntry === 'string') return null;
-                      const rules: any[] = rewriteEntry.options?.rules ?? [];
                       return (
-                        <div className="mt-1 border-t border-border pt-1.5 sm:col-span-2">
-                          <div className="font-sans text-[11px] font-medium text-foreground-muted mb-1">
-                            Reasoning Rewrite Rules
-                          </div>
-                          <div className="font-sans text-[10px] leading-snug text-foreground-subtle mb-2">
-                            Map unified reasoning fields to provider-specific formats. Each rule
-                            reads a source field and writes one or more targets.
-                          </div>
-                          {rules.map((rule: any, rIdx: number) => (
-                            <div
-                              key={rIdx}
-                              className="mb-1 rounded-sm border border-border bg-surface-sunken p-1.5"
-                            >
-                              {/* Source + When condition */}
-                              <div className="mb-1 flex items-center gap-1">
-                                <div className="flex-[2]">
-                                  <DebouncedInput
-                                    placeholder="Source (e.g. reasoning.enabled)"
-                                    value={rule.source ?? ''}
-                                    onChange={(val: string) => {
-                                      const updated = [...rules];
-                                      updated[rIdx] = {
-                                        ...updated[rIdx],
-                                        source: val,
-                                      };
-                                      const newAdapters = modelAdapters.map((entry: any) =>
-                                        typeof entry !== 'string' &&
-                                        entry.name === 'reasoning_rewrite'
-                                          ? {
-                                              ...entry,
-                                              options: { ...entry.options, rules: updated },
-                                            }
-                                          : entry
-                                      );
-                                      updateModelConfig(mId, { adapter: newAdapters });
-                                    }}
-                                  />
-                                </div>
-                                {/* When operator */}
-                                <div className="flex-[0.7]">
-                                  <select
-                                    className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                                    value={rule.when?.op ?? ''}
-                                    onChange={(e) => {
-                                      const op = e.target.value;
-                                      const updated = [...rules];
-                                      updated[rIdx] = {
-                                        ...updated[rIdx],
-                                        when: op ? { op } : undefined,
-                                      };
-                                      const newAdapters = modelAdapters.map((entry: any) =>
-                                        typeof entry !== 'string' &&
-                                        entry.name === 'reasoning_rewrite'
-                                          ? {
-                                              ...entry,
-                                              options: { ...entry.options, rules: updated },
-                                            }
-                                          : entry
-                                      );
-                                      updateModelConfig(mId, { adapter: newAdapters });
-                                    }}
-                                  >
-                                    <option value="">Any (present)</option>
-                                    <option value="eq">Equals</option>
-                                    <option value="neq">Not equals</option>
-                                    <option value="gt">Greater than</option>
-                                    <option value="gte">≥</option>
-                                    <option value="lt">Less than</option>
-                                    <option value="lte">≤</option>
-                                    <option value="in">In list</option>
-                                    <option value="present">Present</option>
-                                    <option value="absent">Absent</option>
-                                  </select>
-                                </div>
-                                {/* When value */}
-                                <div className="flex-1">
-                                  <DebouncedInput
-                                    placeholder="Value"
-                                    value={
-                                      rule.when?.value != null
-                                        ? String(rule.when.value)
-                                        : rule.when?.values
-                                          ? rule.when.values.join(',')
-                                          : ''
-                                    }
-                                    onChange={(val: string) => {
-                                      const updated = [...rules];
-                                      const currentWhen = updated[rIdx].when || {};
-                                      if (currentWhen.op === 'in') {
-                                        updated[rIdx] = {
-                                          ...updated[rIdx],
-                                          when: {
-                                            ...currentWhen,
-                                            values: val
-                                              .split(',')
-                                              .map((s: string) => s.trim())
-                                              .filter(Boolean),
-                                          },
-                                        };
-                                      } else {
-                                        const parsed =
-                                          val === ''
-                                            ? undefined
-                                            : val === 'true'
-                                              ? true
-                                              : val === 'false'
-                                                ? false
-                                                : isNaN(Number(val))
-                                                  ? val
-                                                  : Number(val);
-                                        updated[rIdx] = {
-                                          ...updated[rIdx],
-                                          when: { ...currentWhen, value: parsed },
-                                        };
-                                      }
-                                      const newAdapters = modelAdapters.map((entry: any) =>
-                                        typeof entry !== 'string' &&
-                                        entry.name === 'reasoning_rewrite'
-                                          ? {
-                                              ...entry,
-                                              options: { ...entry.options, rules: updated },
-                                            }
-                                          : entry
-                                      );
-                                      updateModelConfig(mId, { adapter: newAdapters });
-                                    }}
-                                  />
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    const updated = rules.filter((_: any, i: number) => i !== rIdx);
-                                    const newAdapters = modelAdapters.map((entry: any) =>
-                                      typeof entry !== 'string' &&
-                                      entry.name === 'reasoning_rewrite'
-                                        ? {
-                                            ...entry,
-                                            options: { ...entry.options, rules: updated },
-                                          }
-                                        : entry
-                                    );
-                                    updateModelConfig(mId, { adapter: newAdapters });
-                                  }}
-                                  aria-label="Remove rule"
-                                  className="p-1"
-                                >
-                                  <Trash2 size={14} className="text-danger" />
-                                </Button>
-                              </div>
-                              {/* Rewrites */}
-                              <div className="font-sans text-[10px] font-medium text-foreground-subtle mb-1">
-                                Rewrites
-                              </div>
-                              {(rule.rewrites ?? []).map((rw: any, rwIdx: number) => (
-                                <div key={rwIdx} className="ml-2 mb-0.5 flex items-center gap-1">
-                                  <div className="flex-[2]">
-                                    <DebouncedInput
-                                      placeholder="Target path (e.g. enable_thinking)"
-                                      value={rw.target ?? ''}
-                                      onChange={(val: string) => {
-                                        const updated = [...rules];
-                                        const newRewrites = [...updated[rIdx].rewrites];
-                                        newRewrites[rwIdx] = {
-                                          ...newRewrites[rwIdx],
-                                          target: val,
-                                        };
-                                        updated[rIdx] = {
-                                          ...updated[rIdx],
-                                          rewrites: newRewrites,
-                                        };
-                                        const newAdapters = modelAdapters.map((entry: any) =>
-                                          typeof entry !== 'string' &&
-                                          entry.name === 'reasoning_rewrite'
-                                            ? {
-                                                ...entry,
-                                                options: {
-                                                  ...entry.options,
-                                                  rules: updated,
-                                                },
-                                              }
-                                            : entry
-                                        );
-                                        updateModelConfig(mId, { adapter: newAdapters });
-                                      }}
-                                    />
-                                  </div>
-                                  {/* Value type selector */}
-                                  <div className="flex-[0.7]">
-                                    <select
-                                      className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
-                                      value={
-                                        rw.value === null
-                                          ? 'null'
-                                          : rw.value === undefined
-                                            ? ''
-                                            : typeof rw.value !== 'object'
-                                              ? 'literal'
-                                              : rw.value.from === 'source'
-                                                ? 'source'
-                                                : rw.value.from === 'map'
-                                                  ? 'map'
-                                                  : rw.value.from === 'boolean'
-                                                    ? 'boolean'
-                                                    : 'literal'
-                                      }
-                                      onChange={(e) => {
-                                        const valType = e.target.value;
-                                        let newValue: any;
-                                        switch (valType) {
-                                          case 'source':
-                                            newValue = { from: 'source' };
-                                            break;
-                                          case 'map':
-                                            newValue = { from: 'map', values: {} };
-                                            break;
-                                          case 'boolean':
-                                            newValue = {
-                                              from: 'boolean',
-                                              truthy: 'enabled',
-                                              falsy: 'disabled',
-                                            };
-                                            break;
-                                          case 'null':
-                                            newValue = null;
-                                            break;
-                                          default:
-                                            newValue = '';
-                                            break;
-                                        }
-                                        const updated = [...rules];
-                                        const newRewrites = [...updated[rIdx].rewrites];
-                                        newRewrites[rwIdx] = {
-                                          ...newRewrites[rwIdx],
-                                          value: newValue,
-                                        };
-                                        updated[rIdx] = {
-                                          ...updated[rIdx],
-                                          rewrites: newRewrites,
-                                        };
-                                        const newAdapters = modelAdapters.map((entry: any) =>
-                                          typeof entry !== 'string' &&
-                                          entry.name === 'reasoning_rewrite'
-                                            ? {
-                                                ...entry,
-                                                options: {
-                                                  ...entry.options,
-                                                  rules: updated,
-                                                },
-                                              }
-                                            : entry
-                                        );
-                                        updateModelConfig(mId, { adapter: newAdapters });
-                                      }}
-                                    >
-                                      <option value="literal">Literal</option>
-                                      <option value="source">From source</option>
-                                      <option value="map">Value map</option>
-                                      <option value="boolean">Bool map</option>
-                                      <option value="null">null</option>
-                                    </select>
-                                  </div>
-                                  {/* Value input — changes meaning based on type */}
-                                  <div className="flex-1">
-                                    {(() => {
-                                      if (rw.value === null)
-                                        return (
-                                          <span className="font-sans text-[11px] text-foreground-subtle italic">
-                                            null
-                                          </span>
-                                        );
-                                      if (rw.value?.from === 'source')
-                                        return (
-                                          <span className="font-sans text-[11px] text-foreground-subtle italic">
-                                            passthrough
-                                          </span>
-                                        );
-                                      if (rw.value?.from === 'map') {
-                                        const mapStr = Object.entries(rw.value.values || {})
-                                          .map(([k, v]) => `${k}:${v}`)
-                                          .join(', ');
-                                        return (
-                                          <DebouncedInput
-                                            placeholder="key:value, key:value"
-                                            value={mapStr}
-                                            onChange={(val: string) => {
-                                              const values: Record<string, any> = {};
-                                              val.split(',').forEach((pair: string) => {
-                                                const [k, ...rest] = pair.split(':');
-                                                const v = rest.join(':').trim();
-                                                if (k?.trim()) {
-                                                  const numV = Number(v);
-                                                  values[k.trim()] =
-                                                    v === '' ? '' : isNaN(Number(v)) ? v : numV;
-                                                }
-                                              });
-                                              const updated = [...rules];
-                                              const newRewrites = [...updated[rIdx].rewrites];
-                                              newRewrites[rwIdx] = {
-                                                ...newRewrites[rwIdx],
-                                                value: { from: 'map', values },
-                                              };
-                                              updated[rIdx] = {
-                                                ...updated[rIdx],
-                                                rewrites: newRewrites,
-                                              };
-                                              const newAdapters = modelAdapters.map((entry: any) =>
-                                                typeof entry !== 'string' &&
-                                                entry.name === 'reasoning_rewrite'
-                                                  ? {
-                                                      ...entry,
-                                                      options: {
-                                                        ...entry.options,
-                                                        rules: updated,
-                                                      },
-                                                    }
-                                                  : entry
-                                              );
-                                              updateModelConfig(mId, {
-                                                adapter: newAdapters,
-                                              });
-                                            }}
-                                          />
-                                        );
-                                      }
-                                      if (rw.value?.from === 'boolean') {
-                                        return (
-                                          <div className="flex gap-1">
-                                            <DebouncedInput
-                                              placeholder="If true"
-                                              value={String(rw.value.truthy ?? '')}
-                                              onChange={(val: string) => {
-                                                const updated = [...rules];
-                                                const newRewrites = [...updated[rIdx].rewrites];
-                                                newRewrites[rwIdx] = {
-                                                  ...newRewrites[rwIdx],
-                                                  value: {
-                                                    ...newRewrites[rwIdx].value,
-                                                    truthy: val,
-                                                  },
-                                                };
-                                                updated[rIdx] = {
-                                                  ...updated[rIdx],
-                                                  rewrites: newRewrites,
-                                                };
-                                                const newAdapters = modelAdapters.map(
-                                                  (entry: any) =>
-                                                    typeof entry !== 'string' &&
-                                                    entry.name === 'reasoning_rewrite'
-                                                      ? {
-                                                          ...entry,
-                                                          options: {
-                                                            ...entry.options,
-                                                            rules: updated,
-                                                          },
-                                                        }
-                                                      : entry
-                                                );
-                                                updateModelConfig(mId, {
-                                                  adapter: newAdapters,
-                                                });
-                                              }}
-                                            />
-                                            <DebouncedInput
-                                              placeholder="If false"
-                                              value={String(rw.value.falsy ?? '')}
-                                              onChange={(val: string) => {
-                                                const updated = [...rules];
-                                                const newRewrites = [...updated[rIdx].rewrites];
-                                                newRewrites[rwIdx] = {
-                                                  ...newRewrites[rwIdx],
-                                                  value: {
-                                                    ...newRewrites[rwIdx].value,
-                                                    falsy: val,
-                                                  },
-                                                };
-                                                updated[rIdx] = {
-                                                  ...updated[rIdx],
-                                                  rewrites: newRewrites,
-                                                };
-                                                const newAdapters = modelAdapters.map(
-                                                  (entry: any) =>
-                                                    typeof entry !== 'string' &&
-                                                    entry.name === 'reasoning_rewrite'
-                                                      ? {
-                                                          ...entry,
-                                                          options: {
-                                                            ...entry.options,
-                                                            rules: updated,
-                                                          },
-                                                        }
-                                                      : entry
-                                                );
-                                                updateModelConfig(mId, {
-                                                  adapter: newAdapters,
-                                                });
-                                              }}
-                                            />
-                                          </div>
-                                        );
-                                      }
-                                      // Literal value
-                                      return (
-                                        <DebouncedInput
-                                          placeholder="Literal value"
-                                          value={String(rw.value ?? '')}
-                                          onChange={(val: string) => {
-                                            const parsed =
-                                              val === 'true'
-                                                ? true
-                                                : val === 'false'
-                                                  ? false
-                                                  : isNaN(Number(val))
-                                                    ? val
-                                                    : Number(val);
-                                            const updated = [...rules];
-                                            const newRewrites = [...updated[rIdx].rewrites];
-                                            newRewrites[rwIdx] = {
-                                              ...newRewrites[rwIdx],
-                                              value: parsed,
-                                            };
-                                            updated[rIdx] = {
-                                              ...updated[rIdx],
-                                              rewrites: newRewrites,
-                                            };
-                                            const newAdapters = modelAdapters.map((entry: any) =>
-                                              typeof entry !== 'string' &&
-                                              entry.name === 'reasoning_rewrite'
-                                                ? {
-                                                    ...entry,
-                                                    options: {
-                                                      ...entry.options,
-                                                      rules: updated,
-                                                    },
-                                                  }
-                                                : entry
-                                            );
-                                            updateModelConfig(mId, {
-                                              adapter: newAdapters,
-                                            });
-                                          }}
-                                        />
-                                      );
-                                    })()}
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      const updated = [...rules];
-                                      const newRewrites = updated[rIdx].rewrites.filter(
-                                        (_: any, i: number) => i !== rwIdx
-                                      );
-                                      updated[rIdx] = {
-                                        ...updated[rIdx],
-                                        rewrites: newRewrites,
-                                      };
-                                      const newAdapters = modelAdapters.map((entry: any) =>
-                                        typeof entry !== 'string' &&
-                                        entry.name === 'reasoning_rewrite'
-                                          ? {
-                                              ...entry,
-                                              options: { ...entry.options, rules: updated },
-                                            }
-                                          : entry
-                                      );
-                                      updateModelConfig(mId, { adapter: newAdapters });
-                                    }}
-                                    aria-label="Remove rewrite"
-                                    className="p-1"
-                                  >
-                                    <Trash2 size={12} className="text-danger" />
-                                  </Button>
-                                </div>
-                              ))}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  const updated = [...rules];
-                                  updated[rIdx] = {
-                                    ...updated[rIdx],
-                                    rewrites: [
-                                      ...(updated[rIdx].rewrites ?? []),
-                                      { target: '', value: '' },
-                                    ],
-                                  };
-                                  const newAdapters = modelAdapters.map((entry: any) =>
-                                    typeof entry !== 'string' && entry.name === 'reasoning_rewrite'
-                                      ? {
-                                          ...entry,
-                                          options: { ...entry.options, rules: updated },
-                                        }
-                                      : entry
-                                  );
-                                  updateModelConfig(mId, { adapter: newAdapters });
-                                }}
-                                className="ml-2 px-1.5 py-0.5"
-                              >
-                                <Plus size={12} />{' '}
-                                <span className="font-sans text-[10px]">Rewrite</span>
-                              </Button>
-                              {/* Strip paths */}
-                              <div className="mt-1.5 mb-1 border-t border-border" />
-                              <div className="font-sans text-[10px] font-medium text-foreground-subtle mb-1">
-                                Strip paths (remove from payload after rewrite)
-                              </div>
-                              <div className="ml-2 flex flex-wrap gap-1">
-                                {(rule.strip ?? []).map((stripPath: string, sIdx: number) => (
-                                  <div key={sIdx} className="flex items-center gap-0.5">
-                                    <div className="rounded-sm border border-border bg-surface px-2 py-0.5 font-sans text-[11px] text-foreground">
-                                      {stripPath}
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => {
-                                        const updated = [...rules];
-                                        const newStrip = updated[rIdx].strip.filter(
-                                          (_: any, i: number) => i !== sIdx
-                                        );
-                                        updated[rIdx] = {
-                                          ...updated[rIdx],
-                                          strip: newStrip.length > 0 ? newStrip : undefined,
-                                        };
-                                        const newAdapters = modelAdapters.map((entry: any) =>
-                                          typeof entry !== 'string' &&
-                                          entry.name === 'reasoning_rewrite'
-                                            ? {
-                                                ...entry,
-                                                options: {
-                                                  ...entry.options,
-                                                  rules: updated,
-                                                },
-                                              }
-                                            : entry
-                                        );
-                                        updateModelConfig(mId, { adapter: newAdapters });
-                                      }}
-                                      aria-label="Remove strip path"
-                                      className="p-0.5"
-                                    >
-                                      <Trash2 size={10} className="text-danger" />
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="ml-2 mt-0.5 flex gap-1">
-                                <Input
-                                  placeholder="Path to strip (e.g. reasoning) — press Enter"
-                                  onKeyDown={(e: any) => {
-                                    if (e.key === 'Enter') {
-                                      const draft = (e.target as HTMLInputElement).value.trim();
-                                      if (draft) {
-                                        const updated = [...rules];
-                                        updated[rIdx] = {
-                                          ...updated[rIdx],
-                                          strip: [...(updated[rIdx].strip ?? []), draft],
-                                        };
-                                        const newAdapters = modelAdapters.map((entry: any) =>
-                                          typeof entry !== 'string' &&
-                                          entry.name === 'reasoning_rewrite'
-                                            ? {
-                                                ...entry,
-                                                options: {
-                                                  ...entry.options,
-                                                  rules: updated,
-                                                },
-                                              }
-                                            : entry
-                                        );
-                                        updateModelConfig(mId, { adapter: newAdapters });
-                                        (e.target as HTMLInputElement).value = '';
-                                      }
-                                    }
-                                  }}
-                                  className="flex-1 text-[11px]"
-                                />
-                              </div>
-                            </div>
-                          ))}
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => {
-                              const newRule = {
-                                source: '',
-                                rewrites: [{ target: '', value: '' }],
-                              };
-                              const updated = [...rules, newRule];
-                              const newAdapters = modelAdapters.map((entry: any) =>
-                                typeof entry !== 'string' && entry.name === 'reasoning_rewrite'
-                                  ? {
-                                      ...entry,
-                                      options: { ...entry.options, rules: updated },
-                                    }
-                                  : entry
-                              );
-                              updateModelConfig(mId, { adapter: newAdapters });
-                            }}
-                            className="mt-0.5"
-                          >
-                            <Plus size={12} /> <span className="font-sans text-[10px]">Rule</span>
-                          </Button>
-                        </div>
+                        <ReasoningRewriteRulesEditor
+                          adapters={modelAdapters}
+                          onChange={(next: any[]) => updateModelConfig(mId, { adapter: next })}
+                        />
                       );
                     })()}
                   </div>

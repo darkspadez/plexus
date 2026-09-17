@@ -9,7 +9,6 @@ import {
   Timer,
   Zap,
 } from 'lucide-react';
-import { Card } from '../ui/Card';
 import { PageHeader } from '../layout/PageHeader';
 import { PageContainer } from '../layout/PageContainer';
 import { TimeRangeSelector, type TimeRange } from './TimeRangeSelector';
@@ -17,7 +16,6 @@ import { MetricsOverviewCard, type MetricDelta, type MetricItem } from './Metric
 import { ServiceAlertsCard } from './ServiceAlertsCard';
 import { ErrorsByProviderCard } from './ErrorsByProviderCard';
 import { TimelineChart } from './TimelineChart';
-import { TotalEnergyComparison } from '../TotalEnergyComparison';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useUsageSummary } from '../../hooks/queries/useUsage';
@@ -30,11 +28,11 @@ import {
 import { useGrafanaUrl } from '../../hooks/queries/useConfig';
 import {
   formatCost,
-  formatEnergy,
   formatMs,
   formatNumber,
   formatPercent,
   formatTokens,
+  formatTPS,
 } from '../../lib/format';
 import type { CustomDateRange } from '../../lib/date';
 import {
@@ -49,8 +47,8 @@ import {
 /**
  * Single-page admin dashboard that replaces the old Live Metrics / Usage
  * Analytics / Performance tab set. Composes MetricsOverviewCard,
- * TimelineChart, ServiceAlertsCard, ErrorsByProviderCard and
- * TotalEnergyComparison around one shared time range control. Only rendered
+ * TimelineChart, ServiceAlertsCard and ErrorsByProviderCard around one
+ * shared time range control. Only rendered
  * for non-limited (admin) principals — `OverallTab` remains the limited-key
  * view.
  */
@@ -122,7 +120,7 @@ export const AdminDashboard: React.FC = () => {
   );
 
   // 8 tiles in two themed rows of 4: row 1 = health (requests, errors,
-  // latency, live load), row 2 = consumption (tokens, cache, cost, energy).
+  // latency, live load), row 2 = consumption (tokens, cache, cost, throughput).
   const kpis: MetricItem[] = useMemo(() => {
     const stats = summaryQuery.data?.stats;
     const windowStats = {
@@ -188,10 +186,10 @@ export const AdminDashboard: React.FC = () => {
         delta: relativeDeltaChip(deltas.cost, true),
       },
       {
-        label: 'Total Energy',
-        value: formatEnergy(stats?.totalKwhUsed ?? 0),
+        label: 'Throughput',
+        value: `${formatTPS(stats?.avgTokensPerSec ?? 0)} t/s`,
         icon: <Zap size={16} />,
-        delta: relativeDeltaChip(deltas.energy, true),
+        delta: relativeDeltaChip(deltas.throughput),
       },
     ];
   }, [summaryQuery.data, activeRequests]);
@@ -255,16 +253,13 @@ export const AdminDashboard: React.FC = () => {
 
         <TimelineChart timeRange={timeRange} startDate={startDate} endDate={endDate} />
 
-        <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
           <ServiceAlertsCard
             cooldowns={cooldowns}
             onClearAll={handleClearAll}
             onClearSingle={handleClearSingle}
           />
           <ErrorsByProviderCard timeRange={timeRange} startDate={startDate} endDate={endDate} />
-          <Card className="min-w-0" title="Energy Comparisons">
-            <TotalEnergyComparison totalKwh={summaryQuery.data?.stats?.totalKwhUsed} />
-          </Card>
         </div>
       </PageContainer>
     </div>

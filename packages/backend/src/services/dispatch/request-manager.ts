@@ -1,4 +1,9 @@
-import type { UnifiedChatRequest, UnifiedChatResponse } from '../../types/unified';
+import type {
+  UnifiedChatRequest,
+  UnifiedChatResponse,
+  UnifiedImageGenerationRequest,
+  UnifiedImageGenerationResponse,
+} from '../../types/unified';
 import { getConfig } from '../../config';
 import { logger } from '../../utils/logger';
 import { StickySessionManager } from '../routing/sticky-session-manager';
@@ -11,10 +16,11 @@ import { enforceContextLimit } from '../models/enforce-limits';
 import { getGlobalStallConfig, resolveStallConfig } from '../../utils/stall';
 import { preprocessVisionRequest } from '../vision/vision-request-preprocessor';
 import { resolveRouteCandidates } from '../routing/route-candidates';
+import { bridgeChatToImageGeneration, isImageModelRoute } from './image-model-bridge';
 import { executeStandardAttempt } from './standard-attempt-request';
 import { isNativeOAuthRoute } from './request-payload-builder';
 import { isClaudeMaskingApiKeyRoute } from '../oauth/oauth-dispatcher';
-import { nativeOAuthApiType } from '../oauth/oauth-native-request';
+import { genericOAuthApiType, nativeOAuthApiType } from '../oauth/oauth-native-request';
 import type { RetryAttemptRecord } from './dispatcher-types';
 import type { ResolveTimeoutMs } from './upstream-execution';
 
@@ -37,6 +43,12 @@ export interface RequestManagerHost {
   buildRequestUrl(...args: any[]): string;
   buildTimeoutError(...args: any[]): Error;
   createAttemptTimeout(...args: any[]): any;
+  /** Image pipeline entry point, used by the image-model auto-bridge. */
+  dispatchImageGenerations(
+    request: UnifiedImageGenerationRequest,
+    signal?: AbortSignal,
+    resolveTimeoutMs?: ResolveTimeoutMs
+  ): Promise<UnifiedImageGenerationResponse>;
   emitRoutingUpdate(...args: any[]): void;
   executeProviderRequest(...args: any[]): Promise<Response>;
   formatFailureReason(...args: any[]): string;
@@ -85,6 +97,16 @@ export class RequestManager {
       sessionKey,
       host.appendSkippedAttempt.bind(host)
     );
+
+    // A chat-shaped request that names an IMAGE model is served through the
+    // image pipeline instead (see image-model-bridge.ts). This sits here —
+    // after candidate resolution, before the per-target loop — because
+    // detection needs resolved candidates (aliases, `direct/`, key policy,
+    // quota already applied) and nothing target-specific has run yet.
+    if (isImageModelRoute(request, candidates, config)) {
+      return bridgeChatToImageGeneration(request, candidates, host, signal, resolveTimeoutMs);
+    }
+
     const targets = failoverEnabled ? candidates : [candidates[0]!];
     const attemptedProviders: string[] = [];
     let lastError: any = null;
@@ -146,36 +168,48 @@ export class RequestManager {
 
         // 2. Get Transformer
         // ALL OAuth routes now run through the STANDARD path via the native
-        // OAuth builders — there is no pi-ai `oauth` executor
-        // anymore. A native OAuth route's wire API is its real upstream protocol
-        // (e.g. Anthropic 'messages', Codex 'responses', Copilot per-model), NOT
-        // the synthetic 'oauth' type getProviderTypes() reports for an `oauth://`
-        // URL. Using the native type selects the correct transformer AND lets
-        // same-format requests use pass-through; masking/fingerprint is layered
+        // OAuth builders (Anthropic/Codex/Copilot) or the generic OAuth
+        // builder (every other pi-ai OAuth provider — see
+        // oauth-native-request.ts) — there is no pi-ai `oauth` executor
+        // anymore. An OAuth route's wire API is its real upstream protocol
+        // (e.g. Anthropic 'messages', Codex 'responses', Copilot per-model,
+        // or whatever pi-ai's own catalog declares for a generic provider's
+        // model), NOT the synthetic 'oauth' type getProviderTypes() reports
+        // for an `oauth://` URL. Using the real type selects the correct
+        // transformer AND lets same-format requests use pass-through;
+        // masking/fingerprint (native) or auth/URL swap (generic) is layered
         // on in buildRequestPayload.
         const nativeOAuth = isNativeOAuthRoute(route, targetApiType);
-        // Any `oauth://` route whose provider isn't natively supported is dead
-        // config (Gemini CLI / Antigravity were removed; persisted rows are
-        // purged at startup). Fail fast with an actionable error rather than
-        // silently mis-routing.
-        if (host.isPiAiRoute(route, targetApiType) && !nativeOAuth) {
-          throw new Error(
-            `OAuth provider '${route.config.oauth_provider || route.provider}' is not supported. ` +
-              `Supported OAuth providers: anthropic, openai-codex, github-copilot.`
-          );
-        }
+        const genericOAuth =
+          !nativeOAuth &&
+          !isClaudeMaskingApiKeyRoute(route, targetApiType) &&
+          host.isPiAiRoute(route, targetApiType);
         // Claude-masking API-key routes are Anthropic Messages by construction
         // and carry NO oauth_provider, so the slug fallback below would hand an
         // arbitrary provider name to the native-OAuth mapping: a provider
         // unluckily named 'openai-codex' or 'github-copilot' would resolve to
         // 'responses' / Copilot's per-model wire type and break the route.
         // Resolve them explicitly instead.
-        const effectiveApiType = isClaudeMaskingApiKeyRoute(route, targetApiType)
-          ? 'messages'
-          : nativeOAuth
-            ? (nativeOAuthApiType(route.config.oauth_provider || route.provider, route.model) ??
-              'messages')
-            : targetApiType;
+        let effectiveApiType: string;
+        if (isClaudeMaskingApiKeyRoute(route, targetApiType)) {
+          effectiveApiType = 'messages';
+        } else if (nativeOAuth) {
+          effectiveApiType =
+            nativeOAuthApiType(route.config.oauth_provider || route.provider, route.model) ??
+            'messages';
+        } else if (genericOAuth) {
+          const provider = route.config.oauth_provider || route.provider;
+          const resolved = genericOAuthApiType(provider, route.model);
+          if (!resolved) {
+            throw new Error(
+              `OAuth provider '${provider}' model '${route.model}' has no known wire API for ` +
+                `dispatch. Check that the model id matches pi-ai's catalog for this provider.`
+            );
+          }
+          effectiveApiType = resolved;
+        } else {
+          effectiveApiType = targetApiType;
+        }
         const transformer = TransformerFactory.getTransformer(effectiveApiType);
 
         // 3. Transform Request

@@ -73,6 +73,7 @@ export function buildProviders({ mockPort }: MockPortParams): Record<string, Pro
       enabled: true,
       disable_cooldown: false,
       stall_cooldown: false,
+      allow_100_percent_utilization: false,
       estimateTokens: false,
       useClaudeMasking: false,
       models: {
@@ -106,6 +107,7 @@ export function buildProviders({ mockPort }: MockPortParams): Record<string, Pro
       enabled: true,
       disable_cooldown: false,
       stall_cooldown: false,
+      allow_100_percent_utilization: false,
       estimateTokens: false,
       useClaudeMasking: false,
       models: {
@@ -128,6 +130,7 @@ export function buildProviders({ mockPort }: MockPortParams): Record<string, Pro
       enabled: true,
       disable_cooldown: false,
       stall_cooldown: false,
+      allow_100_percent_utilization: false,
       estimateTokens: false,
       useClaudeMasking: false,
       models: {
@@ -151,6 +154,7 @@ export function buildProviders({ mockPort }: MockPortParams): Record<string, Pro
       enabled: true,
       disable_cooldown: false,
       stall_cooldown: false,
+      allow_100_percent_utilization: false,
       estimateTokens: false,
       useClaudeMasking: false,
       models: {
@@ -194,6 +198,7 @@ export function buildProviders({ mockPort }: MockPortParams): Record<string, Pro
       enabled: true,
       disable_cooldown: false,
       stall_cooldown: false,
+      allow_100_percent_utilization: false,
       estimateTokens: false,
       useClaudeMasking: false,
       models: {
@@ -221,6 +226,7 @@ export function buildProviders({ mockPort }: MockPortParams): Record<string, Pro
       enabled: true,
       disable_cooldown: false,
       stall_cooldown: false,
+      allow_100_percent_utilization: false,
       estimateTokens: false,
       useClaudeMasking: false,
       models: {
@@ -238,6 +244,7 @@ export function buildProviders({ mockPort }: MockPortParams): Record<string, Pro
       enabled: false,
       disable_cooldown: false,
       stall_cooldown: false,
+      allow_100_percent_utilization: false,
       estimateTokens: false,
       useClaudeMasking: false,
       models: {
@@ -256,6 +263,7 @@ export function buildProviders({ mockPort }: MockPortParams): Record<string, Pro
       enabled: false,
       disable_cooldown: false,
       stall_cooldown: false,
+      allow_100_percent_utilization: false,
       estimateTokens: false,
       useClaudeMasking: false,
       models: {

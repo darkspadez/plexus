@@ -89,7 +89,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -257,12 +257,21 @@ jobs:
 
       - name: Run release notes agent
         id: release_notes_agent
-        uses: anthropics/claude-code-action@v1
+        # claude-code-action detects GitHub event type (PR/issue/comment) and
+        # rejects unsupported ones, including `push` — which is how this
+        # workflow is triggered. The base-action/ subdirectory of the same
+        # repo is the underlying Claude Code executor without the GitHub
+        # event/webhook layer, so it runs regardless of event. Referencing
+        # it here (rather than the separately-tagged anthropics/claude-code-
+        # base-action mirror, whose tags lag far behind and pin an ancient
+        # Claude Code CLI version) keeps it on the same current v1 release
+        # line as claude-code-action.
+        uses: anthropics/claude-code-action/base-action@v1.0.217
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ env.LLM_API_KEY }}
           claude_args: |
             --model ${{ vars.LLM_MODEL_ID }}
+            --effort medium
             --max-turns 10
             --allowedTools "Read,Write"
           prompt: |
@@ -312,7 +321,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -488,7 +497,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.0
 
       - name: Set up Node for npm trusted publishing
         uses: actions/setup-node@v7

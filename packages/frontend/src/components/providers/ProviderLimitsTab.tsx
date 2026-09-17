@@ -25,6 +25,7 @@ export function ProviderLimitsTab({ f }: { f: ProviderFormApi }) {
         setEditingProvider={f.setEditingProvider}
         selectedQuotaCheckerType={f.selectedQuotaCheckerType}
         selectableQuotaCheckerTypes={f.selectableQuotaCheckerTypes}
+        customCheckerIds={f.customCheckerIds}
         isOAuthMode={f.isOAuthMode}
         oauthCheckerType={f.oauthCheckerType}
         quotaValidationError={f.quotaValidationError}
@@ -107,6 +108,15 @@ export function ProviderLimitsTab({ f }: { f: ProviderFormApi }) {
               checked={editingProvider.disableCooldown || false}
               onChange={(checked) =>
                 setEditingProvider({ ...editingProvider, disableCooldown: checked })
+              }
+            />
+            <ToggleRow
+              label="Allow 100% Utilization"
+              description="Provider stays eligible until its quota is fully consumed."
+              warning="Leaves no headroom before the quota is exhausted."
+              checked={editingProvider.allow100PercentUtilization || false}
+              onChange={(checked) =>
+                setEditingProvider({ ...editingProvider, allow100PercentUtilization: checked })
               }
             />
             <ToggleRow

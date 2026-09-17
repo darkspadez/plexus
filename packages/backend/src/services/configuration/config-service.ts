@@ -1,5 +1,6 @@
 import { ConfigRepository, OAuthCredentialsData } from '../../db/config-repository';
 import { logger } from '../../utils/logger';
+import { assertNoAliasRefCycles, isOAuthPlaceholderUrl } from '../../config';
 import type {
   PlexusConfig,
   ProviderConfig,
@@ -123,6 +124,28 @@ export class ConfigService {
   }
 
   /**
+   * One-time startup repair for databases corrupted by the buggy
+   * `model_alias_targets` table-recreation migration (alias-as-fallback-target).
+   *
+   * See `ConfigRepository.repairCorruptedAliasFallbackSlugs()` for the full
+   * background. Idempotent: a second run repairs nothing. On any repair the
+   * in-memory config cache is rebuilt so the running process stops serving the
+   * corrupted alias-target mappings immediately.
+   */
+  async repairCorruptedAliasFallbackSlugs(): Promise<number> {
+    const repaired = await this.repo.repairCorruptedAliasFallbackSlugs();
+    if (repaired > 0) {
+      logger.warn(
+        `Repaired ${repaired} model_alias_targets row(s) corrupted by the ` +
+          'alias-as-fallback-target migration (target_alias_slug was set to the ' +
+          'literal column name); provider/model targets restored.'
+      );
+      await this.executeRebuild();
+    }
+    return repaired;
+  }
+
+  /**
    * One-time startup cleanup: Gemini CLI / Antigravity OAuth were removed.
    * Any persisted provider that still references them is
    * dead, unroutable config. Drop those provider records (cascade) and delete
@@ -176,6 +199,30 @@ export class ConfigService {
    */
   getRepository(): ConfigRepository {
     return this.repo;
+  }
+
+  async getCustomCheckers() {
+    return this.repo.getCustomCheckers();
+  }
+
+  async getCustomChecker(id: string) {
+    return this.repo.getCustomChecker(id);
+  }
+
+  async saveCustomChecker(
+    id: string,
+    data: { displayName: string; code: string; enabled: boolean }
+  ) {
+    const result = await this.repo.saveCustomChecker(id, data);
+    this.pendingWrites++;
+    this.rebuildCache();
+    return result;
+  }
+
+  async deleteCustomChecker(id: string): Promise<void> {
+    await this.repo.deleteCustomChecker(id);
+    this.pendingWrites++;
+    this.rebuildCache();
   }
 
   // ─── Provider CRUD ───────────────────────────────────────────────
@@ -446,6 +493,7 @@ export class ConfigService {
   private async doRebuild(): Promise<void> {
     const providers = await this.repo.getAllProviders();
     const models = await this.repo.getAllAliases();
+    assertNoAliasRefCycles(models);
     const keys = await this.repo.getAllKeys();
     const userQuotas = await this.repo.getAllUserQuotas();
     const mcpServers = await this.repo.getAllMcpServers();
@@ -489,9 +537,11 @@ export class ConfigService {
     // on startup, index.ts calls quotaScheduler.initialize() explicitly after this.
     const scheduler = QuotaScheduler.getInstance();
     if (scheduler.isInitialized()) {
-      scheduler.reload(quotas).catch((err) => {
+      try {
+        await scheduler.reload(quotas);
+      } catch (err) {
         logger.warn(`Failed to reload QuotaScheduler after config change: ${err}`);
-      });
+      }
     }
 
     const modelAutosyncScheduler = ModelAutosyncScheduler.getInstance();
@@ -540,6 +590,12 @@ export class ConfigService {
       if (providerConfig.oauth_account && options.oauthAccountId === undefined) {
         options.oauthAccountId = providerConfig.oauth_account;
       }
+      if (
+        providerConfig.allow_100_percent_utilization !== undefined &&
+        options.allow100PercentUtilization === undefined
+      ) {
+        options.allow100PercentUtilization = providerConfig.allow_100_percent_utilization;
+      }
 
       quotas.push({
         id: checkerId,
@@ -556,11 +612,11 @@ export class ConfigService {
 
   private isOAuthProvider(config: any): boolean {
     if (typeof config?.api_base_url === 'string') {
-      return config.api_base_url.startsWith('oauth://');
+      return isOAuthPlaceholderUrl(config.api_base_url);
     }
     if (typeof config?.api_base_url === 'object' && config.api_base_url !== null) {
       return Object.values(config.api_base_url).some(
-        (v) => typeof v === 'string' && v.startsWith('oauth://')
+        (v) => typeof v === 'string' && isOAuthPlaceholderUrl(v)
       );
     }
     return false;

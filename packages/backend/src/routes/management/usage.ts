@@ -8,6 +8,7 @@ import {
   type UsageSortField,
 } from '../../services/observability/usage-storage';
 import { isLimited, scopedKeyName } from './_principal';
+import { logger } from '../../utils/logger';
 
 /**
  * Shared range-window resolution for the usage-summary and
@@ -81,6 +82,7 @@ const USAGE_FIELDS = new Set([
   'canonicalModelName',
   'selectedModelName',
   'outgoingApiType',
+  'reasoningEffort',
   'tokensInput',
   'tokensOutput',
   'tokensReasoning',
@@ -117,6 +119,203 @@ type UsageStreamClient = {
   scopeKey: string | null;
   send: (eventType: UsageStreamEventName, record: any) => void;
 };
+
+const SUMMARY_CACHE_TTL_MS = 10_000;
+const HISTORICAL_SUMMARY_CACHE_TTL_MS = 60_000;
+const MAX_CUSTOM_RANGE_MS = 366 * 24 * 60 * 60 * 1000;
+const MAX_BREAKDOWN_DIMENSIONS = 3;
+const DEFAULT_BREAKDOWN_LIMIT = 10;
+const MAX_BREAKDOWN_LIMIT = 50;
+const MAX_SUMMARY_RESPONSE_BYTES = 128 * 1024;
+const MAX_BASIC_SUMMARY_RESPONSE_BYTES = 16 * 1024;
+const MAX_SUMMARY_CACHE_ENTRIES = 100;
+
+const BREAKDOWN_DIMENSIONS = ['provider', 'modelAlias', 'apiKey', 'status'] as const;
+type BreakdownDimension = (typeof BREAKDOWN_DIMENSIONS)[number];
+const SUMMARY_EXCLUSIONS = ['directModels', 'probe'] as const;
+type SummaryExclusion = (typeof SUMMARY_EXCLUSIONS)[number];
+
+type SummaryAggregate = {
+  requests: number;
+  errors: number;
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  cachedTokens: number;
+  cacheWriteTokens: number;
+  totalTokens: number;
+  totalCost: number;
+  avgDurationMs: number;
+  totalDurationMs: number;
+  totalTtftMs: number;
+  totalTokensPerSec: number;
+  avgTtftMs: number;
+  avgTokensPerSec: number;
+};
+
+type SummaryGroup = {
+  name: string;
+  requests: number;
+  errors: number;
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  cachedTokens: number;
+  cacheWriteTokens: number;
+  totalTokens: number;
+  totalCost: number;
+  avgDurationMs: number;
+  totalDurationMs: number;
+  avgTtftMs: number;
+  avgTokensPerSec: number;
+  successRate: number;
+};
+
+type SummaryStatsPayload = {
+  totalRequests: number;
+  totalErrors: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  cachedTokens: number;
+  cacheWriteTokens: number;
+  totalCost: number;
+  avgDurationMs: number;
+  totalDurationMs: number;
+  avgTtftMs: number;
+  avgTokensPerSec: number;
+  successRate: number;
+};
+
+type SummaryResponse = {
+  range: string;
+  series: Array<{
+    bucketStartMs: number;
+    requests: number;
+    errors: number;
+    inputTokens: number;
+    outputTokens: number;
+    reasoningTokens: number;
+    cachedTokens: number;
+    cacheWriteTokens: number;
+    tokens: number;
+    totalCost: number;
+    avgDurationMs: number;
+    avgTtftMs: number;
+    avgTokensPerSec: number;
+  }>;
+  stats: SummaryStatsPayload;
+  /**
+   * Aggregation over the equal-length window immediately preceding the
+   * selected range (powers dashboard delta chips). `null` when `range=all`,
+   * which has no prior window.
+   */
+  prevStats: SummaryStatsPayload | null;
+  today: Record<string, number>;
+  grouped?: Partial<
+    Record<
+      BreakdownDimension,
+      {
+        items: SummaryGroup[];
+        totalDimensions: number;
+        truncated: boolean;
+      }
+    >
+  >;
+};
+
+class SummaryResponseTooLargeError extends Error {}
+
+const toNumber = (value: unknown): number =>
+  value === null || value === undefined ? 0 : Number(value);
+
+const toSummaryAggregate = (row: any): SummaryAggregate => {
+  const inputTokens = toNumber(row.inputTokens);
+  const outputTokens = toNumber(row.outputTokens);
+  const reasoningTokens = toNumber(row.reasoningTokens);
+  const cachedTokens = toNumber(row.cachedTokens);
+  const cacheWriteTokens = toNumber(row.cacheWriteTokens);
+
+  return {
+    requests: toNumber(row.requests),
+    errors: toNumber(row.errors),
+    inputTokens,
+    outputTokens,
+    reasoningTokens,
+    cachedTokens,
+    cacheWriteTokens,
+    totalTokens: inputTokens + outputTokens + reasoningTokens + cachedTokens + cacheWriteTokens,
+    totalCost: toNumber(row.totalCost),
+    avgDurationMs: toNumber(row.avgDurationMs),
+    totalDurationMs: toNumber(row.totalDurationMs),
+    totalTtftMs: toNumber(row.totalTtftMs),
+    totalTokensPerSec: toNumber(row.totalTokensPerSec),
+    avgTtftMs: toNumber(row.avgTtftMs),
+    avgTokensPerSec: toNumber(row.avgTokensPerSec),
+  };
+};
+
+const withSuccessRate = <T extends SummaryAggregate>(aggregate: T) => ({
+  ...aggregate,
+  successRate:
+    aggregate.requests > 0
+      ? ((aggregate.requests - aggregate.errors) / aggregate.requests) * 100
+      : 0,
+});
+
+const toSummaryGroup = (name: string, aggregate: SummaryAggregate): SummaryGroup => ({
+  name,
+  requests: aggregate.requests,
+  errors: aggregate.errors,
+  inputTokens: aggregate.inputTokens,
+  outputTokens: aggregate.outputTokens,
+  reasoningTokens: aggregate.reasoningTokens,
+  cachedTokens: aggregate.cachedTokens,
+  cacheWriteTokens: aggregate.cacheWriteTokens,
+  totalTokens: aggregate.totalTokens,
+  totalCost: aggregate.totalCost,
+  avgDurationMs: aggregate.avgDurationMs,
+  totalDurationMs: aggregate.totalDurationMs,
+  avgTtftMs: aggregate.avgTtftMs,
+  avgTokensPerSec: aggregate.avgTokensPerSec,
+  successRate:
+    aggregate.requests > 0
+      ? ((aggregate.requests - aggregate.errors) / aggregate.requests) * 100
+      : 0,
+});
+
+const subtractAggregates = (
+  total: SummaryAggregate,
+  included: SummaryAggregate
+): SummaryAggregate => ({
+  requests: Math.max(0, total.requests - included.requests),
+  errors: Math.max(0, total.errors - included.errors),
+  inputTokens: Math.max(0, total.inputTokens - included.inputTokens),
+  outputTokens: Math.max(0, total.outputTokens - included.outputTokens),
+  reasoningTokens: Math.max(0, total.reasoningTokens - included.reasoningTokens),
+  cachedTokens: Math.max(0, total.cachedTokens - included.cachedTokens),
+  cacheWriteTokens: Math.max(0, total.cacheWriteTokens - included.cacheWriteTokens),
+  totalTokens: Math.max(0, total.totalTokens - included.totalTokens),
+  totalCost: Math.max(0, total.totalCost - included.totalCost),
+  avgDurationMs:
+    total.requests > included.requests
+      ? Math.max(0, total.totalDurationMs - included.totalDurationMs) /
+        (total.requests - included.requests)
+      : 0,
+  totalDurationMs: Math.max(0, total.totalDurationMs - included.totalDurationMs),
+  totalTtftMs: Math.max(0, total.totalTtftMs - included.totalTtftMs),
+  totalTokensPerSec: Math.max(0, total.totalTokensPerSec - included.totalTokensPerSec),
+  avgTtftMs:
+    total.requests > included.requests
+      ? Math.max(0, total.totalTtftMs - included.totalTtftMs) / (total.requests - included.requests)
+      : 0,
+  avgTokensPerSec:
+    total.requests > included.requests
+      ? Math.max(0, total.totalTokensPerSec - included.totalTokensPerSec) /
+        (total.requests - included.requests)
+      : 0,
+});
 
 export class UsageEventsBroadcaster {
   private readonly clients = new Set<UsageStreamClient>();
@@ -249,162 +448,245 @@ export async function registerUsageRoutes(
     }
   });
 
+  const summaryCache = new Map<string, { expiresAt: number; promise: Promise<SummaryResponse> }>();
+
   fastify.get('/v0/management/usage/summary', async (request, reply) => {
+    const requestStartedAt = performance.now();
     const query = request.query as any;
     const range = query.range || 'day';
     const startDateStr = query.startDate;
     const endDateStr = query.endDate;
 
-    const now = new Date();
-    now.setSeconds(0, 0);
-
-    const window = computeUsageRangeWindow(range, startDateStr, endDateStr, now);
-    if ('error' in window) {
-      return reply.code(400).send({ error: window.error });
-    }
-    const { rangeStart, rangeEnd } = window;
-
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-
-    let stepSeconds = 60;
-    if (range === 'custom' || range === 'all') {
-      // Calculate appropriate step based on range duration (adaptive bucketing).
-      // 'all' shares this branch since its true duration is unbounded (epoch
-      // rangeStart), same as a long custom range.
-      const durationMs = rangeEnd.getTime() - rangeStart.getTime();
-      const durationMinutes = durationMs / (1000 * 60);
-      const durationSeconds = durationMs / 1000;
-
-      // Adaptive bucketing thresholds (matching frontend LiveTab)
-      const useMinuteBuckets = durationMinutes <= 30;
-      const use5MinuteBuckets = durationMinutes <= 24 * 60;
-      const useHourlyBuckets = durationMinutes <= 7 * 24 * 60;
-
-      if (useMinuteBuckets) {
-        stepSeconds = 60; // 1-minute buckets
-      } else if (use5MinuteBuckets) {
-        stepSeconds = 300; // 5-minute buckets
-      } else if (useHourlyBuckets) {
-        stepSeconds = 3600; // 1-hour buckets
-      } else {
-        stepSeconds = 21600; // 6-hour buckets for very long ranges
+    if (range === 'custom') {
+      if (!startDateStr || !endDateStr) {
+        return reply
+          .code(400)
+          .send({ error: 'startDate and endDate are required for custom range' });
       }
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        return reply.code(400).send({ error: 'Invalid date format' });
+      }
+      if (endDate < startDate) {
+        return reply.code(400).send({ error: 'endDate must be after startDate' });
+      }
+    } else if (!['hour', 'day', 'week', 'month', 'all'].includes(range)) {
+      return reply.code(400).send({ error: 'Invalid range' });
+    }
 
-      // Ensure maximum 100 buckets to prevent performance issues
-      const maxBuckets = 100;
-      const calculatedBuckets = Math.ceil(durationSeconds / stepSeconds);
-      if (calculatedBuckets > maxBuckets) {
-        stepSeconds = Math.ceil(durationSeconds / maxBuckets);
+    const requestedBreakdowns = String(query.breakdowns || '')
+      .split(',')
+      .map((value: string) => value.trim())
+      .filter(Boolean);
+    const breakdowns = Array.from(new Set(requestedBreakdowns)) as BreakdownDimension[];
+    const invalidBreakdown = breakdowns.find((value) => !BREAKDOWN_DIMENSIONS.includes(value));
+    if (invalidBreakdown) {
+      return reply.code(400).send({ error: `Unsupported breakdown: ${invalidBreakdown}` });
+    }
+    if (breakdowns.length > MAX_BREAKDOWN_DIMENSIONS) {
+      return reply
+        .code(400)
+        .send({ error: `At most ${MAX_BREAKDOWN_DIMENSIONS} breakdowns are supported` });
+    }
+
+    const requestedExclusions = String(query.exclude || '')
+      .split(',')
+      .map((value: string) => value.trim())
+      .filter(Boolean);
+    const exclusions = Array.from(new Set(requestedExclusions)) as SummaryExclusion[];
+    const invalidExclusion = exclusions.find((value) => !SUMMARY_EXCLUSIONS.includes(value));
+    if (invalidExclusion) {
+      return reply.code(400).send({ error: `Unsupported exclusion: ${invalidExclusion}` });
+    }
+
+    const parsedLimit =
+      query.breakdownLimit === undefined ? DEFAULT_BREAKDOWN_LIMIT : Number(query.breakdownLimit);
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > MAX_BREAKDOWN_LIMIT) {
+      return reply.code(400).send({
+        error: `breakdownLimit must be an integer between 1 and ${MAX_BREAKDOWN_LIMIT}`,
+      });
+    }
+
+    const currentTime = new Date();
+    const now = new Date(currentTime);
+    now.setSeconds(0, 0);
+    let rangeStart = new Date(now);
+    let rangeEnd = new Date(now);
+
+    if (range === 'custom') {
+      rangeStart = new Date(startDateStr);
+      rangeEnd = new Date(endDateStr);
+      if (rangeEnd > currentTime) {
+        return reply.code(400).send({ error: 'endDate cannot be in the future' });
+      }
+      if (rangeEnd.getTime() - rangeStart.getTime() > MAX_CUSTOM_RANGE_MS) {
+        return reply.code(400).send({ error: 'custom range cannot exceed 12 months' });
       }
     } else {
-      switch (range) {
+      switch (range as 'hour' | 'day' | 'week' | 'month' | 'all') {
         case 'hour':
-          stepSeconds = 60;
+          rangeStart.setHours(rangeStart.getHours() - 1);
           break;
         case 'day':
-          stepSeconds = 60 * 60;
+          rangeStart.setHours(rangeStart.getHours() - 24);
           break;
         case 'week':
+          rangeStart.setDate(rangeStart.getDate() - 7);
+          break;
         case 'month':
-          stepSeconds = 60 * 60 * 24;
+          rangeStart.setDate(rangeStart.getDate() - 30);
+          break;
+        case 'all':
+          // 'all' resolves to an epoch rangeStart, relying on the existing
+          // gte(startTime, rangeStartMs) filter below to act as a no-op
+          // lower bound. There is no prior window for delta comparisons.
+          rangeStart.setTime(0);
           break;
       }
     }
 
-    const db = usageStorage.getDb();
-    const schema = getSchema();
-    const dialect = getCurrentDialect();
-    const stepMs = stepSeconds * 1000;
-    const nowMs = now.getTime();
-    const rangeStartMs = rangeStart.getTime();
-    const rangeEndMs = rangeEnd.getTime();
-    const todayStartMs = todayStart.getTime();
+    const normalizedBreakdowns = BREAKDOWN_DIMENSIONS.filter((value) => breakdowns.includes(value));
+    const principalKey = scopedKeyName(request);
+    const scopeKey = principalKey ? `limited:${principalKey}` : 'admin';
+    const cacheKey = JSON.stringify({
+      scopeKey,
+      range,
+      startDate: rangeStart.toISOString(),
+      endDate: rangeEnd.toISOString(),
+      breakdowns: normalizedBreakdowns,
+      exclusions: SUMMARY_EXCLUSIONS.filter((value) => exclusions.includes(value)),
+      breakdownLimit: parsedLimit,
+    });
+    const cached = summaryCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      reply.header('X-Usage-Summary-Cache', 'HIT');
+      logger.debug('Usage summary cache hit', {
+        range,
+        breakdownCount: normalizedBreakdowns.length,
+        durationMs: Math.round(performance.now() - requestStartedAt),
+      });
+      try {
+        return reply.send(await cached.promise);
+      } catch (e: any) {
+        if (e instanceof SummaryResponseTooLargeError) {
+          return reply.code(413).send({ error: e.message });
+        }
+        return reply.code(500).send({ error: e.message });
+      }
+    }
 
-    const stepMsLiteral = sql.raw(String(stepMs));
-    const bucketStartMs =
-      dialect === 'sqlite'
-        ? sql<number>`CAST((CAST(${schema.requestUsage.startTime} AS INTEGER) / ${stepMsLiteral}) * ${stepMsLiteral} AS INTEGER)`
-        : sql<number>`FLOOR(${schema.requestUsage.startTime}::double precision / ${stepMsLiteral}) * ${stepMsLiteral}`;
+    const summaryPromise = (async (): Promise<SummaryResponse> => {
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      let stepSeconds = 60;
+      if (range === 'custom' || range === 'all') {
+        // 'all' shares this branch since its true duration is unbounded
+        // (epoch rangeStart), same as a long custom range.
+        const durationMs = rangeEnd.getTime() - rangeStart.getTime();
+        const durationMinutes = durationMs / (1000 * 60);
+        const durationSeconds = durationMs / 1000;
+        if (durationMinutes <= 30) stepSeconds = 60;
+        else if (durationMinutes <= 24 * 60) stepSeconds = 300;
+        else if (durationMinutes <= 7 * 24 * 60) stepSeconds = 3600;
+        else stepSeconds = 21600;
+        if (Math.ceil(durationSeconds / stepSeconds) > 100) {
+          stepSeconds = Math.ceil(durationSeconds / 100);
+        }
+      } else {
+        switch (range) {
+          case 'hour':
+            stepSeconds = 60;
+            break;
+          case 'day':
+            stepSeconds = 60 * 60;
+            break;
+          case 'week':
+          case 'month':
+            stepSeconds = 60 * 60 * 24;
+            break;
+        }
+      }
 
-    const toNumber = (value: unknown) =>
-      value === null || value === undefined ? 0 : Number(value);
+      const db = usageStorage.getDb();
+      const schema = getSchema();
+      const dialect = getCurrentDialect();
+      const stepMs = stepSeconds * 1000;
+      const nowMs = now.getTime();
+      const rangeStartMs = rangeStart.getTime();
+      const rangeEndMs = rangeEnd.getTime();
+      const todayStartMs = todayStart.getTime();
+      const stepMsLiteral = sql.raw(String(stepMs));
+      const bucketStartMs =
+        dialect === 'sqlite'
+          ? sql<number>`CAST((CAST(${schema.requestUsage.startTime} AS INTEGER) / ${stepMsLiteral}) * ${stepMsLiteral} AS INTEGER)`
+          : sql<number>`FLOOR(${schema.requestUsage.startTime}::double precision / ${stepMsLiteral}) * ${stepMsLiteral}`;
+      const keyFilter = principalKey ? eq(schema.requestUsage.apiKey, principalKey) : undefined;
+      const rangeFilter = [
+        gte(schema.requestUsage.startTime, rangeStartMs),
+        lte(schema.requestUsage.startTime, rangeEndMs),
+        ...(keyFilter ? [keyFilter] : []),
+      ];
+      const aggregateSelection = {
+        requests: sql<number>`COUNT(*)`,
+        errors: sql<number>`COALESCE(SUM(CASE WHEN ${schema.requestUsage.responseStatus} IS NULL OR ${schema.requestUsage.responseStatus} != 'success' THEN 1 ELSE 0 END), 0)`,
+        inputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensInput}), 0)`,
+        outputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensOutput}), 0)`,
+        reasoningTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensReasoning}), 0)`,
+        cachedTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCached}), 0)`,
+        cacheWriteTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCacheWrite}), 0)`,
+        totalCost: sql<number>`COALESCE(SUM(${schema.requestUsage.costTotal}), 0)`,
+        avgDurationMs: sql<number>`COALESCE(SUM(COALESCE(${schema.requestUsage.durationMs}, 0)) * 1.0 / NULLIF(COUNT(*), 0), 0)`,
+        totalDurationMs: sql<number>`COALESCE(SUM(${schema.requestUsage.durationMs}), 0)`,
+        totalTtftMs: sql<number>`COALESCE(SUM(COALESCE(${schema.requestUsage.ttftMs}, 0)), 0)`,
+        totalTokensPerSec: sql<number>`COALESCE(SUM(COALESCE(${schema.requestUsage.tokensPerSec}, 0)), 0)`,
+        avgTtftMs: sql<number>`COALESCE(SUM(COALESCE(${schema.requestUsage.ttftMs}, 0)) * 1.0 / NULLIF(COUNT(*), 0), 0)`,
+        avgTokensPerSec: sql<number>`COALESCE(SUM(COALESCE(${schema.requestUsage.tokensPerSec}, 0)) * 1.0 / NULLIF(COUNT(*), 0), 0)`,
+      };
+      const getBreakdownFilter = (dimension: BreakdownDimension) => {
+        const conditions = [...rangeFilter];
+        if (dimension === 'modelAlias' && exclusions.includes('directModels')) {
+          conditions.push(
+            sql`(${schema.requestUsage.incomingModelAlias} IS NULL OR ${schema.requestUsage.incomingModelAlias} NOT LIKE 'direct/%')`
+          );
+        }
+        if (dimension === 'apiKey' && exclusions.includes('probe')) {
+          conditions.push(
+            sql`(${schema.requestUsage.apiKey} IS NULL OR ${schema.requestUsage.apiKey} != 'probe')`
+          );
+        }
+        return conditions;
+      };
 
-    // Scope by the limited user's key if applicable.
-    const summaryScopeKey = scopedKeyName(request);
-    const keyFilter = summaryScopeKey ? eq(schema.requestUsage.apiKey, summaryScopeKey) : undefined;
-
-    try {
+      const queryStartedAt = performance.now();
       const seriesRows = await db
-        .select({
-          bucketStartMs,
-          requests: sql<number>`COUNT(*)`,
-          inputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensInput}), 0)`,
-          outputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensOutput}), 0)`,
-          cachedTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCached}), 0)`,
-          cacheWriteTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCacheWrite}), 0)`,
-          kwhUsed: sql<number>`COALESCE(SUM(${schema.requestUsage.kwhUsed}), 0)`,
-          errors: sql<number>`COALESCE(SUM(CASE WHEN ${schema.requestUsage.responseStatus} != 'success' THEN 1 ELSE 0 END), 0)`,
-        })
+        .select({ bucketStartMs, ...aggregateSelection })
         .from(schema.requestUsage)
-        .where(
-          and(
-            gte(schema.requestUsage.startTime, rangeStartMs),
-            lte(schema.requestUsage.startTime, rangeEndMs),
-            ...(keyFilter ? [keyFilter] : [])
-          )
-        )
+        .where(and(...rangeFilter))
         .groupBy(bucketStartMs)
         .orderBy(bucketStartMs);
-
-      const emptyWindowStats = {
-        requests: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        cachedTokens: 0,
-        cacheWriteTokens: 0,
-        kwhUsed: 0,
-        totalCost: 0,
-        avgDurationMs: 0,
-        totalDurationMs: 0,
-        errors: 0,
-      };
-
-      const fetchWindowStats = async (startMs: number, endMs: number) => {
-        const rows = await db
-          .select({
-            requests: sql<number>`COUNT(*)`,
-            inputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensInput}), 0)`,
-            outputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensOutput}), 0)`,
-            cachedTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCached}), 0)`,
-            cacheWriteTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCacheWrite}), 0)`,
-            kwhUsed: sql<number>`COALESCE(SUM(${schema.requestUsage.kwhUsed}), 0)`,
-            totalCost: sql<number>`COALESCE(SUM(${schema.requestUsage.costTotal}), 0)`,
-            avgDurationMs: sql<number>`COALESCE(AVG(${schema.requestUsage.durationMs}), 0)`,
-            totalDurationMs: sql<number>`COALESCE(SUM(${schema.requestUsage.durationMs}), 0)`,
-            errors: sql<number>`COALESCE(SUM(CASE WHEN ${schema.requestUsage.responseStatus} != 'success' THEN 1 ELSE 0 END), 0)`,
-          })
-          .from(schema.requestUsage)
-          .where(
-            and(
-              gte(schema.requestUsage.startTime, startMs),
-              lte(schema.requestUsage.startTime, endMs),
-              ...(keyFilter ? [keyFilter] : [])
-            )
-          );
-        return rows[0] || emptyWindowStats;
-      };
-
-      const statsRow = await fetchWindowStats(rangeStartMs, rangeEndMs);
+      const statsRows = await db
+        .select(aggregateSelection)
+        .from(schema.requestUsage)
+        .where(and(...rangeFilter));
 
       // Prior window of equal length ending 1ms before the selected range —
       // powers the dashboard's delta chips. 'all' starts at the epoch, so no
-      // prior window exists for it.
+      // prior window exists for it and the query is skipped entirely.
       const windowLengthMs = rangeEndMs - rangeStartMs;
-      const prevStatsRow =
+      const prevStatsRows =
         range === 'all'
           ? null
-          : await fetchWindowStats(rangeStartMs - windowLengthMs, rangeStartMs - 1);
+          : await db
+              .select(aggregateSelection)
+              .from(schema.requestUsage)
+              .where(
+                and(
+                  gte(schema.requestUsage.startTime, rangeStartMs - windowLengthMs),
+                  lte(schema.requestUsage.startTime, rangeStartMs - 1),
+                  ...(keyFilter ? [keyFilter] : [])
+                )
+              );
 
       const todayRows = await db
         .select({
@@ -414,7 +696,6 @@ export async function registerUsageRoutes(
           reasoningTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensReasoning}), 0)`,
           cachedTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCached}), 0)`,
           cacheWriteTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCacheWrite}), 0)`,
-          kwhUsed: sql<number>`COALESCE(SUM(${schema.requestUsage.kwhUsed}), 0)`,
           totalCost: sql<number>`COALESCE(SUM(${schema.requestUsage.costTotal}), 0)`,
         })
         .from(schema.requestUsage)
@@ -426,66 +707,186 @@ export async function registerUsageRoutes(
           )
         );
 
-      const todayRow = todayRows[0] || {
-        requests: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        reasoningTokens: 0,
-        cachedTokens: 0,
-        cacheWriteTokens: 0,
-        kwhUsed: 0,
-        totalCost: 0,
-      };
-
-      const toWindowStatsPayload = (row: typeof emptyWindowStats) => ({
-        totalRequests: toNumber(row.requests),
-        totalTokens:
-          toNumber(row.inputTokens) +
-          toNumber(row.outputTokens) +
-          toNumber(row.cachedTokens) +
-          toNumber(row.cacheWriteTokens),
-        inputTokens: toNumber(row.inputTokens),
-        outputTokens: toNumber(row.outputTokens),
-        cachedTokens: toNumber(row.cachedTokens),
-        cacheWriteTokens: toNumber(row.cacheWriteTokens),
-        totalCost: toNumber(row.totalCost),
-        totalKwhUsed: toNumber(row.kwhUsed),
-        avgDurationMs: toNumber(row.avgDurationMs),
-        totalDurationMs: toNumber(row.totalDurationMs),
-        totalErrors: toNumber(row.errors),
+      const stats = withSuccessRate(toSummaryAggregate(statsRows[0] || {}));
+      const prevStats = prevStatsRows
+        ? withSuccessRate(toSummaryAggregate(prevStatsRows[0] || {}))
+        : null;
+      const toStatsPayload = (
+        aggregate: ReturnType<typeof withSuccessRate>
+      ): SummaryStatsPayload => ({
+        totalRequests: aggregate.requests,
+        totalErrors: aggregate.errors,
+        totalTokens: aggregate.totalTokens,
+        inputTokens: aggregate.inputTokens,
+        outputTokens: aggregate.outputTokens,
+        reasoningTokens: aggregate.reasoningTokens,
+        cachedTokens: aggregate.cachedTokens,
+        cacheWriteTokens: aggregate.cacheWriteTokens,
+        totalCost: aggregate.totalCost,
+        avgDurationMs: aggregate.avgDurationMs,
+        totalDurationMs: aggregate.totalDurationMs,
+        avgTtftMs: aggregate.avgTtftMs,
+        avgTokensPerSec: aggregate.avgTokensPerSec,
+        successRate: aggregate.successRate,
       });
 
-      return reply.send({
+      const grouped: SummaryResponse['grouped'] = {};
+      for (const dimension of normalizedBreakdowns) {
+        const groupField =
+          dimension === 'provider'
+            ? sql`COALESCE(${schema.requestUsage.provider}, 'unknown')`
+            : dimension === 'modelAlias'
+              ? sql`COALESCE(${schema.requestUsage.incomingModelAlias}, ${schema.requestUsage.selectedModelName}, 'unknown')`
+              : dimension === 'status'
+                ? sql`COALESCE(${schema.requestUsage.responseStatus}, 'unknown')`
+                : schema.requestUsage.apiKey;
+        const groupRows = await db
+          .select({
+            key: groupField,
+            totalDimensions: sql<number>`COUNT(*) OVER ()`,
+            ...aggregateSelection,
+          })
+          .from(schema.requestUsage)
+          .where(and(...getBreakdownFilter(dimension)))
+          .groupBy(groupField)
+          .orderBy(sql`COUNT(*) DESC`, groupField)
+          .limit(parsedLimit);
+        const topItems = groupRows.map((row: any) => {
+          const name =
+            dimension === 'apiKey'
+              ? row.key === 'probe'
+                ? 'probe'
+                : row.key
+                  ? String(row.key).length > 8
+                    ? `${String(row.key).slice(0, 8)}...`
+                    : String(row.key)
+                  : 'unknown'
+              : String(row.key ?? 'unknown');
+          return toSummaryGroup(name, toSummaryAggregate(row));
+        });
+        const included = groupRows.reduce((aggregate: SummaryAggregate, row: any) => {
+          const current = toSummaryAggregate(row);
+          return {
+            ...aggregate,
+            requests: aggregate.requests + current.requests,
+            errors: aggregate.errors + current.errors,
+            inputTokens: aggregate.inputTokens + current.inputTokens,
+            outputTokens: aggregate.outputTokens + current.outputTokens,
+            reasoningTokens: aggregate.reasoningTokens + current.reasoningTokens,
+            cachedTokens: aggregate.cachedTokens + current.cachedTokens,
+            cacheWriteTokens: aggregate.cacheWriteTokens + current.cacheWriteTokens,
+            totalTokens: aggregate.totalTokens + current.totalTokens,
+            totalCost: aggregate.totalCost + current.totalCost,
+            totalDurationMs: aggregate.totalDurationMs + current.totalDurationMs,
+            totalTtftMs: aggregate.totalTtftMs + current.totalTtftMs,
+            totalTokensPerSec: aggregate.totalTokensPerSec + current.totalTokensPerSec,
+            avgDurationMs: 0,
+            avgTtftMs: 0,
+            avgTokensPerSec: 0,
+          };
+        }, toSummaryAggregate({}));
+        const groupedTotalRows = await db
+          .select(aggregateSelection)
+          .from(schema.requestUsage)
+          .where(and(...getBreakdownFilter(dimension)));
+        const groupedTotal = toSummaryAggregate(groupedTotalRows[0] || {});
+        const totalDimensions = toNumber(groupRows[0]?.totalDimensions);
+        if (totalDimensions > topItems.length) {
+          topItems.push(toSummaryGroup('Other', subtractAggregates(groupedTotal, included)));
+        }
+        grouped[dimension] = {
+          items: topItems,
+          totalDimensions,
+          truncated: totalDimensions > parsedLimit,
+        };
+      }
+
+      const response: SummaryResponse = {
         range,
-        series: seriesRows.map((row: any) => ({
-          bucketStartMs: toNumber(row.bucketStartMs),
-          requests: toNumber(row.requests),
-          inputTokens: toNumber(row.inputTokens),
-          outputTokens: toNumber(row.outputTokens),
-          cachedTokens: toNumber(row.cachedTokens),
-          cacheWriteTokens: toNumber(row.cacheWriteTokens),
-          kwhUsed: toNumber(row.kwhUsed),
-          errors: toNumber(row.errors),
-          tokens:
-            toNumber(row.inputTokens) +
-            toNumber(row.outputTokens) +
-            toNumber(row.cachedTokens) +
-            toNumber(row.cacheWriteTokens),
-        })),
-        stats: toWindowStatsPayload(statsRow),
-        prevStats: prevStatsRow ? toWindowStatsPayload(prevStatsRow) : null,
+        series: seriesRows.map((row: any) => {
+          const aggregate = toSummaryAggregate(row);
+          return {
+            bucketStartMs: toNumber(row.bucketStartMs),
+            requests: aggregate.requests,
+            errors: aggregate.errors,
+            inputTokens: aggregate.inputTokens,
+            outputTokens: aggregate.outputTokens,
+            reasoningTokens: aggregate.reasoningTokens,
+            cachedTokens: aggregate.cachedTokens,
+            cacheWriteTokens: aggregate.cacheWriteTokens,
+            tokens: aggregate.totalTokens,
+            totalCost: aggregate.totalCost,
+            avgDurationMs: aggregate.avgDurationMs,
+            avgTtftMs: aggregate.avgTtftMs,
+            avgTokensPerSec: aggregate.avgTokensPerSec,
+          };
+        }),
+        stats: toStatsPayload(stats),
+        prevStats: prevStats ? toStatsPayload(prevStats) : null,
         today: {
-          requests: toNumber(todayRow.requests),
-          inputTokens: toNumber(todayRow.inputTokens),
-          outputTokens: toNumber(todayRow.outputTokens),
-          reasoningTokens: toNumber(todayRow.reasoningTokens),
-          cachedTokens: toNumber(todayRow.cachedTokens),
-          cacheWriteTokens: toNumber(todayRow.cacheWriteTokens),
-          kwhUsed: toNumber(todayRow.kwhUsed),
-          totalCost: toNumber(todayRow.totalCost),
+          requests: toNumber(todayRows[0]?.requests),
+          inputTokens: toNumber(todayRows[0]?.inputTokens),
+          outputTokens: toNumber(todayRows[0]?.outputTokens),
+          reasoningTokens: toNumber(todayRows[0]?.reasoningTokens),
+          cachedTokens: toNumber(todayRows[0]?.cachedTokens),
+          cacheWriteTokens: toNumber(todayRows[0]?.cacheWriteTokens),
+          totalCost: toNumber(todayRows[0]?.totalCost),
         },
+      };
+      if (normalizedBreakdowns.length > 0) response.grouped = grouped;
+      const responseBytes = Buffer.byteLength(JSON.stringify(response), 'utf8');
+      const responseLimit =
+        normalizedBreakdowns.length > 0
+          ? MAX_SUMMARY_RESPONSE_BYTES
+          : MAX_BASIC_SUMMARY_RESPONSE_BYTES;
+      if (responseBytes > responseLimit) {
+        throw new SummaryResponseTooLargeError(
+          `Usage summary response exceeds the ${responseLimit} byte size limit`
+        );
+      }
+      logger.debug('Usage summary generated', {
+        range,
+        breakdownCount: normalizedBreakdowns.length,
+        bucketCount: response.series.length,
+        groupCount: Object.values(response.grouped ?? {}).reduce(
+          (count, breakdown) => count + (breakdown?.items.length ?? 0),
+          0
+        ),
+        cache: 'MISS',
+        responseBytes,
+        durationMs: Math.round(performance.now() - requestStartedAt),
+        queryDurationMs: Math.round(performance.now() - queryStartedAt),
+        dialect,
       });
+      return response;
+    })();
+
+    for (const [key, entry] of summaryCache) {
+      if (entry.expiresAt <= Date.now()) summaryCache.delete(key);
+    }
+    while (summaryCache.size >= MAX_SUMMARY_CACHE_ENTRIES) {
+      const oldestKey = summaryCache.keys().next().value;
+      if (oldestKey === undefined) break;
+      summaryCache.delete(oldestKey);
+    }
+    summaryCache.set(cacheKey, {
+      expiresAt:
+        Date.now() +
+        (range === 'custom' && rangeEnd.getTime() < now.getTime() - 5 * 60 * 1000
+          ? HISTORICAL_SUMMARY_CACHE_TTL_MS
+          : SUMMARY_CACHE_TTL_MS),
+      promise: summaryPromise,
+    });
+    summaryPromise.catch(() => summaryCache.delete(cacheKey));
+
+    try {
+      const response = await summaryPromise;
+      reply.header('X-Usage-Summary-Cache', 'MISS');
+      return reply.send(response);
     } catch (e: any) {
+      if (e instanceof SummaryResponseTooLargeError) {
+        return reply.code(413).send({ error: e.message });
+      }
       return reply.code(500).send({ error: e.message });
     }
   });

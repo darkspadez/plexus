@@ -5,6 +5,7 @@ export function ProviderModelsTab({ f }: { f: ProviderFormApi }) {
   return (
     <ProviderModelsEditor
       editingProvider={f.editingProvider}
+      isOAuthMode={f.isOAuthMode}
       setEditingProvider={f.setEditingProvider}
       selectedModelId={f.selectedModelId}
       setSelectedModelId={f.setSelectedModelId}

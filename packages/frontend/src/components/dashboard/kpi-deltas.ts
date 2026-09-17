@@ -3,7 +3,7 @@ import type { UsageSummaryWindowStats } from '../../lib/api';
 /**
  * Per-tile change vs the preceding window, for the dashboard KPI grid.
  *
- * Volume tiles (`requests`, `avgLatency`, `tokens`, `cost`, `energy`) carry a
+ * Volume tiles (`requests`, `avgLatency`, `tokens`, `cost`, `throughput`) carry a
  * signed relative-% change; rate tiles (`errorRate`, `cacheHit`) carry a
  * signed percentage-point change. `null` means "don't render a chip" — the
  * prior window is missing, empty, or the metric's denominator is degenerate.
@@ -15,7 +15,7 @@ export interface KpiDeltas {
   tokens: number | null;
   cacheHit: number | null;
   cost: number | null;
-  energy: number | null;
+  throughput: number | null;
 }
 
 /** Relative % change from `prev` to `current`; null when `prev` has no signal. */
@@ -53,7 +53,7 @@ export const EMPTY_KPI_DELTAS: KpiDeltas = {
   tokens: null,
   cacheHit: null,
   cost: null,
-  energy: null,
+  throughput: null,
 };
 
 /**
@@ -89,7 +89,11 @@ export function buildKpiDeltas(
         ? cacheHitRatePct(stats) - cacheHitRatePct(prevStats)
         : null,
     cost: relativeDelta(stats.totalCost, prevStats.totalCost),
-    energy: relativeDelta(stats.totalKwhUsed, prevStats.totalKwhUsed),
+    // Throughput is an average, undefined over a window with no traffic —
+    // gated like avgLatency rather than treated as a volume metric.
+    throughput: hasCurrentTraffic
+      ? relativeDelta(stats.avgTokensPerSec, prevStats.avgTokensPerSec)
+      : null,
   };
 }
 

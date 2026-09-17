@@ -203,7 +203,10 @@ export const ProviderMappingsEditor: React.FC<ProviderMappingsEditorProps> = ({
                 availableModels={availableModels}
                 testState={testStates[`${aliasId}-0-${i}`]}
                 onChange={(patch) => update(i, patch)}
-                onTest={() => onTest(i, target.provider, target.model)}
+                onTest={() => {
+                  if (!target.provider || !target.model) return;
+                  onTest(i, target.provider, target.model);
+                }}
                 onDelete={() => remove(i)}
               />
             ))}

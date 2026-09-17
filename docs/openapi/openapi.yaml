@@ -377,6 +377,8 @@ paths:
     $ref: paths/v1_audio_transcriptions.yaml
   /v1/audio/speech:
     $ref: paths/v1_audio_speech.yaml
+  /v1/images:
+    $ref: paths/v1_images.yaml
   /v1/images/generations:
     $ref: paths/v1_images_generations.yaml
   /v1/images/edits:
@@ -453,8 +455,6 @@ paths:
     $ref: paths/v0_management_models.yaml
   /v0/management/models/{aliasId}:
     $ref: paths/v0_management_models_{aliasId}.yaml
-  /v0/management/models/huggingface/{modelId}:
-    $ref: paths/v0_management_models_huggingface_{modelId}.yaml
   /v0/management/models/metadata/refresh:
     $ref: paths/v0_management_models_metadata_refresh.yaml
   /v0/management/models/metadata/resolve:
@@ -489,6 +489,10 @@ paths:
     $ref: paths/v0_management_quota-checker-types.yaml
   /v0/management/quota-checkers:
     $ref: paths/v0_management_quota-checkers.yaml
+  /v0/management/custom-checkers:
+    $ref: paths/v0_management_custom-checkers.yaml
+  /v0/management/custom-checkers/{id}:
+    $ref: paths/v0_management_custom-checkers_{id}.yaml
   /v0/management/usage:
     $ref: paths/v0_management_usage.yaml
   /v0/management/usage/summary:
@@ -599,6 +603,14 @@ components:
   schemas:
     WebSearchCoercionAdapterOptions:
       $ref: ./components/schemas/WebSearchCoercionAdapterOptions.yaml
+    UsageSummary:
+      $ref: ./components/schemas/UsageSummary.yaml
+    UsageSummaryBreakdown:
+      $ref: ./components/schemas/UsageSummaryBreakdown.yaml
+    UsageSummaryGroup:
+      $ref: ./components/schemas/UsageSummaryGroup.yaml
+    ProgressUpdate:
+      $ref: ./components/schemas/ProgressUpdate.yaml
   securitySchemes:
     PlexusApiKey:
       type: http

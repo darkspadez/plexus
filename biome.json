@@ -16,6 +16,7 @@
       "!!packages/cli/src/skill.ts",
       "!!packages/backend/src/transformers/oauth/__tests__/golden-fixtures/**",
       "!!.claude/**",
+      "!!.cora/**",
       "!!.git.nosync/**"
     ]
   },

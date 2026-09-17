@@ -13,10 +13,12 @@ import { ProviderTransformationsTab } from '../components/providers/ProviderTran
 import { ProviderModelsTab } from '../components/providers/ProviderModelsTab';
 import { FetchModelsModal } from '../components/providers/FetchModelsModal';
 import { DeleteProviderModal } from '../components/providers/DeleteProviderModal';
-import { Plus } from 'lucide-react';
+import { Code2, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export const Providers = () => {
   const f = useProviderForm();
+  const navigate = useNavigate();
 
   const isEditing = !!f.originalId;
   const subtitle = isEditing
@@ -48,9 +50,19 @@ export const Providers = () => {
         title="Providers"
         subtitle="Upstream LLM providers routed by the gateway"
         actions={
-          <Button leftIcon={<Plus size={14} />} onClick={f.handleAddNew} size="md">
-            Add provider
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              leftIcon={<Code2 size={14} />}
+              onClick={() => navigate('/providers/custom-checkers')}
+              size="md"
+            >
+              Custom Quota Checkers
+            </Button>
+            <Button leftIcon={<Plus size={14} />} onClick={f.handleAddNew} size="md">
+              Add provider
+            </Button>
+          </div>
         }
       />
 
@@ -160,6 +172,7 @@ export const Providers = () => {
           fetchedModels={f.fetchedModels}
           selectedModelIds={f.selectedModelIds}
           fetchError={f.fetchError}
+          fetchWarning={f.fetchWarning}
           isOAuthMode={f.isOAuthMode}
           onFetch={f.handleFetchModels}
           onToggleSelection={f.toggleModelSelection}

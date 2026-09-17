@@ -4,6 +4,7 @@ import { Input } from '../ui/Input';
 import { Pill } from '../chips/Pill';
 import { Download } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { ModelTypeBadge } from '../models/ModelTypeBadge';
 import type { FetchedModel } from '../../hooks/useProviderForm';
 
 interface Props {
@@ -15,6 +16,8 @@ interface Props {
   fetchedModels: FetchedModel[];
   selectedModelIds: Set<string>;
   fetchError: string | null;
+  /** Soft failure (e.g. a catalog fallback) — the list below is still usable. */
+  fetchWarning?: string | null;
   isOAuthMode: boolean;
   onFetch: () => Promise<void>;
   onToggleSelection: (modelId: string) => void;
@@ -32,6 +35,7 @@ export function FetchModelsModal({
   fetchedModels,
   selectedModelIds,
   fetchError,
+  fetchWarning,
   isOAuthMode,
   onFetch,
   onToggleSelection,
@@ -85,6 +89,11 @@ export function FetchModelsModal({
             {fetchError}
           </div>
         )}
+        {fetchWarning && (
+          <div className="rounded-sm border border-amber-500/30 bg-amber-500/10 p-3 font-body text-[13px] text-amber-400">
+            {fetchWarning}
+          </div>
+        )}
         {fetchedModels.length > 0 && (
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -105,13 +114,17 @@ export function FetchModelsModal({
                 const contextLengthK = model.context_length
                   ? `${(model.context_length / 1000).toFixed(0)}K`
                   : null;
+                // The upstream still serves `hide` models; it just does not
+                // advertise them. Dim them rather than dropping them.
+                const isHidden = model.visibility === 'hide';
                 return (
                   <div
                     key={model.id}
                     onClick={() => onToggleSelection(model.id)}
                     className={cn(
                       'cursor-pointer border-b border-border p-3 transition-colors duration-150 hover:bg-surface-elevated',
-                      selectedModelIds.has(model.id) ? 'bg-surface-elevated' : 'bg-transparent'
+                      selectedModelIds.has(model.id) ? 'bg-surface-elevated' : 'bg-transparent',
+                      isHidden && 'opacity-60'
                     )}
                   >
                     <div className="flex items-start gap-3">
@@ -127,10 +140,19 @@ export function FetchModelsModal({
                           <span className="text-[13px] font-semibold text-foreground">
                             {model.id}
                           </span>
+                          {model.type === 'image' && <ModelTypeBadge type="image" />}
                           {contextLengthK && (
                             <Pill tone="success" size="sm">
                               {contextLengthK}
                             </Pill>
+                          )}
+                          {isHidden && (
+                            <span
+                              className="font-body text-[10px] tracking-wider text-text-muted uppercase"
+                              title="Served by the provider but not advertised in its own model picker"
+                            >
+                              hidden
+                            </span>
                           )}
                         </div>
                         {model.name && model.name !== model.id && (

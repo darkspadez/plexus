@@ -17,6 +17,12 @@ import {
   refundThinkingSignatureStrip,
   stripThinkingSignatureBlocks,
   MAX_THINKING_SIGNATURE_STRIP_RETRIES,
+  createAdvisorResultStripState,
+  matchAdvisorResultError,
+  planAdvisorResultStrip,
+  refundAdvisorResultStrip,
+  stripAdvisorResultBlocks,
+  MAX_ADVISOR_RESULT_STRIP_RETRIES,
   createLiteToolStripState,
   matchLiteUnsupportedToolsError,
   planLiteToolStrip,
@@ -217,6 +223,340 @@ describe('Dispatcher registry auto-compat', () => {
 
     expect(result.payload.reasoning_effort).toBe('low');
   });
+
+  test('translates a client-sent reasoning object to reasoning_effort on the default format', async () => {
+    // Strict OpenAI-compatible upstreams (e.g. the Meta Model API) hard-400 on
+    // the Responses-style `reasoning` object; the projection must emit ONLY the
+    // translated `reasoning_effort` and strip the leftover object.
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning: { effort: 'high' },
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.reasoning).toBeUndefined();
+    expect(result.payload.reasoning_effort).toBe('high');
+  });
+
+  test('openrouter format emits the reasoning object and strips stale reasoning_effort', async () => {
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(
+      piModel({ compat: { supportsReasoningEffort: true, thinkingFormat: 'openrouter' } })
+    );
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning_effort: 'medium',
+        },
+      }),
+      route({ provider: 'openrouter' }),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.reasoning).toEqual({ effort: 'medium' });
+    expect(result.payload.reasoning_effort).toBeUndefined();
+  });
+
+  test('qwen format translates to enable_thinking and strips both OpenAI-style notations', async () => {
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(
+      piModel({ compat: { supportsReasoningEffort: true, thinkingFormat: 'qwen' } })
+    );
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning: { effort: 'low' },
+          reasoning_effort: 'low',
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.enable_thinking).toBe(true);
+    expect(result.payload.reasoning).toBeUndefined();
+    expect(result.payload.reasoning_effort).toBeUndefined();
+  });
+
+  test('strips stale reasoning_effort when the dialect cannot express it (zai)', async () => {
+    // zai with supportsReasoningEffort=false: the intent lands on `thinking`
+    // alone, and the client's untranslated `reasoning_effort` must be REMOVED
+    // — leaving it would resend an unsupported field to the strict upstream.
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(
+      piModel({ compat: { supportsReasoningEffort: false, thinkingFormat: 'zai' } })
+    );
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning_effort: 'medium',
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.thinking).toEqual({ type: 'enabled', clear_thinking: false });
+    expect(result.payload.reasoning_effort).toBeUndefined();
+    expect(result.payload.reasoning).toBeUndefined();
+  });
+
+  test('ant-ling drops the unified reasoning notation when the intent is a disable it cannot express', async () => {
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(
+      piModel({ compat: { supportsReasoningEffort: true, thinkingFormat: 'ant-ling' } })
+    );
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning: { enabled: false },
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.reasoning).toBeUndefined();
+    expect(result.payload.reasoning_effort).toBeUndefined();
+  });
+
+  test('ant-ling emits its own reasoning object and strips reasoning_effort when enabled', async () => {
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(
+      piModel({ compat: { supportsReasoningEffort: true, thinkingFormat: 'ant-ling' } })
+    );
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning_effort: 'high',
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.reasoning).toEqual({ effort: 'high' });
+    expect(result.payload.reasoning_effort).toBeUndefined();
+  });
+
+  test('default format passes the client reasoning_effort through when support is unknown', async () => {
+    // compat.supportsReasoningEffort is undefined (unknown, not false): the
+    // default dialect natively speaks reasoning_effort, so an untranslatable
+    // client value passes through instead of being silently dropped.
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(
+      piModel({
+        thinkingLevelMap: {},
+        compat: {},
+      })
+    );
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning_effort: 'medium',
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.reasoning_effort).toBe('medium');
+    expect(result.payload.reasoning).toBeUndefined();
+  });
+
+  test('default format strips reasoning_effort when the dialect provably lacks support', async () => {
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(
+      piModel({
+        thinkingLevelMap: {},
+        compat: { supportsReasoningEffort: false },
+      })
+    );
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning_effort: 'medium',
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.reasoning_effort).toBeUndefined();
+    expect(result.payload.reasoning).toBeUndefined();
+  });
+
+  test('default format drops stale reasoning_effort that contradicts a recognized reasoning object', async () => {
+    // Client sent BOTH fields with conflicting values: reasoning.enabled=false
+    // is authoritative (checked before reasoning_effort), so after deleting the
+    // reasoning object the surviving 'high' effort would reverse the intent.
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(piModel({ compat: {} }));
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning: { enabled: false },
+          reasoning_effort: 'high',
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.reasoning).toBeUndefined();
+    expect(result.payload.reasoning_effort).toBeUndefined();
+  });
+
+  test('default format drops stale reasoning_effort when null reasoning falls back to request intent', async () => {
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(piModel({ compat: {} }));
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        reasoning: { enabled: false },
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning: null,
+          reasoning_effort: 'high',
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.reasoning).toBeUndefined();
+    expect(result.payload.reasoning_effort).toBeUndefined();
+  });
+
+  test('default format ignores a malformed non-object reasoning value as intent source', async () => {
+    // A string `reasoning` is not a recognized intent source for the
+    // extractor, so reasoning_effort remains the authoritative intent and
+    // passes through when provider support is unknown. (The malformed field
+    // itself still goes upstream on this path; the reactive strip-and-retry
+    // is the guard against a strict upstream rejecting it.)
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(piModel({ compat: {} }));
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning: 'high', // malformed — extractor skips non-objects
+          reasoning_effort: 'medium',
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.reasoning_effort).toBe('medium');
+  });
+
+  test('array-valued reasoning is not a recognized intent source', async () => {
+    // `typeof [] === 'object'` would otherwise mark this as an authoritative
+    // reasoning object; array values must pass through the same way as other
+    // malformed values without making a valid reasoning_effort look stale.
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(piModel({ compat: {} }));
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning: [],
+          reasoning_effort: 'medium',
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.reasoning_effort).toBe('medium');
+  });
+
+  test('leaves untranslated reasoning fields untouched when no intent is recognized', async () => {
+    // With model.reasoning disabled there is nothing to translate — the
+    // projection is a no-op passthrough and must NOT strip the field (it may
+    // be handled by the reactive unsupported-param strip-and-retry instead).
+    vi.mocked(piAiRegistry.resolvePiAiModel).mockReturnValue(piModel({ reasoning: false }));
+    const dispatcher = new Dispatcher() as any;
+
+    const result = await dispatcher.transformRequestPayload(
+      request({
+        originalBody: {
+          model: 'alias-model',
+          messages: [{ role: 'user', content: 'hello' }],
+          reasoning: { effort: 'high' },
+        },
+      }),
+      route(),
+      { transformRequest: vi.fn() },
+      'chat',
+      []
+    );
+
+    expect(result.payload.reasoning).toEqual({ effort: 'high' });
+    expect(result.payload.reasoning_effort).toBeUndefined();
+  });
 });
 
 describe('matchUnsupportedParameter', () => {
@@ -257,6 +597,14 @@ describe('matchUnsupportedParameter', () => {
         '{"error":{"message":"Unsupported parameter: \'messages[0].name\'"}}'
       )
     ).toBe('messages.0.name');
+  });
+
+  test('extracts a backtick-quoted param name (Meta Model API error shape)', () => {
+    expect(
+      matchUnsupportedParameter(
+        '{"error":{"code":null,"message":"unknown parameter `reasoning`","param":"reasoning","type":"invalid_request_error"}}'
+      )
+    ).toBe('reasoning');
   });
 
   test('returns undefined when the body does not name an unsupported parameter', () => {
@@ -1270,6 +1618,236 @@ describe('planThinkingSignatureStrip', () => {
   test('refundThinkingSignatureStrip never drives attempts below zero', () => {
     const state = createThinkingSignatureStripState();
     refundThinkingSignatureStrip(state);
+    expect(state.attempts).toBe(0);
+  });
+});
+
+describe('matchAdvisorResultError', () => {
+  test('matches the exact production error body', () => {
+    const body = JSON.stringify({
+      type: 'error',
+      error: {
+        type: 'invalid_request_error',
+        message: 'Advisor tool result content could not be processed.',
+      },
+      request_id: 'req_test123',
+    });
+    expect(matchAdvisorResultError(body)).toBe(true);
+  });
+
+  test('matches regardless of case', () => {
+    expect(matchAdvisorResultError('ADVISOR TOOL RESULT CONTENT COULD NOT BE PROCESSED')).toBe(
+      true
+    );
+  });
+
+  test('returns false for an unrelated 400 body', () => {
+    expect(matchAdvisorResultError('{"error":{"message":"Invalid request: missing model"}}')).toBe(
+      false
+    );
+  });
+
+  test('returns false for an advisor-adjacent but unrelated error', () => {
+    expect(matchAdvisorResultError('{"error":{"message":"advisor tool is not enabled"}}')).toBe(
+      false
+    );
+  });
+
+  test('returns false for an empty body', () => {
+    expect(matchAdvisorResultError('')).toBe(false);
+  });
+});
+
+describe('stripAdvisorResultBlocks', () => {
+  // Mirrors the echoed on-wire shape: an assistant `server_tool_use` advisor
+  // invocation followed by its account-bound (encrypted) `advisor_tool_result`.
+  const advisorInvocation = {
+    type: 'server_tool_use',
+    id: 'srvtoolu_abc',
+    name: 'advisor',
+    input: {},
+  };
+  const advisorResult = {
+    type: 'advisor_tool_result',
+    tool_use_id: 'srvtoolu_abc',
+    content: { type: 'advisor_redacted_result', encrypted_content: 'EqQhCio-sealed-by-account-a' },
+  };
+
+  test('strips the advisor result and its paired invocation, preserving sibling text', () => {
+    const payload: Record<string, any> = {
+      model: 'claude-x',
+      messages: [
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'let me consult' }, advisorInvocation, advisorResult],
+        },
+      ],
+    };
+    const snapshot = structuredClone(payload);
+
+    const result = stripAdvisorResultBlocks(payload);
+
+    expect(result.strippedCount).toBe(1);
+    expect(result.payload.messages).toEqual([
+      { role: 'assistant', content: [{ type: 'text', text: 'let me consult' }] },
+    ]);
+    // Copy-on-write: the ORIGINAL payload argument is never mutated.
+    expect(payload).toEqual(snapshot);
+  });
+
+  test('pairs invocation and result by id even when they sit in separate messages', () => {
+    const payload: Record<string, any> = {
+      messages: [
+        { role: 'assistant', content: [{ type: 'text', text: 'thinking' }, advisorInvocation] },
+        { role: 'assistant', content: [advisorResult, { type: 'text', text: 'the answer' }] },
+      ],
+    };
+
+    const result = stripAdvisorResultBlocks(payload);
+
+    expect(result.strippedCount).toBe(1);
+    // Invocation removed from message 0 (paired by id), leaving its text.
+    expect(result.payload.messages[0].content).toEqual([{ type: 'text', text: 'thinking' }]);
+    // Result removed from message 1, leaving its text.
+    expect(result.payload.messages[1].content).toEqual([{ type: 'text', text: 'the answer' }]);
+  });
+
+  test('leaves an unrelated server_tool_use (no matching advisor result) untouched', () => {
+    const payload: Record<string, any> = {
+      messages: [
+        {
+          role: 'assistant',
+          content: [
+            { type: 'server_tool_use', id: 'srvtoolu_web', name: 'web_search', input: {} },
+            advisorInvocation,
+            advisorResult,
+          ],
+        },
+      ],
+    };
+
+    const result = stripAdvisorResultBlocks(payload);
+
+    expect(result.strippedCount).toBe(1);
+    // Only the advisor pair is gone; the web_search server tool use remains.
+    expect(result.payload.messages[0].content).toEqual([
+      { type: 'server_tool_use', id: 'srvtoolu_web', name: 'web_search', input: {} },
+    ]);
+  });
+
+  test('drops a message emptied by the strip when doing so keeps alternation valid', () => {
+    const payload: Record<string, any> = {
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: 'q1' }] },
+        { role: 'assistant', content: [advisorInvocation, advisorResult] },
+        { role: 'user', content: [{ type: 'text', text: 'q2' }] },
+      ],
+    };
+
+    const result = stripAdvisorResultBlocks(payload);
+
+    expect(result.strippedCount).toBe(1);
+    // The emptied assistant message is dropped; but that would leave two
+    // consecutive user messages, so a placeholder is substituted instead.
+    expect(result.payload.messages).toHaveLength(3);
+    expect(result.payload.messages[1]).toEqual({
+      role: 'assistant',
+      content: [{ type: 'text', text: '[advisor result elided]' }],
+    });
+  });
+
+  test('drops an emptied message entirely when alternation stays valid without it', () => {
+    const payload: Record<string, any> = {
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: 'q1' }] },
+        { role: 'assistant', content: [advisorInvocation, advisorResult] },
+      ],
+    };
+
+    const result = stripAdvisorResultBlocks(payload);
+
+    expect(result.strippedCount).toBe(1);
+    // Nothing follows the emptied assistant message, so it is dropped outright.
+    expect(result.payload.messages).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'q1' }] },
+    ]);
+  });
+
+  test('returns the payload unchanged (0 strips) when there is no advisor result', () => {
+    const payload: Record<string, any> = {
+      model: 'claude-x',
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'hi' }] }],
+    };
+
+    const result = stripAdvisorResultBlocks(payload);
+
+    expect(result.strippedCount).toBe(0);
+    // Same reference back — nothing to rebuild.
+    expect(result.payload).toBe(payload);
+  });
+
+  test('returns 0 strips for a non-Anthropic (Responses API) payload', () => {
+    const payload: Record<string, any> = { model: 'gpt-5.5', input: 'hi' };
+    const result = stripAdvisorResultBlocks(payload);
+    expect(result.strippedCount).toBe(0);
+    expect(result.payload).toBe(payload);
+  });
+});
+
+describe('planAdvisorResultStrip', () => {
+  const advisorBody = JSON.stringify({
+    error: { message: 'Advisor tool result content could not be processed.' },
+  });
+  const anthropicPayload = { model: 'claude-x', messages: [] };
+
+  test('MAX_ADVISOR_RESULT_STRIP_RETRIES is exactly 1 (one strip-retry per target)', () => {
+    expect(MAX_ADVISOR_RESULT_STRIP_RETRIES).toBe(1);
+  });
+
+  test('plans a strip-retry on the first matching 400 for an Anthropic messages payload', () => {
+    const state = createAdvisorResultStripState();
+    expect(planAdvisorResultStrip(advisorBody, anthropicPayload, state)).toBe(true);
+    expect(state.attempts).toBe(1);
+  });
+
+  test('does not plan a retry when the body does not name an advisor-result error', () => {
+    const state = createAdvisorResultStripState();
+    expect(
+      planAdvisorResultStrip('{"error":{"message":"Invalid request"}}', anthropicPayload, state)
+    ).toBe(false);
+    expect(state.attempts).toBe(0);
+  });
+
+  test('does not plan a retry when the outbound payload is not Anthropic-messages-shaped', () => {
+    const state = createAdvisorResultStripState();
+    const responsesPayload = { model: 'gpt-5.5', input: 'hi' };
+    expect(planAdvisorResultStrip(advisorBody, responsesPayload, state)).toBe(false);
+    expect(state.attempts).toBe(0);
+  });
+
+  test('retry bound: a second advisor 400 on the same target does not plan a second strip-retry', () => {
+    const state = createAdvisorResultStripState();
+    expect(planAdvisorResultStrip(advisorBody, anthropicPayload, state)).toBe(true);
+    expect(planAdvisorResultStrip(advisorBody, anthropicPayload, state)).toBe(false);
+    expect(state.attempts).toBe(1);
+  });
+
+  test('refundAdvisorResultStrip returns the budget after a 0-strip plan, so a later genuine advisor 400 can still strip-retry', () => {
+    const state = createAdvisorResultStripState();
+
+    expect(planAdvisorResultStrip(advisorBody, anthropicPayload, state)).toBe(true);
+    expect(state.attempts).toBe(1);
+
+    refundAdvisorResultStrip(state);
+    expect(state.attempts).toBe(0);
+
+    expect(planAdvisorResultStrip(advisorBody, anthropicPayload, state)).toBe(true);
+    expect(state.attempts).toBe(1);
+  });
+
+  test('refundAdvisorResultStrip never drives attempts below zero', () => {
+    const state = createAdvisorResultStripState();
+    refundAdvisorResultStrip(state);
     expect(state.attempts).toBe(0);
   });
 });

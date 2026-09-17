@@ -5,7 +5,9 @@ import { Modal } from '../components/ui/Modal';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
 import { CostToolTip } from '../components/ui/CostToolTip';
+import { PerformanceToolTip } from '../components/ui/PerformanceToolTip';
 import { DataTable } from '../components/ui/DataTable';
+import { Drawer } from '../components/ui/Drawer';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
 import { RequestDetailPanel } from '../components/logs/RequestDetailPanel';
@@ -44,6 +46,8 @@ import {
   ScanSearch,
   PlayCircle,
   Circle,
+  ListFilter,
+  X,
   Wifi,
   WifiOff,
   Loader,
@@ -58,6 +62,19 @@ const SSE_HEARTBEAT_TIMEOUT_MS = 30_000;
 // (and gated on there actually being an unfrozen pending row) — every tick
 // re-renders the whole logs table and any open RequestDetailPanel.
 const LIVE_DURATION_UPDATE_INTERVAL_MS = 500;
+
+const EMPTY_LOG_FILTERS = {
+  apiKey: '',
+  incomingModelAlias: '',
+  provider: '',
+  startDate: '',
+  endDate: '',
+};
+
+const formatReasoningEffort = (effort?: string | null): string | null => {
+  if (!effort) return null;
+  return effort.charAt(0).toUpperCase() + effort.slice(1);
+};
 
 /** Live progress frame for an in-flight request, delivered on the `progress` SSE event. */
 interface ProgressUpdate {
@@ -186,7 +203,7 @@ const LogTimeCell = React.memo(({ log }: { log: UsageRecord }) => {
 const LogKeyCell = React.memo(({ log }: { log: UsageRecord }) => (
   <div
     className={cn(
-      'flex min-w-0 max-w-[130px] flex-col 2xl:max-w-none',
+      'flex min-w-0 max-w-[200px] flex-col 2xl:max-w-none',
       log.sourceIp && 'cursor-help'
     )}
     title={log.sourceIp ? `IP: ${log.sourceIp}` : undefined}
@@ -254,6 +271,7 @@ const LogTypeCell = React.memo(({ log }: { log: UsageRecord }) => {
   const routePath = getRoutePath(log);
   const apiTypesDiffer =
     !!incomingApiType && !!outgoingApiType && apiFormatsDiffer(incomingApiType, outgoingApiType);
+  const reasoningEffort = formatReasoningEffort(log.reasoningEffort);
 
   return (
     <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
@@ -274,6 +292,11 @@ const LogTypeCell = React.memo(({ log }: { log: UsageRecord }) => {
         <ApiFormatChip format={(outgoingApiType || incomingApiType) as string} />
       ) : (
         <span className="text-foreground-subtle">-</span>
+      )}
+      {reasoningEffort && (
+        <Pill tone="neutral" size="sm" title="Requested reasoning effort">
+          {reasoningEffort}
+        </Pill>
       )}
       {/* Intentional fixed raw-palette glyph hues (not semantic tokens) — the
           vision/descriptor signals keep a stable identity color for quick
@@ -379,6 +402,17 @@ const LogPerfCell = React.memo(({ log, liveNow, progress }: LogPerfCellProps) =>
   let secondLineText: string | null = null;
   let secondLineTitle: string | undefined;
   let secondLineWarn = false;
+  // Populated only while a live progress frame is available — wraps the cell
+  // in a hover tooltip with the full breakdown (duration, token vs. raw
+  // bytes, throughput, estimated tok/s) so the compact second line can stay
+  // to a single line without losing detail.
+  let tooltipProps: {
+    semanticBytes: string;
+    rawBytes?: string;
+    bytesPerSec?: string;
+    estimatedTokensPerSec?: string;
+  } | null = null;
+
   if (progress) {
     // Prefer the semantic (token-producing events only) byte counters; older
     // servers omit them, so fall back to the total wire counters.
@@ -401,15 +435,26 @@ const LogPerfCell = React.memo(({ log, liveNow, progress }: LogPerfCellProps) =>
         ? effectiveBytesPerSec / bytesPerToken
         : null;
 
-    const parts = [formatBytes(progress.bytesReceived)];
+    // Semantic (token-producing) bytes are the headline figure; the raw wire
+    // total is shown in parens only when it actually differs from it.
+    const parts = [formatBytes(semanticBytesReceived)];
     if (semanticBytesReceived !== progress.bytesReceived) {
-      parts.push(`${formatBytes(semanticBytesReceived)} tok`);
+      parts.push(`(${formatBytes(progress.bytesReceived)})`);
     }
     if (progress.bytesPerSec != null) parts.push(`${formatBytes(progress.bytesPerSec)}/s`);
     if (estTokensPerSec != null) parts.push(`~${formatTPS(estTokensPerSec)} t/s`);
     secondLineText = parts.join(' · ');
     secondLineTitle = `Live stream: ${formatBytes(semanticBytesReceived)} from token-producing events, estimated at ~${Math.round(bytesPerToken)} bytes/token for this API`;
     secondLineWarn = true;
+    tooltipProps = {
+      semanticBytes: formatBytes(semanticBytesReceived),
+      rawBytes:
+        semanticBytesReceived !== progress.bytesReceived
+          ? formatBytes(progress.bytesReceived)
+          : undefined,
+      bytesPerSec: progress.bytesPerSec != null ? formatBytes(progress.bytesPerSec) : undefined,
+      estimatedTokensPerSec: estTokensPerSec != null ? `~${formatTPS(estTokensPerSec)}` : undefined,
+    };
   } else {
     const parts: string[] = [];
     if (log.ttftMs && log.ttftMs > 0) parts.push(`TTFT ${formatMs(log.ttftMs)}`);
@@ -417,7 +462,7 @@ const LogPerfCell = React.memo(({ log, liveNow, progress }: LogPerfCellProps) =>
     if (parts.length > 0) secondLineText = parts.join(' · ');
   }
 
-  return (
+  const content = (
     <div className="flex flex-col font-mono tabular-nums">
       <span className={cn('whitespace-nowrap text-sm', isPending && 'text-warning')}>
         {liveDuration}
@@ -428,13 +473,23 @@ const LogPerfCell = React.memo(({ log, liveNow, progress }: LogPerfCellProps) =>
             'hidden whitespace-nowrap text-xs 2xl:inline',
             secondLineWarn ? 'text-warning' : 'text-foreground-muted'
           )}
-          title={secondLineTitle}
+          title={tooltipProps ? undefined : secondLineTitle}
         >
           {secondLineText}
         </span>
       )}
     </div>
   );
+
+  if (tooltipProps) {
+    return (
+      <PerformanceToolTip duration={liveDuration} {...tooltipProps}>
+        {content}
+      </PerformanceToolTip>
+    );
+  }
+
+  return content;
 });
 
 const LogStatusCell = React.memo(({ log }: { log: UsageRecord }) => {
@@ -507,13 +562,8 @@ export const Logs = () => {
   const [newestLogId, setNewestLogId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<UsageSortField>('date');
   const [sortDir, setSortDir] = useState<UsageSortDirection>('desc');
-  const [filters, setFilters] = useState({
-    apiKey: '',
-    incomingModelAlias: '',
-    provider: '',
-    startDate: '',
-    endDate: '',
-  });
+  const [filters, setFilters] = useState(EMPTY_LOG_FILTERS);
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
   // Delete Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -942,6 +992,7 @@ export const Logs = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsMobileFiltersOpen(false);
     if (offset === 0) {
       loadLogs();
       return;
@@ -955,6 +1006,12 @@ export const Logs = () => {
     setLimit(nextLimit);
     // Reset to the first page so we don't land on an out-of-range offset.
     updateOffset(0);
+  };
+
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
+  const clearFilters = () => {
+    setFilters(EMPTY_LOG_FILTERS);
   };
 
   const handleSort = (field: UsageSortField) => {
@@ -1174,7 +1231,19 @@ export const Logs = () => {
         }
         actions={
           <>
-            <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-2">
+            <div className="lg:hidden">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="w-full justify-between sm:w-auto"
+                onClick={() => setIsMobileFiltersOpen(true)}
+                leftIcon={<ListFilter size={15} />}
+              >
+                <span>Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}</span>
+              </Button>
+            </div>
+            <form onSubmit={handleSearch} className="hidden flex-wrap items-center gap-2 lg:flex">
               {!isLimited && (
                 <div className="w-full sm:w-40">
                   <SearchInput
@@ -1217,6 +1286,17 @@ export const Logs = () => {
                     className="min-w-0 flex-1 sm:flex-none"
                   />
                 </div>
+                {(filters.startDate || filters.endDate) && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters({ ...filters, startDate: '', endDate: '' })}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-0 bg-transparent text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
+                    title="Clear date filters"
+                    aria-label="Clear date filters"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
               <Button type="submit" variant="primary" size="md" className="w-full sm:w-auto">
                 Search
@@ -1267,6 +1347,111 @@ export const Logs = () => {
           </>
         }
       />
+
+      {/* Mobile filter drawer — the desktop filter form above is hidden below
+          `lg`; small-screen users open this instead via the "Filters" trigger
+          button in the header actions. */}
+      <Drawer
+        open={isMobileFiltersOpen}
+        onClose={() => setIsMobileFiltersOpen(false)}
+        side="right"
+        aria-label="Log filters"
+      >
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex items-start justify-between gap-4 border-b border-border p-4">
+            <div>
+              <h2 className="m-0 font-sans text-lg font-semibold text-foreground">Filters</h2>
+              <p className="mt-1 text-xs text-foreground-muted">Narrow down the request logs.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsMobileFiltersOpen(false)}
+              className="rounded-md border-0 bg-transparent p-1 text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
+              aria-label="Close filters"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSearch} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+              {!isLimited && (
+                <SearchInput
+                  label="Key"
+                  placeholder="Search by key…"
+                  value={filters.apiKey}
+                  onChange={(v) => setFilters({ ...filters, apiKey: v })}
+                  className="h-10 text-sm"
+                />
+              )}
+              <SearchInput
+                label="Model"
+                placeholder="Search by model…"
+                value={filters.incomingModelAlias}
+                onChange={(v) => setFilters({ ...filters, incomingModelAlias: v })}
+                className="h-10 text-sm"
+              />
+              <SearchInput
+                label="Provider"
+                placeholder="Search by provider…"
+                value={filters.provider}
+                onChange={(v) => setFilters({ ...filters, provider: v })}
+                className="h-10 text-sm"
+              />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs font-medium text-foreground-muted">
+                  <PlayCircle size={15} />
+                  <span>Start date</span>
+                </div>
+                <DateTimePicker
+                  value={filters.startDate}
+                  onChange={(v) => setFilters((prev) => ({ ...prev, startDate: v }))}
+                  placeholder="Select start date"
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs font-medium text-foreground-muted">
+                  <Circle size={15} />
+                  <span>End date</span>
+                </div>
+                <DateTimePicker
+                  value={filters.endDate}
+                  onChange={(v) => setFilters((prev) => ({ ...prev, endDate: v }))}
+                  placeholder="Select end date"
+                  className="w-full"
+                />
+              </div>
+              <Select
+                label="Per page"
+                value={String(limit)}
+                onChange={handleLimitChange}
+                options={[
+                  { value: '20', label: '20' },
+                  { value: '50', label: '50' },
+                  { value: '100', label: '100' },
+                  { value: '200', label: '200' },
+                ]}
+              />
+            </div>
+            <div className="flex gap-2 border-t border-border p-4">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="flex-1"
+                onClick={clearFilters}
+                disabled={activeFilterCount === 0}
+              >
+                Clear
+              </Button>
+              <Button type="submit" variant="primary" size="sm" className="flex-1">
+                Apply filters
+              </Button>
+            </div>
+          </form>
+        </div>
+      </Drawer>
 
       <PageContainer>
         <DataTable<UsageRecord>

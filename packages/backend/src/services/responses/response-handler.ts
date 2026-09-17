@@ -10,12 +10,9 @@ import { TransformerFactory } from '../dispatch/transformer-factory';
 import { DebugLoggingInspector, UsageInspector } from '../inspectors/index';
 import { Readable } from 'stream';
 import { DebugManager } from '../observability/debug-manager';
-import { estimateKwhUsed } from '../observability/inference-energy';
 import { applyProviderReportedCost, applyUsageCostDetails } from '../../utils/provider-cost';
 import { extractUsageCostDetails } from '../../utils/usage-normalizer';
 import { StallInspector, type StallConfig } from '../inspectors/stall-inspector';
-import { DEFAULT_GPU_PARAMS, DEFAULT_MODEL } from '@plexus/shared';
-import type { GpuParams } from '@plexus/shared';
 import { QuotaEnforcer } from '../quota/quota-enforcer';
 import { recordQuotaUsage, buildQuotaHeaders } from '../quota/quota-middleware';
 import { CooldownManager } from '../runtime/cooldown-manager';
@@ -304,6 +301,30 @@ export async function handleResponse(
       // otherwise `unifiedStream === rawStream` (raw bytes) and there is
       // nothing chunk-shaped to inspect.
       const visibilityTracker = createStreamVisibilityTracker();
+      // "Ended incomplete" outcome seen on the unified error channel
+      // (response.incomplete → finish_reason 'length'/'content_filter'), if
+      // one passed through. Tracked separately so flush() can tell an
+      // upstream-aborted empty turn apart from an ordinary empty completion.
+      let terminalIncomplete: { reason: string; message: string } | null = null;
+      const saveTerminalError = (code: string, message: string, details: object) => {
+        usageStorage.saveError(
+          usageRecord.requestId!,
+          new Error(message),
+          {
+            apiType,
+            provider: usageRecord.provider,
+            targetModel: usageRecord.selectedModelName,
+            statusCode: 500,
+            code,
+            // The terminal frame is relayed to the client as-is (we never
+            // suppress the upstream's response.failed/response.incomplete
+            // event), so the client does see an explicit terminal signal.
+            clientSignaled: true,
+            ...details,
+          },
+          keyName
+        );
+      };
       const observedUnifiedStream = providerTransformer.transformStream
         ? unifiedStream.pipeThrough(
             new TransformStream({
@@ -314,40 +335,74 @@ export async function handleResponse(
                 // transformStream renders it) means the completion did not
                 // finish cleanly. Mark the usage record accordingly (once)
                 // so it's never reported as a plain success, nor — via the
-                // flush's empty-downgrade below, which only ever upgrades a
-                // 'success' into 'empty' — silently reclassified as merely
-                // "empty" once the stream ends. Error chunks that DO carry
-                // a finish_reason are "ended incomplete" outcomes
-                // (response.incomplete → 'length'/'content_filter'): they
-                // ride the unified error channel for routing but are
-                // rendered as a normal finish for chat clients (and as
-                // response.incomplete for Responses clients) — a
-                // successful-if-truncated turn, not an error — so they keep
-                // 'success' (or, when the truncation left zero visible
-                // output, the flush's 'empty' downgrade below).
-                if (
-                  chunk?.event === 'error' &&
-                  !chunk.finish_reason &&
-                  usageRecord.responseStatus !== 'error'
-                ) {
-                  usageRecord.responseStatus = 'error';
+                // flush's empty-downgrade below, which only ever touches a
+                // plain 'success' — silently reclassified as merely
+                // "empty" once the stream ends, and record an inference error
+                // so the failure surfaces in the errors log (headers are
+                // already sent, so the client-visible stream is unaffected).
+                if (chunk?.event === 'error') {
+                  if (!chunk.finish_reason) {
+                    if (usageRecord.responseStatus !== 'error') {
+                      usageRecord.responseStatus = 'error';
+                      saveTerminalError(
+                        chunk.error?.code ?? 'response_failed',
+                        chunk.error?.message ?? 'The model response failed to complete.',
+                        {}
+                      );
+                    }
+                  } else if (!terminalIncomplete) {
+                    // Error chunks that DO carry a finish_reason are "ended
+                    // incomplete" outcomes (response.incomplete →
+                    // 'length'/'content_filter'): they ride the unified error
+                    // channel for routing but are rendered as a normal finish
+                    // for chat clients (and as response.incomplete for
+                    // Responses clients) — a successful-if-truncated turn,
+                    // not an error — UNLESS the stream produced no visible
+                    // output at all, in which case flush() classifies it as
+                    // an inference error (the upstream effectively never
+                    // answered; recording it as success/"empty" hides a
+                    // provider-side abort).
+                    terminalIncomplete = {
+                      reason: chunk.incomplete_details?.reason ?? chunk.error?.code ?? 'unknown',
+                      message:
+                        chunk.error?.message ?? `Response ended incomplete: ${chunk.finish_reason}`,
+                    };
+                  }
                 }
                 controller.enqueue(chunk);
               },
               flush() {
-                // Only ever downgrade a plain 'success' into 'empty' — never
-                // clobber a more specific status (e.g. 'error', set above
-                // when a unified error chunk passed through, or 'error' from
-                // the Gemini MALFORMED_FUNCTION_CALL tap above) that may have
-                // already been set while this stream was flowing.
+                // Only ever touch a plain 'success' — never clobber a more
+                // specific status (e.g. 'error', set above when a hard-
+                // failure chunk passed through, or from the Gemini
+                // MALFORMED_FUNCTION_CALL tap above) that may have already
+                // been set while this stream was flowing.
                 if (isStreamEmpty(visibilityTracker) && usageRecord.responseStatus === 'success') {
-                  usageRecord.responseStatus = 'empty';
-                  logger.warn(
-                    `Empty completion (no visible output) streamed to client for ` +
-                      `${usageRecord.provider ?? 'unknown'}/${usageRecord.selectedModelName ?? 'unknown'} ` +
-                      `(alias=${usageRecord.canonicalModelName ?? usageRecord.incomingModelAlias ?? 'n/a'}, ` +
-                      `requestId=${usageRecord.requestId})`
-                  );
+                  if (terminalIncomplete) {
+                    // Upstream ended the response incomplete before producing
+                    // ANY visible output — i.e. it "just stopped responding".
+                    // That is a provider-side failure, not an empty turn:
+                    // classify it as an error and save an inference error so
+                    // it surfaces instead of being silently swallowed.
+                    usageRecord.responseStatus = 'error';
+                    logger.warn(
+                      `Incomplete stream with no visible output (reason=${terminalIncomplete.reason}) ` +
+                        `for ${usageRecord.provider ?? 'unknown'}/${usageRecord.selectedModelName ?? 'unknown'} ` +
+                        `(alias=${usageRecord.canonicalModelName ?? usageRecord.incomingModelAlias ?? 'n/a'}, ` +
+                        `requestId=${usageRecord.requestId}) — recorded as inference error`
+                    );
+                    saveTerminalError(terminalIncomplete.reason, terminalIncomplete.message, {
+                      incompleteDetails: { reason: terminalIncomplete.reason },
+                    });
+                  } else {
+                    usageRecord.responseStatus = 'empty';
+                    logger.warn(
+                      `Empty completion (no visible output) streamed to client for ` +
+                        `${usageRecord.provider ?? 'unknown'}/${usageRecord.selectedModelName ?? 'unknown'} ` +
+                        `(alias=${usageRecord.canonicalModelName ?? usageRecord.incomingModelAlias ?? 'n/a'}, ` +
+                        `requestId=${usageRecord.requestId})`
+                    );
+                  }
                 }
               },
             })
@@ -361,10 +416,14 @@ export async function handleResponse(
     }
 
     // TAP THE TRANSFORMED STREAM for debugging
-    // This captures what is actually sent to the client
+    // This captures what is actually sent to the client. The terminal
+    // callback fires lazily (when the client stream emits its terminal
+    // frame), by which point usageInspector below is assigned.
+    let usageInspector: UsageInspector;
     const transformedDebugLogging = new DebugLoggingInspector(
       usageRecord.requestId!,
-      'transformed'
+      'transformed',
+      () => usageInspector.finalize()
     );
     const transformedLogInspector = transformedDebugLogging.createInspector(apiType);
 
@@ -380,16 +439,7 @@ export async function handleResponse(
 
     finalClientStream = finalClientStream.pipeThrough(transformedTapStream);
 
-    // Standard SSE headers to prevent buffering and timeouts
-    reply.header('Content-Type', 'text/event-stream');
-    reply.header('Cache-Control', 'no-cache');
-    reply.header('Connection', 'keep-alive');
-
-    /**
-     * Build the linear stream pipeline.
-     */
-
-    const usageInspector = new UsageInspector(
+    usageInspector = new UsageInspector(
       usageRecord.requestId!,
       usageStorage,
       usageRecord,
@@ -400,11 +450,20 @@ export async function handleResponse(
       providerApiType,
       apiType,
       originalRequest,
-      unifiedResponse.plexus?.gpuParams ?? DEFAULT_GPU_PARAMS,
-      unifiedResponse.plexus?.modelParams ?? DEFAULT_MODEL,
       quotaEnforcer,
-      keyName
+      keyName,
+      rawDebugLogging,
+      transformedDebugLogging
     );
+
+    // Standard SSE headers to prevent buffering and timeouts
+    reply.header('Content-Type', 'text/event-stream');
+    reply.header('Cache-Control', 'no-cache');
+    reply.header('Connection', 'keep-alive');
+
+    /**
+     * Build the linear stream pipeline.
+     */
 
     // Convert Web Stream to Node Stream for piping
     const nodeStream = Readable.fromWeb(finalClientStream as any);
@@ -460,18 +519,13 @@ export async function handleResponse(
     // request.signal abort on disconnect. But Fastify runs on node:http, not
     // Bun.serve(), so we can't use that here without a much larger refactor.
     //
-    // THE SOLUTION — bunHandle.closed
-    // --------------------------------
-    // Bun's Node.js Socket wraps an internal Bun TCP socket handle. It is stored
-    // under Symbol(handle) on the Socket object. This handle has a .closed boolean
-    // property that transitions false → true when the underlying TCP connection
-    // closes, even when all the Node.js-layer signals above are broken.
+    // DEFERRED SOCKET-CLOSE SIGNAL — bunHandle.closed
+    // -------------------------------------------------
+    // Bun's Node.js Socket exposes its internal TCP handle under Symbol(handle).
+    // Its .closed flag is useful telemetry, but Codex Responses Lite traffic has
+    // shown that it is not reliable enough to abort an upstream stream by itself.
+    // We log the observation and wait for a confirmed stream error or timeout.
     //
-    // Discovery: we enumerated Object.getOwnPropertySymbols() on the Socket at
-    // runtime, found Symbol(handle), and verified with polling tests that its
-    // .closed property updates correctly within ~250ms of a client disconnect.
-    //
-    // If Bun ever fixes the node:http disconnect signals, we can simplify this.
     // Track: https://github.com/oven-sh/bun/issues/25919
     //        https://github.com/oven-sh/bun/issues/14697
     //
@@ -517,6 +571,7 @@ export async function handleResponse(
       ? Object.getOwnPropertySymbols(rawSocket).find((s) => s.toString() === 'Symbol(handle)')
       : undefined;
     const bunHandle = symHandle ? (rawSocket as any)[symHandle] : null;
+    const deferSocketClose = usageRecord.incomingApiType === 'responses:lite';
 
     const onDisconnect = (source: string) => {
       if (disconnected) return;
@@ -533,7 +588,7 @@ export async function handleResponse(
         source === 'stall' ||
         (abortController?.signal?.reason?.name === 'TimeoutError' &&
           abortController?.signal?.reason?.message?.includes('stalled'));
-      logger.debug(
+      logger.info(
         `${isStall ? 'Stream stalled' : isTimeout ? 'Upstream timeout' : 'Client disconnected'} for request ${usageRecord.requestId} (detected via ${source}), aborting upstream`
       );
       const timeoutErr = isStall
@@ -592,10 +647,22 @@ export async function handleResponse(
         once: true,
       });
 
-      // Poll bunHandle.closed every 250ms — the only reliable client-disconnect
-      // signal available in Bun's node:http layer for POST requests (see above).
+      // Record a socket-close observation, but do not abort on it alone.
       disconnectPoll = setInterval(() => {
-        if (bunHandle?.closed) onDisconnect('bunHandle.closed');
+        if (bunHandle?.closed) {
+          if (deferSocketClose) {
+            logger.info(
+              `Socket close observed for request ${usageRecord.requestId} ` +
+                '(source=bunHandle.closed); deferring upstream cancellation'
+            );
+            if (disconnectPoll) {
+              clearInterval(disconnectPoll);
+              disconnectPoll = null;
+            }
+          } else {
+            onDisconnect('bunHandle.closed');
+          }
+        }
         if (pipeline.destroyed || pipeline.readableEnded) {
           if (disconnectPoll) {
             clearInterval(disconnectPoll);
@@ -779,23 +846,12 @@ async function finalizeUsage(
     usageRecord.tokensPerSec = (totalOutputTokens / usageRecord.durationMs) * 1000;
   }
 
-  // Use provider-reported energy if available, otherwise estimate
-  // Some providers emit `: energy {"energy_kwh": ...}` as SSE comments
+  // Use provider-reported energy if available (e.g. Neuralwatt SSE comments)
   if (reconstructed?.providerReportedEnergy?.energy_kwh != null) {
     const energyKwh = Number(reconstructed.providerReportedEnergy.energy_kwh);
     if (!isNaN(energyKwh) && energyKwh >= 0) {
       usageRecord.kwhUsed = Number(energyKwh.toFixed(10));
     }
-  } else {
-    // Estimate energy consumption using resolved GPU and model params from dispatcher
-    const plexusGpuParams = unifiedResponse.plexus?.gpuParams ?? DEFAULT_GPU_PARAMS;
-    const plexusModelParams = unifiedResponse.plexus?.modelParams ?? DEFAULT_MODEL;
-    usageRecord.kwhUsed = estimateKwhUsed(
-      usageRecord.tokensInput ?? 0,
-      usageRecord.tokensOutput ?? 0,
-      plexusModelParams,
-      plexusGpuParams
-    );
   }
 
   // Persist usage record to database

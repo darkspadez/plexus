@@ -5,7 +5,6 @@ import { UsageInspector } from '../inspectors/usage-logging';
 import { DebugLoggingInspector } from '../inspectors/debug-logging';
 import { DebugManager } from '../observability/debug-manager';
 import type { UsageRecord } from '../../types/usage';
-import { DEFAULT_GPU_PARAMS, DEFAULT_MODEL } from '@plexus/shared';
 
 describe('UsageInspector Metadata Robustness', () => {
   let mockStorage: any;
@@ -45,9 +44,7 @@ describe('UsageInspector Metadata Robustness', () => {
       false,
       apiType,
       undefined,
-      undefined,
-      DEFAULT_GPU_PARAMS,
-      DEFAULT_MODEL
+      undefined
     );
 
     const dm = DebugManager.getInstance();
@@ -67,6 +64,49 @@ describe('UsageInspector Metadata Robustness', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     return capturedRecord;
   };
+
+  it('finalizes usage before a completed Responses transport is closed', () => {
+    const requestId = 'responses-completed-before-transport-close';
+    const usageRecord: Partial<UsageRecord> = { requestId, responseStatus: 'success' };
+    const inspector = new UsageInspector(
+      requestId,
+      mockStorage,
+      usageRecord,
+      mockPricing,
+      undefined,
+      Date.now(),
+      false,
+      'responses',
+      'responses'
+    );
+    const dm = DebugManager.getInstance();
+    dm.startLog(requestId, {});
+    dm.addReconstructedRawResponse(requestId, {
+      id: 'resp_completed',
+      status: 'completed',
+      output: [],
+      usage: {
+        input_tokens: 10,
+        output_tokens: 5,
+        total_tokens: 15,
+        input_tokens_details: { cached_tokens: 0 },
+        output_tokens_details: { reasoning_tokens: 0 },
+      },
+    });
+
+    inspector.finalize();
+    inspector.destroy();
+
+    expect(mockStorage.saveRequest).toHaveBeenCalledTimes(1);
+    expect(mockStorage.saveRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId,
+        responseStatus: 'success',
+        tokensInput: 10,
+        tokensOutput: 5,
+      })
+    );
+  });
 
   it('should extract tool call count from OpenAI non-streaming choices[0].message.tool_calls', async () => {
     const requestId = 'openai-nonstream-tools';
@@ -142,9 +182,7 @@ describe('UsageInspector Metadata Robustness', () => {
       false,
       'gemini', // providerApiType
       'messages', // incomingApiType
-      undefined, // originalRequest
-      DEFAULT_GPU_PARAMS,
-      DEFAULT_MODEL
+      undefined // originalRequest
     );
 
     const dm = DebugManager.getInstance();
@@ -380,6 +418,39 @@ describe('UsageInspector Metadata Robustness', () => {
       expect(record?.tokensInput).toBe(42);
       expect(record?.tokensOutput).toBe(20);
     });
+
+    it('should map completed Responses API tool calls to finishReason "tool_calls"', async () => {
+      const requestId = 'responses-completed-tool-call-stream';
+      const snapshot = {
+        id: 'resp_tools',
+        object: 'response',
+        status: 'completed',
+        model: 'gpt-5-codex',
+        output: [
+          {
+            id: 'fc_1',
+            type: 'function_call',
+            call_id: 'call_1',
+            name: 'lookup',
+            arguments: '{}',
+            status: 'completed',
+          },
+          {
+            id: 'ct_1',
+            type: 'custom_tool_call',
+            call_id: 'call_2',
+            name: 'apply_patch',
+            input: '*** Begin Patch',
+            status: 'completed',
+          },
+        ],
+        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+      };
+
+      const record = await runInspector(requestId, 'responses', snapshot);
+      expect(record?.toolCallsCount).toBe(2);
+      expect(record?.finishReason).toBe('tool_calls');
+    });
   });
 
   describe('usage fallback to the transformed-mode snapshot', () => {
@@ -405,9 +476,7 @@ describe('UsageInspector Metadata Robustness', () => {
         false,
         options.providerApiType,
         options.incomingApiType,
-        undefined,
-        DEFAULT_GPU_PARAMS,
-        DEFAULT_MODEL
+        undefined
       );
 
       const dm = DebugManager.getInstance();
@@ -577,9 +646,7 @@ describe('UsageInspector Metadata Robustness', () => {
           false,
           options.providerApiType,
           options.incomingApiType,
-          undefined,
-          DEFAULT_GPU_PARAMS,
-          DEFAULT_MODEL
+          undefined
         );
 
         const dm = DebugManager.getInstance();
@@ -769,9 +836,7 @@ describe('UsageInspector Metadata Robustness', () => {
         true, // shouldEstimateTokens
         options.providerApiType,
         options.incomingApiType,
-        undefined,
-        DEFAULT_GPU_PARAMS,
-        DEFAULT_MODEL
+        undefined
       );
 
       const dm = DebugManager.getInstance();

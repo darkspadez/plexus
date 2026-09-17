@@ -12,6 +12,9 @@ import {
   proxyMcpRequest,
   selectMcpKeyRoundRobin,
   injectMcpKeyAuth,
+  requestsToolsList,
+  sanitizeToolsListTtlStream,
+  stripZeroTtlFromToolsListResult,
 } from '../mcp-proxy-service';
 import { setConfigForTesting } from '../../../config';
 import { registerSpy } from '../../../../test/test-utils';
@@ -455,6 +458,211 @@ describe('MCP Proxy Service', () => {
 
       expect(result.stream).toBeUndefined();
       expect(result.body).toEqual(body);
+    });
+
+    test('strips a non-positive ttlMs from buffered tools/list JSON responses', async () => {
+      const body = {
+        jsonrpc: '2.0',
+        id: 1,
+        result: { ttlMs: 0, cacheScope: 'public', tools: [{ name: 'example_tool' }] },
+      };
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const result = await proxyMcpRequest(
+        'local-server',
+        'POST',
+        { accept: 'application/json, text/event-stream' },
+        { jsonrpc: '2.0', method: 'tools/list', id: 1 }
+      );
+
+      expect(result.stream).toBeUndefined();
+      expect(result.body).toEqual({
+        jsonrpc: '2.0',
+        id: 1,
+        result: { cacheScope: 'public', tools: [{ name: 'example_tool' }] },
+      });
+      // The rewritten body is shorter than the upstream payload, so the
+      // forwarded content-length must be dropped or the response hangs.
+      expect(result.headers['content-length']).toBeUndefined();
+    });
+
+    test('leaves ttlMs untouched on buffered non-tools/list JSON responses', async () => {
+      const body = {
+        jsonrpc: '2.0',
+        id: 1,
+        result: { ttlMs: 0, tools: [{ name: 'example_tool' }] },
+      };
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const result = await proxyMcpRequest(
+        'local-server',
+        'POST',
+        { accept: 'application/json, text/event-stream' },
+        { jsonrpc: '2.0', method: 'tools/call', id: 1 }
+      );
+
+      expect(result.body).toEqual(body);
+    });
+
+    test('strips a non-positive ttlMs from tools/list results on SSE streams', async () => {
+      const sse =
+        'event: message\n' +
+        'data: {"jsonrpc":"2.0","id":1,"result":{"ttlMs":0,"cacheScope":"public","tools":[{"name":"example_tool"}]}}\n\n';
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(sse, {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        })
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const result = await proxyMcpRequest(
+        'local-server',
+        'POST',
+        { accept: 'application/json, text/event-stream' },
+        { jsonrpc: '2.0', method: 'tools/list', id: 1 }
+      );
+
+      expect(result.stream).toBeDefined();
+      const text = await new Response(result.stream).text();
+      const dataLine = text.split('\n').find((line: string) => line.startsWith('data: '));
+      const data = JSON.parse(dataLine!.slice(6));
+      expect(data.result.ttlMs).toBeUndefined();
+      expect(data.result.cacheScope).toBe('public');
+      expect(data.result.tools).toEqual([{ name: 'example_tool' }]);
+    });
+
+    test('passes SSE events through byte-identically for non-tools/list requests', async () => {
+      const sse =
+        'event: message\n' +
+        'data: {"jsonrpc":"2.0","id":1,"result":{"ttlMs":0,"tools":[{"name":"example_tool"}]}}\n\n';
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(sse, {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        })
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const result = await proxyMcpRequest(
+        'local-server',
+        'POST',
+        { accept: 'application/json, text/event-stream' },
+        { jsonrpc: '2.0', method: 'initialize', id: 1 }
+      );
+
+      expect(result.stream).toBeDefined();
+      const text = await new Response(result.stream).text();
+      expect(text).toBe(sse);
+    });
+  });
+
+  describe('tools/list ttl sanitization', () => {
+    test('requestsToolsList detects tools/list in single and batch requests', () => {
+      expect(requestsToolsList({ jsonrpc: '2.0', method: 'tools/list', id: 1 })).toBe(true);
+      expect(
+        requestsToolsList([
+          { jsonrpc: '2.0', method: 'initialize', id: 1 },
+          { jsonrpc: '2.0', method: 'tools/list', id: 2 },
+        ])
+      ).toBe(true);
+      expect(requestsToolsList({ jsonrpc: '2.0', method: 'tools/call', id: 1 })).toBe(false);
+      expect(requestsToolsList(undefined)).toBe(false);
+    });
+
+    test('requestsToolsList parses raw string bodies', () => {
+      expect(requestsToolsList('{"jsonrpc":"2.0","method":"tools/list","id":1}')).toBe(true);
+      expect(requestsToolsList('{"jsonrpc":"2.0","method":"tools/call","id":1}')).toBe(false);
+      expect(requestsToolsList('not json')).toBe(false);
+    });
+
+    test('removes a zero ttlMs from tools/list results', () => {
+      const payload = {
+        jsonrpc: '2.0',
+        id: 1,
+        result: { ttlMs: 0, cacheScope: 'public', tools: [] },
+      };
+
+      expect(stripZeroTtlFromToolsListResult(payload)).toBe(true);
+      expect(payload.result).toEqual({ cacheScope: 'public', tools: [] });
+    });
+
+    test('removes a negative ttlMs from tools/list results', () => {
+      const payload = { jsonrpc: '2.0', id: 1, result: { ttlMs: -1, tools: [] } };
+
+      expect(stripZeroTtlFromToolsListResult(payload)).toBe(true);
+      expect(payload.result).toEqual({ tools: [] });
+    });
+
+    test('keeps a positive ttlMs on tools/list results', () => {
+      const payload = { jsonrpc: '2.0', id: 1, result: { ttlMs: 60000, tools: [] } };
+
+      expect(stripZeroTtlFromToolsListResult(payload)).toBe(false);
+      expect(payload.result).toEqual({ ttlMs: 60000, tools: [] });
+    });
+
+    test('ignores non-tools/list results and malformed payloads', () => {
+      const callResult = { jsonrpc: '2.0', id: 1, result: { ttlMs: 0, content: [] } };
+
+      expect(stripZeroTtlFromToolsListResult(callResult)).toBe(false);
+      expect(callResult.result).toEqual({ ttlMs: 0, content: [] });
+      expect(stripZeroTtlFromToolsListResult('not an object')).toBe(false);
+      expect(stripZeroTtlFromToolsListResult(null)).toBe(false);
+      expect(stripZeroTtlFromToolsListResult(undefined)).toBe(false);
+    });
+
+    test('handles JSON-RPC batches', () => {
+      const payload = [
+        { jsonrpc: '2.0', id: 1, result: { ttlMs: 60000, tools: [] } },
+        { jsonrpc: '2.0', id: 2, result: { ttlMs: 0, tools: [] } },
+      ];
+
+      expect(stripZeroTtlFromToolsListResult(payload)).toBe(true);
+      expect(payload[0]!.result).toEqual({ ttlMs: 60000, tools: [] });
+      expect(payload[1]!.result).toEqual({ tools: [] });
+    });
+
+    test('sanitizeToolsListTtlStream passes non-JSON events through unchanged', async () => {
+      const sse = ': keep-alive comment\nevent: ping\ndata: not json at all\n\n';
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(sse));
+          controller.close();
+        },
+      });
+
+      const text = await new Response(sanitizeToolsListTtlStream(stream)).text();
+      expect(text).toBe(sse);
+    });
+
+    test('sanitizeToolsListTtlStream handles events split across chunks', async () => {
+      const data = 'data: {"jsonrpc":"2.0","id":1,"result":{"ttlMs":0,"tools":[]}}';
+      const encoder = new TextEncoder();
+      const first = encoder.encode('event: message\n' + data.slice(0, 20));
+      const second = encoder.encode(data.slice(20) + '\n\n');
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(first);
+          controller.enqueue(second);
+          controller.close();
+        },
+      });
+
+      const text = await new Response(sanitizeToolsListTtlStream(stream)).text();
+      const dataLine = text.split('\n').find((line: string) => line.startsWith('data: '));
+      expect(JSON.parse(dataLine!.slice(6)).result).toEqual({ tools: [] });
     });
   });
 });

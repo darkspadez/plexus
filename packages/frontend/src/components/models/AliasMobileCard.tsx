@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, Loader2, CheckCircle, AlertTriangle, Play } from 'lucide-react';
+import { Trash2, Loader2, CheckCircle, AlertTriangle, Play, Link2 } from 'lucide-react';
 import { CopyButton } from '../ui/CopyButton';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -155,6 +155,36 @@ export const AliasMobileCard: React.FC<Props> = ({
         ) : (
           <div className="space-y-2">
             {firstTargetGroup.targets.map((t, i) => {
+              if (t.alias) {
+                const isTargetDisabled = t.enabled === false;
+                return (
+                  <div
+                    key={`alias-${t.alias}-${i}`}
+                    className={`rounded border border-border bg-surface px-2 py-2 ${
+                      isTargetDisabled ? 'opacity-70' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className={`flex items-center gap-1 truncate text-xs font-medium ${
+                            isTargetDisabled ? 'text-danger line-through' : 'text-foreground-muted'
+                          }`}
+                        >
+                          <Link2 size={12} className="text-accent opacity-70" />
+                          alias: {t.alias}
+                        </div>
+                      </div>
+                      <Switch
+                        checked={t.enabled !== false}
+                        onChange={(val) => onToggleTarget(alias, 0, i, val)}
+                        size="sm"
+                      />
+                    </div>
+                  </div>
+                );
+              }
+
               const provider = providers.find((p) => p.id === t.provider);
               const isProviderDisabled = provider?.enabled === false;
               const isTargetDisabled = t.enabled === false;
@@ -208,7 +238,7 @@ export const AliasMobileCard: React.FC<Props> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          if (isDisabled) return;
+                          if (isDisabled || !t.provider || !t.model) return;
                           let testApiTypes: string[] = ['chat'];
                           if (alias.type === 'embeddings') testApiTypes = ['embeddings'];
                           else if (alias.type === 'image') testApiTypes = ['images'];

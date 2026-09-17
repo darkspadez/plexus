@@ -1,7 +1,12 @@
 import { logger } from '../../utils/logger';
 import { getCurrentDialect, getDatabase, getSchema } from '../../db/client';
 import type { QuotaConfig } from '../../config';
-import { loadAllCheckers, getCheckerDefinition, createMeterContext } from './checker-registry';
+import {
+  loadAllCheckers,
+  loadCustomCheckers,
+  getCheckerDefinition,
+  createMeterContext,
+} from './checker-registry';
 import type { MeterCheckResult, Meter } from '../../types/meter';
 import { toDbTimestampMs } from '../../utils/normalize';
 import { eq, desc, gte, and } from 'drizzle-orm';
@@ -9,6 +14,13 @@ import { CooldownManager } from '../runtime/cooldown-manager';
 import { INDEFINITE_COOLDOWN_MS } from '@plexus/shared';
 
 const DEFAULT_EXHAUSTION_THRESHOLD = 99;
+const MAX_STALE_QUOTA_CHECK_INTERVALS = 2;
+const MILLISECONDS_PER_MINUTE = 60 * 1000;
+const CHECKER_RUN_MIN_INTERVAL_MS: Readonly<Record<string, number>> = {
+  // Pooled Claude providers otherwise poll the same Anthropic endpoint on the
+  // same interval phase, creating a burst on every scheduler tick.
+  'claude-code': 15 * 1000,
+};
 
 function toMs(val: unknown): number {
   if (val instanceof Date) return val.getTime();
@@ -25,6 +37,8 @@ export class QuotaScheduler {
   private static instance: QuotaScheduler;
   private configs: Map<string, QuotaConfig> = new Map();
   private intervals: Map<string, ReturnType<typeof setInterval>> = new Map();
+  private checkerRunTails: Map<string, Promise<void>> = new Map();
+  private lastCheckerRunAt: Map<string, number> = new Map();
   private checkersLoaded = false;
   private db: ReturnType<typeof getDatabase> | null = null;
   private schema: ReturnType<typeof getSchema> | null = null;
@@ -50,6 +64,8 @@ export class QuotaScheduler {
     if (!this.checkersLoaded) {
       await loadAllCheckers();
       this.checkersLoaded = true;
+    } else {
+      await loadCustomCheckers();
     }
 
     for (const config of quotaConfigs) {
@@ -93,12 +109,17 @@ export class QuotaScheduler {
     }
 
     logger.debug(`Running quota check for '${checkerId}'`);
-    const checkedAt = new Date().toISOString();
+    let checkedAt = new Date().toISOString();
     let result: MeterCheckResult;
 
     try {
       const ctx = createMeterContext(checkerId, config.provider, config.options);
-      const meters = await def.check(ctx);
+      const meters = await this.runCheckerWithSpacing(config.type, () => {
+        // Record when the queued check actually starts, rather than when it was
+        // enqueued, so history and staleness calculations remain accurate.
+        checkedAt = new Date().toISOString();
+        return def.check(ctx);
+      });
       result = {
         checkerId,
         checkerType: config.type,
@@ -130,14 +151,64 @@ export class QuotaScheduler {
     return result;
   }
 
+  private async runCheckerWithSpacing<T>(
+    checkerType: string,
+    operation: () => Promise<T>
+  ): Promise<T> {
+    const minIntervalMs = CHECKER_RUN_MIN_INTERVAL_MS[checkerType] ?? 0;
+    if (minIntervalMs === 0) return operation();
+
+    const previous = this.checkerRunTails.get(checkerType) ?? Promise.resolve();
+    let release: (() => void) | undefined;
+    const tail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.checkerRunTails.set(checkerType, tail);
+
+    await previous;
+    try {
+      const lastRunAt = this.lastCheckerRunAt.get(checkerType) ?? 0;
+      const delayMs = Math.max(0, minIntervalMs - (Date.now() - lastRunAt));
+      if (delayMs > 0) {
+        logger.debug(
+          `Spacing '${checkerType}' quota check by ${Math.round(delayMs / 1000)}s ` +
+            `to avoid a shared-endpoint burst.`
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+      }
+      this.lastCheckerRunAt.set(checkerType, Date.now());
+      return await operation();
+    } finally {
+      release?.();
+      if (this.checkerRunTails.get(checkerType) === tail) {
+        this.checkerRunTails.delete(checkerType);
+      }
+    }
+  }
+
+  private getExhaustionThreshold(config: QuotaConfig): number {
+    if (
+      typeof config.options.maxUtilizationPercent === 'number' &&
+      config.options.maxUtilizationPercent > 0
+    ) {
+      return config.options.maxUtilizationPercent;
+    }
+    if (
+      config.options.allow100PercentUtilization === true ||
+      config.options.allow_100_percent_utilization === true
+    ) {
+      return 100;
+    }
+    return DEFAULT_EXHAUSTION_THRESHOLD;
+  }
+
   private async applyCooldownsFromResult(
     result: MeterCheckResult,
     config: QuotaConfig
   ): Promise<void> {
     if (!result.success || result.meters.length === 0) return;
 
-    const exhaustionThreshold =
-      (config.options.maxUtilizationPercent as number | undefined) ?? DEFAULT_EXHAUSTION_THRESHOLD;
+    const exhaustionThreshold = this.getExhaustionThreshold(config);
     const cooldownManager = CooldownManager.getInstance();
     const provider = result.provider;
 
@@ -196,15 +267,17 @@ export class QuotaScheduler {
   }
 
   private getStrictestThresholdForProvider(provider: string): number {
-    let strictest = DEFAULT_EXHAUSTION_THRESHOLD;
+    let strictest = 100;
+    let found = false;
     for (const [, config] of this.configs) {
       if (config.provider !== provider) continue;
-      const threshold = config.options.maxUtilizationPercent as number | undefined;
-      if (threshold !== undefined && threshold < strictest) {
+      found = true;
+      const threshold = this.getExhaustionThreshold(config);
+      if (threshold < strictest) {
         strictest = threshold;
       }
     }
-    return strictest;
+    return found ? strictest : DEFAULT_EXHAUSTION_THRESHOLD;
   }
 
   private async persistResult(result: MeterCheckResult): Promise<void> {
@@ -382,6 +455,25 @@ export class QuotaScheduler {
     }
   }
 
+  async getLatestQuotaForProvider(provider: string): Promise<MeterCheckResult | null> {
+    const config = Array.from(this.configs.values()).find(
+      (candidate) => candidate.provider === provider
+    );
+    if (!config) return null;
+
+    const latest = await this.getLatestQuota(config.id);
+    if (!latest) return null;
+
+    const checkedAtMs = Date.parse(latest.checkedAt);
+    const maxAgeMs =
+      config.intervalMinutes * MAX_STALE_QUOTA_CHECK_INTERVALS * MILLISECONDS_PER_MINUTE;
+    if (!Number.isFinite(checkedAtMs) || Date.now() - checkedAtMs > maxAgeMs) {
+      return null;
+    }
+
+    return latest;
+  }
+
   async getQuotaHistory(checkerId: string, meterKey?: string, since?: number): Promise<any[]> {
     try {
       const { db, schema } = this.ensureDb();
@@ -422,16 +514,20 @@ export class QuotaScheduler {
     }
     this.intervals.clear();
     this.configs.clear();
+    this.checkerRunTails.clear();
+    this.lastCheckerRunAt.clear();
   }
 
   async reload(quotaConfigs: QuotaConfig[]): Promise<void> {
     if (!this.checkersLoaded) {
       await loadAllCheckers();
       this.checkersLoaded = true;
+    } else {
+      await loadCustomCheckers();
     }
 
     const existingIds = new Set(this.configs.keys());
-    const activeConfigs = quotaConfigs.filter((c) => c.enabled);
+    const activeConfigs = quotaConfigs.filter((c) => c.enabled && getCheckerDefinition(c.type));
     const activeIds = new Set(activeConfigs.map((c) => c.id));
 
     for (const id of existingIds) {

@@ -288,7 +288,7 @@ export function isCodexCliShapedBody(body: any): boolean {
 }
 
 /** Extract the ChatGPT account id from the Codex OAuth token's JWT claim. */
-function extractChatgptAccountId(token: string): string | undefined {
+export function extractChatgptAccountId(token: string): string | undefined {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return undefined;
@@ -326,6 +326,29 @@ function adornCodexResponsesBody(body: any): any {
 }
 
 /**
+ * The Codex OAuth identity every ChatGPT-backend call carries, regardless of
+ * endpoint: the Bearer token, the account the token was minted for, and the
+ * authentic Codex CLI fingerprint (the native path can finally send the real UA
+ * + originator; pi-ai clobbered the UA to "pi (...)").
+ *
+ * Deliberately excludes per-endpoint concerns — `Content-Type`, `accept`,
+ * `OpenAI-Beta` (a Responses flag) and the Responses `session-id` pair are the
+ * caller's business. Shared by the Responses request below and the Codex images
+ * endpoints, which authenticate identically.
+ */
+export function buildCodexOAuthHeaders(token: string): Record<string, string> {
+  const accountId = extractChatgptAccountId(token);
+  const codex = CodexVersionService.getInstance();
+  return {
+    Authorization: `Bearer ${token}`,
+    ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
+    originator: 'codex_cli_rs',
+    Version: codex.getVersion(),
+    'User-Agent': codex.getUserAgent(),
+  };
+}
+
+/**
  * Prepare a native Codex OAuth request. `passthrough` sends the body verbatim
  * (CLI-shaped); otherwise the body is adorned for the backend.
  */
@@ -346,8 +369,6 @@ function prepareCodexOAuthRequest(
   const baseUrl = resolveOAuthBaseUrl('openai-codex' as OAuthProvider, modelId);
   const url = `${baseUrl}/codex/responses`;
 
-  const accountId = extractChatgptAccountId(token);
-  const codex = CodexVersionService.getInstance();
   const sessionId =
     typeof body?.prompt_cache_key === 'string' && body.prompt_cache_key.length > 0
       ? body.prompt_cache_key
@@ -356,14 +377,9 @@ function prepareCodexOAuthRequest(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     accept: streaming ? 'text/event-stream' : 'application/json',
-    Authorization: `Bearer ${token}`,
-    ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
-    // Authentic Codex fingerprint (the native path can finally send the real UA
-    // + originator; pi-ai clobbered the UA to "pi (...)").
-    originator: 'codex_cli_rs',
+    ...buildCodexOAuthHeaders(token),
+    // Responses-only extras on top of the shared Codex identity.
     'OpenAI-Beta': 'responses=experimental',
-    Version: codex.getVersion(),
-    'User-Agent': codex.getUserAgent(),
     ...(sessionId ? { 'session-id': sessionId, 'x-client-request-id': sessionId } : {}),
   };
 
@@ -374,6 +390,56 @@ function prepareCodexOAuthRequest(
     // Codex applies no request-side tool renames, so nothing to reverse.
     reverseResponseFrame: (frame) => frame,
   };
+}
+
+/**
+ * Resolve the auth seam for a Codex images call (`<baseUrl>/images/generations`
+ * or `/images/edits`). The ChatGPT backend serves the Codex image endpoints
+ * under the same `/codex` prefix as `/codex/responses` and authenticates them
+ * with the same OAuth identity, so this is the Responses preparation minus the
+ * body: token resolution (auto-refreshed by `OAuthAuthManager.getApiKey`) plus
+ * the shared Codex headers.
+ *
+ * No `OpenAI-Beta` — that flag is Responses-specific; the Codex image client
+ * sends only auth, the account id and the CLI fingerprint. No bespoke
+ * 401 → refresh → retry either: `getApiKey` already refreshes proactively, and
+ * the chat path has no such retry (parity beats a one-off).
+ */
+export async function prepareCodexImagesDispatch(params: {
+  modelId: string;
+  oauthAccountId?: string | null;
+}): Promise<{ baseUrl: string; headers: Record<string, string> }> {
+  const { modelId, oauthAccountId } = params;
+  const token = await OAuthAuthManager.getInstance().getApiKey('openai-codex', oauthAccountId);
+  const baseUrl = `${resolveOAuthBaseUrl('openai-codex', modelId)}/codex`;
+  return {
+    baseUrl,
+    headers: {
+      Accept: 'application/json',
+      ...buildCodexOAuthHeaders(token),
+    },
+  };
+}
+
+/**
+ * The model id used only to resolve the Codex upstream base URL for the
+ * account-scoped model list. `/codex/models` is not model-scoped, but base-URL
+ * resolution is (registry entry first, provider default second), so we resolve
+ * through a representative Codex model instead of duplicating the fallback
+ * table at the call site.
+ */
+const CODEX_BASE_URL_REFERENCE_MODEL = 'gpt-5-codex';
+
+/**
+ * URL of the account-scoped Codex model list — the same ChatGPT backend that
+ * serves `/codex/responses`, carrying the CLI version the rest of the Codex
+ * identity already advertises (`client_version`, which the backend uses to
+ * decide which models a given CLI build may see).
+ */
+export function buildCodexModelsUrl(): string {
+  const baseUrl = resolveOAuthBaseUrl('openai-codex', CODEX_BASE_URL_REFERENCE_MODEL);
+  const clientVersion = CodexVersionService.getInstance().getVersion();
+  return `${baseUrl}/codex/models?client_version=${encodeURIComponent(clientVersion)}`;
 }
 
 // ─── GitHub Copilot (multi-API: chat / responses / messages) ───────────────
@@ -396,7 +462,7 @@ const COPILOT_STATIC_HEADERS: Record<string, string> = {
 };
 
 /** Endpoint path for a Copilot wire API type. */
-function copilotEndpoint(apiType: string): string {
+export function copilotEndpoint(apiType: string): string {
   switch (apiType) {
     case 'messages':
       return '/v1/messages';
@@ -414,7 +480,7 @@ function copilotEndpoint(apiType: string): string {
  * must use the standard `api.githubcopilot.com` endpoint (the same fix the old
  * pi-ai executor path applied). Falls back to the individual endpoint.
  */
-function resolveCopilotBaseUrl(token: string): string {
+export function resolveCopilotBaseUrl(token: string): string {
   const match = token.match(/proxy-ep=([^;]+)/);
   if (match) {
     const proxyHost = match[1]!;
@@ -625,6 +691,102 @@ export function copilotWireApiType(modelId: string | undefined): string {
     if (api && PIAI_API_TO_PLEXUS[api]) return PIAI_API_TO_PLEXUS[api];
   }
   return 'chat';
+}
+
+// ─── Generic OAuth (any pi-ai OAuth provider that isn't native) ────────────
+//
+// Anthropic/Codex/Copilot get hand-ported paths above because they need
+// something beyond "Bearer token + standard wire body": Claude Code masking,
+// ChatGPT-backend body adornment, or per-model wire-API selection against a
+// proxy base URL. Every OTHER pi-ai OAuth provider (xai, kimi-coding,
+// openrouter, and whatever pi-ai adds next — see isNativeOAuthProvider and
+// services/oauth/oauth-providers.ts) is a plain Bearer-token OAuth provider
+// speaking one of the standard wire APIs pi-ai's registry already declares
+// per model. The standard-path transformer has already built the correct
+// wire body by the time this runs — only auth and the upstream URL need to
+// be swapped from the `oauth://` placeholder for the real ones, so there is
+// no per-provider work to do here, now or for future providers.
+
+/** Endpoint path suffix per plexus wire api type — mirrors each standard
+ * transformer's `defaultEndpoint` (see transformers/openai.ts, responses.ts,
+ * anthropic/index.ts) so a generic OAuth request hits the exact same path a
+ * plain API-key provider speaking the same wire API would. */
+const GENERIC_OAUTH_ENDPOINTS: Record<string, string> = {
+  chat: '/chat/completions',
+  responses: '/responses',
+  messages: '/messages',
+};
+
+/**
+ * Resolve the plexus wire api type for a generic (non-native) OAuth
+ * provider/model from pi-ai's own `model.api` field. Returns undefined when
+ * the model isn't in pi-ai's catalog, or resolves to a wire api generic
+ * OAuth dispatch doesn't support (e.g. `gemini`) — callers surface this as a
+ * clear per-model error rather than silently mis-routing.
+ */
+export function genericOAuthApiType(provider: string, modelId: string): string | undefined {
+  const model = getCatalogModel(provider, modelId);
+  const api = (model as any)?.api as string | undefined;
+  return api ? PIAI_API_TO_PLEXUS[api] : undefined;
+}
+
+/**
+ * Prepare a request for any OAuth provider pi-ai supports that isn't one of
+ * the native providers above. No masking, no tool-name games, no body
+ * adornment — `body` is already the correct standard-path wire body; this
+ * only resolves the real Bearer token and upstream URL.
+ */
+export async function prepareGenericOAuthDispatch(params: {
+  provider: string;
+  modelId: string;
+  body: any;
+  streaming: boolean;
+  /** Resolved wire api type from genericOAuthApiType (chat/responses/messages). */
+  apiType: string;
+  oauthAccountId?: string | null;
+  extraHeaders?: Record<string, string>;
+  forceRefresh?: boolean;
+  signal?: AbortSignal;
+}): Promise<PreparedOAuthRequest> {
+  const {
+    provider,
+    modelId,
+    body,
+    streaming,
+    apiType,
+    oauthAccountId,
+    extraHeaders,
+    forceRefresh,
+    signal,
+  } = params;
+  const endpoint = GENERIC_OAUTH_ENDPOINTS[apiType];
+  if (!endpoint) {
+    throw new Error(
+      `OAuth: provider '${provider}' model '${modelId}' resolved to unsupported wire API ` +
+        `'${apiType}' for generic OAuth dispatch.`
+    );
+  }
+  const token =
+    forceRefresh || signal
+      ? await OAuthAuthManager.getInstance().getApiKey(provider, oauthAccountId, {
+          forceRefresh,
+          signal,
+        })
+      : await OAuthAuthManager.getInstance().getApiKey(provider, oauthAccountId);
+  const baseUrl = resolveOAuthBaseUrl(provider, modelId);
+  const url = `${baseUrl}${endpoint}`;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: streaming ? 'text/event-stream' : 'application/json',
+    Authorization: `Bearer ${token}`,
+    ...extraHeaders,
+  };
+  return {
+    url,
+    headers,
+    body,
+    reverseResponseFrame: (frame: string) => frame,
+  };
 }
 
 /**

@@ -24,8 +24,16 @@ import type {
   McpOAuthConfig,
   MetadataOverrides,
 } from '../config';
-import { resolveGpuParams } from '@plexus/shared';
 import { McpOauthRepository } from './mcp-oauth-repository';
+
+export interface CustomCheckerRecord {
+  id: string;
+  displayName: string;
+  code: string;
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
 
 // Helper to parse JSON from SQLite text columns (PG jsonb auto-deserializes)
 function parseJson<T>(value: unknown): T | null {
@@ -266,6 +274,73 @@ export class ConfigRepository {
     return getSchema();
   }
 
+  async getCustomCheckers(): Promise<CustomCheckerRecord[]> {
+    const rows = await this.db().select().from(this.schema().customCheckers);
+    return rows.map((row: any) => ({
+      id: row.id,
+      displayName: row.displayName,
+      code: row.code,
+      enabled: toBool(row.enabled),
+      createdAt: Number(row.createdAt),
+      updatedAt: Number(row.updatedAt),
+    }));
+  }
+
+  async getCustomChecker(id: string): Promise<CustomCheckerRecord | null> {
+    const rows = await this.db()
+      .select()
+      .from(this.schema().customCheckers)
+      .where(eq(this.schema().customCheckers.id, id))
+      .limit(1);
+    const row = rows[0] as any;
+    if (!row) return null;
+    return {
+      id: row.id,
+      displayName: row.displayName,
+      code: row.code,
+      enabled: toBool(row.enabled),
+      createdAt: Number(row.createdAt),
+      updatedAt: Number(row.updatedAt),
+    };
+  }
+
+  async saveCustomChecker(
+    id: string,
+    data: { displayName: string; code: string; enabled: boolean }
+  ): Promise<CustomCheckerRecord> {
+    const schema = this.schema();
+    const timestamp = now();
+    const values = {
+      id,
+      displayName: data.displayName,
+      code: data.code,
+      enabled: fromBool(data.enabled),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const existing = await this.getCustomChecker(id);
+    if (existing) {
+      await this.db()
+        .update(schema.customCheckers)
+        .set({
+          displayName: values.displayName,
+          code: values.code,
+          enabled: values.enabled,
+          updatedAt: values.updatedAt,
+        })
+        .where(eq(schema.customCheckers.id, id));
+    } else {
+      await this.db().insert(schema.customCheckers).values(values);
+    }
+    return (await this.getCustomChecker(id))!;
+  }
+
+  async deleteCustomChecker(id: string): Promise<void> {
+    await this.db()
+      .delete(this.schema().customCheckers)
+      .where(eq(this.schema().customCheckers.id, id));
+  }
+
   // ─── Clear All Data (for failed bootstrap rollback) ─────────────
 
   async clearAllData(): Promise<void> {
@@ -274,6 +349,7 @@ export class ConfigRepository {
     await this.db().delete(schema.providerModels);
     await this.db().delete(schema.modelAliases);
     await this.db().delete(schema.providers);
+    await this.db().delete(schema.customCheckers);
     await this.db().delete(schema.apiKeys);
     await this.db().delete(schema.userQuotaDefinitions);
     await this.db().delete(schema.mcpKeys);
@@ -372,6 +448,7 @@ export class ConfigRepository {
       enabled: fromBool(config.enabled !== false),
       disableCooldown: fromBool(config.disable_cooldown === true),
       stallCooldown: fromBool(config.stall_cooldown === true),
+      allow100PercentUtilization: fromBool(config.allow_100_percent_utilization === true),
       discount: config.discount ?? null,
       estimateTokens: fromBool(config.estimateTokens === true),
       useClaudeMasking: fromBool(config.useClaudeMasking === true),
@@ -388,12 +465,11 @@ export class ConfigRepository {
         : null,
       modelAutosyncEnabled: fromBool(config.model_autosync?.enabled === true),
       modelAutosyncInterval: Math.max(1, config.model_autosync?.intervalMinutes ?? 60),
-      // GPU Profile settings for inference energy calculation
-      gpuProfile: config.gpu_profile ?? null,
-      gpuRamGb: config.gpu_ram_gb ?? null,
-      gpuBandwidthTbS: config.gpu_bandwidth_tb_s ?? null,
-      gpuFlopsTflop: config.gpu_flops_tflop ?? null,
-      gpuPowerDrawWatts: config.gpu_power_draw_watts ?? null,
+      gpuProfile: null,
+      gpuRamGb: null,
+      gpuBandwidthTbS: null,
+      gpuFlopsTflop: null,
+      gpuPowerDrawWatts: null,
       adapter:
         config.adapter && Array.isArray(config.adapter) && config.adapter.length > 0
           ? toJson(config.adapter)
@@ -620,6 +696,7 @@ export class ConfigRepository {
       enabled: toBool(row.enabled),
       disable_cooldown: toBool(row.disableCooldown),
       stall_cooldown: toBool(row.stallCooldown),
+      allow_100_percent_utilization: toBool(row.allow100PercentUtilization),
       ...(row.discount !== null ? { discount: row.discount } : {}),
       estimateTokens: toBool(row.estimateTokens),
       useClaudeMasking: toBool(row.useClaudeMasking),
@@ -641,52 +718,6 @@ export class ConfigRepository {
         const adapterVal = parseJson(row.adapter);
         const normalized = normalizeAdapterEntries(adapterVal);
         return normalized && normalized.length > 0 ? { adapter: normalized } : {};
-      })(),
-      // GPU Profile settings — resolve named profiles to concrete values for
-      // backward compatibility with existing DB rows that may only have gpuProfile
-      // set without the numeric fields.
-      ...(() => {
-        const gpuProfile = row.gpuProfile;
-        if (!gpuProfile) {
-          // No profile set — include whatever numeric fields exist
-          return {
-            ...(row.gpuRamGb != null ? { gpu_ram_gb: row.gpuRamGb } : {}),
-            ...(row.gpuBandwidthTbS != null ? { gpu_bandwidth_tb_s: row.gpuBandwidthTbS } : {}),
-            ...(row.gpuFlopsTflop != null ? { gpu_flops_tflop: row.gpuFlopsTflop } : {}),
-            ...(row.gpuPowerDrawWatts != null
-              ? { gpu_power_draw_watts: row.gpuPowerDrawWatts }
-              : {}),
-          };
-        }
-        // Profile name exists — if any numeric field is missing, resolve from the profile name
-        if (row.gpuRamGb == null || row.gpuBandwidthTbS == null) {
-          const resolved = resolveGpuParams(
-            gpuProfile,
-            gpuProfile === 'custom'
-              ? {
-                  ram_gb: row.gpuRamGb ?? undefined,
-                  bandwidth_tb_s: row.gpuBandwidthTbS ?? undefined,
-                  flops_tflop: row.gpuFlopsTflop ?? undefined,
-                  power_draw_watts: row.gpuPowerDrawWatts ?? undefined,
-                }
-              : undefined
-          );
-          return {
-            gpu_profile: gpuProfile,
-            gpu_ram_gb: resolved.ram_gb,
-            gpu_bandwidth_tb_s: resolved.bandwidth_tb_s,
-            gpu_flops_tflop: resolved.flops_tflop,
-            gpu_power_draw_watts: resolved.power_draw_watts,
-          };
-        }
-        // All numeric fields already present — just use them directly
-        return {
-          gpu_profile: gpuProfile,
-          gpu_ram_gb: row.gpuRamGb!,
-          gpu_bandwidth_tb_s: row.gpuBandwidthTbS!,
-          gpu_flops_tflop: row.gpuFlopsTflop!,
-          gpu_power_draw_watts: row.gpuPowerDrawWatts!,
-        };
       })(),
       ...(row.timeoutMs != null ? { timeoutMs: row.timeoutMs } : {}),
       ...(row.stallTtfbMs != null ? { stallTtfbMs: row.stallTtfbMs } : {}),
@@ -848,6 +879,76 @@ export class ConfigRepository {
     return Number(affected);
   }
 
+  /**
+   * One-time startup repair for databases corrupted by the buggy
+   * `model_alias_targets` table-recreation migration (alias-as-fallback-target).
+   *
+   * Background: the generated SQLite migration added the `target_alias_slug`
+   * column in the same table-recreation step that dropped NOT NULL on
+   * `provider_slug`/`model_name`. drizzle-kit's `INSERT ... SELECT` referenced
+   * the new column name on the source table, where it did not exist. Under
+   * SQLite's double-quoted-string misfeature that identifier was silently
+   * treated as a **string literal**, so every pre-existing concrete target row
+   * ended up with `target_alias_slug = 'target_alias_slug'` instead of NULL.
+   * On load, `rowToModelConfig` then mistook each concrete target for an
+   * alias-reference, discarding its provider/model — breaking every alias.
+   *
+   * This nulls the corrupt literal value, but ONLY for rows that still carry a
+   * concrete provider+model (the signature of a corrupted concrete target, not
+   * a legitimate fallback-alias reference). It is idempotent: a second run finds
+   * nothing to fix.
+   *
+   * Returns the number of rows repaired.
+   */
+  async repairCorruptedAliasFallbackSlugs(): Promise<number> {
+    const schema = this.schema();
+    // Guard: only run when the column exists (it always does post-migration,
+    // but this keeps the repair a no-op on schemas that pre-date the feature).
+    const hasColumn = await this.hasColumn('model_alias_targets', 'target_alias_slug');
+    if (!hasColumn) return 0;
+
+    const result = await this.db()
+      .update(schema.modelAliasTargets)
+      .set({ targetAliasSlug: null })
+      .where(
+        sql`${schema.modelAliasTargets.targetAliasSlug} = 'target_alias_slug'
+          AND ${schema.modelAliasTargets.providerSlug} IS NOT NULL
+          AND ${schema.modelAliasTargets.modelName} IS NOT NULL`
+      );
+    const affected =
+      (result as any)?.rowsAffected ?? (result as any)?.changes ?? (result as any)?.rowCount ?? 0;
+    return Number(affected);
+  }
+
+  /**
+   * Best-effort check for whether a column exists on a table. Returns true if
+   * the column is present (or introspection is unavailable), so callers can
+   * degrade safely to "column exists" rather than failing startup.
+   */
+  private async hasColumn(table: string, column: string): Promise<boolean> {
+    const dialect = getCurrentDialect();
+    try {
+      if (dialect === 'sqlite') {
+        const rows = (await this.db().all(sql`PRAGMA table_info(${sql.raw(table)})`)) as Array<{
+          name?: string;
+        }>;
+        return rows.some((r) => r.name === column);
+      }
+      // Postgres was never affected (its migration used ALTER COLUMN), but keep
+      // the guard symmetric.
+      const rows = (await this.db().all(sql`
+        SELECT column_name AS name
+        FROM information_schema.columns
+        WHERE table_name = ${table} AND column_name = ${column}
+      `)) as Array<{ name?: string }>;
+      return rows.length > 0;
+    } catch {
+      // If introspection fails, assume the column exists so we don't block
+      // startup; the UPDATE simply matches nothing on affected rows.
+      return true;
+    }
+  }
+
   async saveAlias(slug: string, config: ModelConfig): Promise<void> {
     const schema = this.schema();
     const timestamp = now();
@@ -864,8 +965,7 @@ export class ConfigRepository {
       metadataSource: config.metadata?.source ?? null,
       metadataSourcePath: metadataSourcePath ?? null,
       useImageFallthrough: fromBool(config.use_image_fallthrough === true),
-      // Model architecture override for inference energy calculation
-      modelArchitecture: config.model_architecture ? toJson(config.model_architecture) : null,
+      modelArchitecture: null,
       enforceLimits: fromBool(config.enforce_limits === true),
       stickySession: fromBool(config.sticky_session === true),
       preferredApi: config.preferred_api ? toJson(config.preferred_api) : null,
@@ -917,8 +1017,9 @@ export class ConfigRepository {
           for (const t of group.targets) {
             targetRows.push({
               aliasId,
-              providerSlug: t.provider,
-              modelName: t.model,
+              providerSlug: t.alias ? null : t.provider,
+              modelName: t.alias ? null : t.model,
+              targetAliasSlug: t.alias ?? null,
               enabled: fromBool(t.enabled !== false),
               groupName: group.name,
               sortOrder: sortIdx++,
@@ -988,11 +1089,11 @@ export class ConfigRepository {
         const groupTargets = targetRows
           .filter((t: any) => t.groupName === def.name)
           .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
-          .map((t: any) => ({
-            provider: t.providerSlug,
-            model: t.modelName,
-            enabled: toBool(t.enabled),
-          }));
+          .map((t: any) =>
+            t.targetAliasSlug
+              ? { alias: t.targetAliasSlug, enabled: toBool(t.enabled) }
+              : { provider: t.providerSlug, model: t.modelName, enabled: toBool(t.enabled) }
+          );
         targetGroups.push({
           name: def.name,
           selector: def.selector as import('../config').SelectorType,
@@ -1011,8 +1112,6 @@ export class ConfigRepository {
       ...(row.modelType ? { type: row.modelType } : {}),
       ...(row.additionalAliases ? { additional_aliases: parseJson(row.additionalAliases) } : {}),
       ...(row.advanced ? { advanced: parseJson(row.advanced) } : {}),
-      // Model architecture override for inference energy calculation
-      ...(row.modelArchitecture ? { model_architecture: parseJson(row.modelArchitecture) } : {}),
       ...(row.preferredApi ? { preferred_api: parseJson(row.preferredApi) } : {}),
       ...(row.piModel ? { pi_model: parseJson(row.piModel) } : {}),
       ...(row.extraBody ? { extraBody: parseJson(row.extraBody) } : {}),

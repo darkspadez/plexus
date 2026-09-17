@@ -401,17 +401,19 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
           <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
             <Field label="Messages">
               <span className="font-mono tabular-nums">
-                {(log.messageCount || 0) === 0 ? '-' : log.messageCount}
+                {log.messageCount == null ? '-' : log.messageCount}
               </span>
             </Field>
             <Field label="Tools defined">
               <span className="font-mono tabular-nums">
-                {(log.toolsDefined || 0) === 0 ? '-' : log.toolsDefined}
+                {/* 0 is a distinct, meaningful state (no tools sent) — only an
+                    unrecorded value renders as a dash. */}
+                {log.toolsDefined == null ? '-' : log.toolsDefined}
               </span>
             </Field>
             <Field label="Tool calls">
               <span className="font-mono tabular-nums">
-                {(log.toolCallsCount || 0) === 0 ? '-' : log.toolCallsCount}
+                {log.toolCallsCount == null ? '-' : log.toolCallsCount}
               </span>
             </Field>
             <Field label="Parallel tools">

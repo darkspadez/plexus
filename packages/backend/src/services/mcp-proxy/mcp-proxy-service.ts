@@ -236,6 +236,95 @@ export function extractJsonRpcMethod(body: unknown): string | null {
   return extractJsonRpcMethods(body)[0] ?? null;
 }
 
+export function requestsToolsList(body: unknown): boolean {
+  let parsed = body;
+  if (typeof body === 'string') {
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      return false;
+    }
+  }
+  return extractJsonRpcMethods(parsed).includes('tools/list');
+}
+
+// Some upstreams (GitHub's MCP server) advertise a non-positive `ttlMs` on
+// tools/list results, which TTL-honoring clients treat as permanently
+// invalid and loop on. Strip the field so clients fall back to their default
+// caching behavior; positive TTLs and everything else pass through untouched.
+export function stripZeroTtlFromToolsListResult(payload: unknown): boolean {
+  const messages = Array.isArray(payload) ? payload : [payload];
+  let changed = false;
+  for (const message of messages) {
+    if (!message || typeof message !== 'object') continue;
+    const result = (message as { result?: unknown }).result;
+    if (!result || typeof result !== 'object' || Array.isArray(result)) continue;
+    const resultRecord = result as Record<string, unknown>;
+    if (!Array.isArray(resultRecord.tools)) continue;
+    if (typeof resultRecord.ttlMs === 'number' && resultRecord.ttlMs <= 0) {
+      delete resultRecord.ttlMs;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+export function sanitizeToolsListTtlStream(
+  stream: ReadableStream<Uint8Array>
+): ReadableStream<Uint8Array> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  let pending = '';
+
+  const processLine = (line: string): string => {
+    const data = line.startsWith('data: ')
+      ? line.slice(6)
+      : line.startsWith('data:')
+        ? line.slice(5)
+        : null;
+    if (data === null) return line;
+    try {
+      const parsed: unknown = JSON.parse(data);
+      if (stripZeroTtlFromToolsListResult(parsed)) {
+        logger.silly('[mcp-proxy] stripped non-positive ttlMs from tools/list result');
+        return `data: ${JSON.stringify(parsed)}`;
+      }
+    } catch {
+      // Not a single-line JSON event (e.g. multi-line data or a comment):
+      // leave the line byte-identical.
+    }
+    return line;
+  };
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      for (;;) {
+        const newlineIndex = pending.indexOf('\n');
+        if (newlineIndex >= 0) {
+          const line = pending.slice(0, newlineIndex);
+          pending = pending.slice(newlineIndex + 1);
+          controller.enqueue(encoder.encode(processLine(line) + '\n'));
+          return;
+        }
+        const { done, value } = await reader.read();
+        if (done) {
+          if (pending.length > 0) {
+            controller.enqueue(encoder.encode(processLine(pending)));
+            pending = '';
+          }
+          controller.close();
+          return;
+        }
+        if (value) pending += decoder.decode(value, { stream: true });
+      }
+    },
+    async cancel() {
+      await reader.cancel();
+    },
+  });
+}
+
 /**
  * Extracts the tool name from a JSON-RPC request body.
  * For `tools/call` requests, the tool name is in `params.name`.
@@ -329,6 +418,7 @@ export async function proxyMcpRequest(
       requestBody = typeof body === 'string' ? body : JSON.stringify(body);
     }
 
+    const toolsListRequested = requestsToolsList(body);
     const isRemote = !serverConfig.mode || serverConfig.mode === 'remote_http';
     const keyConfig = isRemote ? await getActiveMcpKeys(serverName) : null;
     const keys = keyConfig?.keys ?? [];
@@ -401,7 +491,7 @@ export async function proxyMcpRequest(
         return {
           status: response.status,
           headers: responseHeaders,
-          stream: response.body,
+          stream: toolsListRequested ? sanitizeToolsListTtlStream(response.body) : response.body,
         };
       }
     }
@@ -411,10 +501,21 @@ export async function proxyMcpRequest(
     logger.silly(`Response body (raw): ${responseText.substring(0, 500)}`);
 
     // MCP JSON-RPC payloads are opaque to the gateway. Preserve tool
-    // inputSchema objects and their protocol extensions exactly as received.
+    // inputSchema objects and their protocol extensions exactly as received,
+    // with the sole exception of a non-positive ttlMs on tools/list results
+    // (see stripZeroTtlFromToolsListResult).
     let parsedBody: unknown;
     try {
       parsedBody = JSON.parse(responseText);
+      if (toolsListRequested && stripZeroTtlFromToolsListResult(parsedBody)) {
+        // The serialized body no longer matches upstream's content-length.
+        for (const key of Object.keys(responseHeaders)) {
+          if (key.toLowerCase() === 'content-length') delete responseHeaders[key];
+        }
+        logger.silly(
+          '[mcp-proxy:' + serverName + '] stripped non-positive ttlMs from tools/list result'
+        );
+      }
       logger.silly(`Response body (parsed): ${JSON.stringify(parsedBody).substring(0, 500)}`);
     } catch {
       parsedBody = responseText;

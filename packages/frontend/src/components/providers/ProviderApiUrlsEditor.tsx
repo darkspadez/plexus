@@ -15,7 +15,9 @@ const KNOWN_APIS = [
   'embeddings',
   'transcriptions',
   'speech',
-  'images',
+  'openai-images',
+  'openrouter-images',
+  'codex-images',
   'responses',
   'ollama',
 ];
@@ -38,6 +40,10 @@ const CONNECTION_INFO = (
       <li>
         <span className="font-semibold">completions</span> — OpenAI text/code completion endpoints
         (e.g. <code className="text-accent">/v1/completions</code> or FIM models)
+      </li>
+      <li>
+        <span className="font-semibold">openrouter-images</span> — OpenRouter dedicated image API;
+        use the <code className="text-accent">/api/v1</code> base URL
       </li>
       <li>
         <span className="font-semibold">ollama</span> — Native Ollama API, use the root URL (e.g.{' '}

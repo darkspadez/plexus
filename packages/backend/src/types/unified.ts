@@ -60,6 +60,7 @@ export interface UnifiedToolFunction {
     $schema?: string;
   };
   parametersJsonSchema?: any; // Newer format supporting full JSON Schema (anyOf, oneOf, const)
+  strict?: boolean;
 }
 
 export interface UnifiedTool {
@@ -77,7 +78,7 @@ export interface UnifiedToolConfig {
   functionCallingPreference?: string;
 }
 
-export type ThinkLevel = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+export type ThinkLevel = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export interface KeyAccessPolicy {
   allowedModels?: string[];
@@ -199,6 +200,15 @@ export interface UnifiedUsage {
   reasoning_tokens: number;
   cached_tokens: number;
   cache_creation_tokens: number;
+  /**
+   * Image-token breakdowns reported by providers that bill images separately
+   * (OpenAI Responses `*_tokens_details.image_tokens`, emitted when the
+   * built-in `image_generation` tool runs). Left UNDEFINED when the provider
+   * reports no such detail so downstream payloads stay byte-identical —
+   * `undefined` means "not reported", which is distinct from a reported 0.
+   */
+  input_image_tokens?: number;
+  output_image_tokens?: number;
 }
 
 /**
@@ -266,9 +276,6 @@ export interface UnifiedChatResponse {
     finalAttemptModel?: string;
     allAttemptedProviders?: string;
     retryHistory?: string;
-    // Energy estimation — resolved GPU and model params from dispatcher
-    gpuParams?: import('@plexus/shared').GpuParams;
-    modelParams?: import('@plexus/shared').ModelParams;
   };
   reasoning_content?: string | null;
   thinking?: {
@@ -535,15 +542,48 @@ export interface UnifiedSpeechResponse {
 }
 
 // Unified Image Generation Request
+export type ImageResolution = '512' | '1K' | '2K' | '4K';
+
+export interface UnifiedImageReference {
+  type: 'image_url';
+  image_url: {
+    url: string;
+  };
+  media_type?: string;
+}
+
+export interface UnifiedImageProviderPreferences {
+  only?: string[];
+  ignore?: string[];
+  order?: string[];
+  sort?: string | Record<string, any>;
+  allow_fallbacks?: boolean;
+  options?: Record<string, any>;
+}
+
 export interface UnifiedImageGenerationRequest {
   requestId?: string;
   model: string;
   prompt: string;
   n?: number;
+  /** OpenRouter's normalized resolution tier. */
+  resolution?: ImageResolution;
+  /** Normalized ratio, for example `16:9` or `1:1`. */
+  aspect_ratio?: string;
+  /** Legacy pixel size or OpenRouter's tier-valued convenience size. */
   size?: string;
   response_format?: 'url' | 'b64_json';
   quality?: string;
   style?: string;
+  output_format?: 'png' | 'jpeg' | 'webp' | 'svg';
+  background?: 'auto' | 'transparent' | 'opaque';
+  output_compression?: number;
+  seed?: number;
+  stream?: boolean;
+  input_references?: UnifiedImageReference[];
+  /** Optional inpainting mask, kept distinct from an ordinary reference image. */
+  mask?: UnifiedImageReference;
+  provider?: UnifiedImageProviderPreferences;
   user?: string;
   // Internal tracking
   incomingApiType?: string;
@@ -557,17 +597,22 @@ export interface UnifiedImageGenerationResponse {
   data: Array<{
     url?: string;
     b64_json?: string;
+    media_type?: string;
     revised_prompt?: string;
   }>;
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
     total_tokens?: number;
+    cost?: number;
   };
   plexus?: {
     provider?: string;
     model?: string;
     apiType?: string;
+    targetApiType?: string;
     pricing?: any;
     providerDiscount?: number;
     canonicalModel?: string;
@@ -576,7 +621,12 @@ export interface UnifiedImageGenerationResponse {
   rawResponse?: any;
 }
 
-// Unified Image Edit Request
+/**
+ * @deprecated Image edits now travel on `UnifiedImageGenerationRequest`, where
+ * the uploaded image is `input_references[0]` and the optional inpainting
+ * mask is `mask`. Only the deprecated `Dispatcher.dispatchImageEdits` facade
+ * still accepts this shape; convert with `editRequestToGenerationRequest`.
+ */
 export interface UnifiedImageEditRequest {
   requestId?: string;
   model: string;
@@ -598,23 +648,31 @@ export interface UnifiedImageEditRequest {
   metadata?: Record<string, any> & { plexus_metadata?: PlexusMetadata };
 }
 
-// Unified Image Edit Response
+/**
+ * @deprecated Structurally identical to `UnifiedImageGenerationResponse`, which
+ * every image dispatch now returns.
+ */
 export interface UnifiedImageEditResponse {
   created: number;
   data: Array<{
     url?: string;
     b64_json?: string;
+    media_type?: string;
     revised_prompt?: string;
   }>;
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
     total_tokens?: number;
+    cost?: number;
   };
   plexus?: {
     provider?: string;
     model?: string;
     apiType?: string;
+    targetApiType?: string;
     pricing?: any;
     providerDiscount?: number;
     canonicalModel?: string;

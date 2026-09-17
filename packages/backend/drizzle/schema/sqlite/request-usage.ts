@@ -22,6 +22,7 @@ export const requestUsage = sqliteTable(
     finalAttemptModel: text('final_attempt_model'),
     allAttemptedProviders: text('all_attempted_providers'),
     outgoingApiType: text('outgoing_api_type'),
+    reasoningEffort: text('reasoning_effort'),
     tokensInput: integer('tokens_input'),
     tokensOutput: integer('tokens_output'),
     tokensReasoning: integer('tokens_reasoning'),
@@ -57,7 +58,7 @@ export const requestUsage = sqliteTable(
     isVisionFallthrough: integer('is_vision_fallthrough').notNull().default(0),
     isDescriptorRequest: integer('is_descriptor_request').notNull().default(0),
     visionFallthroughModel: text('vision_fallthrough_model'),
-    // Energy estimation
+    // Energy tracking (provider-measured energy only, e.g. Neuralwatt SSE comments; synthetic estimates removed)
     kwhUsed: real('kwh_used'),
     // Provider-reported cost (actual cost from provider, e.g. from SSE `: cost` comments)
     providerReportedCost: real('provider_reported_cost'),

@@ -229,38 +229,10 @@ describe('toAliasPayload — multiple target groups', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Architecture + behaviors fields
+// 4. Behaviors fields
 // ---------------------------------------------------------------------------
 
-describe('toAliasPayload — architecture and behaviors fields', () => {
-  test('preserves model_architecture fields', () => {
-    const input = base({
-      id: 'arch-alias',
-      model_architecture: {
-        total_params: 70_000_000_000,
-        active_params: 70_000_000_000,
-        layers: 80,
-        heads: 64,
-        dtype: 'bf16',
-        context_length: 128_000,
-      },
-    });
-
-    const result = toAliasPayload(input);
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('Expected ok');
-
-    const a = result.alias;
-    expect(a.model_architecture).toEqual({
-      total_params: 70_000_000_000,
-      active_params: 70_000_000_000,
-      layers: 80,
-      heads: 64,
-      dtype: 'bf16',
-      context_length: 128_000,
-    });
-  });
-
+describe('toAliasPayload — behaviors fields', () => {
   test('preserves advanced behaviors', () => {
     const input = base({
       id: 'behaviors-alias',

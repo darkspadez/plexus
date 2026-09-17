@@ -6,18 +6,24 @@ import { applyModelBehaviors } from '../models/model-behaviors';
 import type { RouteResult } from '../routing/router';
 import type { ResolvedAdapter } from '../../types/provider-adapter';
 import { applyGeminiThinkingConfig, getApiMetadata } from '../providers/provider-api-selection';
-import { isClaudeMaskingApiKeyRoute, isPiAiRoute } from '../oauth/oauth-dispatcher';
+import { isClaudeMaskingApiKeyRoute, isOAuthRoute, isPiAiRoute } from '../oauth/oauth-dispatcher';
 import {
+  copilotEndpoint,
+  extractChatgptAccountId,
   isCodexCliShapedBody,
   isNativeOAuthProvider,
+  prepareGenericOAuthDispatch,
   prepareNativeOAuthDispatch,
+  resolveCopilotBaseUrl,
   type PreparedOAuthRequest,
 } from '../oauth/oauth-native-request';
+import { OAuthAuthManager } from '../oauth/oauth-auth-manager';
 import {
   applyRegistryAutoCompat,
   hasCodexResponsesExtensions,
   stripLiteUnsupportedTools,
 } from './dispatcher-auto-compat';
+import { appendUserAfterTextOnlyModelTail } from '../../transformers/gemini/utils/model-tail';
 
 /** Symbol stash for the native OAuth prep, read by the standard dispatch seams. */
 export const NATIVE_OAUTH_STASH = Symbol('nativeOAuthPrep');
@@ -30,18 +36,9 @@ export const NATIVE_OAUTH_STASH = Symbol('nativeOAuthPrep');
  */
 export function isNativeOAuthRoute(route: RouteResult, targetApiType: string): boolean {
   if (isClaudeMaskingApiKeyRoute(route, targetApiType)) return true;
-  if (!isOAuthRouteForNative(route, targetApiType)) return false;
+  if (!isOAuthRoute(route, targetApiType)) return false;
   const provider = route.config.oauth_provider || route.provider;
   return isNativeOAuthProvider(provider);
-}
-
-function isOAuthRouteForNative(route: RouteResult, targetApiType: string): boolean {
-  if (targetApiType.toLowerCase() === 'oauth') return true;
-  if (typeof route.config.api_base_url === 'string') {
-    return route.config.api_base_url.startsWith('oauth://');
-  }
-  const urlMap = route.config.api_base_url as Record<string, string>;
-  return Object.values(urlMap).some((value) => value.startsWith('oauth://'));
 }
 
 export interface RequestPayload {
@@ -104,6 +101,15 @@ export async function buildRequestPayload(
   adapters: ResolvedAdapter[] = []
 ): Promise<RequestPayload> {
   const nativeOAuth = isNativeOAuthRoute(route, targetApiType);
+  // Any other OAuth-style route (an `oauth://` provider that isn't one of the
+  // native ones, and never the Claude-masking API-key route — that always
+  // resolves to native Anthropic). Config validation already restricts
+  // `oauth_provider` to providers pi-ai actually supports, so this is any
+  // pi-ai OAuth provider Plexus doesn't hand-port — see oauth-native-request.ts.
+  const genericOAuth =
+    !nativeOAuth &&
+    !isClaudeMaskingApiKeyRoute(route, targetApiType) &&
+    isPiAiRoute(route, targetApiType);
 
   // Codex two-path decision. A genuine Codex CLI body
   // is sent to the ChatGPT backend VERBATIM (pass-through), including its native
@@ -139,6 +145,19 @@ export async function buildRequestPayload(
     payload = JSON.parse(JSON.stringify(request.originalBody));
     payload.model = route.model;
 
+    // Native Gemini pass-through forwards `contents` verbatim, so a client
+    // history ending on a text-only model turn would 400 upstream
+    // ("Requests ending with a model turn are not supported", LiteLLM
+    // #38537 / PR #38652). Normalize the tail the same way the transform
+    // path does. Tool-call / media tails are left untouched.
+    if (getApiBaseType(targetApiType) === 'gemini' && Array.isArray((payload as any)?.contents)) {
+      const before = (payload as any).contents.length;
+      (payload as any).contents = appendUserAfterTextOnlyModelTail((payload as any).contents);
+      if ((payload as any).contents.length !== before) {
+        logger.debug('Auto-compat: appended synthetic user turn after text-only model tail');
+      }
+    }
+
     if (request.metadata) {
       const apiMetadata = getApiMetadata(request.metadata);
       if (Object.keys(apiMetadata).length > 0) payload.metadata = apiMetadata;
@@ -160,6 +179,14 @@ export async function buildRequestPayload(
         }
       : request;
     payload = await transformer.transformRequest(requestWithOAuthProvider);
+  }
+
+  // Defense in depth: non-Gemini-transformer paths (cross-format routing to
+  // a Gemini target, adapters that rewrite contents) can still produce a
+  // trailing text-only model turn. Normalize unconditionally for Gemini
+  // targets — the helper is a no-op unless the tail matches.
+  if (getApiBaseType(targetApiType) === 'gemini' && Array.isArray((payload as any)?.contents)) {
+    (payload as any).contents = appendUserAfterTextOnlyModelTail((payload as any).contents);
   }
 
   payload = applyGeminiThinkingConfig(route, targetApiType, payload);
@@ -283,5 +310,98 @@ export async function buildRequestPayload(
     return { payload: prepared.body, bypassTransformation: nativeBypass };
   }
 
+  // Generic OAuth: `payload` above is already the correct standard-path wire
+  // body (shouldUsePassThrough forces bypassTransformation=false for these
+  // routes, so it always went through transformer.transformRequest()).
+  // `targetApiType` here is the resolved wire type (effectiveApiType) that
+  // request-manager passes for generic OAuth routes. Only auth + URL differ
+  // from an ordinary API-key provider on the same wire API.
+  if (genericOAuth) {
+    const provider = route.config.oauth_provider || route.provider;
+    const prepared = await prepareGenericOAuthDispatch({
+      provider,
+      modelId: route.model,
+      body: payload,
+      streaming: !!request.stream,
+      apiType: targetApiType,
+      oauthAccountId: route.config.oauth_account?.trim(),
+      extraHeaders: route.config.headers,
+    });
+    (route as any)[NATIVE_OAUTH_STASH] = prepared;
+    logger.debug(
+      `Generic OAuth payload prepared for ${provider}/${route.model} (url=${prepared.url})`
+    );
+    return { payload: prepared.body, bypassTransformation };
+  }
+
   return { payload, bypassTransformation };
+}
+
+/**
+ * Reactively refreshes OAuth credentials and updates stashed wire request
+ * parameters (url + headers) after an upstream 401. Returns the updated url and
+ * headers for a retry attempt against the same target, or null if the route
+ * is not a refreshable OAuth route or has no active stash.
+ */
+export async function refreshOAuthRoute(
+  route: RouteResult,
+  targetApiType: string,
+  signal?: AbortSignal
+): Promise<{ url: string; headers: Record<string, string> } | null> {
+  const nativeOAuth = isNativeOAuthRoute(route, targetApiType);
+  const genericOAuth =
+    !nativeOAuth &&
+    !isClaudeMaskingApiKeyRoute(route, targetApiType) &&
+    isPiAiRoute(route, targetApiType);
+
+  if (!nativeOAuth && !genericOAuth) return null;
+  if (isClaudeMaskingApiKeyRoute(route, targetApiType)) return null;
+
+  const stashed = (route as any)[NATIVE_OAUTH_STASH] as PreparedOAuthRequest | undefined;
+  if (!stashed) return null;
+
+  const provider = (route.config.oauth_provider || route.provider) as string;
+  const oauthAccountId = route.config.oauth_account?.trim();
+
+  if (genericOAuth) {
+    const prepared = await prepareGenericOAuthDispatch({
+      provider,
+      modelId: route.model,
+      body: stashed.body,
+      streaming: stashed.headers.Accept?.includes('text/event-stream') ?? false,
+      apiType: targetApiType,
+      oauthAccountId,
+      extraHeaders: route.config.headers,
+      forceRefresh: true,
+      signal,
+    });
+    (route as any)[NATIVE_OAUTH_STASH] = prepared;
+    return { url: prepared.url, headers: prepared.headers };
+  }
+
+  // Native OAuth: force-refresh the token via OAuthAuthManager
+  const token = await OAuthAuthManager.getInstance().getApiKey(provider, oauthAccountId, {
+    forceRefresh: true,
+    signal,
+  });
+
+  // Update Authorization header with the fresh token
+  stashed.headers = {
+    ...stashed.headers,
+    Authorization: `Bearer ${token}`,
+  };
+
+  if (provider === 'openai-codex') {
+    const accountId = extractChatgptAccountId(token);
+    if (accountId) {
+      stashed.headers['chatgpt-account-id'] = accountId;
+    } else {
+      delete stashed.headers['chatgpt-account-id'];
+    }
+  } else if (provider === 'github-copilot') {
+    const baseUrl = resolveCopilotBaseUrl(token).replace(/\/$/, '');
+    stashed.url = `${baseUrl}${copilotEndpoint(targetApiType)}`;
+  }
+
+  return { url: stashed.url, headers: stashed.headers };
 }

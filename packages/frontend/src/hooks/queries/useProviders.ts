@@ -70,7 +70,7 @@ export const useToggleProvider = () => {
 
   return useMutation({
     mutationFn: ({ provider, newState }: { provider: Provider; newState: boolean }) =>
-      api.saveProvider({ ...provider, enabled: newState }, provider.id),
+      api.updateProviderEnabled(provider.id, newState),
     onMutate: async ({ provider, newState }) => {
       // Optimistic update — same as old: setProviders(providers.map(...))
       await qc.cancelQueries({ queryKey: PROVIDERS_KEY });

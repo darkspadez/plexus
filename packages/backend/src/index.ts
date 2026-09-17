@@ -144,6 +144,7 @@ const quotaScheduler = QuotaScheduler.getInstance();
 dispatcher.setUsageStorage(usageStorage);
 DebugManager.getInstance().setStorage(usageStorage);
 SelectorFactory.setUsageStorage(usageStorage);
+SelectorFactory.setQuotaScheduler(quotaScheduler);
 
 // ProbeService is shared between the management test endpoint and the
 // background explorer. BackgroundExplorer is created here so router
@@ -205,6 +206,12 @@ try {
 
   // One-time migration: rewrite legacy model_type 'chat'/'responses' → 'text'.
   await configService.migrateModelTypes();
+
+  // One-time repair: null out model_alias_targets.target_alias_slug rows
+  // corrupted by the alias-as-fallback-target table-recreation migration
+  // (the literal column-name string was written under SQLite DQS). Idempotent;
+  // no-op on clean/corrected databases.
+  await configService.repairCorruptedAliasFallbackSlugs();
 
   // One-time cleanup: drop any persisted Gemini CLI / Antigravity OAuth
   // providers + credentials (those providers were removed).

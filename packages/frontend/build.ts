@@ -8,16 +8,7 @@ const buildCSS = async () => {
   console.log('Building CSS...');
   const proc = spawn(
     process.execPath,
-    [
-      'x',
-      '-p',
-      '@tailwindcss/cli',
-      'tailwindcss',
-      '-i',
-      './src/globals.css',
-      '-o',
-      './dist/main.css',
-    ],
+    ['x', 'tailwindcss', '-i', './src/globals.css', '-o', './dist/main.css'],
     {
       stdio: 'inherit',
       cwd: '.',
@@ -79,6 +70,7 @@ const runBuild = async () => {
     format: 'iife',
     publicPath: '/ui/',
     minify: process.env.NODE_ENV === 'production',
+    reactCompiler: true,
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
       'process.env.APP_VERSION': JSON.stringify(process.env.APP_VERSION || 'dev'),

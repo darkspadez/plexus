@@ -78,19 +78,6 @@ const stripAdaptiveThinkingBehaviorSchema = z.object({
   enabled: z.boolean(),
 });
 
-const modelArchitectureSchema = z.object({
-  total_params: z.number().optional(),
-  active_params: z.number().optional(),
-  layers: z.number().optional(),
-  heads: z.number().optional(),
-  kv_lora_rank: z.number().optional(),
-  qk_rope_head_dim: z.number().optional(),
-  context_length: z.number().optional(),
-  dtype: z
-    .enum(['fp16', 'bf16', 'fp8', 'fp8_e4m3', 'fp8_e5m2', 'nvfp4', 'int4', 'int8'])
-    .optional(),
-});
-
 export const aliasFormSchema = z.object({
   id: z.string().trim().min(1, 'Alias ID is required'),
   aliases: z.array(z.string()).optional(),
@@ -100,7 +87,6 @@ export const aliasFormSchema = z.object({
   advanced: z.array(stripAdaptiveThinkingBehaviorSchema).optional(),
   metadata: aliasMetadataSchema.optional(),
   use_image_fallthrough: z.boolean().optional(),
-  model_architecture: modelArchitectureSchema.optional(),
   enforce_limits: z.boolean().optional(),
   sticky_session: z.boolean().optional(),
   preferred_api: z
@@ -172,9 +158,6 @@ export function toAliasPayload(
     }),
     ...(formValues.use_image_fallthrough !== undefined && {
       use_image_fallthrough: formValues.use_image_fallthrough,
-    }),
-    ...(formValues.model_architecture !== undefined && {
-      model_architecture: formValues.model_architecture,
     }),
     ...(formValues.enforce_limits !== undefined && { enforce_limits: formValues.enforce_limits }),
     ...(formValues.sticky_session !== undefined && { sticky_session: formValues.sticky_session }),

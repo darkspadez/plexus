@@ -37,18 +37,15 @@ properties:
       unless `api_base_url` is an `oauth://` URI.
   oauth_provider:
     type: string
-    enum:
-      - anthropic
-      - openai-codex
-      - github-copilot
-      - google-gemini-cli
-      - google-antigravity
     description: >
       OAuth provider identifier. Required when `api_base_url` uses an
       `oauth://` URI. Determines which OAuth flow is used to obtain
-      credentials. Note: `google-gemini-cli` and `google-antigravity` are
-      deprecated and no longer supported — they remain accepted for
-      backward compatibility but are rejected at request routing.
+      credentials. Any OAuth-capable provider bundled with Plexus's pi-ai
+      dependency is accepted (e.g. `anthropic`, `openai-codex`,
+      `github-copilot`, `xai`, `kimi-coding`, `openrouter`) except `radius`,
+      which is not supported. See `GET /v0/management/oauth/providers` for
+      the current list. `google-gemini-cli` and `google-antigravity` are
+      deprecated and no longer supported — they are rejected on write.
   oauth_account:
     type: string
     description: >
@@ -95,6 +92,12 @@ properties:
     description: >
       When enabled, stall detection cancellations will trigger cooldown for
       this provider.
+  allow_100_percent_utilization:
+    type: boolean
+    default: false
+    description: >
+      When enabled, allows quota usage to reach 100% instead of placing the provider
+      on cooldown at 99%. Note: this may result in repeat attempts or failed generations.
   discount:
     type: number
     minimum: 0
@@ -264,26 +267,6 @@ properties:
         type: integer
         minimum: 1
         default: 60
-  gpu_profile:
-    type: string
-    description: >
-      Named GPU profile (e.g. `H100`, `A100`, `custom`). A display hint
-      used by the frontend; the backend uses the four numeric fields below
-      as the source of truth.
-  gpu_ram_gb:
-    type: number
-    description: >
-      GPU RAM in GB. Used for energy estimation when combined with
-      model_architecture.
-  gpu_bandwidth_tb_s:
-    type: number
-    description: GPU memory bandwidth in TB/s. Used for energy estimation.
-  gpu_flops_tflop:
-    type: number
-    description: GPU peak FLOPs in teraflops. Used for energy estimation.
-  gpu_power_draw_watts:
-    type: number
-    description: GPU TDP in watts. Used for energy estimation.
   adapter:
     oneOf:
       - type: string

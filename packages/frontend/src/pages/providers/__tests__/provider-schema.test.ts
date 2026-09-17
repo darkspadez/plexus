@@ -436,28 +436,6 @@ describe('toProviderPayload — advanced fields', () => {
     expect(p.stallGracePeriodMs).toBe(2000);
   });
 
-  test('preserves GPU profile fields', () => {
-    const input = base({
-      id: 'gpu-provider',
-      gpu_profile: 'rtx-4090',
-      gpu_ram_gb: 24,
-      gpu_bandwidth_tb_s: 1.008,
-      gpu_flops_tflop: 165.2,
-      gpu_power_draw_watts: 450,
-    });
-
-    const result = toProviderPayload(input);
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('Expected ok');
-
-    const p = result.provider;
-    expect(p.gpu_profile).toBe('rtx-4090');
-    expect(p.gpu_ram_gb).toBe(24);
-    expect(p.gpu_bandwidth_tb_s).toBe(1.008);
-    expect(p.gpu_flops_tflop).toBe(165.2);
-    expect(p.gpu_power_draw_watts).toBe(450);
-  });
-
   test('preserves timeoutMs and maxConcurrency', () => {
     const input = base({
       id: 'rate-limited',

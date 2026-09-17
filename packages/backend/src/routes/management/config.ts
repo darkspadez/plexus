@@ -7,23 +7,52 @@ import {
   McpServerConfigSchema,
   CompactionConfigSchema,
   normalizeKeyConfig,
+  assertNoAliasRefCycles,
 } from '../../config';
 import { validateRawProviderSlug } from '../../services/dispatch/raw-passthrough';
 import { ConfigService } from '../../services/configuration/config-service';
 import { DebugManager } from '../../services/observability/debug-manager';
 import { isValidIpRule } from '../../utils/ip-match';
-import { getCheckerDefinitions } from '../../services/quota/checker-registry';
+import {
+  getCheckerDefinitions,
+  validateCheckerOptions,
+} from '../../services/quota/checker-registry';
 import { UsageStorageService } from '../../services/observability/usage-storage';
 import { validateServerName } from '../../services/mcp-proxy/mcp-proxy-service';
 import { mcpProcessManager } from '../../services/mcp-local/mcp-process-manager';
 import { VisionDescriptorService } from '../../services/vision/vision-descriptor-service';
 import { decryptField } from '../../utils/encryption';
-import type { GpuParams, ModelArchitecture } from '@plexus/shared';
-import { DEFAULT_GPU_PARAMS } from '@plexus/shared';
 import { McpKeyCreateSchema } from '@plexus/shared';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validateProviderQuotaChecker(config: {
+  api_key?: string;
+  oauth_provider?: string;
+  oauth_account?: string;
+  quota_checker?: {
+    type: string;
+    options?: Record<string, unknown>;
+  };
+}): { valid: true } | { valid: false; details: unknown } {
+  const quotaChecker = config.quota_checker;
+  if (!quotaChecker) return { valid: true };
+
+  const options = { ...(quotaChecker.options ?? {}) };
+  if (config.api_key && config.api_key.toLowerCase() !== 'oauth' && options.apiKey === undefined) {
+    options.apiKey = config.api_key;
+  }
+  if (config.oauth_provider && options.oauthProvider === undefined) {
+    options.oauthProvider = config.oauth_provider;
+  }
+  if (config.oauth_account && options.oauthAccountId === undefined) {
+    options.oauthAccountId = config.oauth_account;
+  }
+
+  const parsed = validateCheckerOptions(quotaChecker.type, options);
+  return parsed.success ? { valid: true } : { valid: false, details: parsed.error.issues };
 }
 
 function serializeMcpKey(key: {
@@ -67,58 +96,6 @@ function mergeCompactionPatch(
   }
 
   return merged;
-}
-
-/**
- * Build a map of provider slug -> resolved GpuParams from current config.
- * Used by recalculateEnergyIfChanged to pass concrete GPU params
- * instead of profile names.
- */
-function buildProviderGpuParamsMap(
-  configService: ConfigService
-): Record<string, GpuParams> | undefined {
-  const config = configService.getConfig();
-  if (!config?.providers) return undefined;
-
-  const map: Record<string, GpuParams> = {};
-  let hasAny = false;
-  for (const [slug, provider] of Object.entries(config.providers)) {
-    if (provider.gpu_ram_gb != null || provider.gpu_bandwidth_tb_s != null) {
-      map[slug] = {
-        ram_gb: provider.gpu_ram_gb ?? DEFAULT_GPU_PARAMS.ram_gb,
-        bandwidth_tb_s: provider.gpu_bandwidth_tb_s ?? DEFAULT_GPU_PARAMS.bandwidth_tb_s,
-        flops_tflop: provider.gpu_flops_tflop ?? DEFAULT_GPU_PARAMS.flops_tflop,
-        power_draw_watts: provider.gpu_power_draw_watts ?? DEFAULT_GPU_PARAMS.power_draw_watts,
-      };
-      hasAny = true;
-    }
-  }
-  return hasAny ? map : undefined;
-}
-
-/**
- * Shared helper: recalculate energy usage for an alias if model_architecture was provided.
- * Used by both PUT and PATCH alias handlers to avoid duplication.
- */
-async function recalculateEnergyIfChanged(
-  slug: string,
-  model_architecture: ModelArchitecture | undefined,
-  usageStorage?: UsageStorageService,
-  providerGpuParams?: Record<string, GpuParams>
-) {
-  if (model_architecture && usageStorage) {
-    try {
-      const updated = await usageStorage.recalculateEnergyForAlias(
-        slug,
-        model_architecture,
-        providerGpuParams
-      );
-      logger.info(`Recalculated energy for ${updated} requests for alias '${slug}'`);
-    } catch (recalcError) {
-      // Don't fail the save if recalculation fails, just log the error
-      logger.error(`Failed to recalculate energy for alias '${slug}'`, recalcError);
-    }
-  }
 }
 
 export async function registerConfigRoutes(
@@ -197,6 +174,10 @@ export async function registerConfigRoutes(
     if (!result.success) {
       return reply.code(400).send({ error: 'Validation failed', details: result.error.issues });
     }
+    const quotaValidation = validateProviderQuotaChecker(result.data);
+    if (!quotaValidation.valid) {
+      return reply.code(400).send({ error: 'Validation failed', details: quotaValidation.details });
+    }
     if (result.data.raw_passthrough?.enabled && !validateRawProviderSlug(slug)) {
       return reply.code(400).send({
         error: 'Raw passthrough requires a single slug-safe provider ID',
@@ -229,6 +210,12 @@ export async function registerConfigRoutes(
       const result = ProviderConfigSchema.safeParse(merged);
       if (!result.success) {
         return reply.code(400).send({ error: 'Validation failed', details: result.error.issues });
+      }
+      const quotaValidation = validateProviderQuotaChecker(result.data);
+      if (!quotaValidation.valid) {
+        return reply
+          .code(400)
+          .send({ error: 'Validation failed', details: quotaValidation.details });
       }
       if (result.data.raw_passthrough?.enabled && !validateRawProviderSlug(slug)) {
         return reply.code(400).send({
@@ -294,14 +281,10 @@ export async function registerConfigRoutes(
       return reply.code(400).send({ error: 'Validation failed', details: result.error.issues });
     }
     try {
-      await configService.saveAlias(slug, result.data);
+      const currentModels = await configService.getRepository().getAllAliases();
+      assertNoAliasRefCycles({ ...currentModels, [slug]: result.data });
 
-      await recalculateEnergyIfChanged(
-        slug,
-        result.data.model_architecture,
-        usageStorage,
-        buildProviderGpuParamsMap(configService)
-      );
+      await configService.saveAlias(slug, result.data);
 
       logger.debug(`Model alias '${slug}' saved via API (PUT)`);
       return reply.send({ success: true, slug });
@@ -329,14 +312,10 @@ export async function registerConfigRoutes(
       if (!result.success) {
         return reply.code(400).send({ error: 'Validation failed', details: result.error.issues });
       }
-      await configService.saveAlias(slug, result.data);
+      const currentModels = await configService.getRepository().getAllAliases();
+      assertNoAliasRefCycles({ ...currentModels, [slug]: result.data });
 
-      await recalculateEnergyIfChanged(
-        slug,
-        result.data.model_architecture,
-        usageStorage,
-        buildProviderGpuParamsMap(configService)
-      );
+      await configService.saveAlias(slug, result.data);
 
       logger.debug(`Model alias '${slug}' updated via API (PATCH)`);
       return reply.send({ success: true, slug });

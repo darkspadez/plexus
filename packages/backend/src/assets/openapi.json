@@ -886,6 +886,54 @@
         "operationId": "postV1AudioSpeech"
       }
     },
+    "/v1/images": {
+      "post": {
+        "tags": [
+          "Inference — Images"
+        ],
+        "summary": "OpenRouter-compatible image generation",
+        "description": "Generates an image from a normalized OpenRouter-style request. Plexus\ntranslates the request into the selected provider's native image API and\nnormalizes the response back to the image response contract.\n\nBuffered generation is supported in this operation. Streaming image\nevents are not currently supported.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageGenerationRequest"
+              },
+              "examples": {
+                "basic": {
+                  "value": {
+                    "model": "image-model",
+                    "prompt": "A red panda astronaut floating in space.",
+                    "resolution": "2K",
+                    "aspect_ratio": "16:9"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generated images.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid image request or unsupported target option."
+          },
+          "401": {
+            "description": "Authentication required or invalid credentials."
+          }
+        },
+        "operationId": "postV1Images"
+      }
+    },
     "/v1/images/generations": {
       "post": {
         "tags": [
@@ -898,7 +946,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ImageGenerationRequest"
+                "$ref": "#/components/schemas/LegacyImageGenerationRequest"
               },
               "examples": {
                 "basic": {
@@ -3741,18 +3789,6 @@
                     }
                   }
                 },
-                "with_gpu_profile": {
-                  "summary": "Local provider with GPU energy profile",
-                  "value": {
-                    "api_base_url": "http://localhost:8080/v1",
-                    "api_key": "no-key",
-                    "disable_cooldown": false,
-                    "gpu_ram_gb": 80,
-                    "gpu_bandwidth_tb_s": 3.35,
-                    "gpu_flops_tflop": 989.4,
-                    "gpu_power_draw_watts": 700
-                  }
-                },
                 "fireworks_with_adapters": {
                   "summary": "Fireworks provider with reasoning_content adapter",
                   "value": {
@@ -3912,7 +3948,7 @@
           "Management — Config"
         ],
         "summary": "Fetch `/v1/models` from an external URL (admin only)",
-        "description": "Helper used by the admin UI when adding a new provider. Fetches the\ntarget URL (with optional Bearer apiKey), normalizes OpenAI- and\nOllama-style responses into `{ data: [...] }`, and returns it.\nBlocks localhost and cloud metadata addresses to mitigate SSRF.\n",
+        "description": "Helper used by the admin UI when adding a new provider. Fetches the\ntarget URL (with provider-appropriate optional apiKey authentication), normalizes OpenAI- and\nOllama-style responses into `{ data: [...] }`, and returns it.\nBlocks localhost and cloud metadata addresses to mitigate SSRF.\n",
         "security": [
           {
             "AdminKey": []
@@ -3962,6 +3998,9 @@
           },
           "400": {
             "description": "Invalid URL, SSRF block, or upstream parse error."
+          },
+          "502": {
+            "description": "Upstream provider rejected the request or returned an authorization error."
           },
           "504": {
             "description": "Upstream fetch timed out (10s)."
@@ -4109,7 +4148,7 @@
           "Management — Config"
         ],
         "summary": "List all model aliases (admin only)",
-        "description": "Returns a map of all model aliases keyed by slug.\n\nEach entry contains:\n- `target_groups` — Ordered array of target groups; each group has a name, selector, and targets\n- `type` — Model capability type (text, embeddings, transcriptions, speech, image)\n- `model_architecture` — Used for energy estimation (kWh calculation)\n- `metadata` — Optional enriched data from external catalogs\n- `pricing` — Optional pricing configuration\n\n**Admin only** — limited principals receive 403.\n",
+        "description": "Returns a map of all model aliases keyed by slug.\n\nEach entry contains:\n- `target_groups` — Ordered array of target groups; each group has a name, selector, and targets\n- `type` — Model capability type (text, embeddings, transcriptions, speech, image)\n- `metadata` — Optional enriched data from external catalogs\n- `pricing` — Optional pricing configuration\n\n**Admin only** — limited principals receive 403.\n",
         "security": [
           {
             "AdminKey": []
@@ -4193,7 +4232,7 @@
           "Management — Config"
         ],
         "summary": "Create or replace a model alias (admin only)",
-        "description": "Creates a new alias or replaces an existing one.\n\n## Energy recalculation\n\nIf you change `model_architecture`, the system recalculates estimated\nenergy usage (kWh) for all affected usage records. This happens\nasynchronously after the alias is saved.\n\n## Validation\n\nThe request body is validated against the `AliasConfig` schema.\nInvalid configurations return a 400 with validation error details.\n\n**Admin only** — limited principals receive 403.\n",
+        "description": "Creates a new alias or replaces an existing one.\n\n## Validation\n\nThe request body is validated against the `AliasConfig` schema.\nInvalid configurations return a 400 with validation error details.\n\n**Admin only** — limited principals receive 403.\n",
         "security": [
           {
             "AdminKey": []
@@ -4345,7 +4384,7 @@
           "Management — Config"
         ],
         "summary": "Merge updates into a model alias (admin only)",
-        "description": "Merges the request body into the existing alias configuration,\nthen validates the result.\n\n## Energy recalculation\n\nIf you change `model_architecture` (or add it if it was previously unset),\nthe system recalculates estimated energy usage (kWh) for all affected\nusage records. This happens asynchronously after the update.\n\n## Merge behavior\n\nPATCH performs a shallow merge — new fields are added, existing fields\nare overwritten, fields not in the request are preserved.\n\n**Admin only** — limited principals receive 403.\n",
+        "description": "Merges the request body into the existing alias configuration,\nthen validates the result.\n\n## Merge behavior\n\nPATCH performs a shallow merge — new fields are added, existing fields\nare overwritten, fields not in the request are preserved.\n\n**Admin only** — limited principals receive 403.\n",
         "security": [
           {
             "AdminKey": []
@@ -4460,91 +4499,6 @@
           }
         },
         "operationId": "deleteV0ManagementModelsByaliasId"
-      }
-    },
-    "/v0/management/models/huggingface/{modelId}": {
-      "parameters": [
-        {
-          "in": "path",
-          "name": "modelId",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "HuggingFace repo ID, URL-encoded (e.g. `mistralai%2FMixtral-8x7B`). The `/` character must be encoded as `%2F`.\n"
-        }
-      ],
-      "get": {
-        "tags": [
-          "Management — Models"
-        ],
-        "summary": "Fetch model architecture from HuggingFace (admin only)",
-        "description": "Fetches model architecture parameters from HuggingFace for use by the\nenergy-usage estimator.\n\n## Use case\n\nThe energy-usage estimator needs layer count, head count, and parameter\ntotals to calculate kWh consumed. This endpoint fetches that data from\nHuggingFace's model card.\n\n## Rate limiting\n\n- HuggingFace API has rate limits; repeated calls may be throttled\n- Responses are cached in Plexus to reduce unnecessary calls\n\n## Response fields\n\n- `success` — Whether the fetch succeeded\n- `model_id` — The model ID queried\n- `architecture` — Model architecture parameters:\n  - `total_params` — Total parameters in billions (estimated)\n  - `active_params` — Active (non-quantized) parameters\n  - `layers` — Number of transformer layers\n  - `heads` — Number of attention heads\n  - `kv_lora_rank` — KV quantization rank (if applicable)\n  - `qk_rope_head_dim` — QK RoPE head dimension (if applicable)\n  - `context_length` — Maximum context window\n  - `dtype` — Model data type (e.g. `float16`, `bfloat16`)\n\n**Admin only** — limited principals receive 403.\n",
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Architecture params.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "const": true
-                    },
-                    "model_id": {
-                      "type": "string"
-                    },
-                    "architecture": {
-                      "type": "object",
-                      "properties": {
-                        "total_params": {
-                          "type": "integer"
-                        },
-                        "active_params": {
-                          "type": "integer"
-                        },
-                        "layers": {
-                          "type": "integer"
-                        },
-                        "heads": {
-                          "type": "integer"
-                        },
-                        "kv_lora_rank": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ]
-                        },
-                        "qk_rope_head_dim": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ]
-                        },
-                        "context_length": {
-                          "type": "integer"
-                        },
-                        "dtype": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Model not found on HuggingFace."
-          }
-        },
-        "operationId": "getV0ManagementModelsHuggingfaceBymodelId"
       }
     },
     "/v0/management/models/metadata/refresh": {
@@ -5904,8 +5858,8 @@
         "tags": [
           "Management — Config"
         ],
-        "summary": "Valid built-in quota-checker type strings (admin only)",
-        "description": "Returns the list of valid quota checker types.\n\n## Relationship to ProviderConfig\n\nThese types are used in `providers[*].quota.type`. When you configure\na provider with a quota block:\n\n```yaml\nproviders:\n  my-provider:\n    quota:\n      type: naga  # <-- must be one of these types\n      options:\n        apiKey: ...\n```\n\nEach type corresponds to a specific quota checker implementation that\nmonitors a particular provider's quota/API limits.\n\n**Admin only** — limited principals receive 403.\n",
+        "summary": "Registered quota-checker type strings (admin only)",
+        "description": "Returns the list of registered quota checker types, including enabled\nadmin-authored custom checkers.\n\n## Relationship to ProviderConfig\n\nThese types are used in `providers[*].quota.type`. When you configure\na provider with a quota block:\n\n```yaml\nproviders:\n  my-provider:\n    quota:\n      type: naga  # <-- must be one of these types\n      options:\n        apiKey: ...\n```\n\nEach type corresponds to a specific quota checker implementation that\nmonitors a particular provider's quota/API limits.\n\n**Admin only** — limited principals receive 403.\n",
         "security": [
           {
             "AdminKey": []
@@ -6040,6 +5994,215 @@
           }
         },
         "operationId": "getV0ManagementQuotaCheckers"
+      }
+    },
+    "/v0/management/custom-checkers": {
+      "get": {
+        "tags": [
+          "Management — Quotas (Provider)"
+        ],
+        "summary": "List custom quota checkers (admin only)",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom quota checkers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomQuotaChecker"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid credentials."
+          }
+        },
+        "operationId": "getV0ManagementCustomCheckers"
+      }
+    },
+    "/v0/management/custom-checkers/{id}": {
+      "get": {
+        "tags": [
+          "Management — Quotas (Provider)"
+        ],
+        "summary": "Get a custom quota checker (admin only)",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CustomCheckerId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom quota checker.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomQuotaChecker"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom checker not found."
+          }
+        },
+        "operationId": "getV0ManagementCustomCheckersByid"
+      },
+      "put": {
+        "tags": [
+          "Management — Quotas (Provider)"
+        ],
+        "summary": "Create or replace a custom quota checker (admin only)",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CustomCheckerId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomQuotaCheckerInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved custom quota checker.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomQuotaChecker"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed."
+          },
+          "409": {
+            "description": "Checker type collides with a built-in checker."
+          }
+        },
+        "operationId": "putV0ManagementCustomCheckersByid"
+      },
+      "patch": {
+        "tags": [
+          "Management — Quotas (Provider)"
+        ],
+        "summary": "Update a custom quota checker (admin only)",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CustomCheckerId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomQuotaCheckerPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated custom quota checker."
+          },
+          "404": {
+            "description": "Custom checker not found."
+          }
+        },
+        "operationId": "patchV0ManagementCustomCheckersByid"
+      },
+      "delete": {
+        "tags": [
+          "Management — Quotas (Provider)"
+        ],
+        "summary": "Delete a custom quota checker (admin only)",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CustomCheckerId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom checker deleted."
+          },
+          "404": {
+            "description": "Custom checker not found."
+          }
+        },
+        "operationId": "deleteV0ManagementCustomCheckersByid"
+      },
+      "post": {
+        "tags": [
+          "Management — Quotas (Provider)"
+        ],
+        "summary": "Test a custom quota checker without persisting a snapshot (admin only)",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CustomCheckerId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomQuotaCheckerTestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test result."
+          },
+          "400": {
+            "description": "Checker execution failed."
+          },
+          "404": {
+            "description": "Custom checker not found."
+          }
+        },
+        "operationId": "postV0ManagementCustomCheckersByid"
       }
     },
     "/v0/management/usage": {
@@ -6280,7 +6443,7 @@
           "Management — Usage"
         ],
         "summary": "Aggregated usage time-series and totals",
-        "description": "Returns bucketed series plus range-scoped, prior-window, and\nsince-midnight rollups.\n\n## Scoping\n\nLimited principals see only their own key's data; admins see global data.\n\n## Bucket algorithm\n\nThe endpoint uses adaptive bucketing to ensure meaningful visualizations:\n- `hour` — returns hourly buckets for the last 24 hours\n- `day` — returns daily buckets for the last 30 days\n- `week` — returns weekly buckets for the last 12 weeks\n- `month` — returns monthly buckets for the last 12 months\n- `custom` — requires `startDate` and `endDate`; buckets are auto-sized\n  based on the range duration\n- `all` — everything since the epoch; buckets are auto-sized like `custom`\n\n## Response structure\n\n- **series** — Time-bucketed data, where each bucket contains aggregated\n  counts and token sums\n- **stats** — Aggregation over the selected range window\n- **prevStats** — Aggregation over the equal-length window immediately\n  preceding the selected range (`null` for `range=all`)\n- **today** — Aggregation since local midnight (not UTC), giving a\n  \"day-so-far\" view\n",
+        "description": "Returns range-scoped bucketed series and totals, a prior-window\ncomparison, and a since-midnight rollup. Optional grouped breakdowns are\ncomputed server-side over the complete requested range.\n\n## Scoping\n\nLimited principals see only their own key's data; admins see global data.\n\n## Range and bucket algorithm\n\nThe endpoint uses adaptive bucketing to ensure meaningful visualizations:\n- `hour` — the last hour, in one-minute buckets\n- `day` — the last 24 hours, in one-hour buckets\n- `week` — the last 7 days, in one-day buckets\n- `month` — the last 30 days, in one-day buckets\n- `custom` — requires `startDate` and `endDate`; buckets are auto-sized\n  based on the range duration and the range may not exceed 12 months.\n- `all` — everything since the epoch; buckets are auto-sized like `custom`\n\n## Response structure\n\n- **series** — Time-bucketed data, where each bucket contains aggregated\n  counts and token sums\n- **stats** — Aggregation over the requested range, including rich usage\n  and performance metrics\n- **prevStats** — Aggregation over the equal-length window immediately\n  preceding the selected range (`null` for `range=all`)\n- **today** — Aggregation since local midnight (not UTC), giving a\n  \"day-so-far\" view\n- **grouped** — Optional top-N grouped aggregates. Request dimensions with\n  the comma-separated `breakdowns` parameter. At most three dimensions are\n  allowed, and omitted groups are represented by an `Other` item.\n",
         "security": [
           {
             "AdminKey": []
@@ -6320,11 +6483,52 @@
               "format": "date-time"
             },
             "description": "Required with `range=custom`."
+          },
+          {
+            "in": "query",
+            "name": "breakdowns",
+            "schema": {
+              "type": "string",
+              "example": "provider,modelAlias"
+            },
+            "description": "Optional comma-separated dimensions: provider, modelAlias, apiKey, or status. At most three dimensions are allowed.\n"
+          },
+          {
+            "in": "query",
+            "name": "breakdownLimit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            },
+            "description": "Maximum number of named groups returned per dimension."
+          },
+          {
+            "in": "query",
+            "name": "exclude",
+            "schema": {
+              "type": "string",
+              "example": "directModels,probe"
+            },
+            "description": "Optional comma-separated dimension-specific exclusions. `directModels` excludes model aliases beginning with `direct/`; `probe` excludes the internal probe API key from API-key breakdowns.\n"
           }
         ],
         "responses": {
           "200": {
             "description": "Aggregates.",
+            "headers": {
+              "X-Usage-Summary-Cache": {
+                "description": "Whether the response was served from the in-memory summary cache.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "HIT",
+                    "MISS"
+                  ]
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -6335,6 +6539,9 @@
           },
           "400": {
             "description": "Invalid `range` or custom-range parameters."
+          },
+          "413": {
+            "description": "Requested aggregate response exceeds the response-size limit."
           }
         },
         "operationId": "getV0ManagementUsageSummary"
@@ -8116,7 +8323,7 @@
           "Management — OAuth"
         ],
         "summary": "List models known to an OAuth provider (admin only)",
-        "description": "Returns the list of models available from a specific OAuth provider.\n\n## Data source\n\nThis endpoint returns models from the pi-ai static catalog. It's used\nto populate dropdowns in the UI when configuring provider targets.\n\n## Response fields\n\n- `id` — Model identifier (e.g. `gpt-5.4`)\n- `name` — Human-readable model name\n- `context_length` — Maximum context window in tokens\n- `pricing` — Token pricing (if available)\n\n## Note\n\nThis is a static catalog — it doesn't query the provider's live API.\nUse `/v1/openrouter/models` or `/v1/models` to get the currently\nconfigured model list.\n\n**Admin only** — limited principals receive 403.\n",
+        "description": "Returns the list of models available from a specific OAuth provider.\n\n## Data source\n\nFor most providers this is the pi-ai static catalog. For `openai-codex` the\ngateway asks the ChatGPT backend for the models the signed-in account may\nactually use (the account-scoped list), then appends the Codex image models,\nwhich the backend never lists. If that call fails — no credentials, upstream\nerror, timeout — the response degrades to the static catalog plus the image\nmodels and carries a `warning`.\n\nIt's used to populate dropdowns in the UI when configuring provider targets.\n\n## Response fields\n\n- `data[].id` — Model identifier (e.g. `gpt-5.4`)\n- `data[].name` — Human-readable model name\n- `data[].context_length` — Maximum context window in tokens\n- `data[].pricing` — Token pricing (if available)\n- `data[].type` — `text` or `image` (image models cannot serve chat)\n- `data[].access_via` — Target protocols the model can be reached through\n  (e.g. `codex-images`)\n- `data[].visibility` — Upstream listing hint: `list` (advertised) or\n  `hide` (usable but not advertised)\n- `source` — `codex-backend` when the list came from the live Codex backend,\n  `catalog` when it came from the pi-ai static catalog\n- `warning` — Present only when live discovery was attempted and failed\n\n## Note\n\nApart from `openai-codex`, this is a static catalog — it doesn't query the\nprovider's live API. Use `/v1/openrouter/models` or `/v1/models` to get the\ncurrently configured model list.\n\n**Admin only** — limited principals receive 403.\n",
         "security": [
           {
             "AdminKey": []
@@ -8131,11 +8338,20 @@
               "type": "string"
             },
             "description": "Provider ID to list models for."
+          },
+          {
+            "in": "query",
+            "name": "accountId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "OAuth account whose entitlement should be used. Only honoured for\n`openai-codex` live discovery; omit to use the provider's default\naccount.\n"
           }
         ],
         "responses": {
           "200": {
-            "description": "Model list (pi-ai static catalog).",
+            "description": "Model list (live Codex list or pi-ai static catalog).",
             "content": {
               "application/json": {
                 "schema": {
@@ -8155,6 +8371,29 @@
                           "context_length": {
                             "type": "integer"
                           },
+                          "description": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "text",
+                              "image"
+                            ]
+                          },
+                          "access_via": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "visibility": {
+                            "type": "string",
+                            "enum": [
+                              "list",
+                              "hide"
+                            ]
+                          },
                           "pricing": {
                             "type": "object",
                             "properties": {
@@ -8168,6 +8407,18 @@
                           }
                         }
                       }
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "codex-backend",
+                        "catalog"
+                      ],
+                      "description": "Where the list came from."
+                    },
+                    "warning": {
+                      "type": "string",
+                      "description": "Why live discovery was skipped or failed. Present only when\nthe response fell back to the static catalog.\n"
                     }
                   }
                 }
@@ -9226,7 +9477,7 @@
           "Events"
         ],
         "summary": "Live usage event stream",
-        "description": "Server-Sent Events stream of request lifecycle events, used by the\nadmin dashboard for real-time monitoring.\n\n## Event types\n\n- **started** — Request received, dispatched to provider.\n- **updated** — Request metadata updated (e.g. token counts known).\n- **completed** — Request finished (success or error). Contains the\n  full `UsageRecord`.\n- **created** — Legacy/alias for `started`.\n\nEach event includes the `UsageRecord` payload (for `completed`) or\npartial data (for `started`/`updated`).\n\n## Ping\n\nA `ping` event is sent every 10 seconds to keep the connection alive.\n\n## Format\n\n```\nevent: completed\ndata: {\"requestId\":\"...\",\"date\":\"...\",\"provider\":\"openai\",...}\nid: 1735689599000\n```\n\n## Scoping\n\nLimited principals see only events for their own API key.\nAdmins see all events.\n",
+        "description": "Server-Sent Events stream of request lifecycle events, used by the\nadmin dashboard for real-time monitoring. The server does not replay\nhistorical events when a client connects; fetch `/v0/management/usage`\nseparately for historical records.\n\n## Wire format\n\nThe response is a UTF-8 `text/event-stream`. Each SSE message is a block\nof lines terminated by a blank line (`\\\\n\\\\n`):\n\n- `event` identifies the event type.\n- `data` contains one line of JSON, except for `ping`, whose data is the\n  literal string `pong`.\n- `id` is the event's server-generated epoch-millisecond timestamp encoded\n  as a string. It is informational; clients should not use it as a resume\n  cursor.\n\nClients should parse the `data` field according to the `event` value and\nignore event types they do not understand.\n\n## Event types\n\n### `started`\n\nSent when a request is received. The `data` value is a partial\n[`UsageRecord`](#/components/schemas/UsageRecord) with the fields\nknown at request start. It includes `responseStatus: \"pending\"`.\n\n### `updated`\n\nSent when additional request or routing metadata becomes available. The\n`data` value is a sparse partial `UsageRecord`; it always includes\n`requestId` and may contain only the fields that changed.\n\n### `progress`\n\nSent approximately once per second for each in-flight request being\nmonitored. The `data` value is a [`ProgressUpdate`](#/components/schemas/ProgressUpdate).\nProgress events are transient and are not persisted as usage records.\n\n### `completed`\n\nSent when the request finishes, including success, error, cancellation,\ntimeout, or stall. The `data` value is the full `UsageRecord`, including\nthe final `responseStatus` and any available token, cost, and timing data.\n\n### `ping`\n\nSent every 10 seconds to keep the connection alive. Its `data` value is\nthe literal string `pong`; it has no JSON payload.\n\nThe backend may receive an internal legacy `created` notification when a\nusage record is saved. That notification is normalized to the wire-level\n`completed` event, so clients should not depend on an `event: created`\nmessage.\n\n## Examples\n\nA started request:\n\n```text\nevent: started\ndata: {\"requestId\":\"550e8400-e29b-41d4-a716-446655440000\",\"date\":\"2025-01-15T12:00:00.000Z\",\"startTime\":1736942400000,\"responseStatus\":\"pending\",\"isStreamed\":true}\nid: 1736942400000\n\n```\n\nA progress update:\n\n```text\nevent: progress\ndata: {\"requestId\":\"550e8400-e29b-41d4-a716-446655440000\",\"apiKey\":\"team-a\",\"isStreamed\":true,\"bytesReceived\":4096,\"bytesPerSec\":2048,\"semanticBytesReceived\":3900,\"semanticBytesPerSec\":1950,\"state\":\"MONITORING\",\"elapsedMs\":2000}\nid: 1736942402000\n\n```\n\nA completed request:\n\n```text\nevent: completed\ndata: {\"requestId\":\"550e8400-e29b-41d4-a716-446655440000\",\"date\":\"2025-01-15T12:00:00.000Z\",\"provider\":\"openai\",\"responseStatus\":\"success\",\"tokensInput\":120,\"tokensOutput\":42,\"durationMs\":2300}\nid: 1736942402300\n\n```\n\nA keepalive:\n\n```text\nevent: ping\ndata: pong\nid: 1736942410000\n\n```\n\n## Scoping\n\nLimited principals see only events for their own API key.\nAdmins see all events.\n",
         "security": [
           {
             "AdminKey": []
@@ -9234,11 +9485,57 @@
         ],
         "responses": {
           "200": {
-            "description": "SSE stream.",
+            "description": "Long-lived SSE stream of usage lifecycle and progress events.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Disables intermediary caching for the live stream.",
+                "schema": {
+                  "type": "string",
+                  "example": "no-cache"
+                }
+              },
+              "Connection": {
+                "description": "Keeps the HTTP connection open while the stream is active.",
+                "schema": {
+                  "type": "string",
+                  "example": "keep-alive"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "CORS origin allowed for the stream.",
+                "schema": {
+                  "type": "string",
+                  "example": "*"
+                }
+              }
+            },
             "content": {
               "text/event-stream": {
                 "schema": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "UTF-8 Server-Sent Events stream. See the operation description for the event framing and payload schemas."
+                },
+                "examples": {
+                  "started": {
+                    "summary": "Request started",
+                    "value": "event: started\ndata: {\"requestId\":\"550e8400-e29b-41d4-a716-446655440000\",\"date\":\"2025-01-15T12:00:00.000Z\",\"startTime\":1736942400000,\"responseStatus\":\"pending\",\"isStreamed\":true}\nid: 1736942400000"
+                  },
+                  "updated": {
+                    "summary": "Request metadata updated",
+                    "value": "event: updated\ndata: {\"requestId\":\"550e8400-e29b-41d4-a716-446655440000\",\"provider\":\"openai\",\"selectedModelName\":\"gpt-4.1-mini\"}\nid: 1736942400100"
+                  },
+                  "progress": {
+                    "summary": "In-flight progress update",
+                    "value": "event: progress\ndata: {\"requestId\":\"550e8400-e29b-41d4-a716-446655440000\",\"apiKey\":\"team-a\",\"isStreamed\":true,\"bytesReceived\":4096,\"bytesPerSec\":2048,\"semanticBytesReceived\":3900,\"semanticBytesPerSec\":1950,\"state\":\"MONITORING\",\"elapsedMs\":2000}\nid: 1736942402000"
+                  },
+                  "completed": {
+                    "summary": "Request completed",
+                    "value": "event: completed\ndata: {\"requestId\":\"550e8400-e29b-41d4-a716-446655440000\",\"date\":\"2025-01-15T12:00:00.000Z\",\"provider\":\"openai\",\"responseStatus\":\"success\",\"tokensInput\":120,\"tokensOutput\":42,\"durationMs\":2300}\nid: 1736942402300"
+                  },
+                  "ping": {
+                    "summary": "Keepalive",
+                    "value": "event: ping\ndata: pong\nid: 1736942410000"
+                  }
                 }
               }
             }
@@ -10274,6 +10571,295 @@
           "target": "openrouter"
         }
       },
+      "UsageSummary": {
+        "type": "object",
+        "description": "Aggregated usage statistics over time windows.\n",
+        "properties": {
+          "range": {
+            "type": "string",
+            "description": "Requested time range. Both series and stats use this range.\n"
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "Time-bucketed aggregation.",
+              "properties": {
+                "bucketStartMs": {
+                  "type": "integer",
+                  "description": "Start of the time bucket (epoch ms)."
+                },
+                "requests": {
+                  "type": "integer",
+                  "description": "Number of requests in this bucket."
+                },
+                "errors": {
+                  "type": "integer",
+                  "description": "Number of non-success requests in this bucket."
+                },
+                "inputTokens": {
+                  "type": "integer",
+                  "description": "Sum of input tokens across all requests."
+                },
+                "outputTokens": {
+                  "type": "integer",
+                  "description": "Sum of output tokens across all requests."
+                },
+                "reasoningTokens": {
+                  "type": "integer",
+                  "description": "Sum of reasoning tokens across all requests."
+                },
+                "cachedTokens": {
+                  "type": "integer",
+                  "description": "Sum of cached tokens across all requests."
+                },
+                "cacheWriteTokens": {
+                  "type": "integer",
+                  "description": "Sum of cache-write tokens across all requests."
+                },
+                "tokens": {
+                  "type": "integer",
+                  "description": "Total token count = inputTokens + outputTokens + reasoningTokens + cachedTokens + cacheWriteTokens.\n"
+                },
+                "totalCost": {
+                  "type": "number",
+                  "description": "Sum of request costs in the bucket."
+                },
+                "avgDurationMs": {
+                  "type": "number",
+                  "description": "Average request duration in milliseconds."
+                },
+                "avgTtftMs": {
+                  "type": "number",
+                  "description": "Average time to first token in milliseconds."
+                },
+                "avgTokensPerSec": {
+                  "type": "number",
+                  "description": "Average reported tokens per second."
+                }
+              }
+            }
+          },
+          "stats": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UsageWindowStats"
+              }
+            ],
+            "description": "Aggregation over the selected range window."
+          },
+          "prevStats": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UsageWindowStats"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Aggregation over the equal-length window immediately preceding the selected range (powers dashboard delta indicators). `null` when `range=all`, which has no prior window.\n"
+          },
+          "grouped": {
+            "type": "object",
+            "description": "Optional top-N aggregates for requested dimensions.",
+            "properties": {
+              "provider": {
+                "$ref": "#/components/schemas/UsageSummaryBreakdown"
+              },
+              "modelAlias": {
+                "$ref": "#/components/schemas/UsageSummaryBreakdown"
+              },
+              "apiKey": {
+                "$ref": "#/components/schemas/UsageSummaryBreakdown"
+              },
+              "status": {
+                "$ref": "#/components/schemas/UsageSummaryBreakdown"
+              }
+            }
+          },
+          "today": {
+            "type": "object",
+            "description": "Aggregation since local midnight (time-of-day based, not UTC).",
+            "properties": {
+              "requests": {
+                "type": "integer",
+                "description": "Number of requests since midnight."
+              },
+              "inputTokens": {
+                "type": "integer",
+                "description": "Input tokens since midnight."
+              },
+              "outputTokens": {
+                "type": "integer",
+                "description": "Output tokens since midnight."
+              },
+              "reasoningTokens": {
+                "type": "integer",
+                "description": "Reasoning tokens since midnight."
+              },
+              "cachedTokens": {
+                "type": "integer",
+                "description": "Cached tokens since midnight."
+              },
+              "cacheWriteTokens": {
+                "type": "integer",
+                "description": "Cache-write tokens since midnight."
+              },
+              "totalCost": {
+                "type": "number",
+                "description": "Total cost in dollars since midnight."
+              }
+            }
+          }
+        }
+      },
+      "UsageSummaryBreakdown": {
+        "type": "object",
+        "description": "Optional top-N aggregates for one requested dimension.",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageSummaryGroup"
+            }
+          },
+          "totalDimensions": {
+            "type": "integer",
+            "description": "Total distinct groups in the requested range."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "Whether groups were omitted from the named items."
+          }
+        }
+      },
+      "UsageSummaryGroup": {
+        "type": "object",
+        "description": "Aggregate metrics for one usage dimension value.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Group label; API-key labels are display-safe prefixes."
+          },
+          "requests": {
+            "type": "integer"
+          },
+          "errors": {
+            "type": "integer"
+          },
+          "inputTokens": {
+            "type": "integer"
+          },
+          "outputTokens": {
+            "type": "integer"
+          },
+          "reasoningTokens": {
+            "type": "integer"
+          },
+          "cachedTokens": {
+            "type": "integer"
+          },
+          "cacheWriteTokens": {
+            "type": "integer"
+          },
+          "totalTokens": {
+            "type": "integer"
+          },
+          "totalCost": {
+            "type": "number"
+          },
+          "avgDurationMs": {
+            "type": "number"
+          },
+          "totalDurationMs": {
+            "type": "number"
+          },
+          "avgTtftMs": {
+            "type": "number"
+          },
+          "avgTokensPerSec": {
+            "type": "number"
+          },
+          "successRate": {
+            "type": "number"
+          }
+        }
+      },
+      "ProgressUpdate": {
+        "type": "object",
+        "description": "Transient throughput snapshot for an in-flight request. This payload is emitted by the management event stream approximately once per second and is not persisted as a usage record.\n",
+        "additionalProperties": false,
+        "required": [
+          "requestId",
+          "apiKey",
+          "isStreamed",
+          "bytesReceived",
+          "bytesPerSec",
+          "semanticBytesReceived",
+          "semanticBytesPerSec",
+          "state",
+          "elapsedMs"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Request identifier shared with the related UsageRecord."
+          },
+          "apiKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "API key associated with the request, if available."
+          },
+          "isStreamed": {
+            "type": "boolean",
+            "description": "Whether the request is using a streamed response."
+          },
+          "bytesReceived": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total upstream response bytes received so far."
+          },
+          "bytesPerSec": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Current total-byte throughput in bytes per second, or null until measurable."
+          },
+          "semanticBytesReceived": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total semantic response bytes received so far, excluding protocol framing where applicable."
+          },
+          "semanticBytesPerSec": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Current semantic-byte throughput in bytes per second, or null until measurable."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "DISPATCHED",
+              "GRACE_PERIOD",
+              "MONITORING",
+              "THROUGHPUT_STALLED"
+            ],
+            "description": "Current stream stall-monitoring state."
+          },
+          "elapsedMs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Milliseconds elapsed since monitoring started."
+          }
+        }
+      },
       "ChatCompletionRequest": {
         "description": "OpenAI Chat Completions request (pass-through; full OpenAI schema accepted).",
         "type": "object",
@@ -10329,6 +10915,10 @@
             "type": "number"
           },
           "max_tokens": {
+            "type": "integer",
+            "deprecated": true
+          },
+          "max_completion_tokens": {
             "type": "integer"
           },
           "tools": {
@@ -10912,10 +11502,12 @@
         "properties": {
           "model": {
             "type": "string",
-            "description": "Model identifier (e.g. `dall-e-3`, `dall-e-2`)."
+            "minLength": 1,
+            "description": "Image generation model or Plexus model alias."
           },
           "prompt": {
             "type": "string",
+            "minLength": 1,
             "description": "Text description of the desired image."
           },
           "n": {
@@ -10923,18 +11515,144 @@
             "minimum": 1,
             "maximum": 10,
             "default": 1,
-            "description": "Number of images to generate (1-10)."
+            "description": "Upper bound on the number of images to generate."
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "512",
+              "1K",
+              "2K",
+              "4K"
+            ],
+            "description": "Normalized resolution tier. Concrete dimensions depend on the target provider."
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Normalized output aspect ratio, such as 1:1, 16:9, or 9:16."
           },
           "size": {
             "type": "string",
+            "description": "Convenience resolution tier or explicit dimensions such as 2048x2048."
+          },
+          "quality": {
+            "type": "string",
             "enum": [
-              "256x256",
-              "512x512",
-              "1024x1024",
-              "1792x1024",
-              "1024x1792"
+              "auto",
+              "low",
+              "medium",
+              "high"
             ],
-            "description": "Output dimensions. Not all sizes are available on all models.\n- `256x256`, `512x512`, `1024x1024` — available on DALL-E 2 and 3. - `1792x1024`, `1024x1792` — widescreen/portrait, DALL-E 3 only.\n"
+            "description": "Requested rendering quality where supported by the target provider."
+          },
+          "output_format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp",
+              "svg"
+            ],
+            "description": "Encoding of generated image bytes where supported by the target provider."
+          },
+          "background": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "transparent",
+              "opaque"
+            ],
+            "description": "Background treatment where supported by the target provider."
+          },
+          "output_compression": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Compression level for formats with a compression control."
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Optional deterministic generation seed where supported."
+          },
+          "stream": {
+            "type": "boolean",
+            "default": false,
+            "description": "Image streaming is reserved for a future implementation."
+          },
+          "input_references": {
+            "type": "array",
+            "maxItems": 16,
+            "description": "Reference images used for image-conditioned generation.",
+            "items": {
+              "type": "object",
+              "required": [
+                "type",
+                "image_url"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "image_url"
+                  ]
+                },
+                "image_url": {
+                  "type": "object",
+                  "required": [
+                    "url"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "description": "HTTP(S) URL or base64 image data URL."
+                    }
+                  }
+                },
+                "media_type": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "provider": {
+            "type": "object",
+            "description": "Plexus provider routing preferences.",
+            "properties": {
+              "only": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ignore": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "order": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "allow_fallbacks": {
+                "type": "boolean"
+              },
+              "sort": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "options": {
+                "type": "object"
+              }
+            }
           },
           "response_format": {
             "type": "string",
@@ -10942,27 +11660,11 @@
               "url",
               "b64_json"
             ],
-            "default": "url",
-            "description": "How the image is returned.\n- **url** — Temporary URL (expires after 1 hour). - **b64_json** — Base64-encoded image data.\n"
-          },
-          "quality": {
-            "type": "string",
-            "enum": [
-              "standard",
-              "hd",
-              "high",
-              "medium",
-              "low"
-            ],
-            "description": "Detail level. Values vary by provider.\n- **standard** — Default quality. - **hd** — Higher detail (DALL-E 3). - **high**, **medium**, **low** — Provider-specific detail levels.\n"
+            "description": "Legacy OpenAI delivery format. OpenRouter-shaped responses use base64 image data."
           },
           "style": {
             "type": "string",
-            "enum": [
-              "vivid",
-              "natural"
-            ],
-            "description": "Visual style.\n- **vivid** — Generates more dramatic, stylized images. - **natural** — More realistic, natural-looking images.\n"
+            "description": "Legacy OpenAI image style where supported."
           },
           "user": {
             "type": "string",
@@ -10974,7 +11676,8 @@
         "type": "object",
         "properties": {
           "created": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp when the images were generated."
           },
           "data": {
             "type": "array",
@@ -10989,8 +11692,48 @@
                 "b64_json": {
                   "type": "string"
                 },
+                "media_type": {
+                  "type": "string"
+                },
                 "revised_prompt": {
                   "type": "string"
+                }
+              }
+            }
+          },
+          "usage": {
+            "type": "object",
+            "properties": {
+              "prompt_tokens": {
+                "type": "integer"
+              },
+              "completion_tokens": {
+                "type": "integer"
+              },
+              "total_tokens": {
+                "type": "integer"
+              },
+              "cost": {
+                "type": "number"
+              },
+              "input_tokens_details": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Per-modality input token detail, forwarded as received when the upstream reports it (for example `image_tokens`). Omitted by the `/v1/images` response, which projects only the flat token counts.",
+                "properties": {
+                  "image_tokens": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "output_tokens_details": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Per-modality output token detail, forwarded as received when the upstream reports it (for example `image_tokens`). Omitted by the `/v1/images` response, which projects only the flat token counts.",
+                "properties": {
+                  "image_tokens": {
+                    "type": "integer"
+                  }
                 }
               }
             }
@@ -11000,6 +11743,75 @@
           "created",
           "data"
         ]
+      },
+      "LegacyImageGenerationRequest": {
+        "type": "object",
+        "required": [
+          "model",
+          "prompt"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Model identifier, such as dall-e-3."
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Text description of the desired image."
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 1,
+            "description": "Number of images to generate."
+          },
+          "size": {
+            "type": "string",
+            "enum": [
+              "256x256",
+              "512x512",
+              "1024x1024",
+              "1792x1024",
+              "1024x1792"
+            ],
+            "description": "Output dimensions where supported by the target provider."
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "url",
+              "b64_json"
+            ],
+            "default": "url",
+            "description": "How the image is returned."
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "hd",
+              "high",
+              "medium",
+              "low"
+            ],
+            "description": "Legacy OpenAI quality value."
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "vivid",
+              "natural"
+            ],
+            "description": "Legacy OpenAI visual style."
+          },
+          "user": {
+            "type": "string",
+            "description": "User identifier for content policy tracking."
+          }
+        }
       },
       "ImageEditRequest": {
         "type": "object",
@@ -11313,14 +12125,7 @@
           },
           "oauth_provider": {
             "type": "string",
-            "enum": [
-              "anthropic",
-              "openai-codex",
-              "github-copilot",
-              "google-gemini-cli",
-              "google-antigravity"
-            ],
-            "description": "OAuth provider identifier. Required when `api_base_url` uses an `oauth://` URI. Determines which OAuth flow is used to obtain credentials. Note: `google-gemini-cli` and `google-antigravity` are deprecated and no longer supported — they remain accepted for backward compatibility but are rejected at request routing.\n"
+            "description": "OAuth provider identifier. Required when `api_base_url` uses an `oauth://` URI. Determines which OAuth flow is used to obtain credentials. Any OAuth-capable provider bundled with Plexus's pi-ai dependency is accepted (e.g. `anthropic`, `openai-codex`, `github-copilot`, `xai`, `kimi-coding`, `openrouter`) except `radius`, which is not supported. See `GET /v0/management/oauth/providers` for the current list. `google-gemini-cli` and `google-antigravity` are deprecated and no longer supported — they are rejected on write.\n"
           },
           "oauth_account": {
             "type": "string",
@@ -11368,6 +12173,11 @@
             "type": "boolean",
             "default": false,
             "description": "When enabled, stall detection cancellations will trigger cooldown for this provider.\n"
+          },
+          "allow_100_percent_utilization": {
+            "type": "boolean",
+            "default": false,
+            "description": "When enabled, allows quota usage to reach 100% instead of placing the provider on cooldown at 99%. Note: this may result in repeat attempts or failed generations.\n"
           },
           "discount": {
             "type": "number",
@@ -11534,26 +12344,6 @@
                 "default": 60
               }
             }
-          },
-          "gpu_profile": {
-            "type": "string",
-            "description": "Named GPU profile (e.g. `H100`, `A100`, `custom`). A display hint used by the frontend; the backend uses the four numeric fields below as the source of truth.\n"
-          },
-          "gpu_ram_gb": {
-            "type": "number",
-            "description": "GPU RAM in GB. Used for energy estimation when combined with model_architecture.\n"
-          },
-          "gpu_bandwidth_tb_s": {
-            "type": "number",
-            "description": "GPU memory bandwidth in TB/s. Used for energy estimation."
-          },
-          "gpu_flops_tflop": {
-            "type": "number",
-            "description": "GPU peak FLOPs in teraflops. Used for energy estimation."
-          },
-          "gpu_power_draw_watts": {
-            "type": "number",
-            "description": "GPU TDP in watts. Used for energy estimation."
           },
           "adapter": {
             "oneOf": [
@@ -11765,6 +12555,7 @@
                     "cost",
                     "latency",
                     "usage",
+                    "quota",
                     "performance",
                     "e2e_performance"
                   ],
@@ -11999,48 +12790,6 @@
             ],
             "discriminator": {
               "propertyName": "source"
-            }
-          },
-          "model_architecture": {
-            "type": "object",
-            "description": "Model architecture details used for inference energy estimation. When modified, triggers async recalculation of kWh for all affected historical usage records.\n",
-            "properties": {
-              "total_params": {
-                "type": "number",
-                "description": "Total parameter count (billions)."
-              },
-              "active_params": {
-                "type": "number",
-                "description": "Active (non-MoE-gated) parameter count (billions)."
-              },
-              "layers": {
-                "type": "integer"
-              },
-              "heads": {
-                "type": "integer"
-              },
-              "kv_lora_rank": {
-                "type": "integer"
-              },
-              "qk_rope_head_dim": {
-                "type": "integer"
-              },
-              "context_length": {
-                "type": "integer"
-              },
-              "dtype": {
-                "type": "string",
-                "enum": [
-                  "fp16",
-                  "bf16",
-                  "fp8",
-                  "fp8_e4m3",
-                  "fp8_e5m2",
-                  "nvfp4",
-                  "int4",
-                  "int8"
-                ]
-              }
             }
           },
           "input_price_per_million": {
@@ -12744,6 +13493,96 @@
           }
         }
       },
+      "CustomQuotaChecker": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "displayName",
+          "code",
+          "enabled",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "description": "JavaScript function body returning an array of quota meters."
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CustomQuotaCheckerInput": {
+        "type": "object",
+        "required": [
+          "displayName",
+          "code"
+        ],
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "CustomQuotaCheckerTestInput": {
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "code": {
+            "type": "string",
+            "description": "Optional unsaved code to execute instead of the persisted code."
+          }
+        }
+      },
+      "CustomQuotaCheckerPatch": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
       "UsageRecord": {
         "type": "object",
         "description": "Per-request usage record stored in `request_usage`. Populated after each inference request completes (or errors). Fields may be null on error paths.\n",
@@ -12828,7 +13667,7 @@
               "string",
               "null"
             ],
-            "description": "Resolved canonical model name. For aliases with `model_architecture`, this is the target; otherwise same as `incomingModelAlias`.\n"
+            "description": "Resolved canonical model name."
           },
           "selectedModelName": {
             "type": [
@@ -12864,6 +13703,13 @@
               "null"
             ],
             "description": "API format sent to upstream provider. May differ from `incomingApiType` due to protocol transformation.\n"
+          },
+          "reasoningEffort": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Reasoning setting requested by the client. Values are `on`, `off`, or a normalized effort level such as `low`, `high`, or `max`.\n"
           },
           "tokensInput": {
             "type": [
@@ -12990,7 +13836,7 @@
               "number",
               "null"
             ],
-            "description": "Estimated energy consumption in kilowatt-hours. Calculated from `model_architecture` token estimates and provider-specific energy coefficients. Requires `model_architecture` to be set on the alias.\n"
+            "description": "Measured energy consumption in kilowatt-hours reported by the provider (if available)."
           },
           "isStreamed": {
             "type": "boolean",
@@ -13075,33 +13921,37 @@
             "type": "integer",
             "description": "Total requests in the window."
           },
+          "totalErrors": {
+            "type": "integer",
+            "description": "Total non-success requests in the window."
+          },
           "totalTokens": {
             "type": "integer",
-            "description": "Total tokens (input + output + cached + cacheWrite) in the window."
+            "description": "Total tokens (input + output + reasoning + cached + cacheWrite) in the window.\n"
           },
           "inputTokens": {
             "type": "integer",
-            "description": "Input tokens in the window."
+            "description": "Total uncached input tokens."
           },
           "outputTokens": {
             "type": "integer",
-            "description": "Output tokens in the window."
+            "description": "Total output tokens."
+          },
+          "reasoningTokens": {
+            "type": "integer",
+            "description": "Total reasoning tokens."
           },
           "cachedTokens": {
             "type": "integer",
-            "description": "Cached (cache-read) tokens in the window."
+            "description": "Total cached input tokens."
           },
           "cacheWriteTokens": {
             "type": "integer",
-            "description": "Cache-write tokens in the window."
+            "description": "Total cache-write tokens."
           },
           "totalCost": {
             "type": "number",
-            "description": "Total cost in dollars in the window."
-          },
-          "totalKwhUsed": {
-            "type": "number",
-            "description": "Total energy usage in the window."
+            "description": "Total request cost in the window."
           },
           "avgDurationMs": {
             "type": "number",
@@ -13111,117 +13961,17 @@
             "type": "integer",
             "description": "Sum of all request durations in milliseconds."
           },
-          "totalErrors": {
-            "type": "integer",
-            "description": "Number of non-success requests in the window."
-          }
-        }
-      },
-      "UsageSummary": {
-        "type": "object",
-        "description": "Aggregated usage statistics over time windows.\n",
-        "properties": {
-          "range": {
-            "type": "string",
-            "description": "Time range for series data. Format depends on query param (e.g. \"24h\", \"7d\", custom start/end). Affects only the series field.\n"
+          "avgTtftMs": {
+            "type": "number",
+            "description": "Average time to first token in milliseconds."
           },
-          "series": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "description": "Time-bucketed aggregation.",
-              "properties": {
-                "bucketStartMs": {
-                  "type": "integer",
-                  "description": "Start of the time bucket (epoch ms)."
-                },
-                "requests": {
-                  "type": "integer",
-                  "description": "Number of requests in this bucket."
-                },
-                "inputTokens": {
-                  "type": "integer",
-                  "description": "Sum of input tokens across all requests."
-                },
-                "outputTokens": {
-                  "type": "integer",
-                  "description": "Sum of output tokens across all requests."
-                },
-                "cachedTokens": {
-                  "type": "integer",
-                  "description": "Sum of cached tokens across all requests."
-                },
-                "cacheWriteTokens": {
-                  "type": "integer",
-                  "description": "Sum of cache-write tokens across all requests."
-                },
-                "kwhUsed": {
-                  "type": "number",
-                  "description": "Sum of energy usage (kWh) across all requests."
-                },
-                "tokens": {
-                  "type": "integer",
-                  "description": "Total token count = inputTokens + outputTokens + cachedTokens + cacheWriteTokens.\n"
-                }
-              }
-            }
+          "avgTokensPerSec": {
+            "type": "number",
+            "description": "Average reported tokens per second."
           },
-          "stats": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/UsageWindowStats"
-              }
-            ],
-            "description": "Aggregation over the selected range window."
-          },
-          "prevStats": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/UsageWindowStats"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Aggregation over the equal-length window immediately preceding the selected range (powers dashboard delta indicators). `null` when `range=all`, which has no prior window.\n"
-          },
-          "today": {
-            "type": "object",
-            "description": "Aggregation since local midnight (time-of-day based, not UTC).",
-            "properties": {
-              "requests": {
-                "type": "integer",
-                "description": "Number of requests since midnight."
-              },
-              "inputTokens": {
-                "type": "integer",
-                "description": "Input tokens since midnight."
-              },
-              "outputTokens": {
-                "type": "integer",
-                "description": "Output tokens since midnight."
-              },
-              "reasoningTokens": {
-                "type": "integer",
-                "description": "Reasoning tokens since midnight."
-              },
-              "cachedTokens": {
-                "type": "integer",
-                "description": "Cached tokens since midnight."
-              },
-              "cacheWriteTokens": {
-                "type": "integer",
-                "description": "Cache-write tokens since midnight."
-              },
-              "kwhUsed": {
-                "type": "number",
-                "description": "Energy usage since midnight."
-              },
-              "totalCost": {
-                "type": "number",
-                "description": "Total cost in dollars since midnight."
-              }
-            }
+          "successRate": {
+            "type": "number",
+            "description": "Percentage of requests whose status is success."
           }
         }
       },
@@ -14083,6 +14833,16 @@
         "schema": {
           "type": "string",
           "example": "resp_01HXYZ..."
+        }
+      },
+      "CustomCheckerId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Custom quota checker type identifier.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$"
         }
       }
     }

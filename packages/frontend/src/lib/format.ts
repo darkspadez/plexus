@@ -253,6 +253,10 @@ export function formatTPS(tps: number): string {
 
 /**
  * Format energy in kWh with human-readable sub-units.
+ *
+ * Synthetic energy estimation was removed upstream, but providers may still
+ * report measured energy (e.g. Neuralwatt SSE comments), which the request
+ * detail panel surfaces.
  */
 export function formatEnergy(kwh: number): string {
   if (kwh >= 1) return `${kwh.toFixed(3)} kWh`;

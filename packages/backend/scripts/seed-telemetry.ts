@@ -305,8 +305,14 @@ function outgoingApiTypeForProvider(
 /** Only `enabled !== false` targets are ever routable — this is exactly why
  * whisper-1/tts-1/dall-e-3's targets (all disabled) fall out of every pool
  * below without a hardcoded exclusion list. */
-function enabledTargets(alias: ModelConfig): ModelTarget[] {
-  return (alias.target_groups ?? []).flatMap((g) => g.targets).filter((t) => t.enabled !== false);
+/** A target naming a concrete provider/model pair. Alias-as-fallback targets
+ *  (#806) carry neither, so there is nothing to synthesise traffic against. */
+type ConcreteTarget = ModelTarget & { provider: string; model: string };
+
+function enabledTargets(alias: ModelConfig): ConcreteTarget[] {
+  return (alias.target_groups ?? [])
+    .flatMap((g) => g.targets)
+    .filter((t): t is ConcreteTarget => t.enabled !== false && !!t.provider && !!t.model);
 }
 
 function providerAllowed(key: KeyConfig, provider: string): boolean {
@@ -332,7 +338,7 @@ function modelAllowed(key: KeyConfig, aliasName: string): boolean {
 interface AliasPoolEntry extends Weighted {
   name: string;
   config: ModelConfig;
-  targets: ModelTarget[];
+  targets: ConcreteTarget[];
 }
 
 /** Precomputes, for every key, the set of aliases it may legitimately use
@@ -534,7 +540,7 @@ interface AttemptStory {
 
 function buildAttemptStory(
   rng: Rng,
-  orderedTargetsIn: readonly ModelTarget[],
+  orderedTargetsIn: readonly ConcreteTarget[],
   providers: Record<string, ProviderConfig>,
   forceSuccess: boolean
 ): AttemptStory {

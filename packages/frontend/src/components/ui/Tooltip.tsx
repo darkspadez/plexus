@@ -15,7 +15,8 @@ const VIEWPORT_MARGIN = 8;
  * never be clipped by an ancestor's `overflow-hidden` — every `Card` sets
  * that on its outer wrapper, which silently truncated tooltips anchored
  * near a card edge before this used a portal. Position is computed from
- * the trigger's real screen coordinates and clamped to stay on-screen.
+ * the trigger's real screen coordinates and clamped to stay on-screen, and
+ * recomputed on resize/scroll so it tracks the trigger as the page moves.
  */
 export const Tooltip: React.FC<TooltipProps> = ({ content, children, position = 'bottom' }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -29,44 +30,55 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, position = 
     const tooltip = tooltipRef.current;
     if (!trigger || !tooltip) return;
 
-    const triggerRect = trigger.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
+    const updatePosition = () => {
+      const triggerRect = trigger.getBoundingClientRect();
+      const tooltipRect = tooltip.getBoundingClientRect();
 
-    let top = 0;
-    let left = 0;
+      let top = 0;
+      let left = 0;
 
-    switch (position) {
-      case 'right':
-        top = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
-        left = triggerRect.right + GAP;
-        break;
-      case 'left':
-        top = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
-        left = triggerRect.left - tooltipRect.width - GAP;
-        break;
-      case 'top':
-        top = triggerRect.top - tooltipRect.height - GAP;
-        left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
-        break;
-      case 'bottom':
-      default:
-        top = triggerRect.bottom + GAP;
-        left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
-        break;
-    }
+      switch (position) {
+        case 'right':
+          top = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
+          left = triggerRect.right + GAP;
+          break;
+        case 'left':
+          top = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
+          left = triggerRect.left - tooltipRect.width - GAP;
+          break;
+        case 'top':
+          top = triggerRect.top - tooltipRect.height - GAP;
+          left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
+          break;
+        case 'bottom':
+        default:
+          top = triggerRect.bottom + GAP;
+          left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
+          break;
+      }
 
-    // Clamp so the panel never overflows off-screen, regardless of where
-    // the trigger sits (e.g. near a viewport edge).
-    left = Math.min(
-      Math.max(left, VIEWPORT_MARGIN),
-      window.innerWidth - tooltipRect.width - VIEWPORT_MARGIN
-    );
-    top = Math.min(
-      Math.max(top, VIEWPORT_MARGIN),
-      window.innerHeight - tooltipRect.height - VIEWPORT_MARGIN
-    );
+      // Clamp so the panel never overflows off-screen, regardless of where
+      // the trigger sits (e.g. near a viewport edge).
+      left = Math.min(
+        Math.max(left, VIEWPORT_MARGIN),
+        window.innerWidth - tooltipRect.width - VIEWPORT_MARGIN
+      );
+      top = Math.min(
+        Math.max(top, VIEWPORT_MARGIN),
+        window.innerHeight - tooltipRect.height - VIEWPORT_MARGIN
+      );
 
-    setStyle({ position: 'fixed', top, left });
+      setStyle({ position: 'fixed', top, left });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
   }, [isVisible, position]);
 
   return (
@@ -80,6 +92,7 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, position = 
     >
       {children}
       {isVisible &&
+        typeof document !== 'undefined' &&
         createPortal(
           <div
             ref={tooltipRef}

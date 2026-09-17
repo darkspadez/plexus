@@ -1,6 +1,21 @@
 import { Content, Part, Tool } from '@google/genai';
-import { UnifiedChatRequest, GoogleBuiltInToolType } from '../../types/unified';
+import { UnifiedChatRequest, GoogleBuiltInToolType, ThinkLevel } from '../../types/unified';
 import { convertUnifiedPartsToGemini } from './part-mapper';
+import { ensureContentsEndWithUser } from './utils/model-tail';
+
+/**
+ * Unified ThinkLevel → Gemini ThinkingLevel enum. Gemini has no level above
+ * HIGH, so the extended canonical efforts (xhigh, max) clamp to HIGH.
+ */
+const GEMINI_THINKING_LEVEL: Record<ThinkLevel, string> = {
+  none: 'NONE',
+  minimal: 'MINIMAL',
+  low: 'LOW',
+  medium: 'MEDIUM',
+  high: 'HIGH',
+  xhigh: 'HIGH',
+  max: 'HIGH',
+};
 
 export interface GenerateContentRequest {
   contents: Content[];
@@ -122,6 +137,14 @@ export async function buildGeminiRequest(
     if (role && parts.length > 0) contents.push({ role, parts });
   }
 
+  // Gemini 3+ rejects histories ending on a model turn ("Requests ending
+  // with a model turn are not supported", LiteLLM #38537 / PR #38652).
+  // Agent loops replaying conversation state hit this when the last message
+  // is a text-only assistant turn. Append a minimal synthetic user turn so
+  // the request is accepted upstream. Tool-call / media tails are left
+  // alone — a user turn there would break functionCall pairing.
+  ensureContentsEndWithUser(contents);
+
   // Gap 4 & 5: Transform Unified tools to Gemini function declarations or built-in tools
   if (request.tools && request.tools.length > 0) {
     const functionDeclarations = [];
@@ -212,8 +235,12 @@ export async function buildGeminiRequest(
     generationConfig.thinkingConfig = {
       includeThoughts: request.reasoning.enabled,
       thinkingBudget: request.reasoning.max_tokens,
-      // Map unified effort back to Gemini's ThinkingLevel enum values (MINIMAL/LOW/MEDIUM/HIGH)
-      thinkingLevel: request.reasoning.effort ? request.reasoning.effort.toUpperCase() : undefined,
+      // Map unified effort to Gemini's ThinkingLevel enum values
+      // (MINIMAL/LOW/MEDIUM/HIGH). Gemini has no level above HIGH, so the
+      // extended canonical efforts (xhigh, max) clamp to HIGH.
+      thinkingLevel: request.reasoning.effort
+        ? GEMINI_THINKING_LEVEL[request.reasoning.effort]
+        : undefined,
     };
   }
 

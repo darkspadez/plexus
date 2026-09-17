@@ -32,6 +32,7 @@ import { HyperQuotaConfig } from '../quota/HyperQuotaConfig';
 import { SakanaQuotaConfig } from '../quota/SakanaQuotaConfig';
 import { ClineQuotaConfig } from '../quota/ClineQuotaConfig';
 import { ClaudeCodeQuotaConfig } from '../quota/ClaudeCodeQuotaConfig';
+import { CustomQuotaConfig } from '../quota/CustomQuotaConfig';
 
 interface Props {
   editingProvider: Provider;
@@ -41,6 +42,7 @@ interface Props {
   isOAuthMode: boolean;
   oauthCheckerType: string | null;
   quotaValidationError: string | null;
+  customCheckerIds: string[];
 }
 
 const QUOTA_CONFIG_MAP: Record<
@@ -89,6 +91,7 @@ export function ProviderQuotaEditor({
   isOAuthMode,
   oauthCheckerType,
   quotaValidationError,
+  customCheckerIds,
 }: Props) {
   const setQuotaType = (quotaType: string) => {
     if (!quotaType) {
@@ -157,7 +160,7 @@ export function ProviderQuotaEditor({
 
   const quotaTypeOptions = selectableQuotaCheckerTypes.map((type) => ({
     value: type,
-    label: type,
+    label: customCheckerIds.includes(type) ? `Custom: ${type}` : type,
   }));
 
   // OAuth providers without a mapped checker type have nothing to monitor.
@@ -208,6 +211,17 @@ export function ProviderQuotaEditor({
             <div className="mt-3 rounded-md border border-border bg-surface-sunken p-3">
               <QuotaConfigComponent
                 options={editingProvider.quotaChecker?.options || {}}
+                onChange={setQuotaOptions}
+              />
+            </div>
+          )}
+
+          {customCheckerIds.includes(selectedQuotaCheckerType) && editingProvider.quotaChecker && (
+            <div className="mt-3 rounded-md border border-border bg-surface-sunken p-3">
+              <CustomQuotaConfig
+                checkerId={selectedQuotaCheckerType}
+                provider={editingProvider.id}
+                options={editingProvider.quotaChecker.options || {}}
                 onChange={setQuotaOptions}
               />
             </div>

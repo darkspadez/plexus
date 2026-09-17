@@ -5,8 +5,7 @@ properties:
   range:
     type: string
     description: >
-      Time range for series data. Format depends on query param (e.g. "24h",
-      "7d", custom start/end). Affects only the series field.
+      Requested time range. Both series and stats use this range.
   series:
     type: array
     items:
@@ -19,25 +18,41 @@ properties:
         requests:
           type: integer
           description: Number of requests in this bucket.
+        errors:
+          type: integer
+          description: Number of non-success requests in this bucket.
         inputTokens:
           type: integer
           description: Sum of input tokens across all requests.
         outputTokens:
           type: integer
           description: Sum of output tokens across all requests.
+        reasoningTokens:
+          type: integer
+          description: Sum of reasoning tokens across all requests.
         cachedTokens:
           type: integer
           description: Sum of cached tokens across all requests.
         cacheWriteTokens:
           type: integer
           description: Sum of cache-write tokens across all requests.
-        kwhUsed:
-          type: number
-          description: Sum of energy usage (kWh) across all requests.
         tokens:
           type: integer
           description: >
-            Total token count = inputTokens + outputTokens + cachedTokens + cacheWriteTokens.
+            Total token count = inputTokens + outputTokens + reasoningTokens +
+            cachedTokens + cacheWriteTokens.
+        totalCost:
+          type: number
+          description: Sum of request costs in the bucket.
+        avgDurationMs:
+          type: number
+          description: Average request duration in milliseconds.
+        avgTtftMs:
+          type: number
+          description: Average time to first token in milliseconds.
+        avgTokensPerSec:
+          type: number
+          description: Average reported tokens per second.
   stats:
     allOf:
       - $ref: ./UsageWindowStats.yaml
@@ -50,6 +65,18 @@ properties:
       Aggregation over the equal-length window immediately preceding the
       selected range (powers dashboard delta indicators). `null` when
       `range=all`, which has no prior window.
+  grouped:
+    type: object
+    description: Optional top-N aggregates for requested dimensions.
+    properties:
+      provider:
+        $ref: ./UsageSummaryBreakdown.yaml
+      modelAlias:
+        $ref: ./UsageSummaryBreakdown.yaml
+      apiKey:
+        $ref: ./UsageSummaryBreakdown.yaml
+      status:
+        $ref: ./UsageSummaryBreakdown.yaml
   today:
     type: object
     description: Aggregation since local midnight (time-of-day based, not UTC).
@@ -72,9 +99,6 @@ properties:
       cacheWriteTokens:
         type: integer
         description: Cache-write tokens since midnight.
-      kwhUsed:
-        type: number
-        description: Energy usage since midnight.
       totalCost:
         type: number
         description: Total cost in dollars since midnight.

@@ -6,9 +6,6 @@ import { EventEmitter } from 'node:events';
 import { eq, and, gte, lte, like, desc, asc, sql, getTableName } from 'drizzle-orm';
 import { DebugLogRecord, DebugManager } from './debug-manager';
 import { getCurrentKeyName } from './request-context';
-import { estimateKwhUsed } from './inference-energy';
-import { resolveModelParams, DEFAULT_GPU_PARAMS } from '@plexus/shared';
-import type { ModelArchitecture, GpuParams } from '@plexus/shared';
 import type { StallInspector } from '../inspectors/stall-inspector';
 
 export interface ProgressUpdate {
@@ -226,6 +223,7 @@ export class UsageStorageService extends EventEmitter {
           canonicalModelName: record.canonicalModelName || null,
           selectedModelName: record.selectedModelName || null,
           outgoingApiType: record.outgoingApiType || null,
+          reasoningEffort: record.reasoningEffort || null,
           startTime: record.startTime || Date.now(),
           durationMs: null, // null indicates pending/in-flight
           responseStatus: 'pending',
@@ -254,12 +252,17 @@ export class UsageStorageService extends EventEmitter {
    */
   async emitUpdated(record: Partial<UsageRecord>): Promise<void> {
     // Update the pending record in DB if we have provider/model info
-    if (record.requestId && (record.provider || record.canonicalModelName)) {
+    if (
+      record.requestId &&
+      (record.provider || record.canonicalModelName || record.reasoningEffort !== undefined)
+    ) {
       try {
         const updateSet: Record<string, unknown> = {};
         if (record.provider) updateSet.provider = record.provider;
         if (record.canonicalModelName) updateSet.canonicalModelName = record.canonicalModelName;
         if (record.selectedModelName) updateSet.selectedModelName = record.selectedModelName;
+        if (record.reasoningEffort !== undefined)
+          updateSet.reasoningEffort = record.reasoningEffort;
         if (record.incomingModelAlias) updateSet.incomingModelAlias = record.incomingModelAlias;
         if (record.apiKey) updateSet.apiKey = record.apiKey;
         if (record.attribution !== undefined) updateSet.attribution = record.attribution;
@@ -643,6 +646,7 @@ export class UsageStorageService extends EventEmitter {
           finalAttemptModel: schema.requestUsage.finalAttemptModel,
           allAttemptedProviders: schema.requestUsage.allAttemptedProviders,
           outgoingApiType: schema.requestUsage.outgoingApiType,
+          reasoningEffort: schema.requestUsage.reasoningEffort,
           tokensInput: schema.requestUsage.tokensInput,
           tokensOutput: schema.requestUsage.tokensOutput,
           tokensReasoning: schema.requestUsage.tokensReasoning,
@@ -702,6 +706,7 @@ export class UsageStorageService extends EventEmitter {
         finalAttemptModel: row.finalAttemptModel,
         allAttemptedProviders: row.allAttemptedProviders,
         outgoingApiType: row.outgoingApiType,
+        reasoningEffort: row.reasoningEffort,
         tokensInput: row.tokensInput,
         tokensOutput: row.tokensOutput,
         tokensReasoning: row.tokensReasoning,
@@ -1046,91 +1051,6 @@ export class UsageStorageService extends EventEmitter {
     } catch (error) {
       logger.error('Failed to get provider performance', { provider, model, error });
       return [];
-    }
-  }
-
-  /**
-   * Recalculate energy usage for all requests associated with an alias.
-   * This is called when an alias's model_architecture is updated.
-   *
-   * @param aliasSlug - The alias slug to recalculate energy for
-   * @param modelArchitecture - The new model architecture parameters
-   * @param providerGpuParams - Optional map of provider -> resolved GpuParams
-   * @returns The number of records updated
-   */
-  async recalculateEnergyForAlias(
-    aliasSlug: string,
-    modelArchitecture: ModelArchitecture,
-    providerGpuParams?: Record<string, GpuParams>
-  ): Promise<number> {
-    try {
-      const db = this.ensureDb();
-      const BATCH_SIZE = 500;
-      let totalUpdated = 0;
-      let offset = 0;
-
-      logger.debug(`Recalculating energy for alias ${aliasSlug} (batched)`);
-
-      // Process in batches using limit+offset to avoid loading all rows into memory
-      while (true) {
-        const batch = await db
-          .select({
-            requestId: this.schema.requestUsage.requestId,
-            tokensInput: this.schema.requestUsage.tokensInput,
-            tokensOutput: this.schema.requestUsage.tokensOutput,
-            provider: this.schema.requestUsage.finalAttemptProvider,
-          })
-          .from(this.schema.requestUsage)
-          .where(eq(this.schema.requestUsage.incomingModelAlias, aliasSlug))
-          .limit(BATCH_SIZE)
-          .offset(offset);
-
-        if (batch.length === 0) break;
-
-        // Process this batch
-        await Promise.all(
-          batch.map(async (request: any) => {
-            const tokensInput = request.tokensInput || 0;
-            const tokensOutput = request.tokensOutput || 0;
-
-            if (tokensInput === 0 && tokensOutput === 0) {
-              return; // Skip requests with no tokens
-            }
-
-            // Get GPU params for this provider (use default H100 if not specified)
-            const gpuParams = providerGpuParams?.[request.provider || ''] ?? DEFAULT_GPU_PARAMS;
-
-            // Build model params from architecture using shared resolver
-            const modelParams = resolveModelParams(modelArchitecture);
-
-            // Calculate new energy
-            const kwhUsed = estimateKwhUsed(tokensInput, tokensOutput, modelParams, gpuParams);
-
-            // Update the record
-            await db
-              .update(this.schema.requestUsage)
-              .set({ kwhUsed })
-              .where(eq(this.schema.requestUsage.requestId, request.requestId));
-
-            totalUpdated++;
-          })
-        );
-
-        offset += BATCH_SIZE;
-
-        // If we got fewer than BATCH_SIZE rows, we've reached the end
-        if (batch.length < BATCH_SIZE) break;
-      }
-
-      if (totalUpdated === 0) {
-        logger.debug(`No requests found for alias ${aliasSlug}`);
-      } else {
-        logger.debug(`Recalculated energy for ${totalUpdated} requests for alias ${aliasSlug}`);
-      }
-      return totalUpdated;
-    } catch (error) {
-      logger.error(`Failed to recalculate energy for alias ${aliasSlug}`, error);
-      throw error;
     }
   }
 }

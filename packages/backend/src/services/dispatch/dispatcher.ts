@@ -26,6 +26,7 @@ import type { StallConfig } from '../inspectors/stall-inspector';
 import { sanitizeHeaders } from '../../utils/sanitize-headers';
 import type { RetryAttemptRecord } from './dispatcher-types';
 import { MediaDispatcher } from './media-dispatcher';
+import { editRequestToGenerationRequest } from '../../transformers/image';
 import { RequestManager, type RequestManagerHost } from './request-manager';
 import {
   appendFailureAttempt,
@@ -84,6 +85,7 @@ export class Dispatcher {
         buildRequestUrl: this.buildRequestUrl.bind(this),
         buildTimeoutError: this.buildTimeoutError.bind(this),
         createAttemptTimeout: this.createAttemptTimeout.bind(this),
+        dispatchImageGenerations: this.dispatchImageGenerations.bind(this),
         emitRoutingUpdate: this.emitRoutingUpdate.bind(this),
         executeProviderRequest: this.executeProviderRequest.bind(this),
         formatFailureReason: this.formatFailureReason.bind(this),
@@ -111,6 +113,8 @@ export class Dispatcher {
   private getMediaDispatcher(): MediaDispatcher {
     if (!this.mediaDispatcher) {
       this.mediaDispatcher = new MediaDispatcher({
+        buildCancelledError: this.buildCancelledError.bind(this),
+        buildTimeoutError: this.buildTimeoutError.bind(this),
         resolveBaseUrl: this.resolveBaseUrl.bind(this),
         executeProviderRequest: this.executeProviderRequest.bind(this),
         handleProviderError: this.handleProviderError.bind(this),
@@ -740,14 +744,29 @@ export class Dispatcher {
     if (!isCallerError) {
       let cooldownDuration: number | undefined;
 
-      // For 429 errors, try to parse provider-specific cooldown duration
-      if (response.status === 429) {
-        // Get provider type for parser lookup
-        cooldownDuration = parseCooldownDurationForProvider(
-          resolveCooldownProviderType(route),
-          errorText,
-          'HTTP'
-        );
+      // For 429/503 errors, check Retry-After header first, then try to parse provider-specific cooldown duration
+      if (response.status === 429 || response.status === 503) {
+        const retryAfterHeader = response.headers.get('retry-after');
+        if (retryAfterHeader) {
+          const seconds = parseFloat(retryAfterHeader);
+          if (Number.isFinite(seconds) && seconds > 0) {
+            cooldownDuration = Math.ceil(seconds * 1000);
+          } else {
+            const dateParsed = Date.parse(retryAfterHeader);
+            if (Number.isFinite(dateParsed) && dateParsed > Date.now()) {
+              cooldownDuration = dateParsed - Date.now();
+            }
+          }
+        }
+
+        if (!cooldownDuration) {
+          // Get provider type for parser lookup
+          cooldownDuration = parseCooldownDurationForProvider(
+            resolveCooldownProviderType(route),
+            errorText,
+            'HTTP'
+          );
+        }
       }
 
       // Mark provider+model as failed with optional duration
@@ -1041,12 +1060,27 @@ export class Dispatcher {
   }
 
   async dispatchImageGenerations(
-    request: UnifiedImageGenerationRequest
+    request: UnifiedImageGenerationRequest,
+    signal?: AbortSignal,
+    resolveTimeoutMs?: ResolveTimeoutMs
   ): Promise<UnifiedImageGenerationResponse> {
-    return this.getMediaDispatcher().dispatchImageGenerations(request);
+    return this.getMediaDispatcher().dispatchImageGenerations(request, signal, resolveTimeoutMs);
   }
 
-  async dispatchImageEdits(request: UnifiedImageEditRequest): Promise<UnifiedImageEditResponse> {
-    return this.getMediaDispatcher().dispatchImageEdits(request);
+  /**
+   * @deprecated Image edits share the generation dispatch loop. Build a
+   * `UnifiedImageGenerationRequest` (upload as `input_references[0]`, optional
+   * inpainting mask as `mask`) and call `dispatchImageGenerations` instead.
+   */
+  async dispatchImageEdits(
+    request: UnifiedImageEditRequest,
+    signal?: AbortSignal,
+    resolveTimeoutMs?: ResolveTimeoutMs
+  ): Promise<UnifiedImageEditResponse> {
+    return this.getMediaDispatcher().dispatchImageGenerations(
+      editRequestToGenerationRequest(request),
+      signal,
+      resolveTimeoutMs
+    );
   }
 }

@@ -1,5 +1,5 @@
 # Stage 1: Build the application
-FROM oven/bun:1 AS builder
+FROM oven/bun:1.4.0 AS builder
 
 WORKDIR /app
 
@@ -20,10 +20,14 @@ COPY packages/shared/package.json ./packages/shared/
 COPY scripts/ ./scripts/
 
 # Install dependencies
-RUN bun install --frozen-lockfile --ignore-scripts
+RUN bun install --frozen-lockfile --ignore-scripts --linker hoisted
 
 # Copy the rest of the source code
 COPY . .
+
+# Bun's compiled workspace resolution expects dependencies at the workspace path.
+RUN mkdir -p packages/shared/node_modules \
+    && ln -s /app/node_modules/zod packages/shared/node_modules/zod
 
 # Build the frontend and compile everything into a single self-contained binary.
 # Frontend assets (HTML, JS, CSS, images) and migration SQL files are all embedded
@@ -38,7 +42,7 @@ RUN case "${TARGETPLATFORM}" in \
 
 # Stage 2: Production image with local MCP runtime tooling.
 # Includes Bun/bunx and uv/uvx so Plexus can manage local HTTP MCP servers.
-FROM oven/bun:1
+FROM oven/bun:1.4.0
 
 WORKDIR /app
 
