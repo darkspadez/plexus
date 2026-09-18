@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
 import { Alias } from '../lib/api';
 import { getModelOptionKey } from '../lib/modelOptions';
 import { useModels } from '../hooks/useModels';
@@ -22,6 +23,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { SearchInput } from '../components/ui/SearchInput';
 import { TagSelect } from '../components/ui/TagSelect';
 import { CopyButton } from '../components/ui/CopyButton';
+import { DataTable } from '../components/ui/DataTable';
 import { Pill } from '../components/chips/Pill';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
@@ -49,6 +51,94 @@ import {
   XCircle,
   Boxes,
 } from 'lucide-react';
+
+/**
+ * Model-id cell — module-level (not a closure built fresh inside the
+ * `columns` useMemo) so its identity is stable across renders. Holds the
+ * alias id + `+N` aliases Pill + CopyButton; CopyButton carries its own
+ * `copied` local state, which a per-render component identity would reset
+ * mid-flash whenever the columns memo recomputes (e.g. on the 10s cooldowns
+ * poll). See DataTable.tsx's ExpanderCell docblock and Quotas.tsx's
+ * `RowRefreshButton` for the same concern.
+ */
+function ModelIdCell({ alias }: { alias: Alias }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="font-mono font-semibold text-foreground">{alias.id}</span>
+      {alias.aliases && alias.aliases.length > 0 && (
+        <Pill size="sm" tone="neutral">
+          +{alias.aliases.length}
+        </Pill>
+      )}
+      <CopyButton value={alias.id} size="sm" />
+    </div>
+  );
+}
+
+interface ModelRowActionsProps {
+  alias: Alias;
+  testState: { loading: boolean; error: boolean; success: boolean };
+  onTest: (alias: Alias) => void;
+  onEdit: (alias: Alias) => void;
+  onDelete: (alias: Alias) => void;
+}
+
+/**
+ * Row actions (test / edit / delete) — module-level for the same reason as
+ * `ModelIdCell` above. Each button also calls `e.stopPropagation()` itself
+ * (belt-and-suspenders on top of DataTable's own interactive-element click
+ * guard) so clicking an action never toggles the row's expanded editor.
+ */
+function ModelRowActions({ alias, testState, onTest, onEdit, onDelete }: ModelRowActionsProps) {
+  return (
+    <div className="inline-flex items-center justify-end gap-1">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onTest(alias);
+        }}
+        title="Test all targets"
+        aria-label={`Test ${alias.id}`}
+        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success"
+      >
+        {testState.loading ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : testState.error ? (
+          <XCircle size={14} className="text-danger" />
+        ) : testState.success ? (
+          <CheckCircle size={14} className="text-success" />
+        ) : (
+          <Play size={14} />
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit(alias);
+        }}
+        title="Edit"
+        aria-label={`Edit ${alias.id}`}
+        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
+      >
+        <Edit2 size={14} />
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(alias);
+        }}
+        title="Delete"
+        aria-label={`Delete ${alias.id}`}
+        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
 
 export const Models = () => {
   const {
@@ -209,16 +299,8 @@ export const Models = () => {
   // references it.
   const sortedAliases = visibleAliases;
 
-  // Per-row expand state (inline editor)
+  // Per-row expand state (inline editor) — controlled DataTable expansion.
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const toggleExpanded = useCallback((id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
 
   // ACTIVE column — one dot per target across all groups.
   const getDotStates = (alias: Alias): DotState[] =>
@@ -270,8 +352,76 @@ export const Models = () => {
     });
   };
 
-  const HEADER_CELL =
-    'h-9 px-4 text-left text-[10px] font-medium uppercase tracking-wider text-foreground-muted';
+  const columns = useMemo<ColumnDef<Alias>[]>(
+    () => [
+      {
+        id: 'model',
+        header: 'Model',
+        enableSorting: false,
+        meta: { priority: 'high', mobileTitle: true },
+        cell: ({ row }) => <ModelIdCell alias={row.original} />,
+      },
+      {
+        id: 'type',
+        header: 'Type',
+        enableSorting: false,
+        meta: { priority: 'high' },
+        cell: ({ row }) => <ModelTypeBadge type={row.original.type} />,
+      },
+      {
+        id: 'selector',
+        header: 'Selector',
+        enableSorting: false,
+        meta: { priority: 'medium' },
+        cell: ({ row }) => (
+          <span className="text-[11px] capitalize text-foreground-muted">
+            {selectorLabel(row.original)}
+          </span>
+        ),
+      },
+      {
+        id: 'metadata',
+        header: 'Metadata',
+        enableSorting: false,
+        meta: { priority: 'medium' },
+        cell: ({ row }) =>
+          row.original.metadata ? (
+            <Pill size="sm" tone="accent" className="capitalize">
+              {row.original.metadata.source}
+            </Pill>
+          ) : (
+            <span className="text-xs text-foreground-subtle">—</span>
+          ),
+      },
+      {
+        id: 'active',
+        header: 'Active',
+        enableSorting: false,
+        meta: { priority: 'high' },
+        cell: ({ row }) => <ActiveDots states={getDotStates(row.original)} />,
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        enableSorting: false,
+        meta: { priority: 'low', align: 'right', widthClass: 'w-px' },
+        cell: ({ row }) => (
+          <ModelRowActions
+            alias={row.original}
+            testState={rowTestState(row.original.id)}
+            onTest={handleTestAll}
+            onEdit={handleEdit}
+            onDelete={handleDeleteClick}
+          />
+        ),
+      },
+    ],
+    // Column cells read `cooldowns` (ACTIVE dots) and `testStates` (row test
+    // indicator) directly; the row-action handlers are stable enough in
+    // practice (mirrors Quotas.tsx's columns memo, which likewise omits its
+    // handler functions from the dependency list).
+    [cooldowns, testStates]
+  );
 
   const hasActiveFilters = search.trim().length > 0 || selectedProviderFilters.length > 0;
   const emptyStateMessage =
@@ -406,175 +556,67 @@ export const Models = () => {
               ))}
             </div>
 
-            {/* Desktop — flat table with per-row inline expand editor */}
-            <div className="hidden overflow-hidden rounded-lg border border-border bg-surface md:block mb-6">
-              <table className="w-full border-collapse font-sans text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface-elevated/50">
-                    <th className={HEADER_CELL}>Model</th>
-                    <th className={HEADER_CELL}>Type</th>
-                    <th className={HEADER_CELL}>Selector</th>
-                    <th className={HEADER_CELL}>Metadata</th>
-                    <th className={HEADER_CELL}>Active</th>
-                    <th className={`${HEADER_CELL} text-right`}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedAliases.map((alias) => {
-                    const isExpanded = expandedIds.has(alias.id);
-                    const rt = rowTestState(alias.id);
-                    return (
-                      <React.Fragment key={alias.id}>
-                        <tr
-                          onClick={() => toggleExpanded(alias.id)}
-                          className="group cursor-pointer border-b border-border transition-colors duration-150 hover:bg-surface-elevated/50"
-                        >
-                          {/* MODEL */}
-                          <td className="px-4 py-3.5">
-                            <div className="flex items-center gap-2">
-                              <span className="flex size-5 items-center justify-center text-foreground-muted">
-                                {isExpanded ? (
-                                  <ChevronDown size={14} />
-                                ) : (
-                                  <ChevronRight size={14} />
-                                )}
-                              </span>
-                              <span className="font-mono font-semibold text-foreground">
-                                {alias.id}
-                              </span>
-                              {alias.aliases && alias.aliases.length > 0 && (
-                                <Pill size="sm" tone="neutral">
-                                  +{alias.aliases.length}
-                                </Pill>
-                              )}
-                              <span onClick={(e) => e.stopPropagation()}>
-                                <CopyButton value={alias.id} size="sm" />
-                              </span>
-                            </div>
-                          </td>
-                          {/* TYPE */}
-                          <td className="px-4 py-3.5">
-                            <ModelTypeBadge type={alias.type} />
-                          </td>
-                          {/* SELECTOR */}
-                          <td className="px-4 py-3.5">
-                            <span className="text-[11px] capitalize text-foreground-muted">
-                              {selectorLabel(alias)}
-                            </span>
-                          </td>
-                          {/* METADATA */}
-                          <td className="px-4 py-3.5">
-                            {alias.metadata ? (
-                              <Pill size="sm" tone="accent" className="capitalize">
-                                {alias.metadata.source}
-                              </Pill>
-                            ) : (
-                              <span className="text-xs text-foreground-subtle">—</span>
-                            )}
-                          </td>
-                          {/* ACTIVE */}
-                          <td className="px-4 py-3.5">
-                            <ActiveDots states={getDotStates(alias)} />
-                          </td>
-                          {/* ACTIONS */}
-                          <td
-                            className="px-4 py-3.5 text-right"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="inline-flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleTestAll(alias)}
-                                title="Test all targets"
-                                aria-label={`Test ${alias.id}`}
-                                className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success"
-                              >
-                                {rt.loading ? (
-                                  <Loader2 size={14} className="animate-spin" />
-                                ) : rt.error ? (
-                                  <XCircle size={14} className="text-danger" />
-                                ) : rt.success ? (
-                                  <CheckCircle size={14} className="text-success" />
-                                ) : (
-                                  <Play size={14} />
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleEdit(alias)}
-                                title="Edit"
-                                aria-label={`Edit ${alias.id}`}
-                                className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
-                              >
-                                <Edit2 size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteClick(alias)}
-                                title="Delete"
-                                aria-label={`Delete ${alias.id}`}
-                                className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        {isExpanded && (
-                          <tr className="border-b border-border">
-                            <td colSpan={6} className="px-6 pb-5 pt-1">
-                              <div className="flex flex-col gap-5">
-                                <RoutingAliasesEditor
-                                  aliases={alias.aliases ?? []}
-                                  onChange={(next) =>
-                                    handleUpdateAlias({ ...alias, aliases: next })
-                                  }
-                                />
-                                <div className="flex flex-col gap-2">
-                                  <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground-subtle">
-                                    Provider mappings
-                                    <span className="ml-2 font-normal normal-case text-foreground-subtle">
-                                      upstream model ID per provider
-                                    </span>
-                                  </div>
-                                  <ProviderMappingsEditor
-                                    aliasId={alias.id}
-                                    targets={alias.target_groups[0]?.targets ?? []}
-                                    providers={providers}
-                                    availableModels={availableModels}
-                                    testStates={testStates}
-                                    onChange={(targets) => {
-                                      const groups =
-                                        alias.target_groups.length > 0
-                                          ? alias.target_groups.map((g, i) =>
-                                              i === 0 ? { ...g, targets } : g
-                                            )
-                                          : [{ name: 'default', selector: 'random', targets }];
-                                      handleUpdateAlias({ ...alias, target_groups: groups });
-                                    }}
-                                    onTest={(index, provider, model) => {
-                                      let apiTypes: string[] = ['chat'];
-                                      if (alias.type === 'embeddings') apiTypes = ['embeddings'];
-                                      else if (alias.type === 'image') apiTypes = ['images'];
-                                      handleTestTarget(
-                                        alias.id,
-                                        `${alias.id}-0-${index}`,
-                                        provider,
-                                        model,
-                                        apiTypes
-                                      );
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+            {/* Desktop — DataTable with per-row inline expand editor. Mobile
+                keeps its own AliasMobileCard list above: its per-target
+                enable Switch, per-target test button, test-message dismissal,
+                and alias-fallback link indicator have no equivalent in
+                DataTable's generic mobile card, so AliasMobileCard is
+                deliberately NOT retired (see AGENTS.md task notes). This div
+                stays mounted at mobile widths too (DataTable's own internal
+                mobile-card branch just renders hidden via the `hidden`
+                class), which is harmless since nothing inside it needs to be
+                interactive while hidden. */}
+            <div className="hidden md:block mb-6">
+              <DataTable<Alias>
+                columns={columns}
+                data={sortedAliases}
+                getRowId={(alias) => alias.id}
+                getRowKey={(alias) => alias.id}
+                expandedIds={expandedIds}
+                onExpandedChange={setExpandedIds}
+                renderExpanded={(alias) => (
+                  <div className="flex flex-col gap-5 px-6 pb-5 pt-1">
+                    <RoutingAliasesEditor
+                      aliases={alias.aliases ?? []}
+                      onChange={(next) => handleUpdateAlias({ ...alias, aliases: next })}
+                    />
+                    <div className="flex flex-col gap-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground-subtle">
+                        Provider mappings
+                        <span className="ml-2 font-normal normal-case text-foreground-subtle">
+                          upstream model ID per provider
+                        </span>
+                      </div>
+                      <ProviderMappingsEditor
+                        aliasId={alias.id}
+                        targets={alias.target_groups[0]?.targets ?? []}
+                        providers={providers}
+                        availableModels={availableModels}
+                        testStates={testStates}
+                        onChange={(targets) => {
+                          const groups =
+                            alias.target_groups.length > 0
+                              ? alias.target_groups.map((g, i) => (i === 0 ? { ...g, targets } : g))
+                              : [{ name: 'default', selector: 'random', targets }];
+                          handleUpdateAlias({ ...alias, target_groups: groups });
+                        }}
+                        onTest={(index, provider, model) => {
+                          let apiTypes: string[] = ['chat'];
+                          if (alias.type === 'embeddings') apiTypes = ['embeddings'];
+                          else if (alias.type === 'image') apiTypes = ['images'];
+                          handleTestTarget(
+                            alias.id,
+                            `${alias.id}-0-${index}`,
+                            provider,
+                            model,
+                            apiTypes
+                          );
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              />
             </div>
           </>
         )}

@@ -89,7 +89,18 @@ export const NAV_GROUPS: NavGroupDef[] = [
   },
 ];
 
+/**
+ * Routes that are reachable but deliberately absent from the sidebar — sub-pages
+ * entered from within another section. Kept in their own map so the derivation
+ * below remains the single source of truth for sidebar entries.
+ */
+const SUBROUTE_NAMES: Record<string, string> = {
+  // Reached from the Providers page header, not the sidebar.
+  '/providers/custom-checkers': 'Custom Quota Checkers',
+};
+
 /** Route → display name; derived from NAV_GROUPS so breadcrumbs can never drift from the sidebar. */
-export const SECTION_NAMES: Record<string, string> = Object.fromEntries(
-  NAV_GROUPS.flatMap((g) => g.items).map((i) => [i.to, i.label])
-);
+export const SECTION_NAMES: Record<string, string> = {
+  ...Object.fromEntries(NAV_GROUPS.flatMap((g) => g.items).map((i) => [i.to, i.label])),
+  ...SUBROUTE_NAMES,
+};

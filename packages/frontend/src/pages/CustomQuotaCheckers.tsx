@@ -19,6 +19,7 @@ import { Select } from '../components/ui/Select';
 import { Switch } from '../components/ui/Switch';
 import { PageContainer } from '../components/layout/PageContainer';
 import { PageHeader } from '../components/layout/PageHeader';
+import { SECTION_NAMES } from '../lib/nav';
 import { cn } from '../lib/cn';
 import { useToast } from '../contexts/ToastContext';
 
@@ -159,7 +160,7 @@ export function CustomQuotaCheckers() {
   return (
     <div className="flex min-h-full flex-col">
       <PageHeader
-        title="Custom Quota Checkers"
+        title={SECTION_NAMES['/providers/custom-checkers']}
         subtitle="Write and test trusted JavaScript quota integrations — starts with OpenRouter credits"
         actions={
           <div className="flex items-center gap-2">
