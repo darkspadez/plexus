@@ -28,6 +28,27 @@ function mockDashboardHtml(
   return html + '</body></html>';
 }
 
+function mockCardHtml(
+  cards: Array<{ name: string; percent: number; resetTitle?: string; resetRelative?: string }>
+): string {
+  let html = '<!DOCTYPE html><html><head></head><body>';
+  for (const c of cards) {
+    const reset =
+      c.resetTitle != null && c.resetRelative != null
+        ? `<span class="shrink-0 text-[0.75rem] text-muted" title="${c.resetTitle}">Resets in ${c.resetRelative}</span>`
+        : '';
+    html +=
+      `<div class="flex flex-col rounded-md border px-4 py-3">` +
+      `<div class="mb-3 flex flex-wrap items-center justify-between gap-2">` +
+      `<p class="flex min-w-0 items-center gap-1"><span class="truncate">${c.name} usage</span>` +
+      `<span class="rounded-sm px-1 tabular-nums">${c.percent}%</span></p>${reset}</div>` +
+      `<div class="mt-auto"><div class="flex h-2 w-full gap-1" role="progressbar" ` +
+      `aria-valuemin="0" aria-valuemax="100" aria-label="${c.name} usage used" ` +
+      `aria-valuenow="${c.percent}" aria-valuetext="${c.percent}% used"></div></div></div>`;
+  }
+  return html + '</body></html>';
+}
+
 describe('opencode-go checker', () => {
   const setFetchMock = (impl: (...args: unknown[]) => Promise<Response>): void => {
     global.fetch = vi.fn(impl) as unknown as typeof fetch;
@@ -136,6 +157,109 @@ describe('opencode-go checker', () => {
     await checkerDef.check(makeCtx());
     expect(capturedCookie).toBe('auth=test-cookie');
     expect(capturedUA).toContain('Firefox');
+  });
+
+  it('parses server-rendered usage cards with resets from title timestamps', async () => {
+    setFetchMock(
+      async () =>
+        new Response(
+          mockCardHtml([
+            { name: 'Rolling', percent: 0 },
+            {
+              name: 'Weekly',
+              percent: 0,
+              resetTitle: '9/20/2026, 8:00:00 PM',
+              resetRelative: '7h 58m',
+            },
+            {
+              name: 'Monthly',
+              percent: 70,
+              resetTitle: '9/24/2026, 9:24:56 PM',
+              resetRelative: '4d 9h',
+            },
+          ]),
+          { status: 200 }
+        )
+    );
+
+    const meters = await checkerDef.check(makeCtx());
+    expect(meters).toHaveLength(3);
+
+    const rolling = meters.find((m) => m.key === 'rolling_5h')!;
+    expect(rolling.used).toBe(0);
+    expect(rolling.remaining).toBe(100);
+    expect(rolling.resetsAt).toBeUndefined();
+
+    const weekly = meters.find((m) => m.key === 'weekly')!;
+    expect(weekly.used).toBe(0);
+    expect(weekly.resetsAt).toBe(new Date('9/20/2026, 8:00:00 PM').toISOString());
+
+    const monthly = meters.find((m) => m.key === 'monthly')!;
+    expect(monthly.used).toBe(70);
+    expect(monthly.remaining).toBe(30);
+    expect(monthly.resetsAt).toBe(new Date('9/24/2026, 9:24:56 PM').toISOString());
+  });
+
+  it('falls back to the relative reset duration when the title is unparseable', async () => {
+    const before = Date.now();
+    setFetchMock(
+      async () =>
+        new Response(
+          mockCardHtml([
+            { name: 'Weekly', percent: 12.5, resetTitle: 'not-a-date', resetRelative: '7h 58m' },
+          ]),
+          { status: 200 }
+        )
+    );
+
+    const meters = await checkerDef.check(makeCtx());
+    expect(meters).toHaveLength(1);
+    const resetsAt = Date.parse(meters[0]!.resetsAt!);
+    expect(resetsAt).toBeGreaterThanOrEqual(before + (7 * 60 + 58) * 60 * 1000 - 60_000);
+    expect(resetsAt).toBeLessThanOrEqual(Date.now() + (7 * 60 + 58) * 60 * 1000 + 60_000);
+  });
+
+  it('does not leak a preceding card reset into a card without reset metadata', async () => {
+    setFetchMock(
+      async () =>
+        new Response(
+          mockCardHtml([
+            {
+              name: 'Weekly',
+              percent: 10,
+              resetTitle: '9/20/2026, 8:00:00 PM',
+              resetRelative: '7h 58m',
+            },
+            { name: 'Monthly', percent: 70 },
+          ]),
+          { status: 200 }
+        )
+    );
+
+    const meters = await checkerDef.check(makeCtx());
+    expect(meters).toHaveLength(2);
+
+    const weekly = meters.find((m) => m.key === 'weekly')!;
+    expect(weekly.resetsAt).toBe(new Date('9/20/2026, 8:00:00 PM').toISOString());
+
+    const monthly = meters.find((m) => m.key === 'monthly')!;
+    expect(monthly.used).toBe(70);
+    expect(monthly.resetsAt).toBeUndefined();
+  });
+
+  it('prefers usage cards over flight data when both are present', async () => {
+    setFetchMock(
+      async () =>
+        new Response(
+          mockDashboardHtml([{ field: 'rollingUsage', usagePercent: 99, resetInSec: 5 }]) +
+            mockCardHtml([{ name: 'Rolling', percent: 3 }]),
+          { status: 200 }
+        )
+    );
+
+    const meters = await checkerDef.check(makeCtx());
+    expect(meters).toHaveLength(1);
+    expect(meters[0]!.used).toBe(3);
   });
 
   it('throws when no windows can be parsed from HTML', async () => {

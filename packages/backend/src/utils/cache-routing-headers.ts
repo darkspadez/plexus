@@ -13,6 +13,7 @@ export function getCacheRoutingHeaders(
 ): CacheRoutingHeaders | undefined {
   const cacheRoutingHeaders: CacheRoutingHeaders = {
     session_id:
+      getHeaderValue(headers, 'x-opencode-session') ||
       getHeaderValue(headers, 'session_id') ||
       getHeaderValue(headers, 'session-id') ||
       promptCacheKey,
@@ -21,6 +22,7 @@ export function getCacheRoutingHeaders(
     'x-session-id': getHeaderValue(headers, 'x-session-id'),
     'x-prompt-cache-isolation-key': getHeaderValue(headers, 'x-prompt-cache-isolation-key'),
     'x-multi-turn-session-id': getHeaderValue(headers, 'x-multi-turn-session-id'),
+    'x-opencode-session': getHeaderValue(headers, 'x-opencode-session'),
   };
 
   return Object.values(cacheRoutingHeaders).some(Boolean) ? cacheRoutingHeaders : undefined;
