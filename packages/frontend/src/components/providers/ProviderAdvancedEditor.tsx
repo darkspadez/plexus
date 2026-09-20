@@ -34,6 +34,25 @@ interface Props {
   removeKV: (field: 'headers' | 'extraBody', key: string) => void;
 }
 
+/**
+ * Selecting a pi-ai provider carries provider-level routing headers (e.g.
+ * x-opencode-session), which the backend only sends when `auto_compat` is on —
+ * so setting a provider forces it on. Clearing the provider leaves the flag
+ * untouched so the toggle is free again.
+ */
+export function applyPiAiProviderChange(provider: Provider, raw: string): Provider {
+  return {
+    ...provider,
+    pi_ai_provider: raw || undefined,
+    ...(raw ? { auto_compat: true } : {}),
+  };
+}
+
+/** Auto Compat renders checked + locked whenever a pi-ai provider is set. */
+export function isAutoCompatLocked(provider: Provider): boolean {
+  return Boolean(provider.pi_ai_provider);
+}
+
 export function ProviderAdvancedEditor({
   editingProvider,
   setEditingProvider,
@@ -1226,7 +1245,8 @@ export function ProviderAdvancedEditor({
                 </label>
                 <label className="flex items-start gap-2 py-1 cursor-pointer">
                   <Switch
-                    checked={editingProvider.auto_compat || false}
+                    checked={editingProvider.auto_compat || isAutoCompatLocked(editingProvider)}
+                    disabled={isAutoCompatLocked(editingProvider)}
                     onChange={(checked) =>
                       setEditingProvider({ ...editingProvider, auto_compat: checked })
                     }
@@ -1238,6 +1258,9 @@ export function ProviderAdvancedEditor({
                       style={{ lineHeight: 1.35 }}
                     >
                       Use pi-ai registry reasoning and generation compatibility.
+                      {editingProvider.pi_ai_provider
+                        ? ' Required while a pi-ai provider is set — carries session headers such as x-opencode-session.'
+                        : ''}
                     </div>
                   </div>
                 </label>
@@ -1363,10 +1386,7 @@ export function ProviderAdvancedEditor({
                           setPiProviderCustom(true);
                           return;
                         }
-                        setEditingProvider({
-                          ...editingProvider,
-                          pi_ai_provider: raw || undefined,
-                        });
+                        setEditingProvider(applyPiAiProviderChange(editingProvider, raw));
                       }}
                     >
                       <option value="">— none —</option>
@@ -1385,11 +1405,9 @@ export function ProviderAdvancedEditor({
                         placeholder="e.g. anthropic, openai"
                         value={editingProvider.pi_ai_provider ?? ''}
                         onChange={(e) => {
-                          const raw = e.target.value;
-                          setEditingProvider({
-                            ...editingProvider,
-                            pi_ai_provider: raw || undefined,
-                          });
+                          setEditingProvider(
+                            applyPiAiProviderChange(editingProvider, e.target.value)
+                          );
                         }}
                         autoFocus
                       />

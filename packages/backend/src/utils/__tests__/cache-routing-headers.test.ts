@@ -18,6 +18,24 @@ describe('getCacheRoutingHeaders', () => {
       'x-session-id': 'conversation-1',
       'x-prompt-cache-isolation-key': 'tenant-1',
       'x-multi-turn-session-id': 'rollout-1',
+      'x-opencode-session': undefined,
+    });
+  });
+
+  test('prefers the native x-opencode-session as the routing session id', () => {
+    expect(
+      getCacheRoutingHeaders({
+        'x-opencode-session': 'zen-session-1',
+        'session-id': 'fallback-1',
+      })
+    ).toEqual({
+      session_id: 'zen-session-1',
+      'x-client-request-id': undefined,
+      'x-session-affinity': undefined,
+      'x-session-id': undefined,
+      'x-prompt-cache-isolation-key': undefined,
+      'x-multi-turn-session-id': undefined,
+      'x-opencode-session': 'zen-session-1',
     });
   });
 
@@ -29,6 +47,7 @@ describe('getCacheRoutingHeaders', () => {
       'x-session-id': undefined,
       'x-prompt-cache-isolation-key': undefined,
       'x-multi-turn-session-id': undefined,
+      'x-opencode-session': undefined,
     });
   });
 
