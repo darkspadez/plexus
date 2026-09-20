@@ -20,7 +20,7 @@ const commands: readonly Command[] = [
   },
   { label: 'Rebase worktree onto origin/main', cmd: ['git', 'rebase', 'origin/main'] },
   { label: 'Trust mise configuration', cmd: ['mise', 'trust'] },
-  { label: 'Install Bun dependencies', cmd: ['bun', 'install'] },
+  { label: 'Install Bun dependencies', cmd: ['bun', 'install', '--frozen-lockfile'] },
   { label: 'Build frontend', cmd: ['bun', 'run', 'build:frontend'] },
   {
     label: 'Update Agent Skills',
