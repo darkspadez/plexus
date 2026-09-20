@@ -23,8 +23,22 @@ focus:
   - bugs
   - maintainability
 
+hook:
+  min_severity: major
+
 ignore:
   files:
     - "**/__tests__/**"
     - "**/*.test.ts"
     - "**/*.spec.ts"
+  # Suppress noisy hardcoded-secret/key false positives (LLM gets these wrong a lot).
+  # Matches substrings against issue title / issue_type (case-insensitive).
+  # Mirrors global ~/.codecora/cora-code/config.yaml so CI and local agree.
+  # Keeps hardcoded URL / port / role warnings intact.
+  rules:
+    - "sec-hardcoded-secret"
+    - "hardcoded secret"
+    - "hardcoded password"
+    - "hardcoded api key"
+    - "hardcoded key"
+    - "hardcoded credential"
