@@ -960,7 +960,7 @@ packages/backend/src/services/quota/checkers/naga-checker.ts:4 [interface] NagaB
 packages/backend/src/services/quota/checkers/nanogpt-checker.ts:11 [interface] NanoGPTQuotaResponse
 packages/backend/src/services/quota/checkers/nanogpt-checker.ts:26 [function] normalizeApiKey
 packages/backend/src/services/quota/checkers/nanogpt-checker.ts:5 [interface] NanoGPTUsageWindow
-packages/backend/src/services/quota/checkers/neuralwatt-checker.ts:5 [interface] NeuralwattQuotaResponse
+packages/backend/src/services/quota/checkers/neuralwatt-checker.ts:6 [interface] NeuralwattQuotaResponse
 packages/backend/src/services/quota/checkers/novita-checker.ts:5 [interface] NovitaBalanceResponse
 packages/backend/src/services/quota/checkers/ollama-checker.ts:5 [function] extractUsage
 packages/backend/src/services/quota/checkers/openai-codex-checker.ts:10 [interface] CodexUsageWindow
