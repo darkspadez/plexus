@@ -24,6 +24,14 @@ import {
   isStreamEmpty,
   observeStreamChunk,
 } from '../dispatch/empty-completion';
+import {
+  buildSyntheticSafeguardResults,
+  collectUnifiedToolIds,
+  getRequestedSafeguardTypes,
+  resolveSyntheticSafeguardToggle,
+  shouldSynthesizeSafeguards,
+  wrapUnifiedStreamWithSyntheticSafeguards,
+} from '../../transformers/anthropic/synthetic-safeguards';
 
 function getHeaderValue(request: FastifyRequest, headerName: string): string | undefined {
   const value = request.headers?.[headerName];
@@ -417,10 +425,34 @@ export async function handleResponse(
           )
         : unifiedStream;
 
+      // Synthetic safeguard approval: for Messages clients on opted-in aliases
+      // routed to non-Messages targets, track unified tool calls and attach the
+      // synthetic verdict to the terminal chunk before Anthropic formatting.
+      let safeguardStream = observedUnifiedStream;
+      if (apiType === 'messages' && !unifiedResponse.bypassTransformation) {
+        const requestedSafeguardTypes = getRequestedSafeguardTypes(originalRequest);
+        if (
+          shouldSynthesizeSafeguards({
+            incomingApiType: apiType,
+            originalBody: originalRequest,
+            aliasToggle: resolveSyntheticSafeguardToggle(unifiedResponse.plexus?.canonicalModel),
+            outgoingApiType: unifiedResponse.plexus?.apiType,
+            bypassTransformation: unifiedResponse.bypassTransformation,
+            hasClientError: !!unifiedResponse.clientError,
+            hasExistingResults: false,
+          })
+        ) {
+          safeguardStream = wrapUnifiedStreamWithSyntheticSafeguards(
+            observedUnifiedStream,
+            requestedSafeguardTypes
+          );
+        }
+      }
+
       // Step 2: Unified internal objects -> Client SSE format
       finalClientStream = clientTransformer.formatStream
-        ? clientTransformer.formatStream(observedUnifiedStream)
-        : observedUnifiedStream;
+        ? clientTransformer.formatStream(safeguardStream)
+        : safeguardStream;
     }
 
     // TAP THE TRANSFORMED STREAM for debugging
@@ -739,17 +771,59 @@ export async function handleResponse(
         }
       : undefined;
 
+    // Snapshot routing metadata before stripping internal plexus state: the
+    // synthetic-safeguard gate below needs the canonical alias and outgoing
+    // API type, both of which live on `plexus`.
+    const plexusSnapshot = unifiedResponse.plexus
+      ? {
+          canonicalModel: unifiedResponse.plexus.canonicalModel,
+          apiType: unifiedResponse.plexus.apiType,
+        }
+      : undefined;
+    const bypassSnapshot = unifiedResponse.bypassTransformation;
+    const clientErrorSnapshot = unifiedResponse.clientError;
+    const toolCallsSnapshot = unifiedResponse.tool_calls;
+
     // Remove internal plexus metadata before sending to client
     if (unifiedResponse.plexus) {
       delete (unifiedResponse as any).plexus;
     }
 
     let responseBody;
-    if (unifiedResponse.bypassTransformation && unifiedResponse.rawResponse) {
+    if (bypassSnapshot && unifiedResponse.rawResponse) {
       responseBody = unifiedResponse.rawResponse;
     } else {
       // Re-format the unified JSON body to match the client's expected API format
       responseBody = await clientTransformer.formatResponse(unifiedResponse);
+    }
+    // Synthetic safeguard approval: Messages clients on opted-in aliases
+    // routed to translated targets get `evaluated`/`not_flagged` + explanation.
+    // Native/bypass responses keep their upstream verdict verbatim.
+    if (
+      apiType === 'messages' &&
+      responseBody &&
+      typeof responseBody === 'object' &&
+      !Array.isArray(responseBody) &&
+      (responseBody as { safeguard_results?: unknown }).safeguard_results === undefined
+    ) {
+      const requestedSafeguardTypes = getRequestedSafeguardTypes(originalRequest);
+      if (
+        shouldSynthesizeSafeguards({
+          incomingApiType: apiType,
+          originalBody: originalRequest,
+          aliasToggle: resolveSyntheticSafeguardToggle(plexusSnapshot?.canonicalModel),
+          outgoingApiType: plexusSnapshot?.apiType,
+          bypassTransformation: bypassSnapshot,
+          hasClientError: !!clientErrorSnapshot,
+          hasExistingResults: false,
+        })
+      ) {
+        (responseBody as { safeguard_results?: unknown }).safeguard_results =
+          buildSyntheticSafeguardResults(
+            collectUnifiedToolIds(toolCallsSnapshot),
+            requestedSafeguardTypes
+          );
+      }
     }
     if (playgroundRouting && responseBody && typeof responseBody === 'object') {
       responseBody.plexus = playgroundRouting;

@@ -30,6 +30,8 @@ export function formatAnthropicStream(stream: ReadableStream): ReadableStream {
   // Track usage and finish reason across chunks
   let lastUsage: any = null;
   let pendingFinishReason: string | null = null;
+  // Synthetic safeguard verdict carried on the terminal unified chunk.
+  let pendingSafeguardResults: unknown = undefined;
 
   const transformer = new TransformStream({
     transform(chunk: any, controller) {
@@ -58,6 +60,13 @@ export function formatAnthropicStream(stream: ReadableStream): ReadableStream {
       // Accumulate Usage
       if (chunk.usage) {
         lastUsage = chunk.usage;
+      }
+
+      // Carry a safeguard verdict attached upstream (real or synthetic).
+      // First-seen wins: an early real verdict must not be overwritten by a
+      // later synthetic terminal injection.
+      if (chunk.safeguard_results !== undefined && pendingSafeguardResults === undefined) {
+        pendingSafeguardResults = chunk.safeguard_results;
       }
 
       // 1. Message Start
@@ -243,6 +252,9 @@ export function formatAnthropicStream(stream: ReadableStream): ReadableStream {
           delta: {
             stop_reason: pendingFinishReason || 'end_turn',
             stop_sequence: null,
+            ...(pendingSafeguardResults !== undefined
+              ? { safeguard_results: pendingSafeguardResults }
+              : {}),
           },
           usage: {
             input_tokens: lastUsage?.input_tokens ?? 0,

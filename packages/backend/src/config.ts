@@ -642,6 +642,11 @@ export const ModelConfigSchema = z
     // Extra body fields merged into every request dispatched through this alias.
     // Merged after provider-level and model-level extraBody, so alias values win.
     extraBody: z.record(z.string(), z.any()).optional(),
+    // When true, translated (non-native Messages) responses for this alias
+    // carry synthetic `safeguard_results` (`evaluated`/`not_flagged` with an
+    // explanatory note) when the inbound Messages request asked via
+    // `safeguards`. Opt-in, default off: no real classifier runs.
+    synthetic_safeguard_approval: z.boolean().default(false).optional(),
     compaction: CompactionOverrideSchema.optional(),
   })
   .superRefine((data, context) => {

@@ -589,6 +589,13 @@
       "when": 1790018433453,
       "tag": "0083_add_usage_upstream_model",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1790031351303,
+      "tag": "0084_add_synthetic_safeguard_approval",
+      "breakpoints": true
     }
   ]
 }

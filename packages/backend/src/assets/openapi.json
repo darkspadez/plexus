@@ -12765,6 +12765,11 @@
             "default": false,
             "description": "When enabled, multi-turn conversations prefer the same provider/model from the previous turn (when still healthy) for better prompt-cache hit rates.\n"
           },
+          "synthetic_safeguard_approval": {
+            "type": "boolean",
+            "default": false,
+            "description": "When enabled, translated (non-native Messages) responses for this alias carry synthetic safeguard_results (evaluated/not_flagged with an explanatory note) when the inbound Messages request asked via safeguards. Opt-in: no real classifier runs.\n"
+          },
           "metadata": {
             "description": "Model metadata strategy. When omitted or set to `auto`, Plexus derives a canonical identity from the alias targets, looks for an exact catalog entry, and falls back to conservative name and modality heuristics. Catalog sources pin a specific entry, `custom` supplies all fields, and `disabled` suppresses enrichment. Overrides win over resolved values.\n",
             "oneOf": [

@@ -406,6 +406,13 @@ export interface UnifiedChatStreamChunk {
    * other formatters have no equivalent and simply ignore the field.
    */
   client_tool_calls?: UnifiedClientToolCall[];
+  /**
+   * Synthetic Claude Code `safeguard_results` attached to the terminal
+   * unified chunk when the alias opted into `synthetic_safeguard_approval`.
+   * Only the Anthropic stream formatter consumes this; all other formatters
+   * ignore it so cross-format streams stay byte-identical.
+   */
+  safeguard_results?: unknown;
 }
 
 // Unified Embeddings Request
