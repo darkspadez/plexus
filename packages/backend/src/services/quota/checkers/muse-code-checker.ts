@@ -11,13 +11,16 @@
  * pi-ai's `meta` OAuth credential (which stores the identity token there and
  * the minted key in `access`) — and strips `api_key` from anything logged.
  *
- * Failure contract (agreed: keep last good): every failure throws and the
- * scheduler records a sentinel, leaving the last successful snapshot in
- * place. 401/403 means the device token is dead or the subscription lapsed,
- * so the error says to sign in again instead of retrying — a reactive
- * force-refresh would only burn another call on the aggressively
- * rate-limited key endpoint. `is_subs_active === false` likewise throws
- * rather than publishing zeroed meters.
+ * Failure contract: every failure throws — the scheduler records an error
+ * sentinel (no fabricated meters, no routing cooldown) and the UI shows
+ * the failure in "Needs attention" instead of hiding the panel. 401/403
+ * means the device token is dead or the subscription lapsed, so the error
+ * says to sign in again instead of retrying. Throttling (HTTP 429, or a
+ * 200 that carries no usable windows but signals rate limiting) throws a
+ * dedicated throttled error; a reactive force-refresh would only burn
+ * another call on the aggressively rate-limited key endpoint.
+ * `is_subs_active === false` likewise throws rather than publishing
+ * zeroed meters.
  */
 
 import { defineChecker } from '../checker-registry';
@@ -129,6 +132,101 @@ function buildWindowMeter(
   });
 }
 
+/** Matches rate-limit/throttle signals in endpoint responses. */
+const RATE_LIMIT_SIGNAL =
+  /rate[\s_-]*limit|too many|exhaust|throttl|quota[\s_-]*exceed|usage[\s_-]*exceed/i;
+
+/** Redacts the minted `api_key` so error text is safe to log and display. */
+function redactApiKey(bodyText: string): string {
+  return bodyText.replace(/("api_key"\s*:\s*")[^"]*(")/g, '$1[redacted]$2');
+}
+
+/** Comma-separated top-level keys for diagnostics (names only, no values). */
+function topKeys(value: unknown): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return `(${typeof value})`;
+  const keys = Object.keys(value as Record<string, unknown>);
+  return keys.length > 0 ? keys.join(',') : '(no keys)';
+}
+
+function looksRateLimited(bodyText: string): boolean {
+  return RATE_LIMIT_SIGNAL.test(redactApiKey(bodyText));
+}
+
+function asFiniteNumber(value: unknown): number | undefined {
+  const num = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+  return typeof num === 'number' && Number.isFinite(num) ? num : undefined;
+}
+
+function firstPresent<T>(record: Record<string, unknown>, keys: string[]): T | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (value !== undefined && value !== null) return value as T;
+  }
+  return undefined;
+}
+
+/**
+ * Normalizes the usage container across endpoint shapes. The documented
+ * shape is `subs_usage`; fall back to `usage` before giving up.
+ */
+function normalizeUsage(data: Record<string, unknown>): Record<string, unknown> | null {
+  const candidate = firstPresent<unknown>(data, ['subs_usage', 'usage']);
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return null;
+  return candidate as Record<string, unknown>;
+}
+
+/**
+ * Normalizes one usage window across observed field-name variants
+ * (`used_percent`/`utilization`/`percent`, `resets_at`/`resetsAt`). A bare
+ * `used` count is deliberately not accepted: it is not a percentage and
+ * would publish a wrong utilization.
+ */
+function pickWindow(raw: unknown): MuseUsageWindow | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+  const used = asFiniteNumber(
+    firstPresent<unknown>(record, ['used_percent', 'utilization', 'percent'])
+  );
+  const resets = firstPresent<string | number>(record, [
+    'resets_at',
+    'resetsAt',
+    'reset_at',
+    'reset',
+  ]);
+  const durationMins = asFiniteNumber(
+    firstPresent<unknown>(record, ['window_duration_mins', 'window_duration_minutes'])
+  );
+  if (used === undefined && resets === undefined && durationMins === undefined) return null;
+  return {
+    ...(used !== undefined ? { used_percent: used } : {}),
+    ...(typeof resets === 'string' || typeof resets === 'number' ? { resets_at: resets } : {}),
+    ...(durationMins !== undefined ? { window_duration_mins: durationMins } : {}),
+  };
+}
+
+/** Dedicated error for throttled checks; the scheduler retries on interval. */
+function throttledError(detail: string): Error {
+  return new Error(`Muse Code quota check throttled (${detail}); will retry on the next check`);
+}
+
+/**
+ * Human-readable `Retry-After` detail for throttle errors (seconds or HTTP
+ * date). Never throws, so a malformed header can't turn a throttle into a
+ * crash.
+ */
+function retryAfterDetail(value: string | null): string | undefined {
+  if (!value?.trim()) return undefined;
+  const trimmed = value.trim();
+  const secs = Number(trimmed);
+  if (Number.isFinite(secs) && secs >= 0) {
+    const at = Date.now() + secs * 1000;
+    if (Number.isFinite(at)) return `retry after ${Math.round(secs)}s`;
+  }
+  const ms = Date.parse(trimmed);
+  if (Number.isFinite(ms)) return `retry after ${new Date(ms).toISOString()}`;
+  return undefined;
+}
+
 export default defineChecker({
   type: 'muse-code',
   displayName: 'Muse Code',
@@ -167,8 +265,19 @@ export default defineChecker({
           `Muse Code subscription is inactive or the login expired (HTTP ${response.status}); sign in again.`
         );
       }
+      if (response.status === 429) {
+        // Throttled: throw so the scheduler records an error sentinel (no
+        // fabricated meters, no routing cooldown) and the UI shows the
+        // failure instead of hiding the panel.
+        const detail = retryAfterDetail(response.headers.get('retry-after'));
+        throw new Error(
+          `Muse Code quota endpoint rate-limited (HTTP 429${detail ? `; ${detail}` : ''}); will retry on the next check`
+        );
+      }
       if (!response.ok) {
-        throw new Error(`quota request failed with status ${response.status}: ${bodyText}`);
+        throw new Error(
+          `quota request failed with status ${response.status}: ${redactApiKey(bodyText).slice(0, 300)}`
+        );
       }
 
       let data: MuseKeyResponse;
@@ -182,23 +291,35 @@ export default defineChecker({
         throw new Error('Muse Code subscription is inactive; sign in again.');
       }
 
-      const usage = data.subs_usage;
-      if (!usage) throw new Error('Muse Code quota response is missing subs_usage');
+      // The key endpoint has changed shape before (epoch-second resets_at,
+      // extra billing fields) and drops subs_usage entirely when throttled,
+      // so resolve the usage container and window fields tolerantly.
+      const usage = normalizeUsage(data as Record<string, unknown>);
+      if (!usage) {
+        if (looksRateLimited(bodyText)) {
+          throw throttledError('response carries no usage');
+        }
+        throw new Error(
+          `Muse Code quota response changed shape (top-level keys: ${topKeys(data)}); expected subs_usage with window/weekly windows`
+        );
+      }
 
       const meters: Meter[] = [];
-      if (usage.window) {
+      const rollingSource = pickWindow(firstPresent<unknown>(usage, ['window', 'rolling']));
+      if (rollingSource) {
         const meter = buildWindowMeter(
-          usage.window,
+          rollingSource,
           'rolling',
-          rollingLabel(usage.window.window_duration_mins),
-          rollingPeriod(usage.window.window_duration_mins),
+          rollingLabel(rollingSource.window_duration_mins),
+          rollingPeriod(rollingSource.window_duration_mins),
           ctx
         );
         if (meter) meters.push(meter);
       }
-      if (usage.weekly) {
+      const weeklySource = pickWindow(firstPresent<unknown>(usage, ['weekly', 'seven_day']));
+      if (weeklySource) {
         const meter = buildWindowMeter(
-          usage.weekly,
+          weeklySource,
           'weekly',
           'Weekly',
           { periodValue: 1, periodUnit: 'week' },
@@ -207,7 +328,12 @@ export default defineChecker({
         if (meter) meters.push(meter);
       }
       if (meters.length === 0) {
-        throw new Error('Muse Code quota response carries no usable windows');
+        if (looksRateLimited(bodyText)) {
+          throw throttledError('response carries no usable windows');
+        }
+        throw new Error(
+          `Muse Code quota response carries no usable windows (usage keys: ${topKeys(usage)})`
+        );
       }
       return meters;
     } finally {

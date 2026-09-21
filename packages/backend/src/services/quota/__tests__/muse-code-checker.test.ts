@@ -10,8 +10,11 @@
  *     field of pi-ai's `meta` OAuth credential, or from an explicitly
  *     configured raw token;
  *   - inactive subscriptions, auth failures, and unusable payloads throw
- *     (the scheduler keeps the last good snapshot) instead of publishing
- *     zeroed meters.
+ *     (surfacing an error state in the UI) instead of publishing
+ *     zeroed meters;
+ *   - throttling (HTTP 429, or a 200 without usable windows that signals
+ *     rate limiting) throws a dedicated throttled error — no fabricated
+ *     meters, no routing cooldown; the scheduler retries on interval.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -192,5 +195,81 @@ describe('muse-code quota checker', () => {
     expect(meters.find((m) => m.key === 'weekly')?.resetsAt).toBe(
       new Date(1789948800 * 1000).toISOString()
     );
+  });
+
+  it('throws a throttled error on HTTP 429 without publishing meters', async () => {
+    stubFetch(
+      async () =>
+        new Response(JSON.stringify({ error: 'rate_limited' }), {
+          status: 429,
+          headers: { 'Content-Type': 'application/json', 'retry-after': '120' },
+        })
+    );
+    const ctx = createMeterContext(CHECKER_ID, 'meta', { apiKey: 'dca_tok' });
+
+    const error = (await checker.check(ctx).catch((e: unknown) => e)) as Error;
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toMatch(/rate-limited.*429/);
+    expect(error.message).toContain('retry after 120s');
+  });
+
+  it('throws a throttled error when a 200 drops subs_usage but signals throttling', async () => {
+    stubFetch(async () =>
+      jsonResponse(200, {
+        is_subs_active: true,
+        api_key: 'mk_live_abc',
+        error: 'rate limit exceeded, retry later',
+      })
+    );
+    const ctx = createMeterContext(CHECKER_ID, 'meta', { apiKey: 'dca_tok' });
+
+    const error = (await checker.check(ctx).catch((e: unknown) => e)) as Error;
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toMatch(/throttled/);
+    expect(error.message).not.toContain('mk_live_abc');
+  });
+
+  it('accepts adjacent field names when the endpoint changes shape', async () => {
+    stubFetch(async () =>
+      jsonResponse(200, {
+        is_subs_active: true,
+        usage: {
+          rolling: { utilization: 55, resetsAt: '2026-09-19T12:00:00.000Z' },
+          seven_day: { percent: 20, reset: 1789948800 },
+        },
+      })
+    );
+    const ctx = createMeterContext(CHECKER_ID, 'meta', { apiKey: 'dca_tok' });
+
+    const meters = await checker.check(ctx);
+    expect(meters).toHaveLength(2);
+    expect(meters.find((m) => m.key === 'rolling')?.used).toBe(55);
+    expect(meters.find((m) => m.key === 'weekly')?.used).toBe(20);
+    expect(meters.find((m) => m.key === 'weekly')?.resetsAt).toBe(
+      new Date(1789948800 * 1000).toISOString()
+    );
+  });
+
+  it('describes shape changes without leaking the minted api_key', async () => {
+    stubFetch(async () =>
+      jsonResponse(200, { is_subs_active: true, api_key: 'mk_live_secret', new_field: 1 })
+    );
+    const ctx = createMeterContext(CHECKER_ID, 'meta', { apiKey: 'dca_tok' });
+
+    const error = (await checker.check(ctx).catch((e: unknown) => e)) as Error;
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toMatch(/changed shape/);
+    expect(error.message).toMatch(/subs_usage/);
+    expect(error.message).not.toContain('mk_live_secret');
+  });
+
+  it('redacts the minted api_key from upstream error bodies', async () => {
+    stubFetch(async () => jsonResponse(500, { message: 'boom', api_key: 'mk_live_secret' }));
+    const ctx = createMeterContext(CHECKER_ID, 'meta', { apiKey: 'dca_tok' });
+
+    const error = (await checker.check(ctx).catch((e: unknown) => e)) as Error;
+    expect(error.message).toMatch(/status 500/);
+    expect(error.message).toContain('[redacted]');
+    expect(error.message).not.toContain('mk_live_secret');
   });
 });

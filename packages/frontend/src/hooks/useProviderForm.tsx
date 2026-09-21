@@ -984,12 +984,28 @@ export function useProviderForm() {
   const getQuotaDisplay = (provider: Provider): React.ReactNode => {
     if (!provider.quotaChecker?.enabled) return null;
     if (quotasLoading) return <span className="text-text-secondary text-xs">—</span>;
-    const quota = quotas.find((q) => q.checkerId === provider.id);
-    if (!quota?.meters?.length) return null;
     const handleQuotaClick = (e: React.MouseEvent) => {
       e.stopPropagation();
       navigate('/quotas');
     };
+    const quota = quotas.find((q) => q.checkerId === provider.id);
+    if (!quota) return null;
+    // GET /v0/management/quotas reports success:false with no error before
+    // the first snapshot exists — only badge an actual check failure.
+    if (!quota.success && quota.error) {
+      return (
+        <Badge
+          status="error"
+          noDot
+          className="cursor-pointer text-[10px] py-0.5 px-2"
+          onClick={handleQuotaClick}
+          title={quota.error}
+        >
+          Quota error
+        </Badge>
+      );
+    }
+    if (!quota.meters?.length) return null;
 
     const badges: React.ReactNode[] = [];
 

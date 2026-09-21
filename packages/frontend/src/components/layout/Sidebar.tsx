@@ -208,7 +208,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ mode = 'desktop' }) => {
   };
 
   const balanceQuotas = quotas.filter((q) => q.meters.some((m) => m.kind === 'balance'));
-  const allowanceQuotas = quotas.filter((q) => q.meters.some((m) => m.kind === 'allowance'));
+  // Failed checks carry no meters — keep them in the Quotas widget so the
+  // panel shows the error state instead of disappearing entirely. Pending
+  // checkers (no snapshot yet) stay hidden, as before.
+  const allowanceQuotas = quotas.filter(
+    (q) => (!q.success && !q.pending) || q.meters.some((m) => m.kind === 'allowance')
+  );
 
   const isDrawer = mode === 'drawer';
   const initials =
