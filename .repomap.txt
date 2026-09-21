@@ -231,7 +231,7 @@ packages/backend/src/routes/management/metrics.ts:44 [function] renderLabels
 packages/backend/src/routes/management/metrics.ts:55 [function] line
 packages/backend/src/routes/management/metrics.ts:65 [function] metricBlock
 packages/backend/src/routes/management/metrics.ts:89 [function] getCacheTtlMs
-packages/backend/src/routes/management/models.ts:13 [function] registerModelRoutes
+packages/backend/src/routes/management/models.ts:15 [function] registerModelRoutes
 packages/backend/src/routes/management/oauth.ts:48 [function] registerOAuthRoutes
 packages/backend/src/routes/management/performance.ts:5 [function] registerPerformanceRoutes
 packages/backend/src/routes/management/providers.ts:17 [function] registerProviderRoutes
@@ -821,6 +821,15 @@ packages/backend/src/services/pi-ai/catalog.ts:51 [function] parseCatalog
 packages/backend/src/services/pi-ai/catalog.ts:74 [function] fetchPiDevCatalog
 packages/backend/src/services/pi-ai/generation.ts:24 [interface] GenerationIntent
 packages/backend/src/services/pi-ai/generation.ts:38 [function] normalizeVerbosity
+packages/backend/src/services/pi-ai/provider-endpoint-match.ts:130 [interface] ResolvePiAiProviderInput
+packages/backend/src/services/pi-ai/provider-endpoint-match.ts:142 [function] resolvePiAiProvider
+packages/backend/src/services/pi-ai/provider-endpoint-match.ts:16 [interface] PiAiEndpointProvider
+packages/backend/src/services/pi-ai/provider-endpoint-match.ts:26 [function] listPiAiEndpointProviders
+packages/backend/src/services/pi-ai/provider-endpoint-match.ts:46 [function] normalizeEndpointUrl
+packages/backend/src/services/pi-ai/provider-endpoint-match.ts:50 [interface] ParsedEndpoint
+packages/backend/src/services/pi-ai/provider-endpoint-match.ts:58 [function] parseEndpointUrl
+packages/backend/src/services/pi-ai/provider-endpoint-match.ts:77 [function] isPathPrefix
+packages/backend/src/services/pi-ai/provider-endpoint-match.ts:94 [function] matchPiAiProviderByUrls
 packages/backend/src/services/pi-ai/reasoning.ts:106 [function] effortToBudget
 packages/backend/src/services/pi-ai/reasoning.ts:117 [function] budgetToEffort
 packages/backend/src/services/pi-ai/reasoning.ts:128 [function] normalizeEffort
@@ -1679,6 +1688,8 @@ packages/frontend/src/lib/format.ts:78 [function] formatResetCountdown
 packages/frontend/src/lib/normalize.ts:17 [function] toEpochMs
 packages/frontend/src/lib/normalize.ts:38 [function] toIsoString
 packages/frontend/src/lib/normalize.ts:4 [function] toBoolean
+packages/frontend/src/lib/piAiProvider.ts:22 [function] collectProviderEndpointUrls
+packages/frontend/src/lib/piAiProvider.ts:35 [function] isOAuthProviderDraft
 packages/frontend/src/lib/quota.ts:18 [function] statusForPercent
 packages/frontend/src/lib/quota.ts:30 [function] formatQuotaValue
 packages/frontend/src/lib/quota.ts:50 [function] quotaUsagePercent
