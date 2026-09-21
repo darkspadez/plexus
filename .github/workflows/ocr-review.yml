@@ -169,3 +169,93 @@ jobs:
                     f"{(c.get('content') or '')[:200]}")
           sys.exit(1 if blocking else 0)
           PY
+
+      - name: Post detailed OCR summary
+        if: always()
+        uses: actions/github-script@v9
+        env:
+          REVIEW_FILE: /tmp/ocr-result.json
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- ocr-review-detail -->';
+            const prNumber = context.payload.pull_request?.number ?? context.payload.issue?.number;
+            const truncate = (value, length) => {
+              const text = String(value ?? '');
+              return text.length > length ? `${text.slice(0, length)}...` : text;
+            };
+            let review = null;
+            try {
+              review = JSON.parse(fs.readFileSync(process.env.REVIEW_FILE, 'utf8'));
+            } catch {
+              review = null;
+            }
+            let body;
+            if (!review || !Array.isArray(review.comments)) {
+              body = [
+                marker,
+                '## 🔍 OpenCodeReview — detailed findings',
+                '',
+                '⚠️ **Review output was unreadable, so the OCR Review check failed. See the run logs for details.**',
+              ].join('\n');
+            } else {
+              const findings = review.comments;
+              const blocking = findings.filter((c) =>
+                ['critical', 'high'].includes(String(c.severity ?? '').toLowerCase()),
+              );
+              const verdict = blocking.length > 0
+                ? `⛔ **Blocked — ${blocking.length} critical/high finding(s). Merge is not advised until these are addressed.**`
+                : '✅ **Passing — no critical/high findings.**';
+              const entries = findings.map((c) => {
+                const loc = c.start_line || c.end_line
+                  ? `${c.path}:${c.start_line ?? ''}${c.start_line !== c.end_line ? `-${c.end_line}` : ''}`
+                  : (c.path ?? 'general');
+                let entry = `- **${c.severity ?? 'unknown'}** — \`${truncate(loc, 300)}\`: ${truncate(c.content ?? 'No message', 1500)}`;
+                if (c.suggestion_code) {
+                  entry += `\n  <details><summary>Suggested change</summary>\n\n  \`\`\`suggestion\n  ${truncate(c.suggestion_code, 2000)}\n  \`\`\`\n  </details>`;
+                }
+                return entry;
+              });
+              body = [
+                marker,
+                '## 🔍 OpenCodeReview — detailed findings',
+                '',
+                verdict,
+                '',
+                `Reviewed ${review.summary?.files_reviewed ?? '?'} file(s), ${findings.length} finding(s) total.`,
+                '',
+                ...entries,
+              ].join('\n');
+            }
+            if (body.length > 60000) {
+              body = `${body.slice(0, 59500)}\n\n_Additional findings were omitted because the comment was too large._`;
+            }
+            try {
+              const prior = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+              });
+              const existing = prior.find((comment) =>
+                comment.user?.login === 'github-actions[bot]'
+                && comment.body?.includes(marker),
+              );
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body,
+                });
+              }
+            } catch (error) {
+              core.warning(`Could not post the detailed OCR summary: ${error.message}`);
+            }
