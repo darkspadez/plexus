@@ -90,15 +90,7 @@ export class ProviderRepository {
         .where(eq(schema.providerModels.providerId, row.id))
         .orderBy(schema.providerModels.sortOrder)) as ProviderModelRow[];
 
-      let oauthAccountId: string | undefined;
-      if (row.oauthCredentialId) {
-        const creds = (await this.db()
-          .select({ accountId: schema.oauthCredentials.accountId })
-          .from(schema.oauthCredentials)
-          .where(eq(schema.oauthCredentials.id, row.oauthCredentialId))
-          .limit(1)) as Array<{ accountId: string }>;
-        if (creds.length > 0) oauthAccountId = creds[0]!.accountId;
-      }
+      const oauthAccountId = await this.resolveOAuthAccountId(row);
       result[row.slug] = this.rowToProviderConfig(row, models, oauthAccountId);
     }
 
@@ -122,16 +114,41 @@ export class ProviderRepository {
       .where(eq(schema.providerModels.providerId, row.id))
       .orderBy(schema.providerModels.sortOrder)) as ProviderModelRow[];
 
-    let oauthAccountId: string | undefined;
+    const oauthAccountId = await this.resolveOAuthAccountId(row);
+    return this.rowToProviderConfig(row, models, oauthAccountId);
+  }
+
+  /**
+   * Resolve the OAuth account name for a provider row.
+   *
+   * The account name is persisted only via the credential link, so a provider
+   * saved before its OAuth login (or with a name that missed the credential
+   * lookup) keeps a null link. When exactly one credential exists for the
+   * provider type — the same single account the dispatcher resolves at
+   * runtime — hydrate it so the edit form round-trips; the next save
+   * re-links the FK. Multiple credentials stay ambiguous and resolve to
+   * undefined so the user picks explicitly.
+   */
+  private async resolveOAuthAccountId(row: ProviderRow): Promise<string | undefined> {
+    const schema = this.schema();
     if (row.oauthCredentialId) {
       const creds = (await this.db()
         .select({ accountId: schema.oauthCredentials.accountId })
         .from(schema.oauthCredentials)
         .where(eq(schema.oauthCredentials.id, row.oauthCredentialId))
         .limit(1)) as Array<{ accountId: string }>;
-      if (creds.length > 0) oauthAccountId = creds[0]!.accountId;
+      if (creds.length > 0) return creds[0]!.accountId;
     }
-    return this.rowToProviderConfig(row, models, oauthAccountId);
+    if (row.oauthProviderType) {
+      const creds = (await this.db()
+        .select({ accountId: schema.oauthCredentials.accountId })
+        .from(schema.oauthCredentials)
+        .where(eq(schema.oauthCredentials.oauthProviderType, row.oauthProviderType))) as Array<{
+        accountId: string;
+      }>;
+      if (creds.length === 1) return creds[0]!.accountId;
+    }
+    return undefined;
   }
 
   async saveProvider(slug: string, config: ProviderConfig): Promise<void> {
@@ -140,14 +157,15 @@ export class ProviderRepository {
 
     // Resolve oauth_credential_id if this is an OAuth provider
     let oauthCredentialId: number | null = null;
-    if (config.oauth_provider && config.oauth_account) {
+    const oauthAccount = config.oauth_account?.trim();
+    if (config.oauth_provider && oauthAccount) {
       const creds = await this.db()
         .select()
         .from(schema.oauthCredentials)
         .where(
           and(
             eq(schema.oauthCredentials.oauthProviderType, config.oauth_provider),
-            eq(schema.oauthCredentials.accountId, config.oauth_account)
+            eq(schema.oauthCredentials.accountId, oauthAccount)
           )
         )
         .limit(1);
