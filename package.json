@@ -9,7 +9,6 @@
     "bun-types": "1.4.2",
     "lefthook": "^2.1.14",
     "octokit": "^5.0.5",
-    "typescript-language-server": "^6.0.0",
     "vitest": "^5.0.0",
     "yaml": "^2.9.1"
   },
