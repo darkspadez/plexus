@@ -11,6 +11,7 @@ import {
   resolvePreferredApi,
 } from '../../services/models/model-metadata-manager';
 import { getCatalogModel } from '../../services/pi-ai/catalog';
+import { renderModelsUiPage } from './models-ui';
 
 let v1ModelsLastHash: string | null = null;
 let v1ModelsLastModified: string | null = null;
@@ -55,6 +56,12 @@ export async function registerModelsRoute(fastify: FastifyInstance) {
   fastify.get('/v1/models', async (request, reply) => {
     const config = getConfig();
     const metadataManager = ModelMetadataManager.getInstance();
+    // Presence of the `ui` query key (e.g. /v1/models?ui) selects the
+    // standalone HTML viewer instead of the normal JSON payload.
+    const wantsUi =
+      request.query !== null &&
+      typeof request.query === 'object' &&
+      'ui' in (request.query as Record<string, unknown>);
 
     const created = MODEL_CREATED_AT;
     const hasVisionFallthrough = !!config.vision_fallthrough;
@@ -170,6 +177,14 @@ export async function registerModelsRoute(fastify: FastifyInstance) {
       data: models,
     };
     const payloadString = JSON.stringify(payload);
+
+    if (wantsUi) {
+      // The viewer is intentionally unauthenticated like /v1/models itself:
+      // a self-contained page reusing only Plexus theme tokens (no admin UI).
+      return reply
+        .type('text/html; charset=utf-8')
+        .send(renderModelsUiPage(payloadString, models.length));
+    }
 
     // Computing the hash on the fly of the fully serialized JSON is explicitly
     // accepted here as benchmarks show it is extremely fast (<0.01ms for 12KB)
