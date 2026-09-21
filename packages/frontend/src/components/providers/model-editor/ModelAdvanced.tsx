@@ -9,6 +9,7 @@ interface Props {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   updateModelConfig: (modelId: string, updates: any) => void;
+  piAiProvider?: string;
 }
 
 export function ModelAdvanced({
@@ -17,7 +18,9 @@ export function ModelAdvanced({
   isOpen,
   setIsOpen,
   updateModelConfig,
+  piAiProvider,
 }: Props) {
+  const mappingReady = !!piAiProvider;
   return (
     <div className="border border-border-glass rounded-md overflow-hidden">
       <div
@@ -51,9 +54,17 @@ export function ModelAdvanced({
           }}
         >
           <div className="flex flex-col gap-0.5">
-            <label className="flex items-start gap-2 py-1 cursor-pointer">
+            <label
+              className="flex items-start gap-2 py-1 cursor-pointer"
+              title={
+                !mappingReady && modelConfig.auto_compat !== true
+                  ? 'Select a pi-ai Provider first'
+                  : undefined
+              }
+            >
               <input
                 type="checkbox"
+                disabled={!mappingReady && modelConfig.auto_compat !== true}
                 checked={modelConfig.auto_compat === true}
                 onChange={(e) =>
                   updateModelConfig(modelId, {
@@ -64,7 +75,8 @@ export function ModelAdvanced({
               <div>
                 <div className="font-body text-[12px] text-text">Auto Compat</div>
                 <div className="font-body text-[11px] text-text-muted" style={{ lineHeight: 1.35 }}>
-                  Use pi-ai registry hints for this model.
+                  Translates this model's reasoning options using its mapped pi-ai Model ID.
+                  Requires Auto Compat here or on the provider.
                 </div>
               </div>
             </label>
