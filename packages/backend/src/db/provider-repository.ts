@@ -1,7 +1,8 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { getDatabase, getSchema } from './client';
 import { decryptField, encryptField } from '../utils/encryption';
 import type { ModelProviderConfig, ProviderConfig } from '../config';
+import { LEGACY_ACCOUNT_ID } from '../services/oauth/oauth-providers';
 import {
   decryptJsonField,
   encryptJsonField,
@@ -140,6 +141,19 @@ export class ProviderRepository {
       if (creds.length > 0) return creds[0]!.accountId;
     }
     if (row.oauthProviderType) {
+      // Mirror the runtime resolver: the well-known legacy account wins
+      // deterministically regardless of how many accounts exist.
+      const legacy = (await this.db()
+        .select({ accountId: schema.oauthCredentials.accountId })
+        .from(schema.oauthCredentials)
+        .where(
+          and(
+            eq(schema.oauthCredentials.oauthProviderType, row.oauthProviderType),
+            eq(schema.oauthCredentials.accountId, LEGACY_ACCOUNT_ID)
+          )
+        )
+        .limit(1)) as Array<{ accountId: string }>;
+      if (legacy.length > 0) return legacy[0]!.accountId;
       const creds = (await this.db()
         .select({ accountId: schema.oauthCredentials.accountId })
         .from(schema.oauthCredentials)
@@ -155,6 +169,14 @@ export class ProviderRepository {
     const schema = this.schema();
     const timestamp = now();
 
+    // Single read of the existing row, reused for OAuth link resolution below
+    // and the upsert after it.
+    const existing = await this.db()
+      .select()
+      .from(schema.providers)
+      .where(eq(schema.providers.slug, slug))
+      .limit(1);
+
     // Resolve oauth_credential_id if this is an OAuth provider. The OAuth
     // account is derived from the provider slug (1:1, set at login from the
     // provider form) — an incoming oauth_account is only honored as a
@@ -165,6 +187,12 @@ export class ProviderRepository {
       const legacyAccount = config.oauth_account?.trim();
       if (!oauthCredentialId && legacyAccount && legacyAccount !== slug) {
         oauthCredentialId = await this.findOAuthCredentialId(config.oauth_provider, legacyAccount);
+      }
+      if (!oauthCredentialId && !legacyAccount) {
+        oauthCredentialId = await this.findExistingCompatibleCredentialId(
+          existing.length > 0 ? existing[0]!.oauthCredentialId : null,
+          config.oauth_provider
+        );
       }
     }
 
@@ -219,12 +247,6 @@ export class ProviderRepository {
     };
 
     // Upsert provider
-    const existing = await this.db()
-      .select()
-      .from(schema.providers)
-      .where(eq(schema.providers.slug, slug))
-      .limit(1);
-
     let providerId: number;
 
     if (existing.length > 0) {
@@ -302,6 +324,27 @@ export class ProviderRepository {
     return creds.length > 0 ? creds[0]!.id : null;
   }
 
+  /**
+   * Grandfathered-link preservation, used only when a write carries no usable
+   * account at all (an explicit but unresolvable account must not silently
+   * retain the old link). Keeps the row's current link when its credential
+   * has the same provider type; switching types still drops it.
+   */
+  private async findExistingCompatibleCredentialId(
+    existingCredentialId: number | null,
+    providerType: string
+  ): Promise<number | null> {
+    const schema = this.schema();
+    if (!existingCredentialId) return null;
+    const creds = (await this.db()
+      .select({ providerType: schema.oauthCredentials.oauthProviderType })
+      .from(schema.oauthCredentials)
+      .where(eq(schema.oauthCredentials.id, existingCredentialId))
+      .limit(1)) as Array<{ providerType: string }>;
+    if (creds.length === 0 || creds[0]!.providerType !== providerType) return null;
+    return existingCredentialId;
+  }
+
   async deleteProvider(
     slug: string,
     cascade: boolean = true
@@ -331,11 +374,6 @@ export class ProviderRepository {
     }
 
     if (!credentialId) return null;
-    const holders = (await this.db()
-      .select({ id: schema.providers.id })
-      .from(schema.providers)
-      .where(eq(schema.providers.oauthCredentialId, credentialId))
-      .limit(1)) as Array<{ id: number }>;
     const cred = (await this.db()
       .select({
         providerType: schema.oauthCredentials.oauthProviderType,
@@ -344,7 +382,38 @@ export class ProviderRepository {
       .from(schema.oauthCredentials)
       .where(eq(schema.oauthCredentials.id, credentialId))
       .limit(1)) as Array<{ providerType: string; accountId: string }>;
-    if (holders.length > 0 || cred.length === 0) return null;
+    if (cred.length === 0) return null;
+    const holders = (await this.db()
+      .select({ id: schema.providers.id })
+      .from(schema.providers)
+      .where(eq(schema.providers.oauthCredentialId, credentialId))
+      .limit(1)) as Array<{ id: number }>;
+    // A null-link same-type provider resolves this credential via the
+    // single-account fallback, or deterministically when it is the well-known
+    // legacy account — but only while it is effectively the sole option.
+    // With several non-legacy credentials those providers are already
+    // ambiguous and this row is safe to remove.
+    let fallbackHolders: Array<{ id: number }> = [];
+    if (holders.length === 0) {
+      const typeCreds = (await this.db()
+        .select({ id: schema.oauthCredentials.id })
+        .from(schema.oauthCredentials)
+        .where(eq(schema.oauthCredentials.oauthProviderType, cred[0]!.providerType))
+        .limit(2)) as Array<{ id: number }>;
+      if (typeCreds.length === 1 || cred[0]!.accountId === LEGACY_ACCOUNT_ID) {
+        fallbackHolders = (await this.db()
+          .select({ id: schema.providers.id })
+          .from(schema.providers)
+          .where(
+            and(
+              isNull(schema.providers.oauthCredentialId),
+              eq(schema.providers.oauthProviderType, cred[0]!.providerType)
+            )
+          )
+          .limit(1)) as Array<{ id: number }>;
+      }
+    }
+    if (holders.length > 0 || fallbackHolders.length > 0) return null;
     await this.db()
       .delete(schema.oauthCredentials)
       .where(eq(schema.oauthCredentials.id, credentialId));

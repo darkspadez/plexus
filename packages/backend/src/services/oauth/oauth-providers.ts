@@ -22,6 +22,13 @@ import type { OAuthAuth } from '@earendil-works/pi-ai';
 export type OAuthProvider = string;
 export type OAuthProviderId = string;
 
+/**
+ * Well-known default account id. The runtime resolver prefers it over
+ * single-account fallback regardless of how many accounts exist, so code
+ * that reasons about credential consumers must treat it as always reachable.
+ */
+export const LEGACY_ACCOUNT_ID = 'legacy';
+
 export interface OAuthProviderDescriptor {
   id: string;
   /** Display name from pi-ai (e.g. "Anthropic (Claude Pro/Max)"). */

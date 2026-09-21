@@ -242,7 +242,7 @@ export async function registerConfigRoutes(
       const deletedCredential = await configService.deleteProvider(providerId, cascade);
       if (deletedCredential) {
         // DB row is gone with the provider; evict any in-memory tokens too.
-        await OAuthAuthManager.getInstance().deleteCredentials(
+        OAuthAuthManager.getInstance().evictCredentials(
           deletedCredential.providerType,
           deletedCredential.accountId
         );

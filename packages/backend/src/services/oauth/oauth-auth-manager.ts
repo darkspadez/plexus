@@ -1,9 +1,7 @@
 import { logger } from '../../utils/logger';
 import type { OAuthAuth, OAuthCredential, OAuthCredentials } from '@earendil-works/pi-ai';
 import { ConfigService } from '../configuration/config-service';
-import { getOAuthProviderAuth, type OAuthProvider } from './oauth-providers';
-
-const LEGACY_ACCOUNT_ID = 'legacy';
+import { getOAuthProviderAuth, LEGACY_ACCOUNT_ID, type OAuthProvider } from './oauth-providers';
 const REFRESH_RETRY_BACKOFF_INITIAL_MS = 60 * 1000;
 const REFRESH_RETRY_BACKOFF_MAX_MS = 15 * 60 * 1000;
 
@@ -471,8 +469,27 @@ export class OAuthAuthManager {
       }
     }
 
-    delete providerRecord.accounts[accountId];
-    const refreshKey = `${provider}/${accountId}`;
+    return this.evictCredentials(provider, accountId);
+  }
+
+  /**
+   * Memory-only eviction for credentials whose database row is already gone
+   * (e.g. provider cascade-delete). Never touches persistence, so post-commit
+   * cleanup cannot fail the request.
+   */
+  evictCredentials(provider: OAuthProvider, accountId: string): boolean {
+    const id = accountId?.trim();
+    if (!id) {
+      return false;
+    }
+
+    const providerRecord = this.authData[provider];
+    if (!providerRecord?.accounts?.[id]) {
+      return false;
+    }
+
+    delete providerRecord.accounts[id];
+    const refreshKey = `${provider}/${id}`;
     this.lastRefreshAt.delete(refreshKey);
     this.refreshPromises.delete(refreshKey);
     this.refreshBackoffs.delete(refreshKey);

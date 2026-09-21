@@ -98,4 +98,82 @@ describe('provider OAuth slug linking', () => {
     expect(await repo.getOAuthCredentials('meta', 'shared')).not.toBeNull();
     expect((await repo.getProvider('second'))?.oauth_account).toBe('shared');
   });
+
+  it('preserves a grandfathered link across writes that carry no account', async () => {
+    await repo.setOAuthCredentials('meta', 'Personal', creds);
+    await repo.saveProvider('metasub', oauthProvider('Personal'));
+    expect((await repo.getProvider('metasub'))?.oauth_account).toBe('Personal');
+
+    // What the UI now sends: no oauth_account at all.
+    await repo.saveProvider('metasub', oauthProvider());
+
+    expect((await repo.getProvider('metasub'))?.oauth_account).toBe('Personal');
+  });
+
+  it('drops the preserved link when the provider switches OAuth types', async () => {
+    await repo.setOAuthCredentials('meta', 'Personal', creds);
+    await repo.saveProvider('metasub', oauthProvider('Personal'));
+
+    await repo.saveProvider('metasub', {
+      ...oauthProvider(),
+      oauth_provider: 'openai-codex',
+    } as ProviderConfig);
+
+    expect((await repo.getProvider('metasub'))?.oauth_account).toBeUndefined();
+  });
+
+  it('spares the sole credential consumed via fallback by another provider', async () => {
+    await repo.setOAuthCredentials('meta', 'lonely', creds);
+    await repo.saveProvider('linked', oauthProvider('lonely'));
+    await repo.saveProvider('unlinked', oauthProvider());
+    expect((await repo.getProvider('unlinked'))?.oauth_account).toBe('lonely');
+
+    const deleted = await repo.deleteProvider('linked', true);
+
+    expect(deleted).toBeNull();
+    expect(await repo.getOAuthCredentials('meta', 'lonely')).not.toBeNull();
+    expect((await repo.getProvider('unlinked'))?.oauth_account).toBe('lonely');
+  });
+
+  it('removes the credential when fallback consumers are already ambiguous', async () => {
+    await repo.setOAuthCredentials('meta', 'gone', creds);
+    await repo.setOAuthCredentials('meta', 'stays', creds);
+    await repo.saveProvider('linked', oauthProvider('gone'));
+    await repo.saveProvider('unlinked', oauthProvider());
+    expect((await repo.getProvider('unlinked'))?.oauth_account).toBeUndefined();
+
+    const deleted = await repo.deleteProvider('linked', true);
+
+    expect(deleted).toEqual({ providerType: 'meta', accountId: 'gone' });
+    expect(await repo.getOAuthCredentials('meta', 'gone')).toBeNull();
+    expect(await repo.getOAuthCredentials('meta', 'stays')).not.toBeNull();
+  });
+
+  it('does not preserve the link when an explicit account fails to resolve', async () => {
+    await repo.setOAuthCredentials('meta', 'Personal', creds);
+    await repo.setOAuthCredentials('meta', 'Other', creds);
+    await repo.saveProvider('metasub', oauthProvider('Personal'));
+    expect((await repo.getProvider('metasub'))?.oauth_account).toBe('Personal');
+
+    // Restore/import naming a credential that doesn't exist: the stale link
+    // must not be silently retained.
+    await repo.saveProvider('metasub', oauthProvider('ghost'));
+
+    expect((await repo.getProvider('metasub'))?.oauth_account).toBeUndefined();
+  });
+
+  it('spares the legacy credential consumed via fallback despite other credentials', async () => {
+    await repo.setOAuthCredentials('meta', 'legacy', creds);
+    await repo.setOAuthCredentials('meta', 'other', creds);
+    await repo.saveProvider('linked', oauthProvider('legacy'));
+    await repo.saveProvider('unlinked', oauthProvider());
+    // The runtime resolves the well-known legacy account deterministically.
+    expect((await repo.getProvider('unlinked'))?.oauth_account).toBe('legacy');
+
+    const deleted = await repo.deleteProvider('linked', true);
+
+    expect(deleted).toBeNull();
+    expect(await repo.getOAuthCredentials('meta', 'legacy')).not.toBeNull();
+    expect((await repo.getProvider('unlinked'))?.oauth_account).toBe('legacy');
+  });
 });
