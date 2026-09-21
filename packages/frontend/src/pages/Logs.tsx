@@ -56,6 +56,7 @@ interface RetryAttemptDetail {
   index: number;
   provider: string;
   model: string;
+  upstreamModel?: string;
   apiType?: string;
   status: 'success' | 'failed' | 'skipped';
   reason: string;
@@ -911,6 +912,7 @@ export const Logs = () => {
                       }
                       onError={handleError}
                       onDebug={handleDebug}
+                      onRetryDetails={handleRetryDetailsMemo}
                     />
                   );
                 })
@@ -1069,6 +1071,23 @@ export const Logs = () => {
             <div>
               Attempts: <span className="text-text">{selectedRetryLog?.attemptCount || 1}</span>
             </div>
+            {(() => {
+              const routeModel =
+                selectedRetryLog?.finalAttemptModel ?? selectedRetryLog?.selectedModelName;
+              const upstream = selectedRetryLog?.upstreamModel;
+              if (upstream && routeModel && upstream !== routeModel) {
+                return (
+                  <div title="Route-selected model rewrote to upstream model via adapter">
+                    Route:{' '}
+                    <span className="text-text">
+                      {selectedRetryLog?.finalAttemptProvider || selectedRetryLog?.provider}/
+                      {routeModel} → {upstream}
+                    </span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           {selectedRetryHistory.length === 0 ? (
@@ -1092,6 +1111,9 @@ export const Logs = () => {
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <div className="font-medium text-sm text-text">
                       Attempt {attempt.index}: {attempt.provider}/{attempt.model}
+                      {attempt.upstreamModel && attempt.upstreamModel !== attempt.model
+                        ? ` → ${attempt.upstreamModel}`
+                        : null}
                     </div>
                     <div className="text-xs uppercase tracking-wide text-text-secondary">
                       {attempt.status}

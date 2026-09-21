@@ -307,6 +307,31 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/images': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * OpenRouter-compatible image generation
+     * @description Generates an image from a normalized OpenRouter-style request. Plexus
+     *     translates the request into the selected provider's native image API and
+     *     normalizes the response back to the image response contract.
+     *
+     *     Buffered generation is supported in this operation. Streaming image
+     *     events are not currently supported.
+     */
+    post: operations['postV1Images'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/images/generations': {
     parameters: {
       query?: never;
@@ -1507,7 +1532,7 @@ export interface paths {
     /**
      * Fetch `/v1/models` from an external URL (admin only)
      * @description Helper used by the admin UI when adding a new provider. Fetches the
-     *     target URL (with optional Bearer apiKey), normalizes OpenAI- and
+     *     target URL (with provider-appropriate optional apiKey authentication), normalizes OpenAI- and
      *     Ollama-style responses into `{ data: [...] }`, and returns it.
      *     Blocks localhost and cloud metadata addresses to mitigate SSRF.
      */
@@ -1595,6 +1620,40 @@ export interface paths {
     get: operations['getV0ManagementPiModels'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v0/management/pi/resolve-provider': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resolve the pi-ai provider for a new provider config (admin only)
+     * @description Resolves the pi-ai provider ID matching a prospective provider config, so
+     *     the management UI can pre-select `ProviderConfig.pi_ai_provider` and enable
+     *     `auto_compat` when creating a provider — and so the pi-ai dropdown's
+     *     `- auto -` entry can resolve to a concrete provider.
+     *
+     *     Resolution rules (shared with the UI's auto-detect):
+     *
+     *     - An `oauthProvider` that names a known pi-ai builtin provider wins outright:
+     *       an OAuth provider singularly identifies its compatible pi-ai provider.
+     *     - Otherwise `urls` (values from the provider's `api_base_url`) are matched
+     *       against pi-ai builtin base URLs — exact match first, then longest prefix —
+     *       so known API endpoints resolve even with extra path segments.
+     *     - Returns `{ "provider": null }` when nothing matches.
+     *
+     *     **Admin only** — limited principals receive 403.
+     */
+    post: operations['postV0ManagementPiResolveProvider'];
     delete?: never;
     options?: never;
     head?: never;
@@ -3536,21 +3595,35 @@ export interface paths {
      *
      *     ## Data source
      *
-     *     This endpoint returns models from the pi-ai static catalog. It's used
-     *     to populate dropdowns in the UI when configuring provider targets.
+     *     For most providers this is the pi-ai static catalog. For `openai-codex` the
+     *     gateway asks the ChatGPT backend for the models the signed-in account may
+     *     actually use (the account-scoped list), then appends the Codex image models,
+     *     which the backend never lists. If that call fails — no credentials, upstream
+     *     error, timeout — the response degrades to the static catalog plus the image
+     *     models and carries a `warning`.
+     *
+     *     It's used to populate dropdowns in the UI when configuring provider targets.
      *
      *     ## Response fields
      *
-     *     - `id` — Model identifier (e.g. `gpt-5.4`)
-     *     - `name` — Human-readable model name
-     *     - `context_length` — Maximum context window in tokens
-     *     - `pricing` — Token pricing (if available)
+     *     - `data[].id` — Model identifier (e.g. `gpt-5.4`)
+     *     - `data[].name` — Human-readable model name
+     *     - `data[].context_length` — Maximum context window in tokens
+     *     - `data[].pricing` — Token pricing (if available)
+     *     - `data[].type` — `text` or `image` (image models cannot serve chat)
+     *     - `data[].access_via` — Target protocols the model can be reached through
+     *       (e.g. `codex-images`)
+     *     - `data[].visibility` — Upstream listing hint: `list` (advertised) or
+     *       `hide` (usable but not advertised)
+     *     - `source` — `codex-backend` when the list came from the live Codex backend,
+     *       `catalog` when it came from the pi-ai static catalog
+     *     - `warning` — Present only when live discovery was attempted and failed
      *
      *     ## Note
      *
-     *     This is a static catalog — it doesn't query the provider's live API.
-     *     Use `/v1/openrouter/models` or `/v1/models` to get the currently
-     *     configured model list.
+     *     Apart from `openai-codex`, this is a static catalog — it doesn't query the
+     *     provider's live API. Use `/v1/openrouter/models` or `/v1/models` to get the
+     *     currently configured model list.
      *
      *     **Admin only** — limited principals receive 403.
      */
@@ -4192,29 +4265,97 @@ export interface paths {
     /**
      * Live usage event stream
      * @description Server-Sent Events stream of request lifecycle events, used by the
-     *     admin dashboard for real-time monitoring.
+     *     admin dashboard for real-time monitoring. The server does not replay
+     *     historical events when a client connects; fetch `/v0/management/usage`
+     *     separately for historical records.
+     *
+     *     ## Wire format
+     *
+     *     The response is a UTF-8 `text/event-stream`. Each SSE message is a block
+     *     of lines terminated by a blank line (`\\n\\n`):
+     *
+     *     - `event` identifies the event type.
+     *     - `data` contains one line of JSON, except for `ping`, whose data is the
+     *       literal string `pong`.
+     *     - `id` is the event's server-generated epoch-millisecond timestamp encoded
+     *       as a string. It is informational; clients should not use it as a resume
+     *       cursor.
+     *
+     *     Clients should parse the `data` field according to the `event` value and
+     *     ignore event types they do not understand.
      *
      *     ## Event types
      *
-     *     - **started** — Request received, dispatched to provider.
-     *     - **updated** — Request metadata updated (e.g. token counts known).
-     *     - **completed** — Request finished (success or error). Contains the
-     *       full `UsageRecord`.
-     *     - **created** — Legacy/alias for `started`.
+     *     ### `started`
      *
-     *     Each event includes the `UsageRecord` payload (for `completed`) or
-     *     partial data (for `started`/`updated`).
+     *     Sent when a request is received. The `data` value is a partial
+     *     [`UsageRecord`](#/components/schemas/UsageRecord) with the fields
+     *     known at request start. It includes `responseStatus: "pending"`.
      *
-     *     ## Ping
+     *     ### `updated`
      *
-     *     A `ping` event is sent every 10 seconds to keep the connection alive.
+     *     Sent when additional request or routing metadata becomes available. The
+     *     `data` value is a sparse partial `UsageRecord`; it always includes
+     *     `requestId` and may contain only the fields that changed.
      *
-     *     ## Format
+     *     ### `progress`
+     *
+     *     Sent approximately once per second for each in-flight request being
+     *     monitored. The `data` value is a [`ProgressUpdate`](#/components/schemas/ProgressUpdate).
+     *     Progress events are transient and are not persisted as usage records.
+     *
+     *     ### `completed`
+     *
+     *     Sent when the request finishes, including success, error, cancellation,
+     *     timeout, or stall. The `data` value is the full `UsageRecord`, including
+     *     the final `responseStatus` and any available token, cost, and timing data.
+     *
+     *     ### `ping`
+     *
+     *     Sent every 10 seconds to keep the connection alive. Its `data` value is
+     *     the literal string `pong`; it has no JSON payload.
+     *
+     *     The backend may receive an internal legacy `created` notification when a
+     *     usage record is saved. That notification is normalized to the wire-level
+     *     `completed` event, so clients should not depend on an `event: created`
+     *     message.
+     *
+     *     ## Examples
+     *
+     *     A started request:
+     *
+     *     ```text
+     *     event: started
+     *     data: {"requestId":"550e8400-e29b-41d4-a716-446655440000","date":"2025-01-15T12:00:00.000Z","startTime":1736942400000,"responseStatus":"pending","isStreamed":true}
+     *     id: 1736942400000
      *
      *     ```
+     *
+     *     A progress update:
+     *
+     *     ```text
+     *     event: progress
+     *     data: {"requestId":"550e8400-e29b-41d4-a716-446655440000","apiKey":"team-a","isStreamed":true,"bytesReceived":4096,"bytesPerSec":2048,"semanticBytesReceived":3900,"semanticBytesPerSec":1950,"state":"MONITORING","elapsedMs":2000}
+     *     id: 1736942402000
+     *
+     *     ```
+     *
+     *     A completed request:
+     *
+     *     ```text
      *     event: completed
-     *     data: {"requestId":"...","date":"...","provider":"openai",...}
-     *     id: 1735689599000
+     *     data: {"requestId":"550e8400-e29b-41d4-a716-446655440000","date":"2025-01-15T12:00:00.000Z","provider":"openai","responseStatus":"success","tokensInput":120,"tokensOutput":42,"durationMs":2300}
+     *     id: 1736942402300
+     *
+     *     ```
+     *
+     *     A keepalive:
+     *
+     *     ```text
+     *     event: ping
+     *     data: pong
+     *     id: 1736942410000
+     *
      *     ```
      *
      *     ## Scoping
@@ -4787,6 +4928,33 @@ export interface components {
       avgTokensPerSec?: number;
       successRate?: number;
     };
+    /** @description Transient throughput snapshot for an in-flight request. This payload is emitted by the management event stream approximately once per second and is not persisted as a usage record. */
+    ProgressUpdate: {
+      /**
+       * Format: uuid
+       * @description Request identifier shared with the related UsageRecord.
+       */
+      requestId: string;
+      /** @description API key associated with the request, if available. */
+      apiKey: string | null;
+      /** @description Whether the request is using a streamed response. */
+      isStreamed: boolean;
+      /** @description Total upstream response bytes received so far. */
+      bytesReceived: number;
+      /** @description Current total-byte throughput in bytes per second, or null until measurable. */
+      bytesPerSec: number | null;
+      /** @description Total semantic response bytes received so far, excluding protocol framing where applicable. */
+      semanticBytesReceived: number;
+      /** @description Current semantic-byte throughput in bytes per second, or null until measurable. */
+      semanticBytesPerSec: number | null;
+      /**
+       * @description Current stream stall-monitoring state.
+       * @enum {string}
+       */
+      state: 'DISPATCHED' | 'GRACE_PERIOD' | 'MONITORING' | 'THROUGHPUT_STALLED';
+      /** @description Milliseconds elapsed since monitoring started. */
+      elapsedMs: number;
+    };
     /** @description OpenAI Chat Completions request (pass-through; full OpenAI schema accepted). */
     ChatCompletionRequest: {
       model: string;
@@ -4804,7 +4972,9 @@ export interface components {
       stream: boolean;
       temperature?: number;
       top_p?: number;
+      /** @deprecated */
       max_tokens?: number;
+      max_completion_tokens?: number;
       tools?: {
         [key: string]: unknown;
       }[];
@@ -5096,53 +5266,141 @@ export interface components {
       stream_format: 'sse' | 'audio';
     };
     ImageGenerationRequest: {
-      /** @description Model identifier (e.g. `dall-e-3`, `dall-e-2`). */
+      /** @description Image generation model or Plexus model alias. */
       model: string;
       /** @description Text description of the desired image. */
       prompt: string;
       /**
-       * @description Number of images to generate (1-10).
+       * @description Upper bound on the number of images to generate.
        * @default 1
        */
       n: number;
       /**
-       * @description Output dimensions. Not all sizes are available on all models.
-       *     - `256x256`, `512x512`, `1024x1024` — available on DALL-E 2 and 3. - `1792x1024`, `1024x1792` — widescreen/portrait, DALL-E 3 only.
+       * @description Normalized resolution tier. Concrete dimensions depend on the target provider.
        * @enum {string}
        */
-      size?: '256x256' | '512x512' | '1024x1024' | '1792x1024' | '1024x1792';
+      resolution?: '512' | '1K' | '2K' | '4K';
+      /** @description Normalized output aspect ratio, such as 1:1, 16:9, or 9:16. */
+      aspect_ratio?: string;
+      /** @description Convenience resolution tier or explicit dimensions such as 2048x2048. */
+      size?: string;
       /**
-       * @description How the image is returned.
-       *     - **url** — Temporary URL (expires after 1 hour). - **b64_json** — Base64-encoded image data.
-       * @default url
+       * @description Requested rendering quality where supported by the target provider.
        * @enum {string}
        */
-      response_format: 'url' | 'b64_json';
+      quality?: 'auto' | 'low' | 'medium' | 'high';
       /**
-       * @description Detail level. Values vary by provider.
-       *     - **standard** — Default quality. - **hd** — Higher detail (DALL-E 3). - **high**, **medium**, **low** — Provider-specific detail levels.
+       * @description Encoding of generated image bytes where supported by the target provider.
        * @enum {string}
        */
-      quality?: 'standard' | 'hd' | 'high' | 'medium' | 'low';
+      output_format?: 'png' | 'jpeg' | 'webp' | 'svg';
       /**
-       * @description Visual style.
-       *     - **vivid** — Generates more dramatic, stylized images. - **natural** — More realistic, natural-looking images.
+       * @description Background treatment where supported by the target provider.
        * @enum {string}
        */
-      style?: 'vivid' | 'natural';
+      background?: 'auto' | 'transparent' | 'opaque';
+      /** @description Compression level for formats with a compression control. */
+      output_compression?: number;
+      /** @description Optional deterministic generation seed where supported. */
+      seed?: number;
+      /**
+       * @description Image streaming is reserved for a future implementation.
+       * @default false
+       */
+      stream: boolean;
+      /** @description Reference images used for image-conditioned generation. */
+      input_references?: {
+        /** @enum {string} */
+        type: 'image_url';
+        image_url: {
+          /** @description HTTP(S) URL or base64 image data URL. */
+          url: string;
+        };
+        media_type?: string;
+      }[];
+      /** @description Plexus provider routing preferences. */
+      provider?: {
+        only?: string[];
+        ignore?: string[];
+        order?: string[];
+        allow_fallbacks?: boolean;
+        sort?: string | Record<string, never>;
+        options?: Record<string, never>;
+      };
+      /**
+       * @description Legacy OpenAI delivery format. OpenRouter-shaped responses use base64 image data.
+       * @enum {string}
+       */
+      response_format?: 'url' | 'b64_json';
+      /** @description Legacy OpenAI image style where supported. */
+      style?: string;
       /** @description User identifier for content policy tracking. */
       user?: string;
     };
     ImageResponse: {
+      /** @description Unix timestamp when the images were generated. */
       created: number;
       data: ({
         /** Format: uri */
         url?: string;
         b64_json?: string;
+        media_type?: string;
         revised_prompt?: string;
       } & {
         [key: string]: unknown;
       })[];
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        total_tokens?: number;
+        cost?: number;
+        /** @description Per-modality input token detail, forwarded as received when the upstream reports it (for example `image_tokens`). Omitted by the `/v1/images` response, which projects only the flat token counts. */
+        input_tokens_details?: {
+          image_tokens?: number;
+        } & {
+          [key: string]: unknown;
+        };
+        /** @description Per-modality output token detail, forwarded as received when the upstream reports it (for example `image_tokens`). Omitted by the `/v1/images` response, which projects only the flat token counts. */
+        output_tokens_details?: {
+          image_tokens?: number;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
+    LegacyImageGenerationRequest: {
+      /** @description Model identifier, such as dall-e-3. */
+      model: string;
+      /** @description Text description of the desired image. */
+      prompt: string;
+      /**
+       * @description Number of images to generate.
+       * @default 1
+       */
+      n: number;
+      /**
+       * @description Output dimensions where supported by the target provider.
+       * @enum {string}
+       */
+      size?: '256x256' | '512x512' | '1024x1024' | '1792x1024' | '1024x1792';
+      /**
+       * @description How the image is returned.
+       * @default url
+       * @enum {string}
+       */
+      response_format: 'url' | 'b64_json';
+      /**
+       * @description Legacy OpenAI quality value.
+       * @enum {string}
+       */
+      quality?: 'standard' | 'hd' | 'high' | 'medium' | 'low';
+      /**
+       * @description Legacy OpenAI visual style.
+       * @enum {string}
+       */
+      style?: 'vivid' | 'natural';
+      /** @description User identifier for content policy tracking. */
+      user?: string;
     };
     /** @description Request body for image editing (multipart/form-data). */
     ImageEditRequest: {
@@ -5309,7 +5567,7 @@ export interface components {
       api_key?: string;
       /** @description OAuth provider identifier. Required when `api_base_url` uses an `oauth://` URI. Determines which OAuth flow is used to obtain credentials. Any OAuth-capable provider bundled with Plexus's pi-ai dependency is accepted (e.g. `anthropic`, `openai-codex`, `github-copilot`, `xai`, `kimi-coding`, `openrouter`) except `radius`, which is not supported. See `GET /v0/management/oauth/providers` for the current list. `google-gemini-cli` and `google-antigravity` are deprecated and no longer supported — they are rejected on write. */
       oauth_provider?: string;
-      /** @description OAuth account identifier. Required when `api_base_url` uses an `oauth://` URI. */
+      /** @description OAuth account identifier. Derived from the provider ID (one login per provider) and never set by users; accepted on write only as a grandfathered fallback for restores/imports that predate slug keying. */
       oauth_account?: string;
       /**
        * @description When false, this provider is excluded from all routing decisions.
@@ -6059,16 +6317,20 @@ export interface components {
       incomingModelAlias?: string | null;
       /** @description Resolved canonical model name. */
       canonicalModelName?: string | null;
-      /** @description Final model name sent to the upstream provider. May differ from `canonicalModelName` due to provider-specific transformations. */
+      /** @description Route-selected model name. Stays at the routing choice even when a provider adapter rewrote the outbound model; see `upstreamModel`. */
       selectedModelName?: string | null;
       /** @description Provider used for the final (successful or last) attempt. */
       finalAttemptProvider?: string | null;
-      /** @description Model used for the final attempt. */
+      /** @description Route-selected model for the final attempt. Quota scope matching uses this value. */
       finalAttemptModel?: string | null;
+      /** @description Post-adapter model actually present in the dispatched provider payload. Equals `finalAttemptModel` when no rewrite occurred; null for historical rows or failures before a payload was dispatched. */
+      upstreamModel?: string | null;
       /** @description JSON array of all providers attempted during this request (each appears once, in order of attempt). Null if only one provider was used. */
       allAttemptedProviders?: string | null;
       /** @description API format sent to upstream provider. May differ from `incomingApiType` due to protocol transformation. */
       outgoingApiType?: string | null;
+      /** @description Reasoning setting requested by the client. Values are `on`, `off`, or a normalized effort level such as `low`, `high`, or `max`. */
+      reasoningEffort?: string | null;
       /** @description Number of input tokens consumed. Reported by provider when available; otherwise estimated based on character count. Null on error. */
       tokensInput?: number | null;
       /** @description Number of output tokens generated. Null on error. */
@@ -7137,7 +7399,7 @@ export interface operations {
       };
     };
   };
-  postV1ImagesGenerations: {
+  postV1Images: {
     parameters: {
       query?: never;
       header?: never;
@@ -7147,6 +7409,44 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': components['schemas']['ImageGenerationRequest'];
+      };
+    };
+    responses: {
+      /** @description Generated images. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImageResponse'];
+        };
+      };
+      /** @description Invalid image request or unsupported target option. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentication required or invalid credentials. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postV1ImagesGenerations: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LegacyImageGenerationRequest'];
       };
     };
     responses: {
@@ -9268,6 +9568,13 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description Upstream provider rejected the request or returned an authorization error. */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description Upstream fetch timed out (10s). */
       504: {
         headers: {
@@ -9357,6 +9664,61 @@ export interface operations {
       };
       /** @description Authentication required or invalid credentials. */
       401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postV0ManagementPiResolveProvider: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          /** @description Endpoint URL(s) from the provider's api_base_url. */
+          urls?: string[];
+          /** @description OAuth provider ID when the provider uses oauth://. */
+          oauthProvider?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Resolution result; provider is null when nothing matches. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data?: {
+              /** @description Matching pi-ai provider ID, or null. */
+              provider?: string | null;
+            };
+          };
+        };
+      };
+      /** @description Invalid request body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentication required or invalid credentials. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Admin privileges required. */
+      403: {
         headers: {
           [name: string]: unknown;
         };
@@ -12002,6 +12364,12 @@ export interface operations {
       query: {
         /** @description Provider ID to list models for. */
         providerId: string;
+        /**
+         * @description OAuth account whose entitlement should be used. Only honoured for
+         *     `openai-codex` live discovery; omit to use the provider's default
+         *     account.
+         */
+        accountId?: string;
       };
       header?: never;
       path?: never;
@@ -12009,7 +12377,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Model list (pi-ai static catalog). */
+      /** @description Model list (live Codex list or pi-ai static catalog). */
       200: {
         headers: {
           [name: string]: unknown;
@@ -12020,11 +12388,27 @@ export interface operations {
               id?: string;
               name?: string;
               context_length?: number;
+              description?: string;
+              /** @enum {string} */
+              type?: 'text' | 'image';
+              access_via?: string[];
+              /** @enum {string} */
+              visibility?: 'list' | 'hide';
               pricing?: {
                 prompt?: string;
                 completion?: string;
               };
             }[];
+            /**
+             * @description Where the list came from.
+             * @enum {string}
+             */
+            source?: 'codex-backend' | 'catalog';
+            /**
+             * @description Why live discovery was skipped or failed. Present only when
+             *     the response fell back to the static catalog.
+             */
+            warning?: string;
           };
         };
       };
@@ -12809,9 +13193,15 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description SSE stream. */
+      /** @description Long-lived SSE stream of usage lifecycle and progress events. */
       200: {
         headers: {
+          /** @description Disables intermediary caching for the live stream. */
+          'Cache-Control'?: string;
+          /** @description Keeps the HTTP connection open while the stream is active. */
+          Connection?: string;
+          /** @description CORS origin allowed for the stream. */
+          'Access-Control-Allow-Origin'?: string;
           [name: string]: unknown;
         };
         content: {

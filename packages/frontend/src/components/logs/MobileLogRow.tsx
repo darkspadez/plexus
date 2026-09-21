@@ -31,7 +31,15 @@ import { formatDateSafely, formatReasoningEffort } from './helpers';
 import type { LogRowProps } from './types';
 
 export const MobileLogRow = React.memo(
-  ({ log, isNewest, liveNow, progress, onError, onDebug }: LogRowProps) => {
+  ({
+    log,
+    isNewest,
+    liveNow,
+    progress,
+    onError,
+    onDebug,
+    onRetryDetails,
+  }: LogRowProps & { onRetryDetails?: (log: LogRowProps['log']) => void }) => {
     const { currency, rate, symbol } = useCurrency();
     const formatted = formatDateSafely(log.date);
     const totalTokens =
@@ -104,9 +112,38 @@ export const MobileLogRow = React.memo(
             <span className="shrink-0 text-text-muted" aria-hidden="true">
               ·
             </span>
-            <span className="min-w-0 truncate font-normal text-text-secondary">
-              {log.provider || '-'}:{log.selectedModelName || '-'}
+            <span
+              className="min-w-0 truncate font-normal text-text-secondary"
+              title={(() => {
+                const routeModel = log.finalAttemptModel ?? log.selectedModelName ?? '-';
+                return log.upstreamModel && log.upstreamModel !== routeModel
+                  ? `${log.provider || '-'}:${routeModel} → ${log.upstreamModel} (route → upstream)`
+                  : undefined;
+              })()}
+            >
+              {(() => {
+                const routeModel = log.finalAttemptModel ?? log.selectedModelName ?? '-';
+                return log.upstreamModel && log.upstreamModel !== routeModel
+                  ? `${log.provider || '-'}:${routeModel} → ${log.upstreamModel}`
+                  : `${log.provider || '-'}:${routeModel}`;
+              })()}
             </span>
+            {(() => {
+              const routeModel = log.finalAttemptModel ?? log.selectedModelName;
+              const hasRewrite = Boolean(log.upstreamModel) && log.upstreamModel !== routeModel;
+              const showRetry = (log.attemptCount && log.attemptCount > 1) || hasRewrite;
+              if (!showRetry || !onRetryDetails) return null;
+              return (
+                <button
+                  type="button"
+                  onClick={() => onRetryDetails(log)}
+                  className="shrink-0 text-[10px] font-medium text-orange-500"
+                  aria-label={`View retry history (${log.attemptCount ?? 1} attempts)`}
+                >
+                  {log.attemptCount ?? 1}x
+                </button>
+              );
+            })()}
           </div>
           <span
             className={clsx(

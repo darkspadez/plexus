@@ -350,7 +350,8 @@ describe('executeStandardAttempt — thinking-signature strip-and-retry', () => 
       expect.anything(),
       streamError,
       'chat',
-      true
+      true,
+      'model-1'
     );
   });
 

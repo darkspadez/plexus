@@ -369,9 +369,17 @@ export class Dispatcher {
     attemptedProviders: string[],
     retryHistory: RetryAttemptRecord[],
     finalRoute: RouteResult,
-    apiType: string
+    apiType: string,
+    upstreamModel?: string
   ): void {
-    attachAttemptMetadata(response, attemptedProviders, retryHistory, finalRoute, apiType);
+    attachAttemptMetadata(
+      response,
+      attemptedProviders,
+      retryHistory,
+      finalRoute,
+      apiType,
+      upstreamModel
+    );
   }
 
   private appendSkippedAttempt(
@@ -435,9 +443,10 @@ export class Dispatcher {
   private appendSuccessAttempt(
     retryHistory: RetryAttemptRecord[],
     route: RouteResult,
-    apiType?: string
+    apiType?: string,
+    upstreamModel?: string
   ): void {
-    appendSuccessAttempt(retryHistory, route, apiType);
+    appendSuccessAttempt(retryHistory, route, apiType, upstreamModel);
   }
 
   private appendFailureAttempt(
@@ -445,7 +454,8 @@ export class Dispatcher {
     route: RouteResult,
     error: any,
     apiType?: string,
-    retryable?: boolean
+    retryable?: boolean,
+    upstreamModel?: string
   ): void {
     appendFailureAttempt(
       retryHistory,
@@ -453,7 +463,8 @@ export class Dispatcher {
       error,
       this.formatFailureReason.bind(this),
       apiType,
-      retryable
+      retryable,
+      upstreamModel
     );
   }
 

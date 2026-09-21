@@ -178,18 +178,27 @@ export const DesktopLogRow = React.memo(
                 )}
               </span>
             )}
-            {log.attemptCount && log.attemptCount > 1 && (
-              <button
-                type="button"
-                onClick={() => onRetryDetails(log)}
-                className="inline-flex shrink-0 items-center gap-0 border-0 bg-transparent p-0 text-orange-500 transition-colors hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
-                title="View retry history"
-                aria-label={`View retry history (${log.attemptCount} attempts)`}
-              >
-                <RotateCcw size={10} />
-                <span className="text-[8px] font-medium">{log.attemptCount}x</span>
-              </button>
-            )}
+            {(() => {
+              const routeModel = log.finalAttemptModel ?? log.selectedModelName;
+              const hasRewrite = Boolean(log.upstreamModel) && log.upstreamModel !== routeModel;
+              if (!((log.attemptCount && log.attemptCount > 1) || hasRewrite)) return null;
+              return (
+                <button
+                  type="button"
+                  onClick={() => onRetryDetails(log)}
+                  className="inline-flex shrink-0 items-center gap-0 border-0 bg-transparent p-0 text-orange-500 transition-colors hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
+                  title={
+                    hasRewrite
+                      ? 'View retry history (model rewritten upstream)'
+                      : 'View retry history'
+                  }
+                  aria-label={`View retry history (${log.attemptCount ?? 1} attempts${hasRewrite ? ', model rewritten upstream' : ''})`}
+                >
+                  <RotateCcw size={10} />
+                  <span className="text-[8px] font-medium">{log.attemptCount ?? 1}x</span>
+                </button>
+              );
+            })()}
           </div>
         </td>
         <td
@@ -381,13 +390,23 @@ export const DesktopLogRow = React.memo(
               )}
             </div>
             <div className="group/selected flex min-w-0 items-center gap-1">
-              <span
-                className="min-w-0 truncate"
-                style={{ color: 'var(--color-text-secondary)', fontSize: '0.9em' }}
-                title={`${log.provider || '-'}:${log.selectedModelName || '-'}`}
-              >
-                {log.provider || '-'}:{log.selectedModelName || '-'}
-              </span>
+              {(() => {
+                const routeModel = log.finalAttemptModel ?? log.selectedModelName ?? '-';
+                const upstream = log.upstreamModel;
+                const hasRewrite = Boolean(upstream) && upstream !== routeModel;
+                const label = hasRewrite
+                  ? `${log.provider || '-'}:${routeModel} → ${upstream}`
+                  : `${log.provider || '-'}:${routeModel}`;
+                return (
+                  <span
+                    className="min-w-0 truncate"
+                    style={{ color: 'var(--color-text-secondary)', fontSize: '0.9em' }}
+                    title={hasRewrite ? `${label} (route → upstream; quota uses route)` : label}
+                  >
+                    {label}
+                  </span>
+                );
+              })()}
               {log.selectedModelName && log.selectedModelName !== '-' && (
                 <button
                   type="button"

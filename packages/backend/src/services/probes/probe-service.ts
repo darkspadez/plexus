@@ -252,6 +252,8 @@ export class ProbeService {
         response.plexus?.finalAttemptProvider || usageRecord.provider || null;
       usageRecord.finalAttemptModel =
         response.plexus?.finalAttemptModel || usageRecord.selectedModelName || null;
+      usageRecord.upstreamModel =
+        response.plexus?.upstreamModel || usageRecord.finalAttemptModel || null;
       usageRecord.allAttemptedProviders = response.plexus?.allAttemptedProviders || null;
 
       if (response.usage) {
@@ -264,7 +266,11 @@ export class ProbeService {
 
       const pricing = response.plexus?.pricing;
       const providerDiscount = response.plexus?.providerDiscount;
-      calculateCosts(usageRecord, pricing, providerDiscount);
+      calculateCosts(usageRecord, pricing, providerDiscount, {
+        upstreamModel: response.plexus?.upstreamModel,
+        pricingModel: response.plexus?.pricingModel,
+        pricingFallback: response.plexus?.pricingFallback,
+      });
 
       this.usageStorage.emitUpdatedAsync({
         requestId,

@@ -274,6 +274,10 @@ export interface UnifiedChatResponse {
     attemptCount?: number;
     finalAttemptProvider?: string;
     finalAttemptModel?: string;
+    /** Post-adapter model actually dispatched (providerPayload.model). */
+    upstreamModel?: string;
+    pricingModel?: string;
+    pricingFallback?: boolean;
     allAttemptedProviders?: string;
     retryHistory?: string;
   };

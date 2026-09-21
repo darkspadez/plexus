@@ -157,6 +157,10 @@ export class RequestManager {
 
       attemptedProviders.push(`${route.provider}/${route.model}`);
       const doRelease = admission.release;
+      // Post-adapter model for this target; set only after transformRequestPayload
+      // succeeds. Left undefined when transformation fails before a dispatchable
+      // payload exists, so failure entries never claim an upstream model.
+      let completedUpstreamModel: string | undefined;
 
       host.emitRoutingUpdate(currentRequest.requestId, route);
 
@@ -234,6 +238,10 @@ export class RequestManager {
             providerPayload
           );
         }
+        completedUpstreamModel =
+          typeof providerPayload?.model === 'string' && providerPayload.model.length > 0
+            ? providerPayload.model
+            : route.model;
 
         // Wire per-provider stall detection overrides. Always call addStallConfig
         // so the StallInspector is reset on each failover iteration — even when
@@ -279,6 +287,7 @@ export class RequestManager {
         const result = await executeStandardAttempt({
           host,
           providerPayload,
+          upstreamModel: completedUpstreamModel,
           request: currentRequest,
           requestWithTargetModel,
           route,
@@ -349,7 +358,14 @@ export class RequestManager {
             host.isRetryableNetworkError(effectiveError, failover?.retryableErrors || []) ||
             effectiveError.message?.includes('stalled'));
 
-        host.appendFailureAttempt(retryHistory, route, effectiveError, undefined, canRetryNetwork);
+        host.appendFailureAttempt(
+          retryHistory,
+          route,
+          effectiveError,
+          undefined,
+          canRetryNetwork,
+          completedUpstreamModel
+        );
 
         if (canRetryNetwork) {
           host.saveIntermediateError(

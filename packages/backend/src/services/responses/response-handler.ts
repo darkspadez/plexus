@@ -5,7 +5,7 @@ import { Transformer } from '../../types/transformer';
 import { UsageRecord } from '../../types/usage';
 import { UsageStorageService } from '../observability/usage-storage';
 import { logger } from '../../utils/logger';
-import { calculateCosts } from '../../utils/calculate-costs';
+import { calculateCosts, type CostAttribution } from '../../utils/calculate-costs';
 import { TransformerFactory } from '../dispatch/transformer-factory';
 import { DebugLoggingInspector, UsageInspector } from '../inspectors/index';
 import { Readable } from 'stream';
@@ -132,6 +132,8 @@ export async function handleResponse(
     JSON.stringify([
       `${usageRecord.provider || 'unknown'}/${usageRecord.selectedModelName || unifiedResponse.model}`,
     ]);
+  usageRecord.upstreamModel =
+    unifiedResponse.plexus?.upstreamModel || usageRecord.finalAttemptModel || null;
 
   const outgoingApiType = unifiedResponse.plexus?.apiType?.toLowerCase();
   usageRecord.outgoingApiType = outgoingApiType?.toLocaleLowerCase();
@@ -161,6 +163,11 @@ export async function handleResponse(
 
   const pricing = unifiedResponse.plexus?.pricing;
   const providerDiscount = unifiedResponse.plexus?.providerDiscount;
+  const costAttribution: CostAttribution = {
+    upstreamModel: unifiedResponse.plexus?.upstreamModel,
+    pricingModel: (unifiedResponse.plexus as any)?.pricingModel,
+    pricingFallback: (unifiedResponse.plexus as any)?.pricingFallback,
+  };
   // Normalize the provider API type to our supported internal constants: 'chat', 'messages', 'gemini'
   const providerApiType = getApiBaseType(unifiedResponse.plexus?.apiType || 'chat');
 
@@ -190,7 +197,8 @@ export async function handleResponse(
       providerDiscount,
       quotaEnforcer,
       keyName,
-      { responseStatus: 'error', updatePerformanceMetrics: false }
+      { responseStatus: 'error', updatePerformanceMetrics: false },
+      costAttribution
     );
     usageStorage.saveError(
       usageRecord.requestId!,
@@ -453,7 +461,8 @@ export async function handleResponse(
       quotaEnforcer,
       keyName,
       rawDebugLogging,
-      transformedDebugLogging
+      transformedDebugLogging,
+      costAttribution
     );
 
     // Standard SSE headers to prevent buffering and timeouts
@@ -768,7 +777,9 @@ export async function handleResponse(
       pricing,
       providerDiscount,
       quotaEnforcer,
-      keyName
+      keyName,
+      undefined,
+      costAttribution
     );
 
     logger.debug(`Outgoing ${apiType} Response`, responseBody);
@@ -791,7 +802,8 @@ async function finalizeUsage(
   providerDiscount: any,
   quotaEnforcer?: QuotaEnforcer,
   keyName?: string,
-  options: { responseStatus?: 'success' | 'error'; updatePerformanceMetrics?: boolean } = {}
+  options: { responseStatus?: 'success' | 'error'; updatePerformanceMetrics?: boolean } = {},
+  costAttribution?: CostAttribution
 ) {
   // Capture token usage if available in the response
   if (unifiedResponse.usage) {
@@ -808,7 +820,7 @@ async function finalizeUsage(
     unifiedResponse.clientError?.code ?? unifiedResponse.finishReason ?? null;
 
   // Finalize costs and duration
-  calculateCosts(usageRecord, pricing, providerDiscount);
+  calculateCosts(usageRecord, pricing, providerDiscount, costAttribution);
 
   // Override with provider-reported cost if available in the raw response
   // (e.g. from SSE `: cost` comments or provider response payloads)
