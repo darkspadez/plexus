@@ -71,7 +71,7 @@ Run these commands from the repository root:
 - Format check: `bun run format:check`
 
 For lifecycle targets, ports, and FRP tunnels, read [Development](CONTRIBUTING.md#development).
-For optional Cora commands, read [Manual Cora review](CONTRIBUTING.md#manual-cora-review); never invoke Cora automatically during commits or install it just for a review.
+For optional review commands, read [Manual OpenCodeReview review](CONTRIBUTING.md#manual-opencodereview-review); never invoke OpenCodeReview automatically during commits or install it just for a review.
 
 ## Before handing work back
 

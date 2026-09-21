@@ -1,13 +1,18 @@
-name: Cora AI Code Review
-run-name: "Cora Review: PR #${{ github.event.pull_request.number }}"
+name: Cora AI Code Review (fallback, manual only)
+run-name: "Cora Review (fallback): PR #${{ inputs.pr_number }}"
 
+# Dormant fallback for the OpenCodeReview cutover (see ocr-review.yml).
+# Trigger manually from the Actions tab with a PR number if OCR must be bypassed.
 on:
-  pull_request_target:
-    branches: [main]
-    types: [opened, reopened, ready_for_review, synchronize]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to review
+        required: true
+        type: number
 
 concurrency:
-  group: cora-review-${{ github.event.pull_request.number }}
+  group: cora-review-${{ inputs.pr_number }}
   cancel-in-progress: true
 
 permissions:
@@ -25,22 +30,26 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const pull = context.payload.pull_request;
-            const shouldRun = !pull.draft;
-            const reason = pull.draft
-              ? 'Skipping draft PR until it is marked ready for review'
-              : `Reviewing PR #${pull.number} from ${pull.head.repo?.full_name ?? 'unknown repository'} using a trusted checkout and the PR diff`;
+            const prNumber = Number(context.payload.inputs.pr_number);
+            const { data: pull } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            const reason = `Reviewing PR #${pull.number} from ${pull.head.repo?.full_name ?? 'unknown repository'} using a trusted checkout and the PR diff (manual fallback run)`;
 
             core.info(reason);
-            core.setOutput('should_run', String(shouldRun));
+            core.setOutput('should_run', 'true');
             core.setOutput('reason', reason);
+            core.setOutput('base_sha', pull.base.sha);
+            core.setOutput('head_sha', pull.head.sha);
 
       - name: Checkout trusted base
         if: steps.preflight.outputs.should_run == 'true'
         uses: actions/checkout@v7
         with:
           repository: ${{ github.repository }}
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ steps.preflight.outputs.base_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -48,10 +57,10 @@ jobs:
         if: steps.preflight.outputs.should_run == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ inputs.pr_number }}
           REPOSITORY: ${{ github.repository }}
-          EXPECTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EXPECTED_BASE_SHA: ${{ steps.preflight.outputs.base_sha }}
+          EXPECTED_HEAD_SHA: ${{ steps.preflight.outputs.head_sha }}
         run: |
           metadata_file="$RUNNER_TEMP/cora-pr-metadata-before.json"
           gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" > "$metadata_file"
@@ -92,10 +101,10 @@ jobs:
         if: steps.preflight.outputs.should_run == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ inputs.pr_number }}
           REPOSITORY: ${{ github.repository }}
-          EXPECTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EXPECTED_BASE_SHA: ${{ steps.preflight.outputs.base_sha }}
+          EXPECTED_HEAD_SHA: ${{ steps.preflight.outputs.head_sha }}
         run: |
           git fetch \
             --no-tags \
@@ -194,7 +203,7 @@ jobs:
           CORA_BASE_URL: ${{ steps.baseurl.outputs.url }}
           CORA_CONFIG: ${{ steps.config.outputs.path }}
           CORA_MODEL: kimi-k3
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ steps.preflight.outputs.base_sha }}
           REVIEW_FILE: ${{ runner.temp }}/cora-review.json
           ERROR_FILE: ${{ runner.temp }}/cora-review.error.log
         run: |
@@ -275,13 +284,16 @@ jobs:
         env:
           REVIEW_FILE: ${{ runner.temp }}/cora-review.json
           ERROR_FILE: ${{ runner.temp }}/cora-review.error.log
+          PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_SHA: ${{ steps.preflight.outputs.head_sha }}
+          BASE_SHA: ${{ steps.preflight.outputs.base_sha }}
         with:
           script: |
             const fs = require('fs');
             const marker = '<!-- cora-review-status -->';
-            const pullNumber = context.payload.pull_request.number;
-            const reviewedHead = context.payload.pull_request.head.sha;
-            const reviewedBase = context.payload.pull_request.base.sha;
+            const pullNumber = Number(process.env.PR_NUMBER);
+            const reviewedHead = process.env.HEAD_SHA;
+            const reviewedBase = process.env.BASE_SHA;
             let review;
 
             try {
