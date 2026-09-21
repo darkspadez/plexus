@@ -4,11 +4,11 @@
 # - Reusable action floats on `alibaba/open-code-review@main` with `ocr_version: latest`.
 #   Pinning only the action does NOT freeze the CLI, so floating both is the
 #   accepted trade-off: zero maintenance, review behavior may drift with releases.
-# - Model is kimi-k3 via the existing LLM_API_HOST / LLM_API_KEY secrets (same model
-#   Cora used, so any quality delta is the tool, not the model).
-# - `llm_extra_body: '{}'`: the action default disables Anthropic thinking mode, which
-#   is meaningless on this OpenAI-protocol endpoint. If the provider 400s on the
-#   request body, revisit this input first.
+# - Model is claude-opus-5 via the existing LLM_API_HOST / LLM_API_KEY secrets (same
+#   gateway Cora used, but over the Anthropic Messages API at /v1/messages).
+# - `llm_extra_body` sets `output_config.effort: high` (Anthropic thinking level).
+#   `llm_reasoning_effort` is NOT used: the action rejects it on the Anthropic
+#   protocol, since the Anthropic API drops unknown body fields.
 # - Blocking gate is custom (OCR has no `should_block`): critical/high severities fail
 #   the job in "Check for blocking OCR findings" below. Medium/low stay advisory.
 # - Severity focus and secret-noise suppression from `.cora.yaml` are enforced by that
@@ -63,7 +63,9 @@ jobs:
   ocr-review:
     name: OCR Review
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Must stay >= review_task_timeout below: the job timeout killed a review
+    # that still had task budget left. Keep the two in step.
+    timeout-minutes: 15
     # Drafts are skipped until ready for review (Cora parity). On-demand
     # /open-code-review comments from collaborators always run (explicit request).
     if: |
@@ -121,8 +123,8 @@ jobs:
             *) base="$base/v1" ;;
           esac
           # Unlike Cora (which takes a base URL), OCR wants the full
-          # chat-completions endpoint.
-          echo "url=$base/chat/completions" >> "$GITHUB_OUTPUT"
+          # endpoint URL. The Anthropic protocol speaks /v1/messages.
+          echo "url=$base/messages" >> "$GITHUB_OUTPUT"
 
       - name: Run OpenCodeReview
         id: ocr
@@ -130,9 +132,11 @@ jobs:
         with:
           llm_url: ${{ steps.llm.outputs.url }}
           llm_auth_token: ${{ secrets.LLM_API_KEY }}
-          llm_model: kimi-k3
-          llm_use_anthropic: 'false'
-          llm_extra_body: '{}'
+          llm_model: claude-opus-5
+          llm_use_anthropic: 'true'
+          llm_extra_body: '{"output_config": {"effort": "high"}}'
+          # Keep in step with the job timeout-minutes above.
+          review_task_timeout: '15'
           # For issue_comment triggers, pass the resolved refs; for
           # pull_request_target the action resolves them from the event.
           base_ref: ${{ steps.pr-context.outputs.base_ref }}
