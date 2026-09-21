@@ -1,6 +1,6 @@
 import { logger } from '../../utils/logger';
 
-const DEFAULT_CODEX_VERSION = '0.125.0';
+const DEFAULT_CODEX_VERSION = '0.155.1';
 const GITHUB_RELEASES_URL = 'https://api.github.com/repos/openai/codex/releases/latest';
 
 interface GitHubRelease {
@@ -10,6 +10,7 @@ interface GitHubRelease {
 export class CodexVersionService {
   private static instance: CodexVersionService;
   private version: string;
+  private autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   private constructor() {
     this.version = DEFAULT_CODEX_VERSION;
@@ -23,7 +24,33 @@ export class CodexVersionService {
   }
 
   static resetForTesting(): void {
+    CodexVersionService.instance?.stopAutoRefresh();
     CodexVersionService.instance = new CodexVersionService();
+  }
+
+  /**
+   * Refresh the Codex CLI version on a schedule (same 60-minute cadence as
+   * model metadata), so a long-running instance never serves a stale version.
+   */
+  startAutoRefresh(intervalMinutes = 60): void {
+    this.stopAutoRefresh();
+    const minutes = Math.max(1, intervalMinutes);
+    this.autoRefreshTimer = setInterval(
+      () => {
+        this.fetchVersion().catch((error) => {
+          logger.error('Scheduled codex version refresh failed', error);
+        });
+      },
+      minutes * 60 * 1000
+    );
+    logger.info(`Scheduled codex version auto-refresh every ${minutes} minutes`);
+  }
+
+  stopAutoRefresh(): void {
+    if (this.autoRefreshTimer) {
+      clearInterval(this.autoRefreshTimer);
+      this.autoRefreshTimer = null;
+    }
   }
 
   async fetchVersion(): Promise<void> {

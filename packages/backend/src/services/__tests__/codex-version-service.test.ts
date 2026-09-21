@@ -8,13 +8,13 @@ describe('CodexVersionService', () => {
 
   it('returns default version before fetch', () => {
     const service = CodexVersionService.getInstance();
-    expect(service.getVersion()).toBe('0.125.0');
+    expect(service.getVersion()).toBe('0.155.1');
   });
 
   it('returns default user-agent before fetch', () => {
     const service = CodexVersionService.getInstance();
     expect(service.getUserAgent()).toBe(
-      'codex_cli_rs/0.125.0 (Debian 13.0.0; x86_64) WindowsTerminal'
+      'codex_cli_rs/0.155.1 (Debian 13.0.0; x86_64) WindowsTerminal'
     );
   });
 
@@ -72,7 +72,7 @@ describe('CodexVersionService', () => {
     const service = CodexVersionService.getInstance();
     await service.fetchVersion();
 
-    expect(service.getVersion()).toBe('0.125.0');
+    expect(service.getVersion()).toBe('0.155.1');
   });
 
   it('falls back to default on non-ok response', async () => {
@@ -87,7 +87,7 @@ describe('CodexVersionService', () => {
     const service = CodexVersionService.getInstance();
     await service.fetchVersion();
 
-    expect(service.getVersion()).toBe('0.125.0');
+    expect(service.getVersion()).toBe('0.155.1');
   });
 
   it('falls back to default when tag_name is missing', async () => {
@@ -102,7 +102,7 @@ describe('CodexVersionService', () => {
     const service = CodexVersionService.getInstance();
     await service.fetchVersion();
 
-    expect(service.getVersion()).toBe('0.125.0');
+    expect(service.getVersion()).toBe('0.155.1');
   });
 
   it('handles rust-v prefix tag', async () => {
@@ -132,7 +132,7 @@ describe('CodexVersionService', () => {
     const service = CodexVersionService.getInstance();
     await service.fetchVersion();
 
-    expect(service.getVersion()).toBe('0.125.0');
+    expect(service.getVersion()).toBe('0.155.1');
   });
 
   it('uses correct GitHub API URL', async () => {
@@ -154,5 +154,70 @@ describe('CodexVersionService', () => {
         }),
       })
     );
+  });
+
+  it('startAutoRefresh refetches the version on schedule', async () => {
+    vi.useFakeTimers();
+    try {
+      CodexVersionService.resetForTesting();
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ tag_name: 'v0.200.0' }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const service = CodexVersionService.getInstance();
+      service.startAutoRefresh(60);
+      expect(mockFetch).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000 + 1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(service.getVersion()).toBe('0.200.0');
+
+      service.stopAutoRefresh();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stopAutoRefresh cancels scheduled refetches', async () => {
+    vi.useFakeTimers();
+    try {
+      CodexVersionService.resetForTesting();
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ tag_name: 'v0.200.0' }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const service = CodexVersionService.getInstance();
+      service.startAutoRefresh(60);
+      service.stopAutoRefresh();
+
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000 + 1);
+      expect(mockFetch).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resetForTesting stops the auto-refresh timer', async () => {
+    vi.useFakeTimers();
+    try {
+      CodexVersionService.resetForTesting();
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ tag_name: 'v0.200.0' }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      CodexVersionService.getInstance().startAutoRefresh(60);
+      CodexVersionService.resetForTesting();
+
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000 + 1);
+      expect(mockFetch).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

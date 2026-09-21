@@ -226,11 +226,11 @@ try {
   modelMetadataManager.refreshAll(undefined, 'startup').catch((e) => {
     logger.error('Failed to load model metadata', e);
   });
-  CodexVersionService.getInstance()
-    .fetchVersion()
-    .catch((e) => {
-      logger.error('Failed to fetch codex version', e);
-    });
+  const codexVersionService = CodexVersionService.getInstance();
+  codexVersionService.startAutoRefresh(60);
+  codexVersionService.fetchVersion().catch((e) => {
+    logger.error('Failed to fetch codex version', e);
+  });
 } catch (e) {
   logger.error('Failed to load config', e);
   process.exit(1);
