@@ -1,0 +1,171 @@
+# OpenCodeReview PR Review (primary reviewer; Cora is a manual-only fallback, see cora-review.yml)
+#
+# Decisions behind this workflow (grilled and agreed):
+# - Reusable action floats on `alibaba/open-code-review@main` with `ocr_version: latest`.
+#   Pinning only the action does NOT freeze the CLI, so floating both is the
+#   accepted trade-off: zero maintenance, review behavior may drift with releases.
+# - Model is kimi-k3 via the existing LLM_API_HOST / LLM_API_KEY secrets (same model
+#   Cora used, so any quality delta is the tool, not the model).
+# - `llm_extra_body: '{}'`: the action default disables Anthropic thinking mode, which
+#   is meaningless on this OpenAI-protocol endpoint. If the provider 400s on the
+#   request body, revisit this input first.
+# - Blocking gate is custom (OCR has no `should_block`): critical/high severities fail
+#   the job in "Check for blocking OCR findings" below. Medium/low stay advisory.
+# - Severity focus and secret-noise suppression from `.cora.yaml` are enforced by that
+#   gate plus `.opencodereview/rule.json` excludes, not by prompt rules (a catch-all
+#   prompt rule would shadow OCR's language-specific system rules).
+
+name: OpenCodeReview PR Review
+run-name: "OCR Review: PR #${{ github.event.pull_request.number || github.event.issue.number }}"
+
+# Same conditional group as the upstream demo: matching events share a per-PR group
+# so a new review cancels a stale one; unrelated comments land in a unique noop group
+# and never cancel a running review.
+concurrency:
+  group: >-
+    ${{
+      (
+        github.event_name == 'pull_request_target'
+        || (
+          github.event_name == 'issue_comment'
+          && github.event.issue.pull_request
+          && github.event.comment.user.type != 'Bot'
+          && (
+            github.event.comment.author_association == 'MEMBER'
+            || github.event.comment.author_association == 'OWNER'
+            || github.event.comment.author_association == 'COLLABORATOR'
+          )
+          && (
+            startsWith(github.event.comment.body, '/open-code-review')
+            || startsWith(github.event.comment.body, '@open-code-review')
+          )
+        )
+      )
+      && format('ocr-{0}', github.event.pull_request.number || github.event.issue.number)
+      || format('noop-{0}', github.run_id)
+    }}
+  cancel-in-progress: true
+
+on:
+  # pull_request_target (not pull_request) so secrets are available for fork PRs.
+  # Safe: the action checks out the trusted base and only reads the head diff.
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, ready_for_review, synchronize]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ocr-review:
+    name: OCR Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Drafts are skipped until ready for review (Cora parity). On-demand
+    # /open-code-review comments from collaborators always run (explicit request).
+    if: |
+      (github.event_name == 'pull_request_target' && github.event.pull_request.draft == false)
+      || (
+        github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && github.event.comment.user.type != 'Bot'
+        && (
+          github.event.comment.author_association == 'MEMBER'
+          || github.event.comment.author_association == 'OWNER'
+          || github.event.comment.author_association == 'COLLABORATOR'
+        )
+        && (
+          startsWith(github.event.comment.body, '/open-code-review')
+          || startsWith(github.event.comment.body, '@open-code-review')
+        )
+      )
+    steps:
+      - name: Get PR context
+        id: pr-context
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // For issue_comment events, resolve PR base/head so the action
+            // can review the right diff (issue_comment has no top-level
+            // pull_request payload fields).
+            const prNumber = context.issue.number;
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            core.setOutput('base_ref', pullRequest.base.ref);
+            core.setOutput('head_sha', pullRequest.head.sha);
+
+      - name: Normalize LLM endpoint URL
+        id: llm
+        env:
+          LLM_API_HOST: ${{ secrets.LLM_API_HOST }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          if [ -z "$LLM_API_HOST" ]; then
+            echo "::error::LLM_API_HOST is not configured"
+            exit 1
+          fi
+          if [ -z "$LLM_API_KEY" ]; then
+            echo "::error::LLM_API_KEY is not configured"
+            exit 1
+          fi
+          base="${LLM_API_HOST%/}"
+          case "$base" in
+            */v1) ;;
+            *) base="$base/v1" ;;
+          esac
+          # Unlike Cora (which takes a base URL), OCR wants the full
+          # chat-completions endpoint.
+          echo "url=$base/chat/completions" >> "$GITHUB_OUTPUT"
+
+      - name: Run OpenCodeReview
+        id: ocr
+        uses: alibaba/open-code-review@main
+        with:
+          llm_url: ${{ steps.llm.outputs.url }}
+          llm_auth_token: ${{ secrets.LLM_API_KEY }}
+          llm_model: kimi-k3
+          llm_use_anthropic: 'false'
+          llm_extra_body: '{}'
+          # For issue_comment triggers, pass the resolved refs; for
+          # pull_request_target the action resolves them from the event.
+          base_ref: ${{ steps.pr-context.outputs.base_ref }}
+          head_sha: ${{ steps.pr-context.outputs.head_sha }}
+
+      - name: Check for blocking OCR findings
+        env:
+          REVIEW_FILE: /tmp/ocr-result.json
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          try:
+              review = json.loads(Path(os.environ['REVIEW_FILE']).read_text())
+          except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+              print(f"::error::Could not parse OCR result: {e}")
+              sys.exit(1)
+
+          if review.get('status') == 'skipped':
+              print(f"::warning::OCR skipped the review: {review.get('message', 'no message')}")
+              sys.exit(0)
+
+          comments = review.get('comments', [])
+          blocking = [c for c in comments
+                      if str(c.get('severity', '')).lower() in ('critical', 'high')]
+          print(f"OCR reported {len(comments)} finding(s), "
+                f"{len(blocking)} at critical/high severity.")
+          for c in blocking:
+              line = c.get('start_line') or c.get('end_line') or '?'
+              print(f"BLOCKING {c.get('severity')}: {c.get('path')}:{line}: "
+                    f"{(c.get('content') or '')[:200]}")
+          sys.exit(1 if blocking else 0)
+          PY
