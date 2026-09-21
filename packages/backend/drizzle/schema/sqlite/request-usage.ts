@@ -20,6 +20,7 @@ export const requestUsage = sqliteTable(
     selectedModelName: text('selected_model_name'),
     finalAttemptProvider: text('final_attempt_provider'),
     finalAttemptModel: text('final_attempt_model'),
+    upstreamModel: text('upstream_model'),
     allAttemptedProviders: text('all_attempted_providers'),
     outgoingApiType: text('outgoing_api_type'),
     reasoningEffort: text('reasoning_effort'),

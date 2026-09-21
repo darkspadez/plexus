@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   appendFailureAttempt,
   appendSkippedAttempt,
+  appendSuccessAttempt,
+  attachAttemptMetadata,
   buildAllTargetsFailedError,
+  resolveUpstreamPricing,
   type ErrorSummaryFormatter,
   type FailureReasonFormatter,
 } from '../attempt-history';
@@ -246,5 +249,82 @@ describe('buildAllTargetsFailedError', () => {
     );
 
     expect(error.message).toBe('All targets failed: none. Last error: boom');
+  });
+});
+
+describe('upstreamModel provenance (issue #916)', () => {
+  function makePricedRoute(): RouteResult {
+    return {
+      provider: 'metasub',
+      model: 'muse-spark-1.3-contributor',
+      config: {
+        discount: 0,
+        models: {
+          'muse-spark-1.3-contributor': { pricing: { source: 'simple', input: 1, output: 2 } },
+          'muse-spark-1.3': { pricing: { source: 'simple', input: 10, output: 20 } },
+        },
+      } as any,
+      modelConfig: { pricing: { source: 'simple', input: 1, output: 2 } } as any,
+    } as RouteResult;
+  }
+
+  it('keeps route model in model/finalAttemptModel and records upstream separately', () => {
+    const retryHistory: RetryAttemptRecord[] = [];
+    const route = makePricedRoute();
+    appendSuccessAttempt(retryHistory, route, 'chat', 'muse-spark-1.3');
+    expect(retryHistory[0]!.model).toBe('muse-spark-1.3-contributor');
+    expect(retryHistory[0]!.upstreamModel).toBe('muse-spark-1.3');
+
+    const response: any = {};
+    attachAttemptMetadata(
+      response,
+      ['metasub/muse-spark-1.3-contributor'],
+      retryHistory,
+      route,
+      'chat',
+      'muse-spark-1.3'
+    );
+    expect(response.plexus.model).toBe('muse-spark-1.3-contributor');
+    expect(response.plexus.finalAttemptModel).toBe('muse-spark-1.3-contributor');
+    expect(response.plexus.upstreamModel).toBe('muse-spark-1.3');
+    expect(response.plexus.pricing).toEqual({ source: 'simple', input: 10, output: 20 });
+    expect(response.plexus.pricingModel).toBe('muse-spark-1.3');
+    expect(response.plexus.pricingFallback).toBe(false);
+    const serialized = JSON.parse(response.plexus.retryHistory);
+    expect(serialized[0].model).toBe('muse-spark-1.3-contributor');
+    expect(serialized[0].upstreamModel).toBe('muse-spark-1.3');
+  });
+
+  it('retains route pricing and marks fallback when upstream has no same-provider entry', () => {
+    const retryHistory: RetryAttemptRecord[] = [];
+    const route = makePricedRoute();
+    const response: any = {};
+    attachAttemptMetadata(
+      response,
+      ['metasub/muse-spark-1.3-contributor'],
+      retryHistory,
+      route,
+      'chat',
+      'unconfigured-model'
+    );
+    expect(response.plexus.upstreamModel).toBe('unconfigured-model');
+    expect(response.plexus.pricing).toEqual({ source: 'simple', input: 1, output: 2 });
+    expect(response.plexus.pricingModel).toBe('muse-spark-1.3-contributor');
+    expect(response.plexus.pricingFallback).toBe(true);
+  });
+
+  it('same-model requests resolve without fallback', () => {
+    const route = makePricedRoute();
+    const resolved = resolveUpstreamPricing(route, 'muse-spark-1.3-contributor');
+    expect(resolved.pricingFallback).toBe(false);
+    expect(resolved.pricingModel).toBe('muse-spark-1.3-contributor');
+  });
+
+  it('never borrows cross-provider pricing', () => {
+    const route = makePricedRoute();
+    (route.config as any).models = [{ name: 'muse-spark-1.3' }];
+    const resolved = resolveUpstreamPricing(route, 'muse-spark-1.3');
+    expect(resolved.pricingFallback).toBe(true);
+    expect(resolved.pricingModel).toBe('muse-spark-1.3-contributor');
   });
 });

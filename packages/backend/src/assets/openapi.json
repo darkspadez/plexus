@@ -13789,7 +13789,7 @@
               "string",
               "null"
             ],
-            "description": "Final model name sent to the upstream provider. May differ from `canonicalModelName` due to provider-specific transformations.\n"
+            "description": "Route-selected model name. Stays at the routing choice even when a provider adapter rewrote the outbound model; see `upstreamModel`.\n"
           },
           "finalAttemptProvider": {
             "type": [
@@ -13803,7 +13803,14 @@
               "string",
               "null"
             ],
-            "description": "Model used for the final attempt."
+            "description": "Route-selected model for the final attempt. Quota scope matching uses this value."
+          },
+          "upstreamModel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Post-adapter model actually present in the dispatched provider payload. Equals `finalAttemptModel` when no rewrite occurred; null for historical rows or failures before a payload was dispatched.\n"
           },
           "allAttemptedProviders": {
             "type": [

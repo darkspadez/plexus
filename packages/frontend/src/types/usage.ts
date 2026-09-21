@@ -93,6 +93,7 @@ export interface UsageRecord {
   selectedModelName?: string;
   finalAttemptProvider?: string | null;
   finalAttemptModel?: string | null;
+  upstreamModel?: string | null;
   allAttemptedProviders?: string | null;
   outgoingApiType?: string;
   reasoningEffort?: string | null;
