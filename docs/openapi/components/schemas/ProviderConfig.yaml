@@ -49,8 +49,9 @@ properties:
   oauth_account:
     type: string
     description: >
-      OAuth account identifier. Required when `api_base_url` uses an
-      `oauth://` URI.
+      OAuth account identifier. Derived from the provider ID (one login per
+      provider) and never set by users; accepted on write only as a
+      grandfathered fallback for restores/imports that predate slug keying.
   enabled:
     type: boolean
     default: true

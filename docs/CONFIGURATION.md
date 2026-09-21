@@ -175,8 +175,11 @@ Plexus supports OAuth-backed providers via the [pi-ai](https://www.npmjs.com/pac
 **Configuration:**
 - Set API Base URL to `oauth://`
 - Set API Key to `oauth`
-- Set OAuth Account (e.g., `work`, `personal`)
 - Set OAuth Provider if the provider key differs from pi-ai's expected ID
+
+The OAuth account is the provider ID itself (one login per provider) — there is
+no separate account field. Existing logins created under older account names
+keep working.
 
 Once configured, log in via the Admin UI to authorize Plexus. Tokens are stored encrypted (when `ENCRYPTION_KEY` is set) and auto-refreshed.
 
@@ -193,7 +196,6 @@ providers:
     api_base_url: "oauth://"
     api_key: "oauth"
     oauth_provider: "openai-codex"
-    oauth_account: "personal"
     models:
       gpt-5.5: {}
       gpt-image-2:
@@ -264,7 +266,6 @@ PUT /v0/management/providers/anthropic_oauth
   "api_base_url": "oauth://",
   "api_key": "oauth",
   "oauth_provider": "anthropic",
-  "oauth_account": "work",
   "pi_ai_provider": "anthropic",
   "auto_compat": true,
   "models": {

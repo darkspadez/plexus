@@ -18,6 +18,7 @@ import {
   validateCheckerOptions,
 } from '../../services/quota/checker-registry';
 import { UsageStorageService } from '../../services/observability/usage-storage';
+import { OAuthAuthManager } from '../../services/oauth/oauth-auth-manager';
 import { validateServerName } from '../../services/mcp-proxy/mcp-proxy-service';
 import { mcpProcessManager } from '../../services/mcp-local/mcp-process-manager';
 import { VisionDescriptorService } from '../../services/vision/vision-descriptor-service';
@@ -238,7 +239,14 @@ export async function registerConfigRoutes(
     const cascade = query.cascade === 'true';
 
     try {
-      await configService.deleteProvider(providerId, cascade);
+      const deletedCredential = await configService.deleteProvider(providerId, cascade);
+      if (deletedCredential) {
+        // DB row is gone with the provider; evict any in-memory tokens too.
+        await OAuthAuthManager.getInstance().deleteCredentials(
+          deletedCredential.providerType,
+          deletedCredential.accountId
+        );
+      }
       logger.debug(`Provider '${providerId}' deleted via API${cascade ? ' (cascade)' : ''}`);
       return reply.send({ success: true, provider: providerId });
     } catch (e: any) {

@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { getDatabase, getSchema } from './client';
 import { decrypt, decryptField, encrypt, encryptField } from '../utils/encryption';
 import type {
@@ -172,7 +172,10 @@ export class ConfigRepository {
     return this.providers.saveProvider(slug, config);
   }
 
-  deleteProvider(slug: string, cascade: boolean = true): Promise<void> {
+  deleteProvider(
+    slug: string,
+    cascade: boolean = true
+  ): Promise<{ providerType: string; accountId: string } | null> {
     return this.providers.deleteProvider(slug, cascade);
   }
 
@@ -625,6 +628,7 @@ export class ConfigRepository {
       )
       .limit(1);
 
+    let credentialId: number;
     if (existing.length > 0) {
       await this.db()
         .update(schema.oauthCredentials)
@@ -635,17 +639,37 @@ export class ConfigRepository {
           updatedAt: timestamp,
         })
         .where(eq(schema.oauthCredentials.id, existing[0]!.id));
+      credentialId = existing[0]!.id;
     } else {
-      await this.db().insert(schema.oauthCredentials).values({
-        oauthProviderType: providerType,
-        accountId,
-        accessToken: encryptedAccessToken,
-        refreshToken: encryptedRefreshToken,
-        expiresAt: creds.expiresAt,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      });
+      const inserted = (await this.db()
+        .insert(schema.oauthCredentials)
+        .values({
+          oauthProviderType: providerType,
+          accountId,
+          accessToken: encryptedAccessToken,
+          refreshToken: encryptedRefreshToken,
+          expiresAt: creds.expiresAt,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+        .returning({ id: schema.oauthCredentials.id })) as Array<{ id: number }>;
+      credentialId = inserted[0]!.id;
     }
+
+    // 1:1 slug backfill: a provider saved before its login (both orderings
+    // are supported from the provider form) gets linked once the credential
+    // named after its slug arrives. Only touches unlinked rows whose type
+    // matches, so grandfathered legacy links are never disturbed.
+    await this.db()
+      .update(schema.providers)
+      .set({ oauthCredentialId: credentialId, updatedAt: timestamp })
+      .where(
+        and(
+          eq(schema.providers.slug, accountId),
+          eq(schema.providers.oauthProviderType, providerType),
+          isNull(schema.providers.oauthCredentialId)
+        )
+      );
   }
 
   async deleteOAuthCredentials(providerType: string, accountId: string): Promise<void> {

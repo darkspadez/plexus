@@ -155,22 +155,16 @@ export class ProviderRepository {
     const schema = this.schema();
     const timestamp = now();
 
-    // Resolve oauth_credential_id if this is an OAuth provider
+    // Resolve oauth_credential_id if this is an OAuth provider. The OAuth
+    // account is derived from the provider slug (1:1, set at login from the
+    // provider form) — an incoming oauth_account is only honored as a
+    // grandfathered fallback for restores/imports that predate slug keying.
     let oauthCredentialId: number | null = null;
-    const oauthAccount = config.oauth_account?.trim();
-    if (config.oauth_provider && oauthAccount) {
-      const creds = await this.db()
-        .select()
-        .from(schema.oauthCredentials)
-        .where(
-          and(
-            eq(schema.oauthCredentials.oauthProviderType, config.oauth_provider),
-            eq(schema.oauthCredentials.accountId, oauthAccount)
-          )
-        )
-        .limit(1);
-      if (creds.length > 0) {
-        oauthCredentialId = creds[0]!.id;
+    if (config.oauth_provider) {
+      oauthCredentialId = await this.findOAuthCredentialId(config.oauth_provider, slug);
+      const legacyAccount = config.oauth_account?.trim();
+      if (!oauthCredentialId && legacyAccount && legacyAccount !== slug) {
+        oauthCredentialId = await this.findOAuthCredentialId(config.oauth_provider, legacyAccount);
       }
     }
 
@@ -289,8 +283,40 @@ export class ProviderRepository {
     }
   }
 
-  async deleteProvider(slug: string, cascade: boolean = true): Promise<void> {
+  /** Find the credential id for a (provider type, account) pair, if any. */
+  private async findOAuthCredentialId(
+    providerType: string,
+    accountId: string
+  ): Promise<number | null> {
     const schema = this.schema();
+    const creds = await this.db()
+      .select()
+      .from(schema.oauthCredentials)
+      .where(
+        and(
+          eq(schema.oauthCredentials.oauthProviderType, providerType),
+          eq(schema.oauthCredentials.accountId, accountId)
+        )
+      )
+      .limit(1);
+    return creds.length > 0 ? creds[0]!.id : null;
+  }
+
+  async deleteProvider(
+    slug: string,
+    cascade: boolean = true
+  ): Promise<{ providerType: string; accountId: string } | null> {
+    const schema = this.schema();
+
+    // Capture the linked credential before deleting: a credential no other
+    // provider references is removed with its provider (1:1); shared
+    // grandfathered credentials survive via the refcount below.
+    const existing = (await this.db()
+      .select({ credentialId: schema.providers.oauthCredentialId })
+      .from(schema.providers)
+      .where(eq(schema.providers.slug, slug))
+      .limit(1)) as Array<{ credentialId: number | null }>;
+    const credentialId = existing[0]?.credentialId ?? null;
 
     if (cascade) {
       // Explicitly delete model_alias_targets referencing this provider (keyed by slug, not FK)
@@ -303,6 +329,26 @@ export class ProviderRepository {
       // Delete provider and its provider_models, but retain model_alias_targets
       await this.db().delete(schema.providers).where(eq(schema.providers.slug, slug));
     }
+
+    if (!credentialId) return null;
+    const holders = (await this.db()
+      .select({ id: schema.providers.id })
+      .from(schema.providers)
+      .where(eq(schema.providers.oauthCredentialId, credentialId))
+      .limit(1)) as Array<{ id: number }>;
+    const cred = (await this.db()
+      .select({
+        providerType: schema.oauthCredentials.oauthProviderType,
+        accountId: schema.oauthCredentials.accountId,
+      })
+      .from(schema.oauthCredentials)
+      .where(eq(schema.oauthCredentials.id, credentialId))
+      .limit(1)) as Array<{ providerType: string; accountId: string }>;
+    if (holders.length > 0 || cred.length === 0) return null;
+    await this.db()
+      .delete(schema.oauthCredentials)
+      .where(eq(schema.oauthCredentials.id, credentialId));
+    return cred[0]!;
   }
 
   async getProviderModels(providerSlug: string): Promise<

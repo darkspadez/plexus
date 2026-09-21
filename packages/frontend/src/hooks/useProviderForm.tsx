@@ -56,7 +56,6 @@ export const EMPTY_PROVIDER: Provider = {
   type: [],
   apiKey: '',
   oauthProvider: '',
-  oauthAccount: '',
   enabled: true,
   disableCooldown: false,
   stallCooldown: false,
@@ -307,7 +306,8 @@ export function useProviderForm() {
       return;
     }
     const providerId = editingProvider.oauthProvider || (OAUTH_PROVIDERS[0]?.value ?? '');
-    const accountId = editingProvider.oauthAccount?.trim();
+    // The OAuth account is the provider ID (1:1) — never typed separately.
+    const accountId = editingProvider.id.trim();
     if (!accountId) {
       setOauthCredentialReady(false);
       setOauthCredentialChecking(false);
@@ -329,13 +329,7 @@ export function useProviderForm() {
     return () => {
       cancelled = true;
     };
-  }, [
-    isModalOpen,
-    isOAuthMode,
-    editingProvider.oauthProvider,
-    editingProvider.oauthAccount,
-    oauthStatus,
-  ]);
+  }, [isModalOpen, isOAuthMode, editingProvider.oauthProvider, editingProvider.id, oauthStatus]);
 
   useEffect(() => {
     if (!isOAuthMode) return;
@@ -415,10 +409,6 @@ export function useProviderForm() {
       let providerToSave = editingProvider;
       if (isOAuthMode && !providerToSave.oauthProvider) {
         providerToSave = { ...providerToSave, oauthProvider: OAUTH_PROVIDERS[0]?.value ?? '' };
-      }
-      if (isOAuthMode && !providerToSave.oauthAccount?.trim()) {
-        toast.error('OAuth account is required');
-        return;
       }
       if (providerToSave.rawPassthrough?.enabled) {
         if (isOAuthMode) {
@@ -535,9 +525,9 @@ export function useProviderForm() {
 
   const handleStartOAuth = async () => {
     const providerId = editingProvider.oauthProvider || (OAUTH_PROVIDERS[0]?.value ?? '');
-    const accountId = editingProvider.oauthAccount?.trim();
+    const accountId = editingProvider.id.trim();
     if (!accountId) {
-      setOauthError('OAuth account is required before starting login');
+      setOauthError('Provider ID is required before starting login');
       return;
     }
     setOauthBusy(true);
@@ -602,9 +592,9 @@ export function useProviderForm() {
 
   const handleDeleteOAuthCredential = async () => {
     const providerId = editingProvider.oauthProvider || (OAUTH_PROVIDERS[0]?.value ?? '');
-    const accountId = editingProvider.oauthAccount?.trim();
+    const accountId = editingProvider.id.trim();
     if (!accountId) {
-      setOauthError('OAuth account is required');
+      setOauthError('Provider ID is required');
       return;
     }
     setOauthBusy(true);
@@ -812,9 +802,8 @@ export function useProviderForm() {
   const handleFetchModels = async () => {
     if (isOAuthMode) {
       const oauthProvider = editingProvider.oauthProvider || (OAUTH_PROVIDERS[0]?.value ?? '');
-      // Codex model lists are account-scoped; without an account the backend
-      // falls back to the static catalog and returns a warning.
-      const accountId = editingProvider.oauthAccount?.trim();
+      // OAuth model lists are account-scoped; the account is the provider ID.
+      const accountId = editingProvider.id.trim() || undefined;
       setIsFetchingModels(true);
       setFetchError(null);
       setFetchWarning(null);
