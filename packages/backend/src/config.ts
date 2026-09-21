@@ -331,9 +331,9 @@ export const ProviderConfigSchema = z
   .refine((data) => !isOAuthProviderConfig(data) || !!data.oauth_provider, {
     message: "'oauth_provider' must be specified when using oauth://",
   })
-  .refine((data) => !isOAuthProviderConfig(data) || !!data.oauth_account, {
-    message: "'oauth_account' must be specified when using oauth://",
-  })
+  // The OAuth account is derived from the provider slug (1:1) at login time
+  // and never entered by users — oauth_account survives in the schema only
+  // as a grandfathered fallback for restores/imports that predate slug keying.
   .refine((data) => data.raw_passthrough?.enabled !== true || !isOAuthProviderConfig(data), {
     message: 'raw_passthrough currently supports static API-key providers only',
   });

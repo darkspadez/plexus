@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
     getAllOAuthProviders: vi.fn(),
     getOAuthCredentials: vi.fn(),
     setOAuthCredentials: vi.fn(),
+    deleteOAuthCredentials: vi.fn(),
   },
   getConfigInstance: vi.fn(),
   getOAuthProviderAuth: vi.fn(),
@@ -335,5 +336,38 @@ describe('OAuthAuthManager', () => {
     vi.advanceTimersByTime(61 * 1000);
     await expect(manager.forceRefresh('anthropic', 'personal')).rejects.toThrow('HTTP 500');
     expect(mocks.refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it('evicts in-memory credentials without touching persistence', async () => {
+    const manager = await createManager();
+    await manager.setCredentials('anthropic', 'personal', {
+      access: 'a',
+      refresh: 'r',
+      expires: Date.now() + 3600 * 1000,
+    });
+    expect(manager.hasProvider('anthropic', 'personal')).toBe(true);
+
+    expect(manager.evictCredentials('anthropic', 'personal')).toBe(true);
+    expect(manager.hasProvider('anthropic', 'personal')).toBe(false);
+    expect(manager.evictCredentials('anthropic', 'personal')).toBe(false);
+    expect(manager.evictCredentials('anthropic', '')).toBe(false);
+  });
+
+  it('deleteCredentials persists then evicts through the shared path', async () => {
+    const manager = await createManager();
+    await manager.setCredentials('anthropic', 'personal', {
+      access: 'a',
+      refresh: 'r',
+      expires: Date.now() + 3600 * 1000,
+    });
+    mocks.configService.deleteOAuthCredentials.mockResolvedValue(undefined);
+
+    await expect(manager.deleteCredentials('anthropic', 'personal')).resolves.toBe(true);
+
+    expect(mocks.configService.deleteOAuthCredentials).toHaveBeenCalledWith(
+      'anthropic',
+      'personal'
+    );
+    expect(manager.hasProvider('anthropic', 'personal')).toBe(false);
   });
 });

@@ -458,7 +458,6 @@ export const saveProvider = async (provider: Provider, oldId?: string): Promise<
     display_name: provider.name,
     api_key: provider.apiKey,
     ...(provider.oauthProvider && { oauth_provider: provider.oauthProvider }),
-    ...(provider.oauthAccount && { oauth_account: provider.oauthAccount }),
     enabled: provider.enabled,
     estimateTokens: provider.estimateTokens,
     useClaudeMasking: provider.useClaudeMasking,

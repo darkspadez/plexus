@@ -1,6 +1,5 @@
 import { ChevronDown, ChevronRight, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
 import { Badge } from '../ui/Badge';
 import type { Provider } from '../../lib/api';
 
@@ -60,7 +59,6 @@ export function ProviderApiUrlsEditor({
                 apiBaseUrl: 'oauth://',
                 apiKey: 'oauth',
                 oauthProvider: editingProvider.oauthProvider || OAUTH_PROVIDERS[0].value,
-                oauthAccount: editingProvider.oauthAccount || '',
                 type: ['oauth'],
               });
             } else {
@@ -69,7 +67,6 @@ export function ProviderApiUrlsEditor({
                 apiBaseUrl: {},
                 apiKey: '',
                 oauthProvider: '',
-                oauthAccount: '',
                 type: [],
               });
             }
@@ -139,14 +136,9 @@ export function ProviderApiUrlsEditor({
               ))}
             </select>
           </div>
-          <Input
-            label="OAuth Account"
-            value={editingProvider.oauthAccount || ''}
-            onChange={(e) =>
-              setEditingProvider({ ...editingProvider, oauthAccount: e.target.value })
-            }
-            placeholder="e.g. work, personal, team-a"
-          />
+          <div className="text-[11px] text-text-secondary" style={{ lineHeight: '1.5' }}>
+            Uses the provider ID as its OAuth account — one login per provider.
+          </div>
         </div>
       ) : (
         <div className="border border-border-glass rounded-md overflow-hidden">

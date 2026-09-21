@@ -233,10 +233,14 @@ export class ConfigService {
     this.rebuildCache();
   }
 
-  async deleteProvider(slug: string, cascade: boolean = true): Promise<void> {
-    await this.repo.deleteProvider(slug, cascade);
+  async deleteProvider(
+    slug: string,
+    cascade: boolean = true
+  ): Promise<{ providerType: string; accountId: string } | null> {
+    const deletedCredential = await this.repo.deleteProvider(slug, cascade);
     this.pendingWrites++;
     this.rebuildCache();
+    return deletedCredential;
   }
 
   // ─── Alias CRUD ──────────────────────────────────────────────────
