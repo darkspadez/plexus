@@ -3,7 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.com/channels/292942011261124608/1503831216095367239">Discord</a> ·
+  <a href="https://discord.com/invite/linuxchat">Discord invite</a> ·
+  <a href="https://discord.com/channels/292942011261124608/1503831216095367239">Plexus chat</a> ·
   <a href="docs/openapi/openapi.yaml">API reference</a> ·
   <a href="docs/CONFIGURATION.md">Configuration</a> ·
   <a href="docs/CUSTOM_QUOTA_CHECKERS.md">Custom quota checkers</a> ·
