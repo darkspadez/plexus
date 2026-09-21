@@ -187,8 +187,9 @@ packages/backend/src/routes/inference/images.ts:70 [function] readMultipartFileB
 packages/backend/src/routes/inference/images.ts:82 [function] extractImageEditUpload
 packages/backend/src/routes/inference/index.ts:18 [function] registerInferenceRoutes
 packages/backend/src/routes/inference/messages.ts:21 [function] registerMessagesRoute
-packages/backend/src/routes/inference/models.ts:367 [function] registerMuseCodeModelsRoute
-packages/backend/src/routes/inference/models.ts:43 [function] registerModelsRoute
+packages/backend/src/routes/inference/models-ui.ts:25 [function] renderModelsUiPage
+packages/backend/src/routes/inference/models.ts:382 [function] registerMuseCodeModelsRoute
+packages/backend/src/routes/inference/models.ts:44 [function] registerModelsRoute
 packages/backend/src/routes/inference/responses.ts:27 [function] detectResponsesApiType
 packages/backend/src/routes/inference/responses.ts:53 [function] registerResponsesRoute
 packages/backend/src/routes/inference/speech.ts:33 [function] registerSpeechRoute
