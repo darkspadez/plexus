@@ -1,0 +1,1 @@
+ALTER TABLE `model_aliases` ADD `synthetic_safeguard_approval` integer DEFAULT 0 NOT NULL;

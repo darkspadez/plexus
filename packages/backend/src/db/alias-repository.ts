@@ -45,6 +45,7 @@ interface AliasRow {
   useImageFallthrough: unknown;
   modelArchitecture: unknown;
   enforceLimits: unknown;
+  syntheticSafeguardApproval: unknown;
   stickySession: unknown;
   preferredApi: unknown;
   piModel: unknown;
@@ -340,6 +341,7 @@ export class AliasRepository {
       useImageFallthrough: fromBool(config.use_image_fallthrough === true),
       modelArchitecture: null,
       enforceLimits: fromBool(config.enforce_limits === true),
+      syntheticSafeguardApproval: fromBool(config.synthetic_safeguard_approval === true),
       stickySession: fromBool(config.sticky_session === true),
       preferredApi: config.preferred_api ? toJson(config.preferred_api) : null,
       piModel: config.pi_model ? toJson(config.pi_model) : null,
@@ -499,6 +501,7 @@ export class AliasRepository {
       priority: row.priority ?? 'selector',
       use_image_fallthrough: toBool(row.useImageFallthrough),
       enforce_limits: toBool(row.enforceLimits),
+      synthetic_safeguard_approval: toBool(row.syntheticSafeguardApproval),
       sticky_session: toBool(row.stickySession),
       ...(row.selector ? { selector: row.selector } : {}),
       ...(row.modelType ? { type: row.modelType } : {}),

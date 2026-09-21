@@ -20,6 +20,7 @@ export function aliasToConfigPayload(alias: Alias): Record<string, unknown> {
     use_image_fallthrough: alias.use_image_fallthrough || false,
     enforce_limits: alias.enforce_limits || false,
     sticky_session: alias.sticky_session ?? true,
+    synthetic_safeguard_approval: alias.synthetic_safeguard_approval || false,
     ...(alias.preferred_api?.length ? { preferred_api: alias.preferred_api } : {}),
     ...(alias.type && { type: alias.type }),
     ...(alias.advanced?.length ? { advanced: alias.advanced } : {}),
@@ -212,6 +213,7 @@ export const getAliases = async (): Promise<Alias[]> => {
       use_image_fallthrough?: boolean;
       enforce_limits?: boolean;
       sticky_session?: boolean;
+      synthetic_safeguard_approval?: boolean;
       advanced?: Alias['advanced'];
       metadata?: Alias['metadata'];
       preferred_api?: Alias['preferred_api'];
@@ -271,6 +273,7 @@ export const getAliases = async (): Promise<Alias[]> => {
         use_image_fallthrough: val.use_image_fallthrough || false,
         enforce_limits: val.enforce_limits || false,
         sticky_session: val.sticky_session ?? true,
+        synthetic_safeguard_approval: val.synthetic_safeguard_approval || false,
         advanced: val.advanced || [],
         metadata: val.metadata,
         preferred_api: val.preferred_api || [],

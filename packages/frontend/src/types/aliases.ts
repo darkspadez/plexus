@@ -141,6 +141,7 @@ export interface Alias {
   use_image_fallthrough?: boolean;
   enforce_limits?: boolean;
   sticky_session?: boolean;
+  synthetic_safeguard_approval?: boolean;
   preferred_api?: Array<PreferredApiValue>;
   pi_model?: { provider: string; model_id: string };
   extraBody?: Record<string, unknown>;

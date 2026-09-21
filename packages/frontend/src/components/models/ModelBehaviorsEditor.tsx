@@ -120,6 +120,26 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
                 size="sm"
               />
             </div>
+
+            <div className="flex items-center justify-between py-1">
+              <div>
+                <span className="font-body text-[13px] text-text">
+                  Synthetic Auto Mode Approval
+                </span>
+                <p className="font-body text-[11px] text-text-muted mt-0.5">
+                  For translated (non-Anthropic) targets, answer Claude Code safeguards requests
+                  with a synthetic not_flagged verdict that states no real classifier ran. Opt-in
+                  only; off by default.
+                </p>
+              </div>
+              <Switch
+                checked={editingAlias.synthetic_safeguard_approval || false}
+                onChange={(val) =>
+                  setEditingAlias({ ...editingAlias, synthetic_safeguard_approval: val })
+                }
+                size="sm"
+              />
+            </div>
           </div>
 
           <div className="h-px bg-border-glass"></div>
