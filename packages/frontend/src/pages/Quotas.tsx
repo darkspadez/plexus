@@ -52,13 +52,27 @@ export const Quotas = () => {
     });
   };
 
+  // Failed checks carry no meters by design (the scheduler stores an error
+  // sentinel), so route them to their own section — filtering on meters
+  // alone would make the whole panel vanish instead of showing the error.
+  // Successful-but-empty results (no meters of either kind) land here too,
+  // where renderCheckerCard's "No data yet" state covers them.
+  const failedQuotas = useMemo(
+    () => quotas.filter((q) => !q.pending && (!q.success || q.meters.length === 0)),
+    [quotas]
+  );
+
   const balanceQuotas = useMemo(
-    () => quotas.filter((q) => q.pending || q.meters.some((m) => m.kind === 'balance')),
+    () =>
+      quotas.filter((q) => q.pending || (q.success && q.meters.some((m) => m.kind === 'balance'))),
     [quotas]
   );
 
   const allowanceQuotas = useMemo(
-    () => quotas.filter((q) => q.pending || q.meters.some((m) => m.kind === 'allowance')),
+    () =>
+      quotas.filter(
+        (q) => q.pending || (q.success && q.meters.some((m) => m.kind === 'allowance'))
+      ),
     [quotas]
   );
 
@@ -197,6 +211,34 @@ export const Quotas = () => {
                         </h3>
                         <div className="flex flex-col gap-3">
                           {quotasList.map((quota) => renderCheckerCard(quota, displayName))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {failedQuotas.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border-glass">
+                  <AlertTriangle size={18} className="text-danger" />
+                  <h2 className="font-heading text-h2 font-semibold text-text">Needs attention</h2>
+                </div>
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {failedQuotas.map((quota) => {
+                    const displayName = getCheckerDisplayName(
+                      quota.checkerType,
+                      quota.checkerId,
+                      displayNameMap
+                    );
+                    return (
+                      <div key={quota.checkerId} className="flex flex-col gap-3">
+                        <h3 className="font-heading text-xs font-semibold text-text-secondary uppercase tracking-wider px-1 border-b border-border-glass pb-2">
+                          {displayName}
+                        </h3>
+                        <div className="flex flex-col gap-3">
+                          {renderCheckerCard(quota, displayName)}
                         </div>
                       </div>
                     );
