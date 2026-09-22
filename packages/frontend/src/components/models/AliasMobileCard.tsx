@@ -232,14 +232,9 @@ export const AliasMobileCard: React.FC<Props> = ({
                             let testApiTypes: string[] = ['chat'];
                             if (alias.type === 'embeddings') testApiTypes = ['embeddings'];
                             else if (alias.type === 'image') testApiTypes = ['images'];
+                            else if (alias.type === 'decisions') testApiTypes = ['decisions'];
 
-                            onTestTarget(
-                              alias.id,
-                              `${alias.id}-mobile-${i}`,
-                              t.provider,
-                              t.model,
-                              testApiTypes
-                            );
+                            onTestTarget(alias.id, testKey, t.provider, t.model, testApiTypes);
                           }}
                           disabled={isDisabled}
                           className="flex h-7 w-7 items-center justify-center rounded text-primary transition-colors hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-40"
@@ -263,22 +258,28 @@ export const AliasMobileCard: React.FC<Props> = ({
                         />
                       </div>
                     </div>
-                    {testState?.showMessage &&
-                      testState.result === 'error' &&
-                      testState.message && (
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDismissTestMessage(testKey);
-                          }}
-                          className="mt-2 cursor-pointer rounded border border-danger/30 bg-danger/10 px-2 py-1"
-                          title="Click to dismiss"
+                    {testState?.showMessage && testState.message && (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDismissTestMessage(testKey);
+                        }}
+                        className={`mt-2 cursor-pointer rounded border px-2 py-1 ${
+                          testState.result === 'error'
+                            ? 'border-danger/30 bg-danger/10'
+                            : 'border-success/30 bg-success/10'
+                        }`}
+                        title="Click to dismiss"
+                      >
+                        <span
+                          className={`text-[11px] italic ${
+                            testState.result === 'error' ? 'text-danger' : 'text-success'
+                          }`}
                         >
-                          <span className="text-[11px] italic text-danger">
-                            {testState.message} [×]
-                          </span>
-                        </div>
-                      )}
+                          {testState.message} [×]
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}

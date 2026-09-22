@@ -1,4 +1,5 @@
 // Unified Message Types
+import type { DecisionsAnswer, DecisionsQuestion } from './decisions';
 
 export interface TextContent {
   type: 'text';
@@ -550,6 +551,54 @@ export interface UnifiedSpeechResponse {
   };
   rawResponse?: any;
   isStreamed?: boolean;
+}
+
+// Unified Decisions Request
+//
+// Buffered Jev-style evaluations served by `openrouter-decisions` and
+// `typesafe-decisions` targets. `upstreamProvider` carries OpenRouter
+// provider-routing preferences verbatim (it is NOT a Plexus provider slug
+// and never influences local routing); it is forwarded to OpenRouter only.
+// Local failover follows the alias target order, never upstream preferences.
+export interface UnifiedDecisionsRequest {
+  requestId?: string;
+  model: string;
+  state: string | Record<string, any> | any[];
+  questions: Record<string, DecisionsQuestion>;
+  upstreamProvider?: any;
+  sessionId?: string;
+  trace?: any;
+  user?: string;
+  // Internal tracking
+  incomingApiType?: string;
+  originalBody?: any;
+  metadata?: Record<string, any> & { plexus_metadata?: PlexusMetadata };
+}
+
+// Unified Decisions Response
+export interface UnifiedDecisionsResponse {
+  model: string;
+  answers: Record<string, DecisionsAnswer>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cost?: number;
+  };
+  /** OpenRouter generation id, when the upstream reports one. */
+  id?: string;
+  /** Upstream provider name (e.g. `TypeSafe`), when reported. */
+  provider?: string;
+  plexus?: {
+    provider?: string;
+    model?: string;
+    apiType?: string;
+    targetApiType?: string;
+    pricing?: any;
+    providerDiscount?: number;
+    canonicalModel?: string;
+    config?: any;
+  };
+  rawResponse?: any;
 }
 
 // Unified Image Generation Request

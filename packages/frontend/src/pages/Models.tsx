@@ -53,6 +53,7 @@ const MODEL_TYPE_GROUPS: ModelTypeGroup[] = [
   { type: 'transcriptions', label: 'Transcriptions', defaultOpen: false },
   { type: 'speech', label: 'Speech', defaultOpen: false },
   { type: 'image', label: 'Image', defaultOpen: false },
+  { type: 'decisions', label: 'Decisions', defaultOpen: false },
 ];
 
 export const Models = () => {
@@ -476,7 +477,8 @@ export const Models = () => {
                         | 'embeddings'
                         | 'transcriptions'
                         | 'speech'
-                        | 'image',
+                        | 'image'
+                        | 'decisions',
                     })
                   }
                 >
@@ -485,6 +487,7 @@ export const Models = () => {
                   <option value="transcriptions">Transcriptions</option>
                   <option value="speech">Speech</option>
                   <option value="image">Image</option>
+                  <option value="decisions">Decisions</option>
                 </select>
               </div>
 

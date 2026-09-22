@@ -7,6 +7,7 @@ import {
   API_ACCESS_OPTIONS,
   CODEX_IMAGE_ACCESS,
   CODEX_IMAGE_API_ACCESS_OPTIONS,
+  DECISIONS_API_ACCESS_OPTIONS,
   DEFAULT_IMAGE_ACCESS,
   FIELD_CLS,
   getApiBadgeStyle,
@@ -77,6 +78,24 @@ export function ModelIdentity({
   const imageAccessOptions = isCodexOAuthProvider
     ? CODEX_IMAGE_API_ACCESS_OPTIONS
     : IMAGE_API_ACCESS_OPTIONS;
+  // Decisions protocols are offered on text models once the provider has a
+  // Decisions base URL (or one is already selected), so existing chat-model
+  // forms stay unchanged. Provider models cannot carry a `decisions` type
+  // (Postgres persists it into a pgEnum without that value); they advertise
+  // Decisions capability via `access_via` instead.
+  const providerApiTypes = Object.keys(getApiBaseUrlMap());
+  const hasDecisionsAccess = (mCfg.access_via ?? []).some(
+    (entry: any) =>
+      apiAccessToKey(entry) === 'openrouter-decisions' ||
+      apiAccessToKey(entry) === 'typesafe-decisions'
+  );
+  const showDecisionsAccess =
+    hasDecisionsAccess ||
+    providerApiTypes.some((t) => t === 'openrouter-decisions' || t === 'typesafe-decisions');
+  const textAccessOptions =
+    mCfg.type !== 'image' && showDecisionsAccess
+      ? [...API_ACCESS_OPTIONS, ...DECISIONS_API_ACCESS_OPTIONS]
+      : API_ACCESS_OPTIONS;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -130,7 +149,7 @@ export function ModelIdentity({
             Access Via
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {(mCfg.type === 'image' ? imageAccessOptions : API_ACCESS_OPTIONS).map((option) => {
+            {(mCfg.type === 'image' ? imageAccessOptions : textAccessOptions).map((option) => {
               const key = apiAccessToKey(option);
               const selected = hasApiAccess(mCfg.access_via, key);
               return (

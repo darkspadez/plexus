@@ -208,7 +208,7 @@ export const getAliases = async (): Promise<Alias[]> => {
     interface RawAliasRecord {
       additional_aliases?: string[];
       priority?: 'selector' | 'api_match';
-      type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image';
+      type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image' | 'decisions';
       target_groups?: RawTargetGroup[];
       use_image_fallthrough?: boolean;
       enforce_limits?: boolean;

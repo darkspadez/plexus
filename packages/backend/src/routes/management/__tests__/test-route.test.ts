@@ -51,6 +51,12 @@ function makeMockDeps() {
         attemptCount: 1,
       },
     })),
+    dispatchDecisions: vi.fn(async () => ({
+      model: 'jev',
+      answers: { is_bug: { type: 'noul', noul: 0.96 } },
+      usage: { input_tokens: 12, output_tokens: 3 },
+      plexus: { provider: 'typesafe', model: 'jev', apiType: 'decisions' },
+    })),
     dispatchEmbeddings: vi.fn(async () => ({
       object: 'list',
       data: [{ object: 'embedding', embedding: [0.1, 0.2], index: 0 }],
@@ -187,6 +193,28 @@ describe('POST /v0/management/test', () => {
     const body = res.json();
     expect(body.success).toBe(false);
     expect(body.error).toMatch(/transcriptions/i);
+  });
+
+  it('accepts decisions tests and returns answers rather than chat content', async () => {
+    const res = await fastify.inject({
+      method: 'POST',
+      url: '/v0/management/test',
+      headers: { 'x-admin-key': 'test-admin-key' },
+      payload: { provider: 'typesafe', model: 'jev', apiType: 'decisions' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      success: true,
+      apiType: 'decisions',
+      response: JSON.stringify({ is_bug: { type: 'noul', noul: 0.96 } }),
+    });
+    expect(mockDispatcher.dispatchDecisions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'direct/typesafe/jev',
+        incomingApiType: 'decisions',
+      })
+    );
+    expect(mockDispatcher.dispatch).not.toHaveBeenCalled();
   });
 
   it('emits started event when a test request begins', async () => {

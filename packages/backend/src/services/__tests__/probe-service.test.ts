@@ -3,6 +3,7 @@ import { ProbeService } from '../probes/probe-service';
 import { Dispatcher } from '../dispatch/dispatcher';
 import { UsageStorageService } from '../observability/usage-storage';
 import { setConfigForTesting } from '../../config';
+import { DecisionsIngressSchema } from '../../types/decisions';
 
 function makeMocks() {
   const usageStorage = {
@@ -27,6 +28,7 @@ function makeMocks() {
         attemptCount: 1,
       },
     })),
+    dispatchDecisions: vi.fn(),
     dispatchEmbeddings: vi.fn(),
     dispatchImageGenerations: vi.fn(),
     dispatchSpeech: vi.fn(),
@@ -137,6 +139,65 @@ describe('ProbeService', () => {
     expect(usageStorage.saveError).toHaveBeenCalled();
     const saved = (usageStorage.saveRequest as any).mock.calls[0][0];
     expect(saved.responseStatus).toBe('error');
+  });
+
+  test('decisions probe sends structured questions and returns structured answers', async () => {
+    const { usageStorage, dispatcher } = makeMocks();
+    const answers = {
+      is_bug: { type: 'noul' as const, noul: 0.96 },
+      team: { type: 'choice' as const, choice: 'payments' },
+      urgency: { type: 'score' as const, score: 2 },
+    };
+    vi.mocked(dispatcher.dispatchDecisions).mockResolvedValueOnce({
+      model: 'jev',
+      answers,
+      usage: { input_tokens: 12, output_tokens: 34 },
+      plexus: { provider: 'p1', model: 'jev', apiType: 'decisions' },
+    });
+    const result = await new ProbeService(dispatcher, usageStorage).runProbe({
+      provider: 'p1',
+      model: 'jev',
+      apiType: 'decisions',
+      source: 'manual',
+    });
+
+    expect(result.success).toBe(true);
+    expect(JSON.parse(result.response!)).toEqual(answers);
+    expect(dispatcher.dispatch).not.toHaveBeenCalled();
+    expect(dispatcher.dispatchDecisions).toHaveBeenCalledTimes(1);
+    const dispatched = vi.mocked(dispatcher.dispatchDecisions).mock.calls[0]![0];
+    expect(dispatched.model).toBe('direct/p1/jev');
+    expect(dispatched.incomingApiType).toBe('decisions');
+    expect(DecisionsIngressSchema.safeParse(dispatched.originalBody).success).toBe(true);
+    expect(Object.values(dispatched.questions).map((question) => question.type)).toEqual([
+      'noul',
+      'choice',
+      'score',
+    ]);
+    expect(dispatched.originalBody).not.toHaveProperty('messages');
+    expect(usageStorage.saveRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        incomingApiType: 'decisions',
+        isPassthrough: false,
+        tokensInput: 12,
+        tokensOutput: 34,
+      })
+    );
+  });
+
+  test('decisions probe reports upstream failure without falling back to chat', async () => {
+    const { usageStorage, dispatcher } = makeMocks();
+    vi.mocked(dispatcher.dispatchDecisions).mockRejectedValueOnce(
+      new Error('Invalid decisions response')
+    );
+    const result = await new ProbeService(dispatcher, usageStorage).runProbe({
+      provider: 'p1',
+      model: 'jev',
+      apiType: 'decisions',
+      source: 'manual',
+    });
+    expect(result).toMatchObject({ success: false, error: 'Invalid decisions response' });
+    expect(dispatcher.dispatch).not.toHaveBeenCalled();
   });
 
   test('runProbe rejects transcriptions apiType', async () => {

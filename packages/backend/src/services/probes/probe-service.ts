@@ -21,6 +21,7 @@ export type ProbeApiType =
   | 'responses'
   | 'embeddings'
   | 'images'
+  | 'decisions'
   | 'speech'
   | 'oauth';
 
@@ -79,6 +80,24 @@ function buildSecondaryRequest(apiType: ProbeApiType, modelPath: string): any {
       // supported (Codex Images rejects `url` and does not render 256x256), so
       // the probe sends only what every image target accepts.
       return { model: modelPath, prompt: 'A tiny red square', n: 1 };
+    case 'decisions':
+      return {
+        model: modelPath,
+        state: 'My checkout page shows a blank screen after I click Pay.',
+        questions: {
+          is_bug: { type: 'noul', instructions: 'Is the customer reporting a software defect?' },
+          team: {
+            type: 'choice',
+            instructions: 'Which team should own this ticket?',
+            criteria: { payments: 'Checkout and billing', frontend: 'Rendering issues' },
+          },
+          urgency: {
+            type: 'score',
+            instructions: 'How urgent is this ticket?',
+            criteria: ['Can wait', 'This week', 'Blocking revenue'],
+          },
+        },
+      };
     case 'speech':
       return { model: modelPath, input: 'Hello world' };
     case 'oauth':
@@ -186,6 +205,13 @@ export class ProbeService {
           requestId,
           incomingApiType: 'images',
         });
+      } else if (apiType === 'decisions') {
+        response = await this.dispatcher.dispatchDecisions({
+          ...testRequest,
+          originalBody: testRequest,
+          requestId,
+          incomingApiType: 'decisions',
+        });
       } else if (apiType === 'speech') {
         const { SpeechTransformer } = await import('../../transformers/speech');
         const transformer = new SpeechTransformer();
@@ -245,7 +271,8 @@ export class ProbeService {
         apiType !== 'chat' &&
         apiType !== 'messages' &&
         apiType !== 'gemini' &&
-        apiType !== 'responses';
+        apiType !== 'responses' &&
+        apiType !== 'decisions';
       usageRecord.attemptCount = response.plexus?.attemptCount || 1;
       usageRecord.retryHistory = response.plexus?.retryHistory || null;
       usageRecord.finalAttemptProvider =
@@ -282,7 +309,9 @@ export class ProbeService {
       await this.usageStorage.saveRequest(usageRecord as UsageRecord);
 
       let responseText: string;
-      if (apiType === 'images') {
+      if (apiType === 'decisions') {
+        responseText = JSON.stringify(response.answers);
+      } else if (apiType === 'images') {
         responseText =
           response.data && Array.isArray(response.data)
             ? `Success (${response.data.length} image${response.data.length > 1 ? 's' : ''} created)`

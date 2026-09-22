@@ -134,7 +134,7 @@ export interface Alias {
   id: string;
   aliases?: string[];
   priority?: 'selector' | 'api_match';
-  type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image';
+  type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image' | 'decisions';
   target_groups: AliasTargetGroup[];
   advanced?: AliasBehavior[];
   metadata?: AliasMetadata;

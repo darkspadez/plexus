@@ -52,3 +52,18 @@ const IMAGE_TARGET_API_TYPE_SET: ReadonlySet<string> = new Set(IMAGE_TARGET_API_
 export function isImageTargetApiType(apiType: string): boolean {
   return IMAGE_TARGET_API_TYPE_SET.has(getApiBaseType(apiType));
 }
+
+/**
+ * Target protocols able to serve an incoming `decisions` request. Providers
+ * advertise these through `access_via`; the router and the per-target API
+ * type selection both filter against this single list. Decisions-only
+ * targets are excluded from every other incoming API type.
+ */
+export const DECISIONS_TARGET_API_TYPES = ['openrouter-decisions', 'typesafe-decisions'] as const;
+
+const DECISIONS_TARGET_API_TYPE_SET: ReadonlySet<string> = new Set(DECISIONS_TARGET_API_TYPES);
+
+/** True when `apiType`'s base type can serve an incoming `decisions` request. */
+export function isDecisionsTargetApiType(apiType: string): boolean {
+  return DECISIONS_TARGET_API_TYPE_SET.has(getApiBaseType(apiType));
+}

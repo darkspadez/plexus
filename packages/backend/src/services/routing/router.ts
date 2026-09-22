@@ -17,6 +17,7 @@ import { StickySessionManager } from './sticky-session-manager';
 import {
   getApiBaseType,
   isApiSubtype,
+  isDecisionsTargetApiType,
   isImageTargetApiType,
   normalizeApiAccessList,
 } from '../../utils/api-format';
@@ -237,6 +238,70 @@ async function filterGroupTargets(
     healthyTargets = imageTargets;
   }
 
+  // 3.6. Decisions capability filter.
+  //
+  // Decisions requests never fall back to incompatible providers: with no
+  // decisions-capable target the candidate list stays empty (strict), so the
+  // caller fails instead of mistranslating the payload onto a chat model.
+  // Conversely, decisions-only targets (and `decisions` aliases) never serve
+  // any other incoming API type. Targets with unconstrained `access_via`
+  // keep the existing generic cross-format fallback in both directions.
+  if (incomingApiType === 'decisions') {
+    const decisionsTargets = healthyTargets.filter((target) => {
+      const providerConfig = config.providers[target.provider];
+      if (!providerConfig) return false;
+
+      let modelSpecificTypes: ModelProviderConfig['access_via'];
+      if (!Array.isArray(providerConfig.models) && providerConfig.models) {
+        modelSpecificTypes = providerConfig.models[target.model]?.access_via;
+      }
+      const availableTypes =
+        modelSpecificTypes && modelSpecificTypes.length > 0
+          ? normalizeApiAccessList(modelSpecificTypes)
+          : getProviderTypes(providerConfig);
+      if (availableTypes.some((type) => isDecisionsTargetApiType(type))) return true;
+      // A `decisions` alias with unconstrained targets may serve decisions.
+      if ((!modelSpecificTypes || modelSpecificTypes.length === 0) && alias.type === 'decisions') {
+        return true;
+      }
+      return false;
+    });
+
+    if (decisionsTargets.length > 0) {
+      if (logModelName) {
+        logger.info(
+          `Router: Filtered to ${decisionsTargets.length} decisions-compatible targets (from ${healthyTargets.length} total).`
+        );
+      }
+    } else if (logModelName) {
+      logger.warn(`Router: No decisions-compatible targets found for '${logModelName}'.`);
+    }
+    healthyTargets = decisionsTargets;
+  } else {
+    const nonDecisionsTargets = healthyTargets.filter((target) => {
+      if (alias.type === 'decisions') return false;
+      const providerConfig = config.providers[target.provider];
+      if (!providerConfig) return false;
+
+      let modelSpecificTypes: ModelProviderConfig['access_via'];
+      if (!Array.isArray(providerConfig.models) && providerConfig.models) {
+        modelSpecificTypes = providerConfig.models[target.model]?.access_via;
+      }
+      const advertised =
+        modelSpecificTypes && modelSpecificTypes.length > 0
+          ? normalizeApiAccessList(modelSpecificTypes)
+          : [];
+      // Only constrained decisions-only targets are excluded; unconstrained
+      // targets keep the generic cross-format fallback.
+      if (advertised.length > 0 && advertised.every((type) => isDecisionsTargetApiType(type))) {
+        return false;
+      }
+      return true;
+    });
+
+    healthyTargets = nonDecisionsTargets;
+  }
+
   const findApiCompatibleTargets = (
     targets: (ModelTarget & { provider: string; model: string })[],
     requestedApiType: string
@@ -261,6 +326,14 @@ async function filterGroupTargets(
         modelSpecificTypes && modelSpecificTypes.length > 0
           ? normalizeApiAccessList(modelSpecificTypes)
           : providerTypes;
+      if (normalizedIncoming === 'decisions') {
+        return availableTypes.some((t) => isDecisionsTargetApiType(t));
+      }
+      // Decisions-only targets never satisfy other API types, even under
+      // `api_match` priority where cross-format fallback otherwise applies.
+      if (availableTypes.length > 0 && availableTypes.every((t) => isDecisionsTargetApiType(t))) {
+        return false;
+      }
       return availableTypes.some(
         (t) =>
           t.toLowerCase() === normalizedIncoming ||

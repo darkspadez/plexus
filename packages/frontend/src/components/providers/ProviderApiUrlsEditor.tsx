@@ -14,6 +14,8 @@ const KNOWN_APIS = [
   'openai-images',
   'openrouter-images',
   'codex-images',
+  'openrouter-decisions',
+  'typesafe-decisions',
   'responses',
   'ollama',
 ];

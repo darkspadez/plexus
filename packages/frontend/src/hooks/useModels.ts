@@ -324,7 +324,9 @@ export const useModels = () => {
           loading: false,
           result: allSuccess ? 'success' : 'error',
           message: allSuccess
-            ? `Success (${avgDuration}ms avg, ${apiTypes.length} API${apiTypes.length > 1 ? 's' : ''})`
+            ? apiTypes.includes('decisions')
+              ? `Success (${avgDuration}ms): ${results.find((r) => r.apiType === 'decisions')?.response || ''}`
+              : `Success (${avgDuration}ms avg, ${apiTypes.length} API${apiTypes.length > 1 ? 's' : ''})`
             : `Failed via ${firstError?.apiType || 'unknown'}: ${firstError?.error || 'Test failed'}`,
           showResult: true,
           showMessage: true,

@@ -629,7 +629,14 @@ export const ModelConfigSchema = z
     preferred_api: z
       .array(z.enum(['chat_completions', 'messages', 'gemini', 'responses']))
       .optional(),
-    type: z.enum(['text', 'embeddings', 'transcriptions', 'speech', 'image']).optional(),
+    // Alias capability type. `decisions` marks a buffered Jev-style alias
+    // (served through `openrouter-decisions` / `typesafe-decisions` targets).
+    // Provider-model `type` intentionally has no `decisions` value: on
+    // Postgres it persists into a pgEnum without that value, so provider
+    // models advertise Decisions capability through `access_via` instead.
+    type: z
+      .enum(['text', 'embeddings', 'transcriptions', 'speech', 'image', 'decisions'])
+      .optional(),
     advanced: z.array(ModelBehaviorSchema).optional(),
     metadata: ModelMetadataSchema.optional(),
     // pi-ai model reference: when set, pi_options (compat) will be included in GET /v1/models
