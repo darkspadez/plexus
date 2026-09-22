@@ -126,17 +126,27 @@ export function ModelCard({
           <X size={12} />
         </Button>
       </div>
-      {testState?.showMessage && testState.result === 'error' && testState.message && (
+      {testState?.showMessage && testState.message && (
         <div style={{ padding: '0 8px 6px 8px' }}>
           <div
             onClick={(e) => {
               e.stopPropagation();
               onDismissTestMessage(testKey);
             }}
-            className="cursor-pointer rounded border border-danger/30 bg-danger/10 px-2 py-1"
+            className={`cursor-pointer rounded border px-2 py-1 ${
+              testState.result === 'error'
+                ? 'border-danger/30 bg-danger/10'
+                : 'border-success/30 bg-success/10'
+            }`}
             title="Click to dismiss"
           >
-            <span className="text-[11px] italic text-danger">{testState.message} [×]</span>
+            <span
+              className={`text-[11px] italic ${
+                testState.result === 'error' ? 'text-danger' : 'text-success'
+              }`}
+            >
+              {testState.message} [×]
+            </span>
           </div>
         </div>
       )}

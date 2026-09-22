@@ -24,6 +24,8 @@ const KNOWN_APIS = [
   'openai-images',
   'openrouter-images',
   'codex-images',
+  'openrouter-decisions',
+  'typesafe-decisions',
   'responses',
   'ollama',
 ];
@@ -510,8 +512,20 @@ export function useProviderForm() {
       ...prev,
       [testKey]: { loading: true, showResult: true, showMessage: false },
     }));
+    const provider =
+      editingProvider.id === providerId
+        ? editingProvider
+        : providers.find((candidate) => candidate.id === providerId);
+    const accessVia: string[] | undefined = Array.isArray(provider?.models)
+      ? undefined
+      : provider?.models?.[modelId]?.access_via;
+    const availableTypes = accessVia?.length ? accessVia : inferProviderTypes(provider?.apiBaseUrl);
+    const usesDecisions = availableTypes.some(
+      (type) => type === 'openrouter-decisions' || type === 'typesafe-decisions'
+    );
     let testApiTypes: string[] = ['chat'];
-    if (modelType === 'embeddings') testApiTypes = ['embeddings'];
+    if (usesDecisions) testApiTypes = ['decisions'];
+    else if (modelType === 'embeddings') testApiTypes = ['embeddings'];
     else if (modelType === 'image') testApiTypes = ['images'];
     else if (modelType === 'responses') testApiTypes = ['responses'];
     else if (modelType === 'transcriptions') testApiTypes = ['transcriptions'];
@@ -529,7 +543,9 @@ export function useProviderForm() {
         loading: false,
         result: allSuccess ? 'success' : 'error',
         message: allSuccess
-          ? `Success (${avgDuration}ms avg, ${testApiTypes.length} API${testApiTypes.length > 1 ? 's' : ''})`
+          ? usesDecisions
+            ? `Success (${avgDuration}ms): ${results[0]?.response || ''}`
+            : `Success (${avgDuration}ms avg, ${testApiTypes.length} API${testApiTypes.length > 1 ? 's' : ''})`
           : `Failed via ${firstError?.apiType || 'unknown'}: ${firstError?.error || 'Test failed'}`,
         showResult: true,
         showMessage: true,

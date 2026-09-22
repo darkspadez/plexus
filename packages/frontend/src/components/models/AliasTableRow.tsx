@@ -214,6 +214,7 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
                               let testApiTypes: string[] = ['chat'];
                               if (alias.type === 'embeddings') testApiTypes = ['embeddings'];
                               else if (alias.type === 'image') testApiTypes = ['images'];
+                              else if (alias.type === 'decisions') testApiTypes = ['decisions'];
 
                               onTestTarget(alias.id, testKey, t.provider, t.model, testApiTypes);
                             }
@@ -248,24 +249,30 @@ export const AliasTableRow: React.FC<AliasTableRowProps> = ({
                             : t.model}
                         </div>
                       </div>
-                      {testState?.showMessage &&
-                        testState.result === 'error' &&
-                        testState.message && (
-                          <div className="mt-1">
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDismissTestMessage(testKey);
-                              }}
-                              className="cursor-pointer rounded border border-danger/30 bg-danger/10 px-2 py-1"
-                              title="Click to dismiss"
+                      {testState?.showMessage && testState.message && (
+                        <div className="mt-1">
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDismissTestMessage(testKey);
+                            }}
+                            className={`cursor-pointer rounded border px-2 py-1 ${
+                              testState.result === 'error'
+                                ? 'border-danger/30 bg-danger/10'
+                                : 'border-success/30 bg-success/10'
+                            }`}
+                            title="Click to dismiss"
+                          >
+                            <span
+                              className={`text-[11px] italic ${
+                                testState.result === 'error' ? 'text-danger' : 'text-success'
+                              }`}
                             >
-                              <span className="text-[11px] italic text-danger">
-                                {testState.message} [×]
-                              </span>
-                            </div>
+                              {testState.message} [×]
+                            </span>
                           </div>
-                        )}
+                        </div>
+                      )}
                     </React.Fragment>
                   );
                 })}

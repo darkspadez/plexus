@@ -22,6 +22,11 @@ export const CODEX_IMAGE_API_ACCESS_OPTIONS: readonly ApiAccessOption[] = [
   { type: 'codex-images', label: 'Codex Images (ChatGPT OAuth)' },
 ];
 
+export const DECISIONS_API_ACCESS_OPTIONS: readonly ApiAccessOption[] = [
+  { type: 'openrouter-decisions', label: 'OpenRouter Decisions' },
+  { type: 'typesafe-decisions', label: 'TypeSafe Decisions' },
+];
+
 export const CODEX_OAUTH_PROVIDER = 'openai-codex';
 export const DEFAULT_IMAGE_ACCESS = 'openai-images';
 export const CODEX_IMAGE_ACCESS = 'codex-images';
@@ -58,6 +63,10 @@ export function getApiBadgeStyle(apiType: string): CSSProperties {
       return { backgroundColor: '#7c3aed', color: 'white', border: 'none' };
     case 'codex-images':
       return { backgroundColor: '#10a37f', color: 'white', border: 'none' };
+    case 'openrouter-decisions':
+      return { backgroundColor: '#0ea5e9', color: 'white', border: 'none' };
+    case 'typesafe-decisions':
+      return { backgroundColor: '#0284c7', color: 'white', border: 'none' };
     case 'ollama':
       return { backgroundColor: '#1a5f7a', color: 'white', border: 'none' };
     default:

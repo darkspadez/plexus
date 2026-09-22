@@ -2,6 +2,8 @@ import { createParser } from 'eventsource-parser';
 import {
   UnifiedChatRequest,
   UnifiedChatResponse,
+  UnifiedDecisionsRequest,
+  UnifiedDecisionsResponse,
   UnifiedTranscriptionRequest,
   UnifiedTranscriptionResponse,
   UnifiedSpeechRequest,
@@ -1076,6 +1078,14 @@ export class Dispatcher {
     resolveTimeoutMs?: ResolveTimeoutMs
   ): Promise<UnifiedImageGenerationResponse> {
     return this.getMediaDispatcher().dispatchImageGenerations(request, signal, resolveTimeoutMs);
+  }
+
+  async dispatchDecisions(
+    request: UnifiedDecisionsRequest,
+    signal?: AbortSignal,
+    resolveTimeoutMs?: ResolveTimeoutMs
+  ): Promise<UnifiedDecisionsResponse> {
+    return this.getMediaDispatcher().dispatchDecisions(request, signal, resolveTimeoutMs);
   }
 
   /**

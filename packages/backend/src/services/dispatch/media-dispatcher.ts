@@ -1,4 +1,6 @@
 import {
+  UnifiedDecisionsRequest,
+  UnifiedDecisionsResponse,
   UnifiedImageGenerationRequest,
   UnifiedImageGenerationResponse,
   UnifiedSpeechRequest,
@@ -30,11 +32,103 @@ import {
   type ResolveTimeoutMs,
 } from './upstream-execution';
 import { admitProvider } from '../runtime/provider-admission';
+import {
+  OPENROUTER_DECISIONS_API_TYPE,
+  OPENROUTER_DECISIONS_ENDPOINT,
+  TYPESAFE_DECISIONS_API_TYPE,
+  TYPESAFE_DECISIONS_ENDPOINT,
+  parseDecisionsUpstreamResponse,
+} from '../../types/decisions';
 
 function imageRoutingError(message: string): Error {
   const error = new Error(message) as any;
   error.routingContext = { statusCode: 400, code: 'invalid_request_error' };
   return error;
+}
+
+function decisionsRoutingError(message: string): Error {
+  const error = new Error(message) as any;
+  error.routingContext = { statusCode: 400, code: 'invalid_request_error' };
+  return error;
+}
+
+/** Upstream path for a decisions target; anything else is misconfiguration. */
+function decisionsEndpointForTarget(targetApiType: string | undefined): string {
+  switch (getApiBaseType(targetApiType ?? '')) {
+    case OPENROUTER_DECISIONS_API_TYPE:
+      return OPENROUTER_DECISIONS_ENDPOINT;
+    case TYPESAFE_DECISIONS_API_TYPE:
+      return TYPESAFE_DECISIONS_ENDPOINT;
+    default:
+      throw decisionsRoutingError(
+        `Target API type '${targetApiType}' cannot serve decisions requests`
+      );
+  }
+}
+
+/**
+ * Builds the upstream Decisions body. Core fields (`model`, `state`,
+ * `questions`) go to both upstreams; the OpenRouter-only routing and
+ * observability fields go to OpenRouter alone. The routed model always wins:
+ * neither the client body nor operator `extraBody` may override it, and the
+ * client's upstream `provider` preferences win over `extraBody` defaults.
+ */
+function buildDecisionsUpstreamPayload(
+  request: UnifiedDecisionsRequest,
+  route: RouteResult,
+  targetApiType: string | undefined
+): Record<string, any> {
+  const isOpenRouter = getApiBaseType(targetApiType ?? '') === OPENROUTER_DECISIONS_API_TYPE;
+  let payload: Record<string, any> = {
+    model: route.model,
+    state: request.state,
+    questions: request.questions,
+  };
+  if (isOpenRouter) {
+    if (request.upstreamProvider !== undefined) payload.provider = request.upstreamProvider;
+    if (request.sessionId !== undefined) payload.session_id = request.sessionId;
+    if (request.trace !== undefined) payload.trace = request.trace;
+    if (request.user !== undefined) payload.user = request.user;
+  }
+
+  const extraBodies = [
+    route.config.extraBody,
+    route.modelConfig?.extraBody,
+    route.canonicalModel ? getConfig().models?.[route.canonicalModel]?.extraBody : undefined,
+  ];
+  for (const extraBody of extraBodies) {
+    if (!extraBody) continue;
+    // Operator extras may carry defaults, but never the caller's core
+    // fields: `model` is the routed model, `state`/`questions` are the
+    // caller's evaluation input, and `provider` is the caller's upstream
+    // routing preference (restored below when present).
+    const {
+      model: _model,
+      provider: _provider,
+      state: _state,
+      questions: _questions,
+      ...rest
+    } = extraBody;
+    payload = { ...payload, ...rest };
+  }
+
+  // The routed model and the caller's evaluation input always win over
+  // operator extras.
+  payload.model = route.model;
+  payload.state = request.state;
+  payload.questions = request.questions;
+  if (isOpenRouter && request.upstreamProvider !== undefined) {
+    payload.provider = request.upstreamProvider;
+  }
+  if (!isOpenRouter) {
+    // TypeSafe receives only the core payload: drop any OpenRouter-only
+    // routing/observability fields an operator extra may have introduced.
+    delete payload.provider;
+    delete payload.session_id;
+    delete payload.trace;
+    delete payload.user;
+  }
+  return payload;
 }
 
 /** Stop this attempt's wait without cancelling credential work shared by other requests. */
@@ -1296,6 +1390,217 @@ export class MediaDispatcher {
           host.saveIntermediateError(request.requestId, 'images', error);
           logger.warn(
             `Failover: retrying image generation after failure from ${route.provider}/${route.model}: ${error.message}`
+          );
+          continue;
+        }
+
+        throw host.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
+      } finally {
+        attemptTimeout?.cleanup();
+        admission.release();
+      }
+    }
+
+    throw host.buildAllTargetsFailedError(lastError, attemptedProviders, retryHistory);
+  }
+
+  /**
+   * Dispatches buffered Jev-style Decisions requests.
+   *
+   * Same failover/timeout/admission machinery as the image loop, but the
+   * payload is forwarded nearly verbatim: `{model, state, questions}` plus
+   * the OpenRouter-only routing/observability fields (`provider`,
+   * `session_id`, `trace`, `user`). `request.upstreamProvider` is an
+   * OpenRouter upstream preference, never a Plexus slug — it is sent to
+   * OpenRouter only and never influences local candidate selection.
+   */
+  async dispatchDecisions(
+    request: UnifiedDecisionsRequest,
+    signal?: AbortSignal,
+    resolveTimeoutMs?: ResolveTimeoutMs
+  ): Promise<UnifiedDecisionsResponse> {
+    const host = this.host;
+    if (signal?.aborted) throw host.buildCancelledError(signal);
+
+    const config = getConfig();
+    const failover = config.failover;
+    const failoverEnabled = failover?.enabled !== false;
+
+    let candidates = await Router.resolveCandidates(request.model, 'decisions');
+    if (candidates.length === 0) {
+      // Strict capability routing: no decisions-capable target is a client
+      // configuration error (400), never a silent fallback onto a chat
+      // provider. This also covers unknown model names on this endpoint.
+      try {
+        const singleRoute = await Router.resolve(request.model, 'decisions');
+        candidates = [singleRoute];
+      } catch {
+        throw decisionsRoutingError(
+          `No decisions-capable target configured for model '${request.model}'`
+        );
+      }
+    }
+
+    candidates = applyKeyAccessPolicy(request, candidates, 'decisions');
+
+    const retryHistory: RetryAttemptRecord[] = [];
+    candidates = host.applyQuotaFilter(request, candidates, retryHistory, 'decisions');
+
+    const targets = failoverEnabled ? candidates : [candidates[0]!];
+    const attemptedProviders: string[] = [];
+    let lastError: any = null;
+
+    for (let i = 0; i < targets.length; i++) {
+      const route = targets[i]!;
+
+      if (signal?.aborted) throw host.buildCancelledError(signal);
+      const admission = await admitProvider(route);
+      if (!admission.admitted) {
+        lastError = new Error(admission.reason);
+        host.appendSkippedAttempt(retryHistory, route, admission.reason, 'decisions');
+        continue;
+      }
+
+      attemptedProviders.push(`${route.provider}/${route.model}`);
+      let attemptTimeout: AttemptTimeout | undefined;
+      try {
+        attemptTimeout = createAttemptTimeout(signal, route.config.timeoutMs, resolveTimeoutMs);
+        attemptTimeout.signal.throwIfAborted();
+        host.emitRoutingUpdate(request.requestId, route);
+        const selectedApiType = selectTargetApiType(route, 'decisions').targetApiType;
+        if (!selectedApiType) {
+          throw decisionsRoutingError('No API type available for decisions routing');
+        }
+        const targetApiType = selectedApiType;
+        const endpoint = decisionsEndpointForTarget(targetApiType);
+        const baseUrl = host.resolveBaseUrl(route, targetApiType);
+        const url = `${baseUrl}${endpoint}`;
+
+        attemptTimeout.signal.throwIfAborted();
+        const payload = buildDecisionsUpstreamPayload(request, route, targetApiType);
+        attemptTimeout.signal.throwIfAborted();
+
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        };
+        if (route.config.api_key) {
+          headers['Authorization'] = `Bearer ${route.config.api_key}`;
+        }
+        if (route.config.headers) {
+          Object.assign(headers, route.config.headers);
+        }
+
+        logger.info(
+          `Dispatching decisions ${request.model} to ${route.provider}:${route.model} via ${targetApiType}`
+        );
+        logger.silly('Decisions Request Payload', payload);
+
+        if (request.requestId) {
+          DebugManager.getInstance().addTransformedRequest(request.requestId, payload);
+        }
+
+        const response = await fetch(url, {
+          method: 'POST',
+          signal: attemptTimeout.signal,
+          headers,
+          body: JSON.stringify(payload),
+        });
+
+        if (request.requestId) {
+          DebugManager.getInstance().addResponseMeta(
+            request.requestId,
+            response.status,
+            host.extractResponseHeaders(response)
+          );
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          attemptTimeout.signal.throwIfAborted();
+          await host.handleProviderError(
+            response,
+            route,
+            errorText,
+            url,
+            headers,
+            'decisions',
+            request.requestId
+          );
+        }
+
+        const responseBody = await response.json();
+        attemptTimeout.signal.throwIfAborted();
+        logger.silly('Decisions Response', responseBody);
+
+        if (request.requestId) {
+          DebugManager.getInstance().addRawResponse(request.requestId, responseBody);
+        }
+
+        // Boundary validation: an unusable upstream payload is a provider
+        // failure (502, retryable under default failover policy), never a
+        // silent success.
+        const parsed = parseDecisionsUpstreamResponse(responseBody);
+        attemptTimeout.signal.throwIfAborted();
+
+        const unifiedResponse: UnifiedDecisionsResponse = {
+          model: parsed.model,
+          answers: parsed.answers,
+          usage: parsed.usage,
+          ...(parsed.id !== undefined ? { id: parsed.id } : {}),
+          ...(parsed.provider !== undefined ? { provider: parsed.provider } : {}),
+          plexus: {
+            provider: route.provider,
+            model: route.model,
+            apiType: 'decisions',
+            targetApiType,
+            pricing: route.modelConfig?.pricing,
+            providerDiscount: route.config.discount,
+            canonicalModel: route.canonicalModel,
+            config: route.config,
+          },
+        };
+
+        await host.recordAttemptMetric(route, request.requestId, true);
+        host.appendSuccessAttempt(retryHistory, route, 'decisions');
+        host.attachAttemptMetadata(
+          unifiedResponse,
+          attemptedProviders,
+          retryHistory,
+          route,
+          'decisions'
+        );
+        return unifiedResponse;
+      } catch (caught: any) {
+        if (signal?.aborted) throw host.buildCancelledError(signal);
+        const error = attemptTimeout?.isTimedOut() ? host.buildTimeoutError() : caught;
+        lastError = error;
+        if (attemptTimeout?.isTimedOut() || error?.routingContext?.statusCode === undefined) {
+          CooldownManager.getInstance().markProviderFailure(
+            route.provider,
+            route.model,
+            undefined,
+            host.formatFailureReason(error)
+          );
+        }
+        await host.recordAttemptMetric(route, request.requestId, false);
+
+        const canRetry =
+          failoverEnabled &&
+          i < targets.length - 1 &&
+          (error?.routingContext?.statusCode !== undefined
+            ? host.isRetryableStatus(
+                error.routingContext.statusCode,
+                failover?.retryableStatusCodes || []
+              )
+            : host.isRetryableNetworkError(error, failover?.retryableErrors || []));
+
+        host.appendFailureAttempt(retryHistory, route, error, 'decisions', canRetry);
+
+        if (canRetry) {
+          host.saveIntermediateError(request.requestId, 'decisions', error);
+          logger.warn(
+            `Failover: retrying decisions after failure from ${route.provider}/${route.model}: ${error.message}`
           );
           continue;
         }

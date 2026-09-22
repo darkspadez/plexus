@@ -3,6 +3,7 @@ import { logger } from '../../utils/logger';
 import {
   getApiBaseType,
   isApiSubtype,
+  isDecisionsTargetApiType,
   isImageTargetApiType,
   normalizeApiAccessList,
 } from '../../utils/api-format';
@@ -51,6 +52,21 @@ export function selectTargetApiType(
       : providerTypes;
 
   let targetApiType = availableTypes[0]; // Default to first one
+
+  // Decisions requests prefer an explicitly decisions-capable protocol even
+  // when the target also advertises other protocols (e.g. a shared
+  // OpenRouter provider): the Decisions payload is only valid on the
+  // Decisions endpoints, so defaulting to the first available type could
+  // send it to a chat base URL.
+  if (incomingApiType && incomingApiType.toLowerCase() === 'decisions') {
+    const decisionsMatch = availableTypes.find((t: string) => isDecisionsTargetApiType(t));
+    if (decisionsMatch) {
+      return {
+        targetApiType: decisionsMatch,
+        selectionReason: `matched incoming request type 'decisions'`,
+      };
+    }
+  }
 
   if (!targetApiType) {
     throw new Error(

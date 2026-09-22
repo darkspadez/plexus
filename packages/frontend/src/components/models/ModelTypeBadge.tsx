@@ -27,6 +27,9 @@ export const ModelTypeBadge: React.FC<ModelTypeBadgeProps> = ({ type, className 
     case 'image':
       customClass = 'text-pink-400 border-pink-500/30 bg-pink-500/15'; // pink
       break;
+    case 'decisions':
+      customClass = 'text-sky-400 border-sky-500/30 bg-sky-500/15'; // sky
+      break;
     default:
       customClass = 'text-gray-400 border-gray-500/30 bg-gray-500/15';
   }
