@@ -27,7 +27,12 @@ import { formatLargeNumber } from '../../lib/api';
 import { formatCostIn, formatMs, formatTPS, getEstimatedBytesPerToken } from '../../lib/format';
 import { formatApiTypeLabel, getApiBaseType } from '../../lib/apiFormats';
 import { API_LOGOS } from './constants';
-import { formatDateSafely, formatReasoningEffort } from './helpers';
+import {
+  formatDateSafely,
+  formatReasoningEffort,
+  getAttemptIndicatorLabel,
+  hasUpstreamRewrite,
+} from './helpers';
 import type { LogRowProps } from './types';
 
 export const MobileLogRow = React.memo(
@@ -116,31 +121,30 @@ export const MobileLogRow = React.memo(
               className="min-w-0 truncate font-normal text-text-secondary"
               title={(() => {
                 const routeModel = log.finalAttemptModel ?? log.selectedModelName ?? '-';
-                return log.upstreamModel && log.upstreamModel !== routeModel
+                return hasUpstreamRewrite(log)
                   ? `${log.provider || '-'}:${routeModel} → ${log.upstreamModel} (route → upstream)`
                   : undefined;
               })()}
             >
               {(() => {
                 const routeModel = log.finalAttemptModel ?? log.selectedModelName ?? '-';
-                return log.upstreamModel && log.upstreamModel !== routeModel
+                return hasUpstreamRewrite(log)
                   ? `${log.provider || '-'}:${routeModel} → ${log.upstreamModel}`
                   : `${log.provider || '-'}:${routeModel}`;
               })()}
             </span>
             {(() => {
-              const routeModel = log.finalAttemptModel ?? log.selectedModelName;
-              const hasRewrite = Boolean(log.upstreamModel) && log.upstreamModel !== routeModel;
-              const showRetry = (log.attemptCount && log.attemptCount > 1) || hasRewrite;
-              if (!showRetry || !onRetryDetails) return null;
+              const hasRewrite = hasUpstreamRewrite(log);
+              const indicatorLabel = getAttemptIndicatorLabel(log.attemptCount);
+              if (!indicatorLabel || !onRetryDetails) return null;
               return (
                 <button
                   type="button"
                   onClick={() => onRetryDetails(log)}
                   className="shrink-0 text-[10px] font-medium text-orange-500"
-                  aria-label={`View retry history (${log.attemptCount ?? 1} attempts)`}
+                  aria-label={`View retry history (${log.attemptCount} attempts${hasRewrite ? ', model rewritten upstream' : ''})`}
                 >
-                  {log.attemptCount ?? 1}x
+                  {indicatorLabel}
                 </button>
               );
             })()}
