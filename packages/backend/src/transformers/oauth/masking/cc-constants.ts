@@ -30,11 +30,17 @@
  * letting this constant go stale blocks newly released models even when
  * everything else about the fingerprint is correct.
  *
+ * This is only the startup/offline fallback. The live value comes from
+ * `ClaudeCodeVersionService` (services/oauth), which refreshes from the
+ * npm registry's `latest` dist-tag on startup and every 60 minutes —
+ * `cc-headers.ts` and `cc-billing.ts` read it per request.
+ *
  * SOURCE: latest real `@anthropic-ai/claude-code` release.
- * TO UPDATE: check the npm registry (`npm view @anthropic-ai/claude-code
- * version`) or install the real `claude` CLI and run `claude --version`.
+ * TO UPDATE (fallback only): check the npm registry (`npm view
+ * @anthropic-ai/claude-code version`) or install the real `claude` CLI
+ * and run `claude --version`.
  */
-export const CC_VERSION = '2.1.258';
+export const CC_VERSION = '2.1.280';
 
 /**
  * Billing fingerprint salt + character-index selection, used to compute the

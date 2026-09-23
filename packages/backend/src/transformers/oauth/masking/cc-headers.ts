@@ -16,7 +16,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { CC_VERSION } from './cc-constants';
+import { ClaudeCodeVersionService } from '../../../services/oauth/claude-code-version-service';
 
 // Generated once per process — mirrors the vendored pipeline's
 // per-process INSTANCE_SESSION_ID.
@@ -27,7 +27,7 @@ export function getStainlessHeaders(): Record<string, string> {
   const osName = p === 'darwin' ? 'macOS' : p === 'win32' ? 'Windows' : p === 'linux' ? 'Linux' : p;
   const arch = process.arch === 'x64' ? 'x64' : process.arch === 'arm64' ? 'arm64' : process.arch;
   return {
-    'user-agent': `claude-cli/${CC_VERSION} (external, cli)`,
+    'user-agent': `claude-cli/${ClaudeCodeVersionService.getInstance().getVersion()} (external, cli)`,
     'x-app': 'cli',
     'x-claude-code-session-id': INSTANCE_SESSION_ID,
     'x-stainless-arch': arch,
