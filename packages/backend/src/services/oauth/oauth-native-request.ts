@@ -39,6 +39,7 @@ import {
   reverseToolRenames,
 } from '../../transformers/oauth/masking';
 import type { RenamePair } from '../../transformers/oauth/masking/types';
+import type { UnifiedChatRequest } from '../../types/unified';
 import { CodexVersionService } from './codex-version-service';
 import { stripUnsupportedGpt5Options } from '../../transformers/adapters/suppress-unsupported-gpt5-options.adapter';
 import { clampAnthropicEffortAndThinking } from '../../transformers/anthropic/thinking-clamp';
@@ -125,18 +126,210 @@ function mergeBetas(callerBetas?: string): string {
   return merged.join(',');
 }
 
+// ─── Genuine Claude Code client detection ───────────────────────────────
+//
+// A real Claude Code client talking to the real Anthropic endpoint needs no
+// masking: its body already carries the genuine CC identity (billing-header
+// placeholder, CC system prompt, device/session metadata). Masking such a
+// request is pure harm — it downgrades the advertised CC version, replaces
+// the client's real system prompt with a stale generic one, swaps the
+// device/session ids for gateway-generated ones, and prepends a synthetic
+// `<system-reminder>` to the first user message (verified against staging
+// traces). This mirrors `isCodexCliShapedBody` below: fail-closed heuristics
+// that route genuine clients to a verbatim + key-swap fast-path.
+
+/** Matches `claude-cli/<semver> (external, cli)` — the UA real Claude Code sends. */
+const CLAUDE_CLI_USER_AGENT_PATTERN = /^claude-cli\/\d+\.\d+\.\d+ \(external, cli\)$/;
+
+/** The `anthropic-beta` flag every genuine Claude Code request carries. */
+const CLAUDE_CODE_BETA_FLAG = 'claude-code-20250219';
+
+/** `system[1]` of every genuine Claude Code request (see cc-identity.ts). */
+const CLAUDE_CODE_IDENTITY_LINE = "You are Claude Code, Anthropic's official CLI for Claude.";
+
+/** Wire shape the genuine-client detector reads (all fields optional). */
+interface ClaudeCodeWireBody {
+  system?: Array<{ type?: unknown; text?: unknown }>;
+  metadata?: { user_id?: unknown };
+}
+
+/** `metadata.user_id` JSON shape real Claude Code sends. */
+interface ClaudeCodeUserId {
+  device_id?: unknown;
+  session_id?: unknown;
+}
+
+/**
+ * Parse `metadata.user_id` into device/session ids, or null when it isn't a
+ * genuine client identity block (missing, unparseable, or incomplete).
+ */
+function parseClaudeCodeUserId(raw: unknown): { device_id: string; session_id: string } | null {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const { device_id, session_id } = parsed as ClaudeCodeUserId;
+  if (typeof device_id !== 'string' || device_id.length === 0) return null;
+  if (typeof session_id !== 'string' || session_id.length === 0) return null;
+  return { device_id, session_id };
+}
+
+/** The body's own session id, or '' when the body carries no client identity. */
+export function extractBodySessionId(body: unknown): string {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return '';
+  return parseClaudeCodeUserId((body as ClaudeCodeWireBody).metadata?.user_id)?.session_id ?? '';
+}
+
+/**
+ * True when the inbound request is from a genuine Claude Code client:
+ * the header gate (UA + `x-app: cli` + CC beta flag) AND the body gate
+ * (unmasked billing-header placeholder, exact CC identity line, parseable
+ * device/session metadata agreeing with the session-id header when present).
+ * Anything less certain returns false and the request takes the masking path.
+ */
+export function isGenuineClaudeCodeRequest(request: UnifiedChatRequest): boolean {
+  if (!request || typeof request !== 'object') return false;
+
+  const userAgent = typeof request.userAgent === 'string' ? request.userAgent.trim() : '';
+  if (!CLAUDE_CLI_USER_AGENT_PATTERN.test(userAgent)) return false;
+
+  const xApp = request.metadata?.plexus_metadata?.clientHeaders?.['x-app'];
+  if (typeof xApp !== 'string' || xApp.trim().toLowerCase() !== 'cli') return false;
+
+  const betas = (request.anthropicBeta ?? '').split(',').map((b) => b.trim());
+  if (!betas.includes(CLAUDE_CODE_BETA_FLAG)) return false;
+
+  const body = request.originalBody as ClaudeCodeWireBody | null | undefined;
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return false;
+
+  const system = body.system;
+  if (!Array.isArray(system) || system.length < 2) return false;
+  const billingText = system[0]?.text;
+  if (
+    typeof billingText !== 'string' ||
+    !billingText.startsWith('x-anthropic-billing-header:') ||
+    !billingText.includes('cc_entrypoint=cli') ||
+    // A `cch=` hash means the body already went through masking — not a
+    // genuine unmasked client (and must not be masked a second time here).
+    billingText.includes('cch=')
+  ) {
+    return false;
+  }
+  if (system[1]?.text !== CLAUDE_CODE_IDENTITY_LINE) return false;
+
+  const userId = parseClaudeCodeUserId(body.metadata?.user_id);
+  if (!userId) return false;
+
+  const headerSessionId =
+    typeof request.claudeCodeSessionId === 'string' ? request.claudeCodeSessionId.trim() : '';
+  if (headerSessionId && userId.session_id !== headerSessionId) return false;
+
+  return true;
+}
+
+/** Options for `prepareAnthropicOAuthRequest` beyond the wire body. */
+export interface AnthropicNativeOptions {
+  /** The caller's raw `anthropic-beta` header, merged with REQUIRED_BETAS. */
+  callerBetas?: string;
+  /** Genuine Claude Code client: skip masking, forward the body verbatim. */
+  claudePassthrough?: boolean;
+  /** Caller's own UA / session id, preserved on the passthrough path. */
+  callerUserAgent?: string;
+  callerSessionId?: string;
+}
+
+/** Resolved upstream URL for native Anthropic Messages dispatch. */
+function resolveAnthropicMessagesUrl(modelId: string): string {
+  return `${resolveOAuthBaseUrl('anthropic', modelId)}/v1/messages`;
+}
+
+/**
+ * Wire headers for a native Anthropic request. `stainlessOverrides` swaps the
+ * gateway's generated Stainless identity for the real client's own values;
+ * without overrides the gateway fingerprint is sent (the masking path).
+ */
+function buildAnthropicNativeHeaders(
+  auth: NativeAnthropicAuth,
+  streaming: boolean,
+  callerBetas?: string,
+  stainlessOverrides?: { userAgent?: string; sessionId?: string }
+): Record<string, string> {
+  const stainless = getStainlessHeaders();
+  if (stainlessOverrides?.userAgent) stainless['user-agent'] = stainlessOverrides.userAgent;
+  if (stainlessOverrides?.sessionId)
+    stainless['x-claude-code-session-id'] = stainlessOverrides.sessionId;
+  return {
+    'Content-Type': 'application/json',
+    Accept: streaming ? 'text/event-stream' : 'application/json',
+    'anthropic-version': '2023-06-01',
+    'anthropic-beta': mergeBetas(callerBetas),
+    ...stainless,
+    // Auth: OAuth → Bearer; masking-API-key → x-api-key (real Anthropic key).
+    ...(auth.mode === 'oauth'
+      ? { Authorization: `Bearer ${auth.token}` }
+      : { 'x-api-key': auth.apiKey }),
+  };
+}
+
+/**
+ * Genuine-Claude-Code fast-path: auth + URL resolution only, body forwarded
+ * verbatim with an identity response reverser. The caller's own version
+ * (UA) and session attribution are preserved instead of the gateway's
+ * generated identity, so prompt-cache routing and session accounting see the
+ * real client. `nativeBody` already passed the standard pre-steps
+ * (registry auto-compat, extraBody, adapters, thinking clamp) upstream of
+ * this call — only the two masking transforms are skipped.
+ */
+function prepareGenuineClaudePassthrough(
+  modelId: string,
+  auth: NativeAnthropicAuth,
+  nativeBody: any,
+  streaming: boolean,
+  options?: AnthropicNativeOptions
+): PreparedOAuthRequest {
+  const url = resolveAnthropicMessagesUrl(modelId);
+
+  // Prefer the header session id, fall back to the body's own — never the
+  // gateway's per-process INSTANCE_SESSION_ID, which would group unrelated
+  // clients under one shared session and mismatch the forwarded body.
+  const callerUA = options?.callerUserAgent?.trim();
+  const callerSession = options?.callerSessionId?.trim() || extractBodySessionId(nativeBody);
+  const headers = buildAnthropicNativeHeaders(auth, streaming, options?.callerBetas, {
+    ...(callerUA ? { userAgent: callerUA } : {}),
+    ...(callerSession ? { sessionId: callerSession } : {}),
+  });
+  if (!callerSession) delete headers['x-claude-code-session-id'];
+
+  return {
+    url,
+    headers,
+    body: nativeBody,
+    reverseResponseFrame: (frame) => frame,
+  };
+}
+
 /**
  * Prepare an Anthropic OAuth request from a native Anthropic `/v1/messages`
  * body. Applies the exact masking sequence `executeRequest` runs today, then
- * returns everything the standard fetch path needs.
+ * returns everything the standard fetch path needs. A genuine Claude Code
+ * client (`options.claudePassthrough`) skips masking via
+ * `prepareGenuineClaudePassthrough` — see `isGenuineClaudeCodeRequest`.
  */
 function prepareAnthropicOAuthRequest(
   modelId: string,
   auth: NativeAnthropicAuth,
   nativeBody: any,
   streaming: boolean,
-  callerBetas?: string
+  options?: AnthropicNativeOptions
 ): PreparedOAuthRequest {
+  if (options?.claudePassthrough === true) {
+    return prepareGenuineClaudePassthrough(modelId, auth, nativeBody, streaming, options);
+  }
+  const callerBetas = options?.callerBetas;
   const preparedBody = clampAnthropicEffortAndThinking(nativeBody, modelId);
   // The token used to GATE masking (not necessarily the auth credential). For
   // the API-key masking route we force the masking's OAuth codepath with the
@@ -172,20 +365,9 @@ function prepareAnthropicOAuthRequest(
     .map((t: any) => t?.name)
     .filter((n: any): n is string => typeof n === 'string');
 
-  const baseUrl = resolveOAuthBaseUrl('anthropic', modelId);
-  const url = `${baseUrl}/v1/messages`;
+  const url = resolveAnthropicMessagesUrl(modelId);
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: streaming ? 'text/event-stream' : 'application/json',
-    'anthropic-version': '2023-06-01',
-    'anthropic-beta': mergeBetas(callerBetas),
-    ...getStainlessHeaders(),
-    // Auth: OAuth → Bearer; masking-API-key → x-api-key (real Anthropic key).
-    ...(auth.mode === 'oauth'
-      ? { Authorization: `Bearer ${auth.token}` }
-      : { 'x-api-key': auth.apiKey }),
-  };
+  const headers: Record<string, string> = buildAnthropicNativeHeaders(auth, streaming, callerBetas);
 
   return {
     url,
@@ -642,10 +824,10 @@ export function prepareOAuthNativeRequest(
   auth: NativeAnthropicAuth,
   nativeBody: any,
   streaming: boolean,
-  options?: { codexPassthrough?: boolean; apiType?: string; callerBetas?: string }
+  options?: { codexPassthrough?: boolean; apiType?: string } & AnthropicNativeOptions
 ): PreparedOAuthRequest {
   if (provider === 'anthropic') {
-    return prepareAnthropicOAuthRequest(modelId, auth, nativeBody, streaming, options?.callerBetas);
+    return prepareAnthropicOAuthRequest(modelId, auth, nativeBody, streaming, options);
   }
   if (provider === 'openai-codex') {
     if (auth.mode !== 'oauth') {
@@ -847,21 +1029,23 @@ export async function prepareGenericOAuthDispatch(params: {
  * for the masking-API-key route, uses the configured key directly. Masks the
  * native body and builds the wire request for the standard dispatch seams.
  */
-export async function prepareNativeOAuthDispatch(params: {
-  provider: OAuthProvider;
-  modelId: string;
-  nativeBody: any;
-  streaming: boolean;
-  oauthAccountId?: string | null;
-  /** When set, use the Claude-masking API-key mode instead of OAuth. */
-  maskingApiKey?: string | null;
-  /** Codex only: send the body verbatim (CLI-shaped request). */
-  codexPassthrough?: boolean;
-  /** Copilot only: the resolved wire API type (chat/messages/responses). */
-  apiType?: string;
-  /** Anthropic only: the caller's raw `anthropic-beta` header, merged with REQUIRED_BETAS. */
-  callerBetas?: string;
-}): Promise<PreparedOAuthRequest> {
+export async function prepareNativeOAuthDispatch(
+  params: {
+    provider: OAuthProvider;
+    modelId: string;
+    nativeBody: any;
+    streaming: boolean;
+    oauthAccountId?: string | null;
+    /** When set, use the Claude-masking API-key mode instead of OAuth. */
+    maskingApiKey?: string | null;
+    /** Codex only: send the body verbatim (CLI-shaped request). */
+    codexPassthrough?: boolean;
+    /** Copilot only: the resolved wire API type (chat/messages/responses). */
+    apiType?: string;
+    // Anthropic-only fields (caller betas, genuine-client passthrough, caller
+    // identity) come from `AnthropicNativeOptions` — documented there.
+  } & AnthropicNativeOptions
+): Promise<PreparedOAuthRequest> {
   const { provider, modelId, nativeBody, streaming, oauthAccountId, maskingApiKey } = params;
 
   let auth: NativeAnthropicAuth;
@@ -879,9 +1063,8 @@ export async function prepareNativeOAuthDispatch(params: {
     auth = { mode: 'oauth', token };
   }
 
-  return prepareOAuthNativeRequest(provider, modelId, auth, nativeBody, streaming, {
-    codexPassthrough: params.codexPassthrough === true,
-    apiType: params.apiType,
-    callerBetas: params.callerBetas,
-  });
+  // `params` carries exactly the native-request options plus dispatch-only
+  // fields (provider/modelId/..., which the callee ignores) — passed straight
+  // through. The codex boolean coercion happens at its use site.
+  return prepareOAuthNativeRequest(provider, modelId, auth, nativeBody, streaming, params);
 }

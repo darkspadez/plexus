@@ -75,6 +75,11 @@ export async function registerMessagesRoute(
       usageRecord.reasoningEffort = getReasoningLogValue(unifiedRequest, body) ?? null;
       unifiedRequest.cacheRoutingHeaders = getCacheRoutingHeaders(request.headers);
       unifiedRequest.anthropicBeta = getHeaderValue(request.headers, 'anthropic-beta');
+      unifiedRequest.userAgent = getHeaderValue(request.headers, 'user-agent');
+      unifiedRequest.claudeCodeSessionId = getHeaderValue(
+        request.headers,
+        'x-claude-code-session-id'
+      );
       unifiedRequest = attachKeyAccessPolicy(request, unifiedRequest);
       const xAppHeader = Array.isArray(request.headers['x-app'])
         ? request.headers['x-app'][0]

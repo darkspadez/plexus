@@ -69,7 +69,13 @@ export const BILLING_HASH_INDICES: readonly number[] = [4, 7, 20];
  * pi-ai-executor.ts, which overrides pi-ai's header via `options.headers`
  * (the last-merged / overriding source in pi-ai's `mergeHeaders()`).
  *
- * SOURCE: vendor/eliza's REQUIRED_BETAS.
+ * SOURCE: vendor/eliza's REQUIRED_BETAS, refreshed against a genuine
+ * `claude-cli/2.1.278 (external, cli)` capture (staging traces 7387fe89 /
+ * c22b69c4), which added `thinking-token-count-2026-05-13`,
+ * `mid-conversation-system-2026-04-07`, and `advisor-tool-2026-03-01`.
+ * `advanced-tool-use-2025-11-20` / `fast-mode-2026-02-01` are kept: the
+ * capture doesn't send them, but one capture can't prove retirement and
+ * dropping advertised flags risks currently-working masked traffic.
  * TO UPDATE: inspect a genuine Claude Code CLI request's `anthropic-beta`
  * header (comma-separated feature flags); Anthropic also documents current
  * beta flags at https://docs.claude.com/en/api/beta-headers as they're
@@ -79,9 +85,12 @@ export const REQUIRED_BETAS: readonly string[] = [
   'oauth-2025-04-20',
   'claude-code-20250219',
   'interleaved-thinking-2025-05-14',
+  'thinking-token-count-2026-05-13',
   'advanced-tool-use-2025-11-20',
   'context-management-2025-06-27',
   'prompt-caching-scope-2026-01-05',
+  'mid-conversation-system-2026-04-07',
+  'advisor-tool-2026-03-01',
   'effort-2025-11-24',
   'fast-mode-2026-02-01',
 ];

@@ -11,6 +11,7 @@ import {
   copilotEndpoint,
   extractChatgptAccountId,
   isCodexCliShapedBody,
+  isGenuineClaudeCodeRequest,
   isNativeOAuthProvider,
   prepareGenericOAuthDispatch,
   prepareNativeOAuthDispatch,
@@ -127,6 +128,7 @@ export async function buildRequestPayload(
   const copilotNative = nativeOAuth && oauthProviderForNative === 'github-copilot';
   const museNative = nativeOAuth && oauthProviderForNative === 'meta';
   const codexCliPassthrough = codexNative && isCodexCliShapedBody(request.originalBody);
+  const anthropicNative = nativeOAuth && oauthProviderForNative === 'anthropic';
 
   let bypassTransformation: boolean;
   if (codexNative) {
@@ -182,6 +184,23 @@ export async function buildRequestPayload(
         }
       : request;
     payload = await transformer.transformRequest(requestWithOAuthProvider);
+  }
+
+  // Claude genuine-client fast-path. Masking only exists on the native
+  // Anthropic OAuth/masking routes (`anthropicNative`), so the gate is scoped
+  // there — plain API-key providers never mask in the first place. The body
+  // actually sent must be the verbatim client body (`bypassTransformation`):
+  // the genuine-client fingerprint was checked on `originalBody`, so a
+  // transformer-rebuilt `payload` still goes through masking as usual.
+  // `isAnthropicTargetProvider` re-asserts the upstream is really Anthropic
+  // (hostname, Anthropic OAuth, or masking route). Fail-closed throughout.
+  const claudePassthrough =
+    anthropicNative &&
+    bypassTransformation &&
+    isAnthropicTargetProvider(route, targetApiType) &&
+    isGenuineClaudeCodeRequest(request);
+  if (claudePassthrough) {
+    logger.debug('Claude genuine-client passthrough active: masking skipped, key swap only');
   }
 
   // Defense in depth: non-Gemini-transformer paths (cross-format routing to
@@ -299,10 +318,14 @@ export async function buildRequestPayload(
       // rather than discarded, so beta-gated client features (e.g. the advisor
       // tool) survive the gateway instead of being rejected upstream.
       callerBetas: request.anthropicBeta,
+      claudePassthrough,
+      callerUserAgent: request.userAgent,
+      callerSessionId: request.claudeCodeSessionId,
     });
     (route as any)[NATIVE_OAUTH_STASH] = prepared;
     logger.debug(
-      `Native OAuth payload prepared for ${provider}/${route.model} (url=${prepared.url})`
+      `Native OAuth payload prepared for ${provider}/${route.model} (url=${prepared.url})` +
+        (claudePassthrough ? ' [claude-passthrough]' : '')
     );
     // Codex CLI and Responses clients receive the native Responses stream.
     // Cross-format Codex requests must translate the response back to the
