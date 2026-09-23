@@ -167,6 +167,10 @@ export interface UnifiedChatRequest {
   user?: string;
   cacheRoutingHeaders?: CacheRoutingHeaders;
   anthropicBeta?: string;
+  /** Inbound `user-agent` header (captured by the inference routes). */
+  userAgent?: string;
+  /** Inbound `x-claude-code-session-id` header (Claude Code clients). */
+  claudeCodeSessionId?: string;
   incomingApiType?: string;
   originalBody?: any;
   metadata?: Record<string, any> & { plexus_metadata?: PlexusMetadata };

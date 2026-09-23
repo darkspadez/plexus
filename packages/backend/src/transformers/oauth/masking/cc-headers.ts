@@ -9,10 +9,11 @@
  * `x-stainless-*` headers every Stainless-generated SDK emits).
  *
  * SOURCE: `x-stainless-package-version` is the Anthropic SDK's own package
- * version, not Claude Code's. TO UPDATE: check the `@anthropic-ai/sdk`
- * version Claude Code currently bundles (inspect a genuine CC request's
- * `x-stainless-package-version` header, or the SDK version pinned in
- * Claude Code's own `package.json` if available).
+ * version, not Claude Code's: `0.112.1` from a genuine `claude-cli/2.1.278`
+ * capture (staging traces 7387fe89 / c22b69c4). TO UPDATE: check the
+ * `@anthropic-ai/sdk` version Claude Code currently bundles (inspect a
+ * genuine CC request's `x-stainless-package-version` header, or the SDK
+ * version pinned in Claude Code's own `package.json` if available).
  */
 
 import { randomUUID } from 'node:crypto';
@@ -33,7 +34,7 @@ export function getStainlessHeaders(): Record<string, string> {
     'x-stainless-arch': arch,
     'x-stainless-lang': 'js',
     'x-stainless-os': osName,
-    'x-stainless-package-version': '0.81.0',
+    'x-stainless-package-version': '0.112.1',
     'x-stainless-runtime': 'node',
     'x-stainless-runtime-version': process.version,
     'x-stainless-retry-count': '0',
