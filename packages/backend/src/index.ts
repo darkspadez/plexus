@@ -45,6 +45,7 @@ import { CooldownManager } from './services/runtime/cooldown-manager';
 import { DebugManager } from './services/observability/debug-manager';
 import { ModelMetadataManager } from './services/models/model-metadata-manager';
 import { CodexVersionService } from './services/oauth/codex-version-service';
+import { ClaudeCodeVersionService } from './services/oauth/claude-code-version-service';
 import { SelectorFactory } from './services/routing/selectors/factory';
 import { QuotaScheduler } from './services/quota/quota-scheduler';
 import { ResponsesStorageService } from './services/responses/responses-storage';
@@ -230,6 +231,11 @@ try {
   codexVersionService.startAutoRefresh(60);
   codexVersionService.fetchVersion().catch((e) => {
     logger.error('Failed to fetch codex version', e);
+  });
+  const claudeCodeVersionService = ClaudeCodeVersionService.getInstance();
+  claudeCodeVersionService.startAutoRefresh(60);
+  claudeCodeVersionService.fetchVersion().catch((e) => {
+    logger.error('Failed to fetch claude-code version', e);
   });
 } catch (e) {
   logger.error('Failed to load config', e);

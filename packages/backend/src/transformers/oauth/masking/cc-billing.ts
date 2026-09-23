@@ -14,7 +14,8 @@
  */
 
 import { createHash } from 'node:crypto';
-import { BILLING_HASH_INDICES, BILLING_HASH_SALT, CC_VERSION } from './cc-constants';
+import { BILLING_HASH_INDICES, BILLING_HASH_SALT } from './cc-constants';
+import { ClaudeCodeVersionService } from '../../../services/oauth/claude-code-version-service';
 
 const BILLING_HEADER_PREFIX = 'x-anthropic-billing-header:';
 
@@ -24,7 +25,8 @@ const BILLING_HEADER_PREFIX = 'x-anthropic-billing-header:';
  */
 function computeBuildHash(firstUserText: string): string {
   const chars = BILLING_HASH_INDICES.map((i) => firstUserText[i] ?? '0').join('');
-  const input = `${BILLING_HASH_SALT}${chars}${CC_VERSION}`;
+  const version = ClaudeCodeVersionService.getInstance().getVersion();
+  const input = `${BILLING_HASH_SALT}${chars}${version}`;
   return createHash('sha256').update(input).digest('hex').slice(0, 3);
 }
 
@@ -58,7 +60,8 @@ function extractFirstUserText(body: any): string {
 export function buildBillingHeaderText(body: any): string {
   const firstUserText = extractFirstUserText(body);
   const buildHash = computeBuildHash(firstUserText);
-  return `${BILLING_HEADER_PREFIX} cc_version=${CC_VERSION}.${buildHash}; cc_entrypoint=cli; cch=00000;`;
+  const version = ClaudeCodeVersionService.getInstance().getVersion();
+  return `${BILLING_HEADER_PREFIX} cc_version=${version}.${buildHash}; cc_entrypoint=cli; cch=00000;`;
 }
 
 export { BILLING_HEADER_PREFIX };
