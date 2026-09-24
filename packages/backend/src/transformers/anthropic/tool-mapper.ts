@@ -43,6 +43,23 @@ export function convertAnthropicToolsToUnified(tools: any[]): UnifiedTool[] {
 const ANTHROPIC_BUILTIN_TOOL_TYPES = new Set(['web_search_20250305']);
 
 /**
+ * Opts Anthropic-format client tools into eager input streaming.
+ *
+ * Without `eager_input_streaming`, Claude buffers a tool call's whole input
+ * server-side and sends it in one burst once it is complete, so a large tool
+ * call (a page of HTML, a file) is a minute or more of silence on the stream.
+ * Only client tools take the option: server tools (`type` other than
+ * `custom`) are returned untouched, and a value the caller already set wins.
+ */
+export function withEagerToolInputStreaming(tools: any[]): any[] {
+  return tools.map((t: any) => {
+    if (t.type && t.type !== 'custom') return t;
+    if (t.eager_input_streaming !== undefined) return t;
+    return { ...t, eager_input_streaming: true };
+  });
+}
+
+/**
  * Converts unified tool format to Anthropic's format.
  *
  * Unified uses: { type: "function", function: { name, description, parameters }
