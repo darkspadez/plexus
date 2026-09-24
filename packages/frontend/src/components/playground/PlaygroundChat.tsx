@@ -367,7 +367,7 @@ const makeAdapter = ({
         apiKey: selectedKey.secret,
         signal: abortSignal,
         maxRetries: 0,
-        headers: { 'x-client-request-id': clientRequestId, 'session-id': sessionId },
+        headers: { 'x-client-request-id': clientRequestId, 'x-opencode-session': sessionId },
         onPayload: (payload) => {
           const outgoingPayload =
             selectedApi === 'openai-responses' ? makeResponsesPayloadStateless(payload) : payload;

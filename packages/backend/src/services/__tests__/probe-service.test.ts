@@ -70,7 +70,7 @@ describe('ProbeService', () => {
   });
 
   test.each(['chat', 'messages', 'responses'] as const)(
-    'runProbe sends the probe request id as the %s session id',
+    'runProbe sends the probe request id as only the OpenCode session for %s',
     async (apiType) => {
       const { usageStorage, dispatcher } = makeMocks();
       const svc = new ProbeService(dispatcher, usageStorage);
@@ -78,7 +78,7 @@ describe('ProbeService', () => {
       await svc.runProbe({ provider: 'p1', model: 'm1', apiType, source: 'manual' });
 
       const unified = (dispatcher.dispatch as any).mock.calls[0][0];
-      expect(unified.cacheRoutingHeaders).toEqual({ session_id: unified.requestId });
+      expect(unified.cacheRoutingHeaders).toEqual({ 'x-opencode-session': unified.requestId });
       expect(unified.requestId).toMatch(/^[0-9a-f-]{36}$/);
     }
   );
