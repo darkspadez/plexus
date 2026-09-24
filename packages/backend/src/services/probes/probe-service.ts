@@ -242,6 +242,9 @@ export class ProbeService {
         unifiedRequest.incomingApiType = apiType;
         unifiedRequest.originalBody = testRequest;
         unifiedRequest.requestId = requestId;
+        // Probes skip the inference routes that derive session headers, so give
+        // each probe its own session (e.g. opencode-go needs x-opencode-session).
+        unifiedRequest.cacheRoutingHeaders = { session_id: requestId };
         response = await this.dispatcher.dispatch(unifiedRequest);
       }
 
