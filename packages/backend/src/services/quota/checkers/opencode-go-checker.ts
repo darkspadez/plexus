@@ -9,11 +9,10 @@ const SCRAPE_TIMEOUT_MS = 10_000;
 
 interface OpenCodeGoWindow {
   usagePercent: number;
-  resetInSec?: number;
   resetsAt?: string;
 }
 
-function parseWindowUsage(html: string, field: string): OpenCodeGoWindow | null {
+function parseWindowUsage(html: string, field: string, now: number): OpenCodeGoWindow | null {
   const rePctFirst = new RegExp(
     `${field}:\\$R\\[\\d+\\]=\\{[^}]*usagePercent:(-?\\d+(?:\\.\\d+)?)[^}]*resetInSec:(-?\\d+(?:\\.\\d+)?)[^}]*\\}`
   );
@@ -26,7 +25,7 @@ function parseWindowUsage(html: string, field: string): OpenCodeGoWindow | null 
     const usagePercent = Number(pctFirstMatch[1]);
     const resetInSec = Number(pctFirstMatch[2]);
     if (Number.isFinite(usagePercent) && Number.isFinite(resetInSec)) {
-      return { usagePercent, resetInSec };
+      return { usagePercent, resetsAt: new Date(now + resetInSec * 1000).toISOString() };
     }
   }
 
@@ -35,7 +34,7 @@ function parseWindowUsage(html: string, field: string): OpenCodeGoWindow | null 
     const resetInSec = Number(resetFirstMatch[1]);
     const usagePercent = Number(resetFirstMatch[2]);
     if (Number.isFinite(usagePercent) && Number.isFinite(resetInSec)) {
-      return { usagePercent, resetInSec };
+      return { usagePercent, resetsAt: new Date(now + resetInSec * 1000).toISOString() };
     }
   }
 
@@ -43,8 +42,9 @@ function parseWindowUsage(html: string, field: string): OpenCodeGoWindow | null 
 }
 
 function parseRelativeResetToMs(relative: string): number | null {
+  // Allow leading text such as "about", but require a complete, nonempty duration.
   const m =
-    /(?:(\d+(?:\.\d+)?)\s*d)?\s*(?:(\d+(?:\.\d+)?)\s*h)?\s*(?:(\d+(?:\.\d+)?)\s*m(?!o))?\s*(?:(\d+(?:\.\d+)?)\s*s)?/i.exec(
+    /^[^\d-]*(?=\d)(?:(\d+(?:\.\d+)?)\s*d(?:ays?)?)?[\s,]*(?:(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?)?[\s,]*(?:(\d+(?:\.\d+)?)\s*m(?:ins?|inutes?)?)?[\s,]*(?:(\d+(?:\.\d+)?)\s*s(?:ecs?|econds?)?)?\s*$/i.exec(
       relative.trim()
     );
   if (!m) return null;
@@ -52,18 +52,30 @@ function parseRelativeResetToMs(relative: string): number | null {
   const hours = Number(m[2] ?? 0);
   const minutes = Number(m[3] ?? 0);
   const seconds = Number(m[4] ?? 0);
-  if (m[1] == null && m[2] == null && m[3] == null && m[4] == null) return null;
   if (![days, hours, minutes, seconds].every(Number.isFinite)) return null;
   const totalMs = ((days * 24 + hours) * 60 + minutes) * 60 * 1000 + seconds * 1000;
-  return totalMs > 0 ? totalMs : null;
+  return Number.isFinite(totalMs) && totalMs > 0 ? totalMs : null;
 }
 
 function parseCardUsage(html: string, name: string, now: number): OpenCodeGoWindow | null {
   const labelIdx = html.indexOf(`aria-label="${name} usage used"`);
   if (labelIdx < 0) return null;
 
-  // Authoritative percent lives in the same progressbar tag, just after the label.
-  const tagSlice = html.slice(labelIdx, labelIdx + 400);
+  // Header metadata precedes the progressbar. The previous usage label bounds the
+  // search independently of wrapper classes, so adjacent cards cannot supply it.
+  const tagStart = html.lastIndexOf('<', labelIdx);
+  const tagEnd = html.indexOf('>', labelIdx);
+  if (tagStart < 0 || tagEnd < 0) return null;
+  let cardStart = 0;
+  for (const label of html
+    .slice(0, tagStart)
+    .matchAll(/aria-label="(?:Rolling|Weekly|Monthly) usage used"/g)) {
+    cardStart = label.index + label[0].length;
+  }
+  const headSlice = html.slice(cardStart, tagStart);
+
+  // Read only this progressbar's opening tag, regardless of attribute order.
+  const tagSlice = html.slice(tagStart, tagEnd + 1);
   let usagePercent: number | null = null;
   const nowMatch = /aria-valuenow="(-?\d+(?:\.\d+)?)"/.exec(tagSlice);
   if (nowMatch && Number.isFinite(Number(nowMatch[1]))) {
@@ -74,20 +86,14 @@ function parseCardUsage(html: string, name: string, now: number): OpenCodeGoWind
     if (textMatch && Number.isFinite(Number(textMatch[1]))) {
       usagePercent = Number(textMatch[1]);
     } else {
-      const cardSlice = html.slice(Math.max(0, labelIdx - 1500), labelIdx + 400);
-      const badgeMatch = />(\d+(?:\.\d+)?)%<\/span>\s*<\//.exec(cardSlice);
+      const badgeMatch = [...headSlice.matchAll(/>(\d+(?:\.\d+)?)%<\/span>\s*<\//g)].at(-1);
       if (badgeMatch && Number.isFinite(Number(badgeMatch[1]))) {
         usagePercent = Number(badgeMatch[1]);
       }
     }
   }
-  if (usagePercent == null || !Number.isFinite(usagePercent)) return null;
+  if (usagePercent === null || !Number.isFinite(usagePercent)) return null;
 
-  // Reset label sits in the card header just before the progressbar (when present —
-  // the Rolling card shows no reset). Scope the search to this card's container
-  // so a preceding card's reset can't leak into a card without reset metadata.
-  const cardStart = html.lastIndexOf('<div class="flex flex-col rounded-md', labelIdx);
-  const headSlice = html.slice(cardStart >= 0 ? cardStart : Math.max(0, labelIdx - 1500), labelIdx);
   const resetRe = /title="([^"]+)"[^>]*>\s*Resets in\s*([^<]+)</g;
   let resetMatch: RegExpExecArray | null = null;
   let last: RegExpExecArray | null = null;
@@ -95,12 +101,16 @@ function parseCardUsage(html: string, name: string, now: number): OpenCodeGoWind
     last = resetMatch;
   }
   if (!last) return { usagePercent };
-  const titleMs = Date.parse(last[1]!.trim());
-  if (Number.isFinite(titleMs)) {
-    return { usagePercent, resetsAt: new Date(titleMs).toISOString() };
+  const title = last[1]!.trim();
+  // Localized or timezone-free titles would be interpreted in the server's TZ.
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/.test(title)) {
+    const titleMs = Date.parse(title);
+    if (Number.isFinite(titleMs)) {
+      return { usagePercent, resetsAt: new Date(titleMs).toISOString() };
+    }
   }
   const offsetMs = parseRelativeResetToMs(last[2] ?? '');
-  if (offsetMs != null) {
+  if (offsetMs !== null) {
     return { usagePercent, resetsAt: new Date(now + offsetMs).toISOString() };
   }
   return { usagePercent };
@@ -168,9 +178,9 @@ export default defineChecker({
     let monthly = monthlyCard;
     if (!rolling && !weekly && !monthly) {
       // Fallback for the older React-flight dashboard markup.
-      rolling = parseWindowUsage(html, 'rollingUsage');
-      weekly = parseWindowUsage(html, 'weeklyUsage');
-      monthly = parseWindowUsage(html, 'monthlyUsage');
+      rolling = parseWindowUsage(html, 'rollingUsage', now);
+      weekly = parseWindowUsage(html, 'weeklyUsage', now);
+      monthly = parseWindowUsage(html, 'monthlyUsage', now);
     }
 
     if (!rolling && !weekly && !monthly) {
@@ -182,11 +192,6 @@ export default defineChecker({
     const meters = [];
 
     if (rolling) {
-      const resetsAt =
-        rolling.resetsAt ??
-        (rolling.resetInSec != null && Number.isFinite(rolling.resetInSec)
-          ? new Date(now + rolling.resetInSec * 1000).toISOString()
-          : undefined);
       meters.push(
         ctx.allowance({
           key: 'rolling_5h',
@@ -197,17 +202,12 @@ export default defineChecker({
           periodValue: 5,
           periodUnit: 'hour',
           periodCycle: 'rolling',
-          ...(resetsAt ? { resetsAt } : {}),
+          ...(rolling.resetsAt ? { resetsAt: rolling.resetsAt } : {}),
         })
       );
     }
 
     if (weekly) {
-      const resetsAt =
-        weekly.resetsAt ??
-        (weekly.resetInSec != null && Number.isFinite(weekly.resetInSec)
-          ? new Date(now + weekly.resetInSec * 1000).toISOString()
-          : undefined);
       meters.push(
         ctx.allowance({
           key: 'weekly',
@@ -218,17 +218,12 @@ export default defineChecker({
           periodValue: 7,
           periodUnit: 'day',
           periodCycle: 'rolling',
-          ...(resetsAt ? { resetsAt } : {}),
+          ...(weekly.resetsAt ? { resetsAt: weekly.resetsAt } : {}),
         })
       );
     }
 
     if (monthly) {
-      const resetsAt =
-        monthly.resetsAt ??
-        (monthly.resetInSec != null && Number.isFinite(monthly.resetInSec)
-          ? new Date(now + monthly.resetInSec * 1000).toISOString()
-          : undefined);
       meters.push(
         ctx.allowance({
           key: 'monthly',
@@ -239,7 +234,7 @@ export default defineChecker({
           periodValue: 1,
           periodUnit: 'month',
           periodCycle: 'rolling',
-          ...(resetsAt ? { resetsAt } : {}),
+          ...(monthly.resetsAt ? { resetsAt: monthly.resetsAt } : {}),
         })
       );
     }
