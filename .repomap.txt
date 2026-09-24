@@ -472,6 +472,9 @@ packages/backend/src/services/dispatch/dispatcher-types.ts:1 [interface] RetryAt
 packages/backend/src/services/dispatch/dispatcher.ts:60 [interface] ParseFailureContext
 packages/backend/src/services/dispatch/dispatcher.ts:65 [interface] RetryHistoryLikeEntry
 packages/backend/src/services/dispatch/dispatcher.ts:73 [class] Dispatcher
+packages/backend/src/services/dispatch/eager-tool-streaming.ts:17 [function] sendsToAnthropicApi
+packages/backend/src/services/dispatch/eager-tool-streaming.ts:26 [function] isAnthropicApiUrl
+packages/backend/src/services/dispatch/eager-tool-streaming.ts:48 [function] applyEagerToolInputStreaming
 packages/backend/src/services/dispatch/embeddings-transformer-factory.ts:12 [class] EmbeddingsTransformerFactory
 packages/backend/src/services/dispatch/embeddings-transformer-factory.ts:23 [method] EmbeddingsTransformerFactory.resolveTransformer
 packages/backend/src/services/dispatch/embeddings-transformer-factory.ts:30 [method] EmbeddingsTransformerFactory.getTransformer
@@ -583,11 +586,11 @@ packages/backend/src/services/dispatch/request-manager.ts:68 [method] RequestMan
 packages/backend/src/services/dispatch/request-manager.ts:71 [class] RequestManager
 packages/backend/src/services/dispatch/request-manager.ts:72 [method] RequestManager.constructor
 packages/backend/src/services/dispatch/request-manager.ts:74 [method] RequestManager.dispatch
-packages/backend/src/services/dispatch/request-payload-builder.ts:383 [function] refreshOAuthRoute
-packages/backend/src/services/dispatch/request-payload-builder.ts:40 [function] isNativeOAuthRoute
-packages/backend/src/services/dispatch/request-payload-builder.ts:47 [interface] RequestPayload
-packages/backend/src/services/dispatch/request-payload-builder.ts:52 [function] shouldUsePassThrough
-packages/backend/src/services/dispatch/request-payload-builder.ts:99 [function] buildRequestPayload
+packages/backend/src/services/dispatch/request-payload-builder.ts:100 [function] buildRequestPayload
+packages/backend/src/services/dispatch/request-payload-builder.ts:392 [function] refreshOAuthRoute
+packages/backend/src/services/dispatch/request-payload-builder.ts:41 [function] isNativeOAuthRoute
+packages/backend/src/services/dispatch/request-payload-builder.ts:48 [interface] RequestPayload
+packages/backend/src/services/dispatch/request-payload-builder.ts:53 [function] shouldUsePassThrough
 packages/backend/src/services/dispatch/standard-attempt-request.ts:49 [function] deriveProbeStallConfig
 packages/backend/src/services/dispatch/standard-attempt-request.ts:64 [interface] StandardAttemptContext
 packages/backend/src/services/dispatch/standard-attempt-request.ts:90 [function] executeStandardAttempt
