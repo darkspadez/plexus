@@ -36,6 +36,10 @@
       "type": "task",
       "command": "PLEXUS_URL=http://localhost bun run prep-dev --reset"
     },
+    "rebase-on-main": {
+      "type": "task",
+      "command": "git fetch origin main && TARGET=$(if [ \"$(git log -1 --format=%ct refs/heads/main 2>/dev/null || echo 0)\" -ge \"$(git log -1 --format=%ct origin/main 2>/dev/null || echo 0)\" ]; then echo main; else echo origin/main; fi) && BRANCH=$(git rev-parse --abbrev-ref HEAD) && echo \"Rebasing $BRANCH onto $TARGET...\" && if [ \"$BRANCH\" = \"main\" ]; then git merge --ff-only \"$TARGET\"; else git rebase \"$TARGET\"; fi"
+    },
     "deploy:staging": {
       "type": "command",
       "command": "bun run deploy:staging"
