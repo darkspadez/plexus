@@ -27,6 +27,7 @@ import {
 import { appendUserAfterTextOnlyModelTail } from '../../transformers/gemini/utils/model-tail';
 import { isAnthropicTargetProvider } from './adapter-resolver';
 import { clampAnthropicEffortAndThinking } from '../../transformers/anthropic/thinking-clamp';
+import { applyEagerToolInputStreaming } from './eager-tool-streaming';
 
 /** Symbol stash for the native OAuth prep, read by the standard dispatch seams. */
 export const NATIVE_OAUTH_STASH = Symbol('nativeOAuthPrep');
@@ -213,6 +214,14 @@ export async function buildRequestPayload(
 
   payload = applyGeminiThinkingConfig(route, targetApiType, payload);
   payload = applyRegistryAutoCompat(payload, request, route, targetApiType);
+
+  payload = applyEagerToolInputStreaming(
+    payload,
+    request,
+    route,
+    targetApiType,
+    bypassTransformation
+  );
 
   if (route.config.extraBody) payload = { ...payload, ...route.config.extraBody };
   if (route.modelConfig?.extraBody) payload = { ...payload, ...route.modelConfig.extraBody };
