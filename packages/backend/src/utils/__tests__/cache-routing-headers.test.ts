@@ -22,19 +22,26 @@ describe('getCacheRoutingHeaders', () => {
     });
   });
 
-  test('prefers the native x-opencode-session as the routing session id', () => {
+  test('keeps x-opencode-session separate from the generic session id', () => {
     expect(
       getCacheRoutingHeaders({
         'x-opencode-session': 'zen-session-1',
-        'session-id': 'fallback-1',
+        'session-id': 'conversation-1',
       })
     ).toEqual({
-      session_id: 'zen-session-1',
+      session_id: 'conversation-1',
       'x-client-request-id': undefined,
       'x-session-affinity': undefined,
       'x-session-id': undefined,
       'x-prompt-cache-isolation-key': undefined,
       'x-multi-turn-session-id': undefined,
+      'x-opencode-session': 'zen-session-1',
+    });
+  });
+
+  test('does not promote x-opencode-session to the generic session id', () => {
+    expect(getCacheRoutingHeaders({ 'x-opencode-session': 'zen-session-1' })).toMatchObject({
+      session_id: undefined,
       'x-opencode-session': 'zen-session-1',
     });
   });
