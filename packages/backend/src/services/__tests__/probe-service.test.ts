@@ -69,6 +69,20 @@ describe('ProbeService', () => {
     expect(unified.incomingApiType).toBe('chat');
   });
 
+  test.each(['chat', 'messages', 'responses'] as const)(
+    'runProbe sends the probe request id as the %s session id',
+    async (apiType) => {
+      const { usageStorage, dispatcher } = makeMocks();
+      const svc = new ProbeService(dispatcher, usageStorage);
+
+      await svc.runProbe({ provider: 'p1', model: 'm1', apiType, source: 'manual' });
+
+      const unified = (dispatcher.dispatch as any).mock.calls[0][0];
+      expect(unified.cacheRoutingHeaders).toEqual({ session_id: unified.requestId });
+      expect(unified.requestId).toMatch(/^[0-9a-f-]{36}$/);
+    }
+  );
+
   test('runProbe records apiKey="probe" and attribution from source', async () => {
     const { usageStorage, dispatcher } = makeMocks();
     const svc = new ProbeService(dispatcher, usageStorage);
