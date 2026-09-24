@@ -109,6 +109,7 @@ function parseCardUsage(html: string, name: string, now: number): OpenCodeGoWind
 export default defineChecker({
   type: 'opencode-go',
   displayName: 'OpenCode Go',
+  meterOrder: ['rolling_5h', 'weekly', 'monthly'],
   optionsSchema: z.object({
     workspaceId: z.string().min(1, 'OpenCode Go workspace ID is required'),
     authCookie: z.string().min(1, 'OpenCode Go auth cookie is required'),
