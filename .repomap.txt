@@ -763,7 +763,8 @@ packages/backend/src/services/oauth/oauth-dispatcher.ts:50 [function] isPiAiRout
 packages/backend/src/services/oauth/oauth-error-handler.ts:1 [class] OAuthErrorHandler
 packages/backend/src/services/oauth/oauth-error-handler.ts:2 [method] OAuthErrorHandler.handleAuthError
 packages/backend/src/services/oauth/oauth-login-session.ts:81 [class] OAuthLoginSessionManager
-packages/backend/src/services/oauth/oauth-native-request.ts:1032 [function] prepareNativeOAuthDispatch
+packages/backend/src/services/oauth/oauth-native-request.ts:1016 [function] prepareGenericOAuthDispatch
+packages/backend/src/services/oauth/oauth-native-request.ts:1075 [function] prepareNativeOAuthDispatch
 packages/backend/src/services/oauth/oauth-native-request.ts:116 [function] mergeBetas
 packages/backend/src/services/oauth/oauth-native-request.ts:151 [interface] ClaudeCodeWireBody
 packages/backend/src/services/oauth/oauth-native-request.ts:157 [interface] ClaudeCodeUserId
@@ -797,8 +798,9 @@ packages/backend/src/services/oauth/oauth-native-request.ts:872 [function] isNat
 packages/backend/src/services/oauth/oauth-native-request.ts:88 [function] resolveOAuthBaseUrl
 packages/backend/src/services/oauth/oauth-native-request.ts:907 [function] nativeOAuthApiType
 packages/backend/src/services/oauth/oauth-native-request.ts:921 [function] copilotWireApiType
-packages/backend/src/services/oauth/oauth-native-request.ts:961 [function] genericOAuthApiType
-packages/backend/src/services/oauth/oauth-native-request.ts:973 [function] prepareGenericOAuthDispatch
+packages/backend/src/services/oauth/oauth-native-request.ts:954 [function] genericOAuthProviderProfile
+packages/backend/src/services/oauth/oauth-native-request.ts:989 [function] genericOAuthApiType
+packages/backend/src/services/oauth/oauth-native-request.ts:995 [function] resolveGenericOAuthBaseUrl
 packages/backend/src/services/oauth/oauth-providers.ts:107 [function] isKnownOAuthProviderId
 packages/backend/src/services/oauth/oauth-providers.ts:32 [interface] OAuthProviderDescriptor
 packages/backend/src/services/oauth/oauth-providers.ts:67 [function] toDescriptor
