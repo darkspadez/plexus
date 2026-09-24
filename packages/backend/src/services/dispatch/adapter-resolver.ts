@@ -205,7 +205,7 @@ export function isAnthropicTargetProvider(route: RouteResult, effectiveApiType?:
  * Record form without an API type: every value, preserving the pre-scoping
  * behaviour for callers that have no wire type to scope by.
  */
-function selectDispatchUrls(
+export function selectDispatchUrls(
   base: string | Record<string, string> | undefined,
   effectiveApiType?: string
 ): string[] {

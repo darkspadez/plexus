@@ -27,7 +27,7 @@ import {
 import { appendUserAfterTextOnlyModelTail } from '../../transformers/gemini/utils/model-tail';
 import { isAnthropicTargetProvider } from './adapter-resolver';
 import { clampAnthropicEffortAndThinking } from '../../transformers/anthropic/thinking-clamp';
-import { withEagerToolInputStreaming } from '../../transformers/anthropic/tool-mapper';
+import { applyEagerToolInputStreaming } from './eager-tool-streaming';
 
 /** Symbol stash for the native OAuth prep, read by the standard dispatch seams. */
 export const NATIVE_OAUTH_STASH = Symbol('nativeOAuthPrep');
@@ -215,23 +215,13 @@ export async function buildRequestPayload(
   payload = applyGeminiThinkingConfig(route, targetApiType, payload);
   payload = applyRegistryAutoCompat(payload, request, route, targetApiType);
 
-  // Claude buffers a client tool's whole input unless the tool opts into eager
-  // streaming, so a streamed large tool call goes silent for a minute or more -
-  // long enough for clients' stall watchdogs to give up. Messages clients set
-  // the option per tool themselves (kept via _anthropicExtras); chat and
-  // responses clients have no way to express it, so opt in for them. Only
-  // toward Anthropic itself: other Messages-compatible endpoints may reject
-  // the field.
-  if (
-    !bypassTransformation &&
-    payload?.stream === true &&
-    Array.isArray(payload?.tools) &&
-    request.incomingApiType?.toLowerCase() !== 'messages' &&
-    getApiBaseType(targetApiType) === 'messages' &&
-    isAnthropicTargetProvider(route, targetApiType)
-  ) {
-    payload.tools = withEagerToolInputStreaming(payload.tools);
-  }
+  payload = applyEagerToolInputStreaming(
+    payload,
+    request,
+    route,
+    targetApiType,
+    bypassTransformation
+  );
 
   if (route.config.extraBody) payload = { ...payload, ...route.config.extraBody };
   if (route.modelConfig?.extraBody) payload = { ...payload, ...route.modelConfig.extraBody };
