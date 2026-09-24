@@ -1,8 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
 import type { QuotaCheckerInfo } from '../../types/quota';
 import { formatMeterValue } from './MeterValue';
 import { getCheckerDisplayName } from './checker-presentation';
+import { getStaleReadingMessage } from './StaleReadingNotice';
 import { useCurrency } from '../../lib/CurrencyContext';
 
 interface CompactBalancesCardProps {
@@ -53,6 +55,16 @@ export const CompactBalancesCard: React.FC<CompactBalancesCardProps> = ({
             ) : formattedBalance !== undefined ? (
               <span className="text-xs font-semibold text-text-secondary tabular-nums flex-shrink-0 ml-2">
                 {formattedBalance}
+                {quota.stale && (
+                  <span
+                    className="ml-1 inline-flex text-warning"
+                    role="img"
+                    title={getStaleReadingMessage(quota.error)}
+                    aria-label={getStaleReadingMessage(quota.error)}
+                  >
+                    <AlertTriangle size={12} aria-hidden="true" />
+                  </span>
+                )}
               </span>
             ) : (
               <span className="text-xs text-text-muted flex-shrink-0">—</span>

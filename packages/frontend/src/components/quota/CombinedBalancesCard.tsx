@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { getCheckerDisplayName } from './checker-presentation';
 import { BalanceMeterRow } from './BalanceMeterRow';
 import { MeterHistoryModal } from './MeterHistoryModal';
+import { StaleReadingNotice } from './StaleReadingNotice';
 
 interface CombinedBalancesCardProps {
   balanceQuotas: QuotaCheckerInfo[];
@@ -61,23 +62,26 @@ export const CombinedBalancesCard: React.FC<CombinedBalancesCardProps> = ({
               <span className="text-xs">Error</span>
             </div>
           ) : balanceMeters.length > 0 ? (
-            balanceMeters.map((meter) => (
-              <BalanceMeterRow
-                key={meter.key}
-                meter={meter}
-                onClick={() =>
-                  setHistoryTarget({
-                    quota,
-                    meter,
-                    displayName: getCheckerDisplayName(
-                      quota.checkerType,
-                      quota.checkerId,
-                      displayNameMap
-                    ),
-                  })
-                }
-              />
-            ))
+            <div>
+              {quota.stale && <StaleReadingNotice error={quota.error} className="mb-1" />}
+              {balanceMeters.map((meter) => (
+                <BalanceMeterRow
+                  key={meter.key}
+                  meter={meter}
+                  onClick={() =>
+                    setHistoryTarget({
+                      quota,
+                      meter,
+                      displayName: getCheckerDisplayName(
+                        quota.checkerType,
+                        quota.checkerId,
+                        displayNameMap
+                      ),
+                    })
+                  }
+                />
+              ))}
+            </div>
           ) : (
             <span className="text-xs text-text-muted">No data</span>
           )}

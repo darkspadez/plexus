@@ -16,6 +16,7 @@ import { INDEFINITE_COOLDOWN_MS } from '@plexus/shared';
 const DEFAULT_EXHAUSTION_THRESHOLD = 99;
 const MAX_STALE_QUOTA_CHECK_INTERVALS = 2;
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
+const QUOTA_DB_QUERY_TIMEOUT_MS = 15_000;
 const CHECKER_RUN_MIN_INTERVAL_MS: Readonly<Record<string, number>> = {
   // Pooled Claude providers otherwise poll the same Anthropic endpoint on the
   // same interval phase, creating a burst on every scheduler tick.
@@ -31,6 +32,21 @@ function toMs(val: unknown): number {
 
 function toIso(val: unknown): string {
   return new Date(toMs(val)).toISOString();
+}
+
+function withQuotaDbQueryTimeout<T>(query: PromiseLike<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    Promise.resolve(query),
+    new Promise<never>((_, reject) => {
+      timeout = setTimeout(
+        () => reject(new Error('Database query timeout')),
+        QUOTA_DB_QUERY_TIMEOUT_MS
+      );
+    }),
+  ]).finally(() => {
+    if (timeout !== undefined) clearTimeout(timeout);
+  });
 }
 
 export class QuotaScheduler {
@@ -382,10 +398,6 @@ export class QuotaScheduler {
       const { db, schema } = this.ensureDb();
       const config = this.configs.get(checkerId);
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Database query timeout')), 15000);
-      });
-
       const queryPromise = db
         .select()
         .from(schema.meterSnapshots)
@@ -393,60 +405,87 @@ export class QuotaScheduler {
         .orderBy(desc(schema.meterSnapshots.checkedAt))
         .limit(200);
 
-      const rows = (await Promise.race([queryPromise, timeoutPromise])) as any[];
+      const rows = (await withQuotaDbQueryTimeout(queryPromise)) as any[];
       if (rows.length === 0) return null;
 
       const latestMs = toMs(rows[0].checkedAt);
       const latestRows = rows.filter((r: any) => toMs(r.checkedAt) === latestMs);
-
       const errorRow = latestRows.find((r: any) => !r.success);
+      let resultRows = latestRows;
+
       if (errorRow) {
-        return {
-          checkerId,
-          checkerType: config?.type ?? errorRow.checkerType,
-          provider: config?.provider ?? errorRow.provider,
-          checkedAt: toIso(errorRow.checkedAt),
-          success: false,
-          error: errorRow.errorMessage ?? 'Unknown error',
-          meters: [],
-        };
+        const successfulRows = (await withQuotaDbQueryTimeout(
+          db
+            .select()
+            .from(schema.meterSnapshots)
+            .where(
+              and(
+                eq(schema.meterSnapshots.checkerId, checkerId),
+                eq(schema.meterSnapshots.success, true)
+              )
+            )
+            .orderBy(desc(schema.meterSnapshots.checkedAt))
+            .limit(200)
+        )) as any[];
+
+        if (successfulRows.length === 0) {
+          return {
+            checkerId,
+            checkerType: config?.type ?? errorRow.checkerType,
+            provider: config?.provider ?? errorRow.provider,
+            checkedAt: toIso(errorRow.checkedAt),
+            success: false,
+            error: errorRow.errorMessage ?? 'Unknown error',
+            meters: [],
+          };
+        }
+
+        const priorSuccessMs = toMs(successfulRows[0].checkedAt);
+        resultRows = successfulRows.filter((row) => toMs(row.checkedAt) === priorSuccessMs);
       }
 
-      const meters: Meter[] = latestRows
-        .filter((r: any) => r.meterKey !== '_empty' && r.meterKey !== '_error')
-        .map((row: any) => {
-          const util: Meter['utilizationPercent'] =
-            row.utilizationState === 'unknown'
-              ? 'unknown'
-              : row.utilizationState === 'not_applicable'
-                ? 'not_applicable'
-                : (row.utilizationPercent ?? 0);
-          return {
-            key: row.meterKey,
-            label: row.label,
-            kind: row.kind,
-            unit: row.unit,
-            group: row.group ?? undefined,
-            scope: row.scope ?? undefined,
-            limit: row.limit ?? undefined,
-            used: row.used ?? undefined,
-            remaining: row.remaining ?? undefined,
-            utilizationPercent: util,
-            status: row.status,
-            periodValue: row.periodValue ?? undefined,
-            periodUnit: row.periodUnit ?? undefined,
-            periodCycle: row.periodCycle ?? undefined,
-            resetsAt: row.resetsAt ? toIso(row.resetsAt) : undefined,
-          };
-        });
+      const meterRows = resultRows.filter(
+        (row: any) => row.meterKey !== '_empty' && row.meterKey !== '_error'
+      );
+      const meters: Meter[] = meterRows.map((row: any) => {
+        const util: Meter['utilizationPercent'] =
+          row.utilizationState === 'unknown'
+            ? 'unknown'
+            : row.utilizationState === 'not_applicable'
+              ? 'not_applicable'
+              : (row.utilizationPercent ?? 0);
+        return {
+          key: row.meterKey,
+          label: row.label,
+          kind: row.kind,
+          unit: row.unit,
+          group: row.group ?? undefined,
+          scope: row.scope ?? undefined,
+          limit: row.limit ?? undefined,
+          used: row.used ?? undefined,
+          remaining: row.remaining ?? undefined,
+          utilizationPercent: util,
+          status: row.status,
+          periodValue: row.periodValue ?? undefined,
+          periodUnit: row.periodUnit ?? undefined,
+          periodCycle: row.periodCycle ?? undefined,
+          resetsAt: row.resetsAt ? toIso(row.resetsAt) : undefined,
+        };
+      });
 
-      const firstRow = latestRows[0];
+      const firstRow = resultRows[0];
       return {
         checkerId,
         checkerType: config?.type ?? firstRow.checkerType,
         provider: config?.provider ?? firstRow.provider,
         checkedAt: toIso(firstRow.checkedAt),
         success: true,
+        ...(errorRow
+          ? {
+              stale: true,
+              error: errorRow.errorMessage ?? 'Unknown error',
+            }
+          : {}),
         meters,
       };
     } catch (error) {
@@ -463,6 +502,8 @@ export class QuotaScheduler {
 
     const latest = await this.getLatestQuota(config.id);
     if (!latest) return null;
+    // Stale snapshots remain visible in management, but must not influence routing.
+    if (latest.stale) return null;
 
     const checkedAtMs = Date.parse(latest.checkedAt);
     const maxAgeMs =

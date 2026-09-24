@@ -107,6 +107,10 @@ describe('QuotaScheduler persistence', () => {
     initializeDatabase(process.env.DATABASE_URL);
     await runMigrations();
 
+    const scheduler = QuotaScheduler.getInstance() as any;
+    scheduler.db = null;
+    scheduler.schema = null;
+
     const db = getDatabase() as any;
     const schema = getSchema() as any;
     await db.delete(schema.meterSnapshots);
@@ -166,6 +170,116 @@ describe('QuotaScheduler persistence', () => {
     expect(rows[0]?.utilizationPercent).toBeCloseTo(15);
   });
 
+  it('keeps the last successful quota visible after a failed check', async () => {
+    const scheduler = QuotaScheduler.getInstance() as any;
+    const successfulResult = makeMeterResult(42);
+    successfulResult.checkedAt = new Date(Date.now() - 60_000).toISOString();
+    await scheduler.persistResult(successfulResult);
+
+    await scheduler.persistResult({
+      checkerId: CHECKER_ID,
+      checkerType: 'synthetic',
+      provider: 'test-provider',
+      checkedAt: new Date().toISOString(),
+      success: false,
+      error: 'Upstream timed out',
+      meters: [],
+    });
+
+    const latest = await scheduler.getLatestQuota(CHECKER_ID);
+    expect(latest).toMatchObject({
+      success: true,
+      stale: true,
+      error: 'Upstream timed out',
+      meters: [{ utilizationPercent: 42 }],
+    });
+    expect(latest?.checkedAt).toBe(successfulResult.checkedAt);
+  });
+
+  it('does not restore older meters past a successful empty snapshot', async () => {
+    const scheduler = QuotaScheduler.getInstance() as any;
+    const olderResult = makeMeterResult(42);
+    olderResult.checkedAt = new Date(Date.now() - 120_000).toISOString();
+    await scheduler.persistResult(olderResult);
+
+    const emptyResult: MeterCheckResult = {
+      checkerId: CHECKER_ID,
+      checkerType: 'synthetic',
+      provider: 'test-provider',
+      checkedAt: new Date(Date.now() - 60_000).toISOString(),
+      success: true,
+      meters: [],
+    };
+    await scheduler.persistResult(emptyResult);
+
+    await scheduler.persistResult({
+      checkerId: CHECKER_ID,
+      checkerType: 'synthetic',
+      provider: 'test-provider',
+      checkedAt: new Date().toISOString(),
+      success: false,
+      error: 'Upstream timed out',
+      meters: [],
+    });
+
+    const latest = await scheduler.getLatestQuota(CHECKER_ID);
+    expect(latest).toMatchObject({
+      success: true,
+      stale: true,
+      error: 'Upstream timed out',
+      meters: [],
+      checkedAt: emptyResult.checkedAt,
+    });
+  });
+
+  it('times out while loading the last successful snapshot', async () => {
+    const scheduler = QuotaScheduler.getInstance() as any;
+    vi.useFakeTimers();
+
+    try {
+      let resolveFallbackStarted!: () => void;
+      const fallbackStarted = new Promise<void>((resolve) => {
+        resolveFallbackStarted = resolve;
+      });
+      let selectCount = 0;
+      scheduler.db = {
+        select: () => {
+          const queryNumber = ++selectCount;
+          const query: any = {
+            from: () => query,
+            where: () => query,
+            orderBy: () => query,
+            limit: () => {
+              if (queryNumber === 1) {
+                return Promise.resolve([
+                  {
+                    checkedAt: new Date(),
+                    checkerType: 'synthetic',
+                    provider: 'test-provider',
+                    success: false,
+                    errorMessage: 'Upstream timed out',
+                  },
+                ]);
+              }
+              resolveFallbackStarted();
+              return new Promise(() => {});
+            },
+          };
+          return query;
+        },
+      };
+      scheduler.schema = getSchema();
+
+      const latestPromise = scheduler.getLatestQuota(CHECKER_ID);
+      const timeoutAssertion = expect(latestPromise).rejects.toThrow('Database query timeout');
+      await fallbackStarted;
+      await vi.advanceTimersByTimeAsync(15_000);
+      await timeoutAssertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('marks scheduler initialized when initialize receives no quota configs', async () => {
     const scheduler = QuotaScheduler.getInstance();
 
@@ -189,6 +303,13 @@ describe('QuotaScheduler persistence', () => {
 
     getLatestQuota.mockResolvedValue(makeMeterResult(10));
     expect(await scheduler.getLatestQuotaForProvider('test-provider')).not.toBeNull();
+
+    getLatestQuota.mockResolvedValue({
+      ...makeMeterResult(10),
+      stale: true,
+      error: 'Upstream timed out',
+    });
+    expect(await scheduler.getLatestQuotaForProvider('test-provider')).toBeNull();
   });
 
   it('updates existing checker options and reschedules interval changes on reload', async () => {
