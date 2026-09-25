@@ -329,24 +329,31 @@ export function useProviderForm() {
       return;
     }
     let cancelled = false;
-    setOauthCredentialChecking(true);
-    api
-      .getOAuthCredentialStatus(providerId, accountId)
-      .then((result) => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const checkStatus = async (initial: boolean) => {
+      if (initial) setOauthCredentialChecking(true);
+      try {
+        const result = await api.getOAuthCredentialStatus(providerId, accountId);
         if (cancelled) return;
         setOauthCredentialReady(!!result.ready);
         setOauthCredentialStatus(result.ready ? result : null);
-      })
-      .catch(() => {
+      } catch {
         if (cancelled) return;
-        setOauthCredentialReady(false);
-        setOauthCredentialStatus(null);
-      })
-      .finally(() => {
-        if (!cancelled) setOauthCredentialChecking(false);
-      });
+        if (initial) {
+          setOauthCredentialReady(false);
+          setOauthCredentialStatus(null);
+        }
+      } finally {
+        if (!cancelled) {
+          if (initial) setOauthCredentialChecking(false);
+          timer = setTimeout(() => void checkStatus(false), 10_000);
+        }
+      }
+    };
+    void checkStatus(true);
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [isModalOpen, isOAuthMode, editingProvider.oauthProvider, editingProvider.id, oauthStatus]);
 

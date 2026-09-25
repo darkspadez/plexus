@@ -23,9 +23,12 @@ const waitForStatus = async (
       method: 'GET',
       url: `/v0/management/oauth/sessions/${sessionId}`,
     });
-    const json = response.json() as { data?: { status?: string } };
+    const json = response.json() as { data?: { status?: string; error?: string } };
     if (json.data?.status === status) {
       return json;
+    }
+    if (json.data?.status === 'error') {
+      throw new Error(`OAuth session failed: ${json.data.error ?? 'unknown error'}`);
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
@@ -81,7 +84,13 @@ describe('OAuth management routes', () => {
     OAuthAuthManager.resetForTesting();
   });
 
-  it('persists credentials after prompt flow', async () => {
+  it('stores credentials after prompt flow', async () => {
+    const configService = ConfigService.getInstance();
+    const saveCredentials = registerSpy(configService, 'setOAuthCredentials').mockResolvedValue();
+    const deleteCredentials = registerSpy(
+      configService,
+      'deleteOAuthCredentials'
+    ).mockResolvedValue();
     const accountId = 'work';
     const response = await fastify.inject({
       method: 'POST',
@@ -107,8 +116,12 @@ describe('OAuth management routes', () => {
 
     await waitForStatus(fastify, session.data.id, 'success');
 
-    // Credentials are now stored in the database, not auth.json.
-    // Verify via the in-memory state of OAuthAuthManager.
+    // The route calls the persistence seam before the session reports success.
+    expect(saveCredentials).toHaveBeenCalledWith(
+      'test-provider',
+      accountId,
+      expect.objectContaining({ accessToken: 'access-token' })
+    );
     const authManager = OAuthAuthManager.getInstance();
     expect(authManager.hasProvider('test-provider' as any, accountId)).toBe(true);
 
@@ -118,6 +131,7 @@ describe('OAuth management routes', () => {
       payload: { providerId: 'test-provider', accountId },
     });
     expect(deleteResponse.statusCode).toBe(200);
+    expect(deleteCredentials).toHaveBeenCalledWith('test-provider', accountId);
 
     // After delete, the in-memory cache should reflect the removal.
     await authManager.reload();
@@ -125,6 +139,10 @@ describe('OAuth management routes', () => {
   });
 
   it('accepts manual code input for callback flows', async () => {
+    const saveCredentials = registerSpy(
+      ConfigService.getInstance(),
+      'setOAuthCredentials'
+    ).mockResolvedValue();
     const accountId = 'personal';
     const manualProvider: OAuthProviderDescriptor = {
       id: 'manual-provider',
@@ -184,7 +202,11 @@ describe('OAuth management routes', () => {
 
     await waitForStatus(fastify, session.data.id, 'success');
 
-    // Credentials are now stored in the database, not auth.json.
+    expect(saveCredentials).toHaveBeenCalledWith(
+      'manual-provider',
+      accountId,
+      expect.objectContaining({ accessToken: 'manual-access' })
+    );
     const authManager = OAuthAuthManager.getInstance();
     expect(authManager.hasProvider('manual-provider' as any, accountId)).toBe(true);
   });
