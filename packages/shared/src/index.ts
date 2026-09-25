@@ -13,6 +13,19 @@ export type { QuotaRatioFields } from './quota-ranking';
 export { isOAuthPlaceholderUrl } from './provider';
 
 export {
+  ProviderPresetSchema,
+  applyProviderPreset,
+  findProviderPreset,
+  findUnresolvedPresetVars,
+  substitutePresetVars,
+} from './provider-presets';
+export type {
+  ProviderPreset,
+  ProviderPresetDraft,
+  ProviderPresetTemplateVar,
+} from './provider-presets';
+
+export {
   LocalHttpMcpServerConfigSchema,
   McpKeyCreateSchema,
   McpKeySchema,

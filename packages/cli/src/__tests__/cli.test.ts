@@ -76,6 +76,16 @@ describe('dynamic OpenAPI routing', () => {
   it('recognizes destructive operations', () => {
     expect(isRisky(discoverOperations(document)[0]!)).toBe(true);
   });
+
+  it('never treats safe-method operations as risky, even on name matches', () => {
+    const getPresets: Operation = {
+      id: 'getV0ManagementProviderPresets',
+      method: 'get',
+      path: '/v0/management/provider-presets',
+      operation: {},
+    };
+    expect(isRisky(getPresets)).toBe(false);
+  });
 });
 
 describe('arguments and output', () => {

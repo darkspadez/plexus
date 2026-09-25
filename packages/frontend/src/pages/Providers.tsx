@@ -12,6 +12,7 @@ import { ProviderOAuthEditor } from '../components/providers/ProviderOAuthEditor
 import { ProviderQuotaEditor } from '../components/providers/ProviderQuotaEditor';
 import { ProviderAdvancedEditor } from '../components/providers/ProviderAdvancedEditor';
 import { ProviderModelsEditor } from '../components/providers/ProviderModelsEditor';
+import { ProviderPresetPicker } from '../components/providers/ProviderPresetPicker';
 import { FetchModelsModal } from '../components/providers/FetchModelsModal';
 import { DeleteProviderModal } from '../components/providers/DeleteProviderModal';
 import { Code2, Plus } from 'lucide-react';
@@ -76,6 +77,14 @@ export const Providers = () => {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '-8px' }}>
+            {/* Preset picker (new providers only) */}
+            {!f.originalId && (
+              <ProviderPresetPicker
+                editingProvider={f.editingProvider}
+                setEditingProvider={f.setEditingProvider}
+              />
+            )}
+
             {/* Basic fields */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_auto] xl:items-end">
               <Input

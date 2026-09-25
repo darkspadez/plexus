@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { isOAuthPlaceholderUrl } from '@plexus/shared';
+import { findUnresolvedPresetVars, isOAuthPlaceholderUrl } from '@plexus/shared';
 import { useNavigate } from 'react-router-dom';
 import { api, Provider, OAuthSession, OAuthProviderInfo, fetchQuotaCheckers } from '../lib/api';
 import {
@@ -453,6 +453,17 @@ export function useProviderForm() {
   const handleSave = async () => {
     if (!editingProvider.id) {
       toast.error('Provider ID is required');
+      return;
+    }
+    // Template placeholders (e.g. a preset's {account_id}) are never valid
+    // upstream hosts — the backend accepts map values verbatim, so block
+    // the save here instead of persisting a broken provider.
+    const unresolvedTemplateVars =
+      typeof editingProvider.apiBaseUrl === 'object' && editingProvider.apiBaseUrl !== null
+        ? findUnresolvedPresetVars(editingProvider.apiBaseUrl as Record<string, string>)
+        : [];
+    if (unresolvedTemplateVars.length > 0) {
+      toast.error(`Fill in template values (${unresolvedTemplateVars.join(', ')}) before saving`);
       return;
     }
     setIsSaving(true);

@@ -56,6 +56,7 @@ export const api = {
 
   // Providers
   getProviders: settingsApi.getProviders,
+  getProviderPresets: settingsApi.getProviderPresets,
   saveProvider: settingsApi.saveProvider,
   updateProviderEnabled: settingsApi.updateProviderEnabled,
   getVisionFallthroughConfig: aliasesApi.getVisionFallthroughConfig,
