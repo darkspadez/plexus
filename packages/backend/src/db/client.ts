@@ -19,6 +19,7 @@ let pgliteClient: any = null;
 const PGLITE_BOOT_EXIT_CODE = 99;
 let currentDialect: SupportedDialect | null = null;
 let currentSchema: any = null;
+let sqliteDatabasePath: string | null = null;
 
 function parseConnectionString(uri: string): {
   dialect: SupportedDialect;
@@ -80,6 +81,7 @@ export function initializeDatabase(connectionString?: string) {
 
   if (dialect === 'sqlite') {
     const dbPath = connStr === ':memory:' ? ':memory:' : resolvePath(connStr);
+    sqliteDatabasePath = dbPath === ':memory:' ? null : dbPath;
 
     if (dbPath !== ':memory:') {
       const dir = path.dirname(dbPath);
@@ -244,6 +246,14 @@ export function getCurrentDialect(): SupportedDialect {
   return currentDialect;
 }
 
+/**
+ * Absolute path of the SQLite database file, resolved exactly as it was opened.
+ * Null for Postgres, for an in-memory SQLite database, or before initialization.
+ */
+export function getSqliteDatabasePath(): string | null {
+  return currentDialect === 'sqlite' ? sqliteDatabasePath : null;
+}
+
 export async function closeDatabase() {
   if (sqlClient) {
     await sqlClient.end();
@@ -254,4 +264,5 @@ export async function closeDatabase() {
     pgliteClient = null;
   }
   dbInstance = null;
+  sqliteDatabasePath = null;
 }

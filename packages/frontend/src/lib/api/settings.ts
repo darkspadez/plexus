@@ -21,6 +21,13 @@ import type {
   QuotaStatusEntry,
   UserQuota,
 } from '../../types/quota';
+import type {
+  CleanupCategoryId,
+  CompactDatabaseOptions,
+  DatabaseCleanupScan,
+  DatabaseCompactResult,
+  DatabasePurgeResult,
+} from '../../types/maintenance';
 
 export function normalizeQuotaCheckerInfo(checker: QuotaCheckerInfo): QuotaCheckerInfo {
   return {
@@ -1345,6 +1352,55 @@ export const resetLogs = async (): Promise<{ success: boolean; message: string }
     throw new Error(err.error || 'Reset logs failed');
   }
   return res.json();
+};
+
+/** Error from a database maintenance endpoint; keeps the HTTP status (e.g. 409). */
+export class DatabaseMaintenanceError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'DatabaseMaintenanceError';
+    this.status = status;
+  }
+}
+
+const throwDatabaseMaintenanceError = async (res: Response, fallback: string): Promise<never> => {
+  const err = (await res.json().catch(() => ({}))) as { error?: string };
+  throw new DatabaseMaintenanceError(err.error || fallback, res.status);
+};
+
+export const getDatabaseCleanupScan = async (): Promise<DatabaseCleanupScan> => {
+  const res = await fetchWithAuth(`${API_BASE}/v0/management/database/cleanup`);
+  if (!res.ok) await throwDatabaseMaintenanceError(res, 'Failed to scan database');
+  const json = (await res.json()) as { data: DatabaseCleanupScan };
+  return json.data;
+};
+
+export const purgeDatabaseCleanup = async (
+  categories: CleanupCategoryId[]
+): Promise<DatabasePurgeResult> => {
+  const res = await fetchWithAuth(`${API_BASE}/v0/management/database/purge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ categories }),
+  });
+  if (!res.ok) await throwDatabaseMaintenanceError(res, 'Failed to purge database data');
+  const json = (await res.json()) as { data: DatabasePurgeResult };
+  return json.data;
+};
+
+export const compactDatabase = async (
+  options: CompactDatabaseOptions = {}
+): Promise<DatabaseCompactResult> => {
+  const res = await fetchWithAuth(`${API_BASE}/v0/management/database/compact`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  });
+  if (!res.ok) await throwDatabaseMaintenanceError(res, 'Failed to compact database');
+  const json = (await res.json()) as { data: DatabaseCompactResult };
+  return json.data;
 };
 
 export const getFailoverPolicy = async (): Promise<{

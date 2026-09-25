@@ -1,0 +1,22 @@
+type: object
+required:
+  - dialect
+  - totalBytes
+properties:
+  dialect:
+    type: string
+    enum:
+      - sqlite
+      - postgres
+  totalBytes:
+    type: integer
+    minimum: 0
+    description: >-
+      SQLite: combined size of the database file and its `-wal` / `-shm`
+      files. Postgres: `pg_database_size(current_database())`.
+  reclaimableBytes:
+    type: integer
+    minimum: 0
+    description: >-
+      SQLite only: free pages (`freelist_count * page_size`) that compaction
+      returns to the filesystem.

@@ -4,7 +4,7 @@ export const DEFAULT_URL = 'http://localhost:4000';
 const OPENAPI_PATH = '/.well-known/plexus/openapi.json';
 const ALLOWED_PATH = /^\/v0\/(management\/|system\/logs\/)/;
 const HTTP_METHODS = new Set(['delete', 'get', 'head', 'patch', 'post', 'put']);
-const RISKY_OPERATION = /delete|restore|restart|reset|clear|rotate|disable/i;
+const RISKY_OPERATION = /delete|restore|restart|reset|clear|rotate|disable|purge|compact/i;
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 

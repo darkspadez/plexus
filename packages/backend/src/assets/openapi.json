@@ -139,6 +139,10 @@
       "description": "Full database export and import for disaster recovery and migration. Two backup modes are available:\n- **Config-only** (default): Exports providers, model aliases, API keys,\n  user quotas, MCP servers, system settings, and OAuth credentials as a\n  JSON envelope. Small and fast — covers most migration and cloning needs.\n- **Full backup** (`?full=true`): Exports configuration plus all\n  operational/telemetry data (usage records, debug logs, errors, cooldowns,\n  performance stats, quota snapshots, responses) as a gzipped tar archive\n  with per-table compressed CSV files.\n\nBoth endpoints are admin-only. Backup files contain decrypted secrets (API keys, OAuth tokens) and should be stored securely."
     },
     {
+      "name": "Management — Database",
+      "description": "Database maintenance: scan for and purge orphaned or unused data, and compact (VACUUM) the database. All endpoints are admin-only."
+    },
+    {
       "name": "Management — Models",
       "description": "External model metadata helpers (HuggingFace)."
     },
@@ -9550,6 +9554,330 @@
         "operationId": "postV0ManagementRestore"
       }
     },
+    "/v0/management/database/cleanup": {
+      "get": {
+        "tags": [
+          "Management — Database"
+        ],
+        "summary": "Scan for orphaned and unused data (admin only)",
+        "description": "Read-only scan that classifies data no longer referenced by the current\nconfiguration, grouped into categories:\n\n- `oauth-credentials` — OAuth logins no provider or quota checker uses\n  (credentials created in the last 24 hours are skipped).\n- `meter-snapshots` — quota meter history of checkers that no longer exist.\n- `provider-performance` — performance samples for removed providers or\n  models no longer configured or used by an alias.\n- `quota-state` — user-quota counters for deleted keys/definitions, owner\n  mismatches, or quotas no longer attached to the key.\n- `unused-quotas` — quota definitions no key or `default_quotas` references\n  (not pre-selected).\n- `obsolete-settings` / `unknown-settings` — system settings older builds\n  wrote, or that this build does not recognize (unknown is not pre-selected).\n- `legacy-files` — old `auth.json` and YAML config files; files Plexus\n  cannot delete (read-only, bind-mounted, YAML) are `reportOnly`.\n- `dead-rows` — legacy `quota_snapshots` rows and cooldowns of removed\n  providers. Omitted when empty.\n\nAlso reports the current database size. OAuth tokens are never returned.\nIf the configuration cannot be loaded (e.g. a secret cannot be decrypted)\nthe scan fails with 500 rather than misclassifying anything.\n\n**Admin only** — limited principals receive 403.\n",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scan result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "scannedAt",
+                        "categories",
+                        "size"
+                      ],
+                      "properties": {
+                        "scannedAt": {
+                          "type": "integer",
+                          "description": "Scan time in epoch milliseconds.",
+                          "example": 1790300000000
+                        },
+                        "categories": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/DatabaseCleanupCategory"
+                          }
+                        },
+                        "size": {
+                          "$ref": "#/components/schemas/DatabaseSize"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid credentials."
+          },
+          "403": {
+            "description": "Limited principals cannot access this endpoint."
+          },
+          "500": {
+            "description": "The scan failed (e.g. configuration could not be loaded).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getV0ManagementDatabaseCleanup"
+      }
+    },
+    "/v0/management/database/purge": {
+      "post": {
+        "tags": [
+          "Management — Database"
+        ],
+        "summary": "Purge selected cleanup categories (admin only)",
+        "description": "Re-runs the cleanup scan for the requested categories and deletes exactly\nwhat that fresh scan classifies — data that became referenced since an\nearlier scan is kept, and `reportOnly` items are never touched. A failing\ncategory is reported in `errors` while the remaining categories still run.\nPurged OAuth credentials are also evicted from memory, and the\nconfiguration cache is rebuilt afterwards.\n\n**Admin only** — limited principals receive 403.\n",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "categories"
+                ],
+                "properties": {
+                  "categories": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/components/schemas/DatabaseCleanupCategoryId"
+                    }
+                  }
+                },
+                "example": {
+                  "categories": [
+                    "oauth-credentials",
+                    "meter-snapshots"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-category deletion counts and errors.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "deleted",
+                        "errors"
+                      ],
+                      "properties": {
+                        "deleted": {
+                          "$ref": "#/components/schemas/DatabaseCleanupCounts"
+                        },
+                        "errors": {
+                          "$ref": "#/components/schemas/DatabaseCleanupErrors"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body (missing, empty, or unknown categories).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid request body"
+                    },
+                    "details": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid credentials."
+          },
+          "403": {
+            "description": "Limited principals cannot access this endpoint."
+          }
+        },
+        "operationId": "postV0ManagementDatabasePurge"
+      }
+    },
+    "/v0/management/database/compact": {
+      "post": {
+        "tags": [
+          "Management — Database"
+        ],
+        "summary": "Compact the database (admin only)",
+        "description": "Returns free space to the filesystem.\n\n- **SQLite**: runs `VACUUM` followed by `PRAGMA wal_checkpoint(TRUNCATE)`.\n  This is synchronous and blocks request handling until it finishes, and\n  needs temporary disk space up to the size of the database. `full` is\n  ignored.\n- **Postgres**: runs `VACUUM (ANALYZE)`, or `VACUUM (FULL, ANALYZE)` when\n  `full` is true. VACUUM FULL rewrites every table and holds exclusive\n  locks while it runs.\n\nOnly one compaction may run at a time; a concurrent request receives 409.\n\n**Admin only** — limited principals receive 403.\n",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "full": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Postgres only — run VACUUM FULL."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compaction finished.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "dialect",
+                        "beforeBytes",
+                        "afterBytes",
+                        "reclaimedBytes",
+                        "durationMs",
+                        "full"
+                      ],
+                      "properties": {
+                        "dialect": {
+                          "type": "string",
+                          "enum": [
+                            "sqlite",
+                            "postgres"
+                          ]
+                        },
+                        "beforeBytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "afterBytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "reclaimedBytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "durationMs": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "full": {
+                          "type": "boolean",
+                          "description": "True only when a Postgres VACUUM FULL ran."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid credentials."
+          },
+          "403": {
+            "description": "Limited principals cannot access this endpoint."
+          },
+          "409": {
+            "description": "A compaction is already in progress.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Database compaction already in progress"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postV0ManagementDatabaseCompact"
+      }
+    },
     "/v0/management/events": {
       "get": {
         "tags": [
@@ -14770,6 +15098,194 @@
                 }
               }
             }
+          }
+        }
+      },
+      "DatabaseCleanupCategoryId": {
+        "type": "string",
+        "description": "Identifier of a database-maintenance cleanup category.",
+        "enum": [
+          "oauth-credentials",
+          "meter-snapshots",
+          "provider-performance",
+          "quota-state",
+          "unused-quotas",
+          "obsolete-settings",
+          "unknown-settings",
+          "legacy-files",
+          "dead-rows"
+        ]
+      },
+      "DatabaseCleanupItem": {
+        "type": "object",
+        "description": "One orphaned or unused entry within a cleanup category.",
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable id within the category, e.g. `openai-codex/openai-henry` (OAuth credential), `poe|poe` (checker|provider), `naga|grok-4` (provider|model), `shivam|test-2m` (key|quota), a setting key, or a file path.",
+            "example": "poe|poe"
+          },
+          "label": {
+            "type": "string",
+            "description": "Human-readable label.",
+            "example": "poe"
+          },
+          "detail": {
+            "type": "string",
+            "description": "Extra context, e.g. row count and last activity date.",
+            "example": "2,786 rows · last 2026-06-01"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rows represented by this item (grouped rows only).",
+            "example": 2786
+          },
+          "reportOnly": {
+            "type": "boolean",
+            "description": "Shown for information but never deleted (e.g. a bind-mounted or read-only file, or a YAML config file that must be removed on the host)."
+          }
+        }
+      },
+      "DatabaseCleanupCategory": {
+        "type": "object",
+        "description": "A class of orphaned or unused data found by the cleanup scan.",
+        "required": [
+          "id",
+          "label",
+          "description",
+          "defaultSelected",
+          "count",
+          "items"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/DatabaseCleanupCategoryId"
+          },
+          "label": {
+            "type": "string",
+            "example": "Orphaned quota meter history"
+          },
+          "description": {
+            "type": "string"
+          },
+          "defaultSelected": {
+            "type": "boolean",
+            "description": "Whether the admin UI pre-selects this category for purging. `unused-quotas` and `unknown-settings` are not pre-selected."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of deletable units (rows, credentials, definitions, setting keys, or files). Excludes report-only items."
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/DatabaseCleanupItem"
+            }
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when `items` was capped at 500 entries."
+          }
+        }
+      },
+      "DatabaseSize": {
+        "type": "object",
+        "required": [
+          "dialect",
+          "totalBytes"
+        ],
+        "properties": {
+          "dialect": {
+            "type": "string",
+            "enum": [
+              "sqlite",
+              "postgres"
+            ]
+          },
+          "totalBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "SQLite: combined size of the database file and its `-wal` / `-shm` files. Postgres: `pg_database_size(current_database())`."
+          },
+          "reclaimableBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "SQLite only: free pages (`freelist_count * page_size`) that compaction returns to the filesystem."
+          }
+        }
+      },
+      "DatabaseCleanupCounts": {
+        "type": "object",
+        "description": "Rows / units deleted per purged category.",
+        "additionalProperties": false,
+        "properties": {
+          "oauth-credentials": {
+            "type": "integer"
+          },
+          "meter-snapshots": {
+            "type": "integer"
+          },
+          "provider-performance": {
+            "type": "integer"
+          },
+          "quota-state": {
+            "type": "integer"
+          },
+          "unused-quotas": {
+            "type": "integer"
+          },
+          "obsolete-settings": {
+            "type": "integer"
+          },
+          "unknown-settings": {
+            "type": "integer"
+          },
+          "legacy-files": {
+            "type": "integer"
+          },
+          "dead-rows": {
+            "type": "integer"
+          }
+        }
+      },
+      "DatabaseCleanupErrors": {
+        "type": "object",
+        "description": "Error message per category whose purge failed (other categories still ran).",
+        "additionalProperties": false,
+        "properties": {
+          "oauth-credentials": {
+            "type": "string"
+          },
+          "meter-snapshots": {
+            "type": "string"
+          },
+          "provider-performance": {
+            "type": "string"
+          },
+          "quota-state": {
+            "type": "string"
+          },
+          "unused-quotas": {
+            "type": "string"
+          },
+          "obsolete-settings": {
+            "type": "string"
+          },
+          "unknown-settings": {
+            "type": "string"
+          },
+          "legacy-files": {
+            "type": "string"
+          },
+          "dead-rows": {
+            "type": "string"
           }
         }
       }

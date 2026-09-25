@@ -1,0 +1,74 @@
+get:
+  tags:
+    - Management — Database
+  summary: Scan for orphaned and unused data (admin only)
+  description: |
+    Read-only scan that classifies data no longer referenced by the current
+    configuration, grouped into categories:
+
+    - `oauth-credentials` — OAuth logins no provider or quota checker uses
+      (credentials created in the last 24 hours are skipped).
+    - `meter-snapshots` — quota meter history of checkers that no longer exist.
+    - `provider-performance` — performance samples for removed providers or
+      models no longer configured or used by an alias.
+    - `quota-state` — user-quota counters for deleted keys/definitions, owner
+      mismatches, or quotas no longer attached to the key.
+    - `unused-quotas` — quota definitions no key or `default_quotas` references
+      (not pre-selected).
+    - `obsolete-settings` / `unknown-settings` — system settings older builds
+      wrote, or that this build does not recognize (unknown is not pre-selected).
+    - `legacy-files` — old `auth.json` and YAML config files; files Plexus
+      cannot delete (read-only, bind-mounted, YAML) are `reportOnly`.
+    - `dead-rows` — legacy `quota_snapshots` rows and cooldowns of removed
+      providers. Omitted when empty.
+
+    Also reports the current database size. OAuth tokens are never returned.
+    If the configuration cannot be loaded (e.g. a secret cannot be decrypted)
+    the scan fails with 500 rather than misclassifying anything.
+
+    **Admin only** — limited principals receive 403.
+  security:
+    - AdminKey: []
+  responses:
+    '200':
+      description: Scan result.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                type: object
+                required:
+                  - scannedAt
+                  - categories
+                  - size
+                properties:
+                  scannedAt:
+                    type: integer
+                    description: Scan time in epoch milliseconds.
+                    example: 1790300000000
+                  categories:
+                    type: array
+                    items:
+                      $ref: ../components/schemas/DatabaseCleanupCategory.yaml
+                  size:
+                    $ref: ../components/schemas/DatabaseSize.yaml
+    '401':
+      description: Authentication required or invalid credentials.
+    '403':
+      description: Limited principals cannot access this endpoint.
+    '500':
+      description: The scan failed (e.g. configuration could not be loaded).
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - error
+            properties:
+              error:
+                type: string
+  operationId: getV0ManagementDatabaseCleanup

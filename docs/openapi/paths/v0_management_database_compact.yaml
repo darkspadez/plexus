@@ -1,0 +1,103 @@
+post:
+  tags:
+    - Management — Database
+  summary: Compact the database (admin only)
+  description: |
+    Returns free space to the filesystem.
+
+    - **SQLite**: runs `VACUUM` followed by `PRAGMA wal_checkpoint(TRUNCATE)`.
+      This is synchronous and blocks request handling until it finishes, and
+      needs temporary disk space up to the size of the database. `full` is
+      ignored.
+    - **Postgres**: runs `VACUUM (ANALYZE)`, or `VACUUM (FULL, ANALYZE)` when
+      `full` is true. VACUUM FULL rewrites every table and holds exclusive
+      locks while it runs.
+
+    Only one compaction may run at a time; a concurrent request receives 409.
+
+    **Admin only** — limited principals receive 403.
+  security:
+    - AdminKey: []
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            full:
+              type: boolean
+              default: false
+              description: Postgres only — run VACUUM FULL.
+  responses:
+    '200':
+      description: Compaction finished.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                type: object
+                required:
+                  - dialect
+                  - beforeBytes
+                  - afterBytes
+                  - reclaimedBytes
+                  - durationMs
+                  - full
+                properties:
+                  dialect:
+                    type: string
+                    enum:
+                      - sqlite
+                      - postgres
+                  beforeBytes:
+                    type: integer
+                    minimum: 0
+                  afterBytes:
+                    type: integer
+                    minimum: 0
+                  reclaimedBytes:
+                    type: integer
+                    minimum: 0
+                  durationMs:
+                    type: integer
+                    minimum: 0
+                  full:
+                    type: boolean
+                    description: True only when a Postgres VACUUM FULL ran.
+    '400':
+      description: Invalid request body.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - error
+            properties:
+              error:
+                type: string
+              details:
+                type: array
+                items:
+                  type: object
+    '401':
+      description: Authentication required or invalid credentials.
+    '403':
+      description: Limited principals cannot access this endpoint.
+    '409':
+      description: A compaction is already in progress.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - error
+            properties:
+              error:
+                type: string
+                example: Database compaction already in progress
+  operationId: postV0ManagementDatabaseCompact

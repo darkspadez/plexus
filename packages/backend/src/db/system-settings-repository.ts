@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { getDatabase, getSchema } from './client';
 import type {
   BackgroundExplorationConfig,
@@ -10,6 +10,50 @@ import type {
   TimeoutConfig,
 } from '../config';
 import { now, parseJson, toJson } from './repository-utils';
+
+/**
+ * Every `system_settings` key this Plexus build reads. The database-maintenance
+ * scan reports stored keys outside this list (and outside
+ * `OBSOLETE_SYSTEM_SETTING_KEYS`) as unknown, so this list MUST be updated
+ * whenever code starts reading a new setting key.
+ */
+export const KNOWN_SYSTEM_SETTING_KEYS: readonly string[] = [
+  'failover.enabled',
+  'failover.retryableStatusCodes',
+  'failover.retryableErrors',
+  'debug.captureOnError',
+  'cooldown.initialMinutes',
+  'cooldown.maxMinutes',
+  'trustedProxies',
+  'backgroundExploration.enabled',
+  'backgroundExploration.stalenessThresholdSeconds',
+  'backgroundExploration.workerConcurrency',
+  'mcpOAuth',
+  'timeout.defaultSeconds',
+  'compaction',
+  'stall.ttfbSeconds',
+  'stall.ttfbBytes',
+  'stall.minBytesPerSecond',
+  'stall.windowSeconds',
+  'stall.gracePeriodSeconds',
+  'stall.stallCooldown',
+  'mcpEnabled',
+  'vision_fallthrough',
+  'performanceExplorationRate',
+  'latencyExplorationRate',
+  'e2ePerformanceExplorationRate',
+  'default_quotas',
+];
+
+/**
+ * Keys written by older Plexus builds that nothing reads any more. The
+ * database-maintenance purge offers to delete them.
+ */
+export const OBSOLETE_SYSTEM_SETTING_KEYS: readonly string[] = [
+  'system.bootstrapped',
+  'system.encryptionMigrationCompleted',
+  'grafanaUrl',
+];
 
 export class SystemSettingsRepository {
   private db() {
@@ -104,6 +148,17 @@ export class SystemSettingsRepository {
         }
       }
     });
+  }
+
+  /** Delete the given setting keys; returns how many rows were removed. */
+  async deleteSettings(keys: string[]): Promise<number> {
+    if (keys.length === 0) return 0;
+    const schema = this.schema();
+    const deleted = (await this.db()
+      .delete(schema.systemSettings)
+      .where(inArray(schema.systemSettings.key, keys))
+      .returning({ key: schema.systemSettings.key })) as Array<{ key: string }>;
+    return deleted.length;
   }
 
   async getAllSettings(): Promise<Record<string, unknown>> {

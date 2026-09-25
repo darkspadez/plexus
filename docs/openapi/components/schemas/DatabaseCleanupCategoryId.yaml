@@ -1,0 +1,12 @@
+type: string
+description: Identifier of a database-maintenance cleanup category.
+enum:
+  - oauth-credentials
+  - meter-snapshots
+  - provider-performance
+  - quota-state
+  - unused-quotas
+  - obsolete-settings
+  - unknown-settings
+  - legacy-files
+  - dead-rows

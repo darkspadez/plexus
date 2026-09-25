@@ -229,12 +229,13 @@ export function formatMs(ms: number): string {
 }
 
 /**
- * Format byte counts with B/KB/MB suffixes (e.g., 1536 -> "1.5 KB")
+ * Format byte counts with B/KB/MB/GB suffixes (e.g., 1536 -> "1.5 KB")
  */
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${Math.round(bytes)} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 ** 3) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }
 
 /**

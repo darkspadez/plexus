@@ -1,0 +1,22 @@
+type: object
+description: Rows / units deleted per purged category.
+additionalProperties: false
+properties:
+  oauth-credentials:
+    type: integer
+  meter-snapshots:
+    type: integer
+  provider-performance:
+    type: integer
+  quota-state:
+    type: integer
+  unused-quotas:
+    type: integer
+  obsolete-settings:
+    type: integer
+  unknown-settings:
+    type: integer
+  legacy-files:
+    type: integer
+  dead-rows:
+    type: integer

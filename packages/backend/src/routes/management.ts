@@ -22,6 +22,7 @@ import { registerSelfRoutes } from './management/self';
 import { authenticate, requireAdmin, ManagementAuthError } from './management/_principal';
 import { registerModelRoutes } from './management/models';
 import { registerBackupRoutes } from './management/backup';
+import { registerDatabaseMaintenanceRoutes } from './management/database';
 import { registerConcurrencyRoutes } from './management/concurrency';
 import { registerCustomCheckerRoutes } from './management/custom-checkers';
 import { Dispatcher } from '../services/dispatch/dispatcher';
@@ -122,6 +123,8 @@ export async function registerManagementRoutes(
       await registerModelRoutes(adminOnly);
       // Backup and restore routes
       await registerBackupRoutes(adminOnly, usageStorage, mcpUsageStorage);
+      // Database maintenance: orphan scan/purge and compaction
+      await registerDatabaseMaintenanceRoutes(adminOnly);
       // Concurrency (live snapshot + historical timeline)
       await registerConcurrencyRoutes(adminOnly, usageStorage);
       await registerCustomCheckerRoutes(adminOnly, quotaScheduler ?? QuotaScheduler.getInstance());

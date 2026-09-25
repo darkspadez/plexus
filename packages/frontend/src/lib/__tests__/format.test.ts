@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdownTickMs, formatResetCountdown } from '../format';
+import { countdownTickMs, formatBytes, formatResetCountdown } from '../format';
 
 const NOW = Date.parse('2026-08-06T12:00:00.000Z');
 const at = (ms: number) => new Date(NOW + ms).toISOString();
@@ -80,5 +80,19 @@ describe('countdownTickMs', () => {
   it('does not tick every second once the reset is overdue', () => {
     expect(countdownTickMs(0)).toBe(30_000);
     expect(countdownTickMs(-5_000)).toBe(30_000);
+  });
+});
+
+describe('formatBytes', () => {
+  it('formats bytes, kilobytes and megabytes', () => {
+    expect(formatBytes(512)).toBe('512 B');
+    expect(formatBytes(1536)).toBe('1.5 KB');
+    expect(formatBytes(5 * 1024 * 1024)).toBe('5.0 MB');
+  });
+
+  it('switches to gigabytes at 1024 MB', () => {
+    expect(formatBytes(1023 * 1024 * 1024)).toBe('1023.0 MB');
+    expect(formatBytes(1024 ** 3)).toBe('1.00 GB');
+    expect(formatBytes(2.5 * 1024 ** 3)).toBe('2.50 GB');
   });
 });

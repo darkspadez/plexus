@@ -329,6 +329,16 @@ export class ConfigService {
     this.rebuildCache();
   }
 
+  /** Delete setting rows by key and rebuild the cache; returns rows removed. */
+  async deleteSystemSettings(keys: string[]): Promise<number> {
+    const deleted = await this.repo.deleteSettings(keys);
+    if (deleted > 0) {
+      this.pendingWrites++;
+      this.rebuildCache();
+    }
+    return deleted;
+  }
+
   async getSetting<T>(key: string, defaultValue: T): Promise<T> {
     return this.repo.getSetting(key, defaultValue);
   }

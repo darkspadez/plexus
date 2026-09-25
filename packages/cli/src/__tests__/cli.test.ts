@@ -76,6 +76,26 @@ describe('dynamic OpenAPI routing', () => {
   it('recognizes destructive operations', () => {
     expect(isRisky(discoverOperations(document)[0]!)).toBe(true);
   });
+
+  it('treats database purge and compaction as risky', () => {
+    const operations = discoverOperations({
+      paths: {
+        '/v0/management/database/purge': { post: { operationId: 'postV0ManagementDatabasePurge' } },
+        '/v0/management/database/compact': {
+          post: { operationId: 'postV0ManagementDatabaseCompact' },
+        },
+        '/v0/management/database/cleanup': {
+          get: { operationId: 'getV0ManagementDatabaseCleanup' },
+        },
+      },
+    });
+    const risky = Object.fromEntries(operations.map((op) => [op.id, isRisky(op)]));
+    expect(risky).toEqual({
+      postV0ManagementDatabasePurge: true,
+      postV0ManagementDatabaseCompact: true,
+      getV0ManagementDatabaseCleanup: false,
+    });
+  });
 });
 
 describe('arguments and output', () => {

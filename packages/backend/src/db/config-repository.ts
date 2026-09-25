@@ -532,6 +532,10 @@ export class ConfigRepository {
     return this.settings.getAllSettings();
   }
 
+  deleteSettings(keys: string[]): Promise<number> {
+    return this.settings.deleteSettings(keys);
+  }
+
   getFailoverPolicy(): Promise<FailoverPolicy> {
     return this.settings.getFailoverPolicy();
   }

@@ -316,6 +316,10 @@ tags:
 
       Both endpoints are admin-only. Backup files contain decrypted secrets
       (API keys, OAuth tokens) and should be stored securely.
+  - name: Management — Database
+    description: >-
+      Database maintenance: scan for and purge orphaned or unused data, and
+      compact (VACUUM) the database. All endpoints are admin-only.
   - name: Management — Models
     description: External model metadata helpers (HuggingFace).
   - name: Events
@@ -575,6 +579,12 @@ paths:
     $ref: paths/v0_management_logs_reset.yaml
   /v0/management/restore:
     $ref: paths/v0_management_restore.yaml
+  /v0/management/database/cleanup:
+    $ref: paths/v0_management_database_cleanup.yaml
+  /v0/management/database/purge:
+    $ref: paths/v0_management_database_purge.yaml
+  /v0/management/database/compact:
+    $ref: paths/v0_management_database_compact.yaml
   /v0/management/events:
     $ref: paths/v0_management_events.yaml
   /v0/system/logs/stream:

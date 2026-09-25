@@ -8,6 +8,8 @@ export const DB_TEST_FILES = [
   'src/routes/management/__tests__/usage-summary.test.ts',
   'src/services/__tests__/usage-storage-performance.test.ts',
   'src/services/__tests__/usage-retention.test.ts',
+  'src/services/maintenance/__tests__/database-cleanup-service.test.ts',
+  'src/services/maintenance/__tests__/database-compactor.test.ts',
   'src/services/oauth/__tests__/dropped-oauth-providers.test.ts',
   'src/services/quota/__tests__/quota-enforcer.test.ts',
   'src/services/quota/__tests__/quota-scheduler.test.ts',

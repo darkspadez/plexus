@@ -1,0 +1,32 @@
+type: object
+description: One orphaned or unused entry within a cleanup category.
+required:
+  - id
+  - label
+properties:
+  id:
+    type: string
+    description: >-
+      Stable id within the category, e.g. `openai-codex/openai-henry` (OAuth
+      credential), `poe|poe` (checker|provider), `naga|grok-4`
+      (provider|model), `shivam|test-2m` (key|quota), a setting key, or a file
+      path.
+    example: poe|poe
+  label:
+    type: string
+    description: Human-readable label.
+    example: poe
+  detail:
+    type: string
+    description: Extra context, e.g. row count and last activity date.
+    example: 2,786 rows · last 2026-06-01
+  count:
+    type: integer
+    minimum: 0
+    description: Rows represented by this item (grouped rows only).
+    example: 2786
+  reportOnly:
+    type: boolean
+    description: >-
+      Shown for information but never deleted (e.g. a bind-mounted or read-only
+      file, or a YAML config file that must be removed on the host).

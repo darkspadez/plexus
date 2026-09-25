@@ -1,0 +1,22 @@
+type: object
+description: Error message per category whose purge failed (other categories still ran).
+additionalProperties: false
+properties:
+  oauth-credentials:
+    type: string
+  meter-snapshots:
+    type: string
+  provider-performance:
+    type: string
+  quota-state:
+    type: string
+  unused-quotas:
+    type: string
+  obsolete-settings:
+    type: string
+  unknown-settings:
+    type: string
+  legacy-files:
+    type: string
+  dead-rows:
+    type: string

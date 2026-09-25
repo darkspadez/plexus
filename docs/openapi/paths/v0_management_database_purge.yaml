@@ -1,0 +1,74 @@
+post:
+  tags:
+    - Management — Database
+  summary: Purge selected cleanup categories (admin only)
+  description: |
+    Re-runs the cleanup scan for the requested categories and deletes exactly
+    what that fresh scan classifies — data that became referenced since an
+    earlier scan is kept, and `reportOnly` items are never touched. A failing
+    category is reported in `errors` while the remaining categories still run.
+    Purged OAuth credentials are also evicted from memory, and the
+    configuration cache is rebuilt afterwards.
+
+    **Admin only** — limited principals receive 403.
+  security:
+    - AdminKey: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - categories
+          properties:
+            categories:
+              type: array
+              minItems: 1
+              items:
+                $ref: ../components/schemas/DatabaseCleanupCategoryId.yaml
+          example:
+            categories:
+              - oauth-credentials
+              - meter-snapshots
+  responses:
+    '200':
+      description: Per-category deletion counts and errors.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                type: object
+                required:
+                  - deleted
+                  - errors
+                properties:
+                  deleted:
+                    $ref: ../components/schemas/DatabaseCleanupCounts.yaml
+                  errors:
+                    $ref: ../components/schemas/DatabaseCleanupErrors.yaml
+    '400':
+      description: Invalid request body (missing, empty, or unknown categories).
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - error
+            properties:
+              error:
+                type: string
+                example: Invalid request body
+              details:
+                type: array
+                items:
+                  type: object
+    '401':
+      description: Authentication required or invalid credentials.
+    '403':
+      description: Limited principals cannot access this endpoint.
+  operationId: postV0ManagementDatabasePurge

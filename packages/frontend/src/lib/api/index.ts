@@ -20,6 +20,7 @@ export {
   deleteCustomQuotaChecker,
   testCustomQuotaChecker,
   normalizeQuotaCheckerInfo,
+  DatabaseMaintenanceError,
 } from './settings';
 
 export { aliasToConfigPayload } from './aliases';
@@ -164,6 +165,11 @@ export const api = {
   restoreBackup: settingsApi.restoreBackup,
   restoreFullBackup: settingsApi.restoreFullBackup,
   resetLogs: settingsApi.resetLogs,
+
+  // Database Maintenance
+  getDatabaseCleanupScan: settingsApi.getDatabaseCleanupScan,
+  purgeDatabaseCleanup: settingsApi.purgeDatabaseCleanup,
+  compactDatabase: settingsApi.compactDatabase,
 
   // System & Policy Settings
   getSystemSettings: settingsApi.getSystemSettings,

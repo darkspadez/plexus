@@ -22,6 +22,7 @@ import { ExplorationSettings } from '../components/config/ExplorationSettings';
 import { NetworkSettings } from '../components/config/NetworkSettings';
 import { ModelMetadataCard } from '../components/config/ModelMetadataCard';
 import { BackupRestoreCard } from '../components/config/BackupRestoreCard';
+import { DatabaseMaintenanceCard } from '../components/config/DatabaseMaintenanceCard';
 import { CardLayoutCard } from '../components/config/CardLayoutCard';
 import { ConfigurationSnapshot } from '../components/config/ConfigurationSnapshot';
 import {
@@ -1032,6 +1033,8 @@ export const Config = () => {
             onBackupDownload={handleBackupDownload}
             onResetLogs={handleResetLogs}
           />
+
+          <DatabaseMaintenanceCard />
 
           <CardLayoutCard
             cardLayout={cardLayout}

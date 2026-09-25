@@ -1,0 +1,36 @@
+type: object
+description: A class of orphaned or unused data found by the cleanup scan.
+required:
+  - id
+  - label
+  - description
+  - defaultSelected
+  - count
+  - items
+properties:
+  id:
+    $ref: ./DatabaseCleanupCategoryId.yaml
+  label:
+    type: string
+    example: Orphaned quota meter history
+  description:
+    type: string
+  defaultSelected:
+    type: boolean
+    description: >-
+      Whether the admin UI pre-selects this category for purging.
+      `unused-quotas` and `unknown-settings` are not pre-selected.
+  count:
+    type: integer
+    minimum: 0
+    description: >-
+      Number of deletable units (rows, credentials, definitions, setting keys,
+      or files). Excludes report-only items.
+  items:
+    type: array
+    maxItems: 500
+    items:
+      $ref: ./DatabaseCleanupItem.yaml
+  truncated:
+    type: boolean
+    description: True when `items` was capped at 500 entries.

@@ -67,8 +67,8 @@ avoid broad key/config reads unless the user requested them.
   interactive output defaults to a deterministic table.
 - Use `--all` only for standardized paginated list operations.
 - `DELETE` and operations named delete, restore, restart, reset, clear,
-  rotate, or disable prompt for confirmation. Use `--yes` only when the user
-  explicitly requested that action.
+  rotate, disable, purge, or compact prompt for confirmation. Use `--yes`
+  only when the user explicitly requested that action.
 - The CLI deliberately hides SSE operations, including live system-log
   streaming. Use the recent-log endpoint instead.
 

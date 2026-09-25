@@ -4255,6 +4255,108 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v0/management/database/cleanup': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Scan for orphaned and unused data (admin only)
+     * @description Read-only scan that classifies data no longer referenced by the current
+     *     configuration, grouped into categories:
+     *
+     *     - `oauth-credentials` — OAuth logins no provider or quota checker uses
+     *       (credentials created in the last 24 hours are skipped).
+     *     - `meter-snapshots` — quota meter history of checkers that no longer exist.
+     *     - `provider-performance` — performance samples for removed providers or
+     *       models no longer configured or used by an alias.
+     *     - `quota-state` — user-quota counters for deleted keys/definitions, owner
+     *       mismatches, or quotas no longer attached to the key.
+     *     - `unused-quotas` — quota definitions no key or `default_quotas` references
+     *       (not pre-selected).
+     *     - `obsolete-settings` / `unknown-settings` — system settings older builds
+     *       wrote, or that this build does not recognize (unknown is not pre-selected).
+     *     - `legacy-files` — old `auth.json` and YAML config files; files Plexus
+     *       cannot delete (read-only, bind-mounted, YAML) are `reportOnly`.
+     *     - `dead-rows` — legacy `quota_snapshots` rows and cooldowns of removed
+     *       providers. Omitted when empty.
+     *
+     *     Also reports the current database size. OAuth tokens are never returned.
+     *     If the configuration cannot be loaded (e.g. a secret cannot be decrypted)
+     *     the scan fails with 500 rather than misclassifying anything.
+     *
+     *     **Admin only** — limited principals receive 403.
+     */
+    get: operations['getV0ManagementDatabaseCleanup'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v0/management/database/purge': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Purge selected cleanup categories (admin only)
+     * @description Re-runs the cleanup scan for the requested categories and deletes exactly
+     *     what that fresh scan classifies — data that became referenced since an
+     *     earlier scan is kept, and `reportOnly` items are never touched. A failing
+     *     category is reported in `errors` while the remaining categories still run.
+     *     Purged OAuth credentials are also evicted from memory, and the
+     *     configuration cache is rebuilt afterwards.
+     *
+     *     **Admin only** — limited principals receive 403.
+     */
+    post: operations['postV0ManagementDatabasePurge'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v0/management/database/compact': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Compact the database (admin only)
+     * @description Returns free space to the filesystem.
+     *
+     *     - **SQLite**: runs `VACUUM` followed by `PRAGMA wal_checkpoint(TRUNCATE)`.
+     *       This is synchronous and blocks request handling until it finishes, and
+     *       needs temporary disk space up to the size of the database. `full` is
+     *       ignored.
+     *     - **Postgres**: runs `VACUUM (ANALYZE)`, or `VACUUM (FULL, ANALYZE)` when
+     *       `full` is true. VACUUM FULL rewrites every table and holds exclusive
+     *       locks while it runs.
+     *
+     *     Only one compaction may run at a time; a concurrent request receives 409.
+     *
+     *     **Admin only** — limited principals receive 403.
+     */
+    post: operations['postV0ManagementDatabaseCompact'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v0/management/events': {
     parameters: {
       query?: never;
@@ -6786,6 +6888,91 @@ export interface components {
           expires_at: number;
         }[];
       };
+    };
+    /**
+     * @description Identifier of a database-maintenance cleanup category.
+     * @enum {string}
+     */
+    DatabaseCleanupCategoryId:
+      | 'oauth-credentials'
+      | 'meter-snapshots'
+      | 'provider-performance'
+      | 'quota-state'
+      | 'unused-quotas'
+      | 'obsolete-settings'
+      | 'unknown-settings'
+      | 'legacy-files'
+      | 'dead-rows';
+    /** @description One orphaned or unused entry within a cleanup category. */
+    DatabaseCleanupItem: {
+      /**
+       * @description Stable id within the category, e.g. `openai-codex/openai-henry` (OAuth credential), `poe|poe` (checker|provider), `naga|grok-4` (provider|model), `shivam|test-2m` (key|quota), a setting key, or a file path.
+       * @example poe|poe
+       */
+      id: string;
+      /**
+       * @description Human-readable label.
+       * @example poe
+       */
+      label: string;
+      /**
+       * @description Extra context, e.g. row count and last activity date.
+       * @example 2,786 rows · last 2026-06-01
+       */
+      detail?: string;
+      /**
+       * @description Rows represented by this item (grouped rows only).
+       * @example 2786
+       */
+      count?: number;
+      /** @description Shown for information but never deleted (e.g. a bind-mounted or read-only file, or a YAML config file that must be removed on the host). */
+      reportOnly?: boolean;
+    };
+    /** @description A class of orphaned or unused data found by the cleanup scan. */
+    DatabaseCleanupCategory: {
+      id: components['schemas']['DatabaseCleanupCategoryId'];
+      /** @example Orphaned quota meter history */
+      label: string;
+      description: string;
+      /** @description Whether the admin UI pre-selects this category for purging. `unused-quotas` and `unknown-settings` are not pre-selected. */
+      defaultSelected: boolean;
+      /** @description Number of deletable units (rows, credentials, definitions, setting keys, or files). Excludes report-only items. */
+      count: number;
+      items: components['schemas']['DatabaseCleanupItem'][];
+      /** @description True when `items` was capped at 500 entries. */
+      truncated?: boolean;
+    };
+    DatabaseSize: {
+      /** @enum {string} */
+      dialect: 'sqlite' | 'postgres';
+      /** @description SQLite: combined size of the database file and its `-wal` / `-shm` files. Postgres: `pg_database_size(current_database())`. */
+      totalBytes: number;
+      /** @description SQLite only: free pages (`freelist_count * page_size`) that compaction returns to the filesystem. */
+      reclaimableBytes?: number;
+    };
+    /** @description Rows / units deleted per purged category. */
+    DatabaseCleanupCounts: {
+      'oauth-credentials'?: number;
+      'meter-snapshots'?: number;
+      'provider-performance'?: number;
+      'quota-state'?: number;
+      'unused-quotas'?: number;
+      'obsolete-settings'?: number;
+      'unknown-settings'?: number;
+      'legacy-files'?: number;
+      'dead-rows'?: number;
+    };
+    /** @description Error message per category whose purge failed (other categories still ran). */
+    DatabaseCleanupErrors: {
+      'oauth-credentials'?: string;
+      'meter-snapshots'?: string;
+      'provider-performance'?: string;
+      'quota-state'?: string;
+      'unused-quotas'?: string;
+      'obsolete-settings'?: string;
+      'unknown-settings'?: string;
+      'legacy-files'?: string;
+      'dead-rows'?: string;
     };
   };
   responses: {
@@ -13181,6 +13368,198 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  getV0ManagementDatabaseCleanup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Scan result. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: {
+              /**
+               * @description Scan time in epoch milliseconds.
+               * @example 1790300000000
+               */
+              scannedAt: number;
+              categories: components['schemas']['DatabaseCleanupCategory'][];
+              size: components['schemas']['DatabaseSize'];
+            };
+          };
+        };
+      };
+      /** @description Authentication required or invalid credentials. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Limited principals cannot access this endpoint. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The scan failed (e.g. configuration could not be loaded). */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            error: string;
+          };
+        };
+      };
+    };
+  };
+  postV0ManagementDatabasePurge: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          categories: components['schemas']['DatabaseCleanupCategoryId'][];
+        };
+      };
+    };
+    responses: {
+      /** @description Per-category deletion counts and errors. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: {
+              deleted: components['schemas']['DatabaseCleanupCounts'];
+              errors: components['schemas']['DatabaseCleanupErrors'];
+            };
+          };
+        };
+      };
+      /** @description Invalid request body (missing, empty, or unknown categories). */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example Invalid request body */
+            error: string;
+            details?: Record<string, never>[];
+          };
+        };
+      };
+      /** @description Authentication required or invalid credentials. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Limited principals cannot access this endpoint. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postV0ManagementDatabaseCompact: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          /**
+           * @description Postgres only — run VACUUM FULL.
+           * @default false
+           */
+          full?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Compaction finished. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: {
+              /** @enum {string} */
+              dialect: 'sqlite' | 'postgres';
+              beforeBytes: number;
+              afterBytes: number;
+              reclaimedBytes: number;
+              durationMs: number;
+              /** @description True only when a Postgres VACUUM FULL ran. */
+              full: boolean;
+            };
+          };
+        };
+      };
+      /** @description Invalid request body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            error: string;
+            details?: Record<string, never>[];
+          };
+        };
+      };
+      /** @description Authentication required or invalid credentials. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Limited principals cannot access this endpoint. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A compaction is already in progress. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example Database compaction already in progress */
+            error: string;
+          };
+        };
       };
     };
   };
