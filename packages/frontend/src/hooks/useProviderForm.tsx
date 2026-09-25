@@ -8,6 +8,7 @@ import {
   PI_AI_AUTO_VALUE,
 } from '../lib/piAiProvider';
 import type { QuotaCheckerInfo } from '../types/quota';
+import type { OAuthCredentialStatus } from '../types/settings';
 import { formatMeterValue } from '../components/quota/MeterValue';
 import { Badge } from '../components/ui/Badge';
 import { useToast } from '../contexts/ToastContext';
@@ -133,6 +134,10 @@ export function useProviderForm() {
   const [oauthBusy, setOauthBusy] = useState(false);
   const [oauthCredentialReady, setOauthCredentialReady] = useState(false);
   const [oauthCredentialChecking, setOauthCredentialChecking] = useState(false);
+  // Credential age (connected / refreshed / expires) for the status line.
+  const [oauthCredentialStatus, setOauthCredentialStatus] = useState<OAuthCredentialStatus | null>(
+    null
+  );
 
   // Accordion state
   const [isModelsOpen, setIsModelsOpen] = useState(false);
@@ -300,6 +305,7 @@ export function useProviderForm() {
     if (!isModalOpen) {
       resetOAuthState();
       setOauthCredentialReady(false);
+      setOauthCredentialStatus(null);
       setOauthCredentialChecking(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -309,6 +315,7 @@ export function useProviderForm() {
   useEffect(() => {
     if (!isModalOpen || !isOAuthMode) {
       setOauthCredentialReady(false);
+      setOauthCredentialStatus(null);
       setOauthCredentialChecking(false);
       return;
     }
@@ -317,6 +324,7 @@ export function useProviderForm() {
     const accountId = editingProvider.id.trim();
     if (!accountId) {
       setOauthCredentialReady(false);
+      setOauthCredentialStatus(null);
       setOauthCredentialChecking(false);
       return;
     }
@@ -325,10 +333,14 @@ export function useProviderForm() {
     api
       .getOAuthCredentialStatus(providerId, accountId)
       .then((result) => {
-        if (!cancelled) setOauthCredentialReady(!!result.ready);
+        if (cancelled) return;
+        setOauthCredentialReady(!!result.ready);
+        setOauthCredentialStatus(result.ready ? result : null);
       })
       .catch(() => {
-        if (!cancelled) setOauthCredentialReady(false);
+        if (cancelled) return;
+        setOauthCredentialReady(false);
+        setOauthCredentialStatus(null);
       })
       .finally(() => {
         if (!cancelled) setOauthCredentialChecking(false);
@@ -683,6 +695,7 @@ export function useProviderForm() {
     try {
       await api.deleteOAuthCredentials(providerId, accountId);
       setOauthCredentialReady(false);
+      setOauthCredentialStatus(null);
       resetOAuthState();
     } catch (error) {
       setOauthError(error instanceof Error ? error.message : 'Failed to delete OAuth credentials');
@@ -1112,6 +1125,7 @@ export function useProviderForm() {
     oauthBusy,
     oauthCredentialReady,
     oauthCredentialChecking,
+    oauthCredentialStatus,
     oauthStatus,
     oauthIsTerminal,
     oauthStatusLabel,

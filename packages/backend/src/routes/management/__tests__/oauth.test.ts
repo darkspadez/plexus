@@ -5,6 +5,7 @@ import { registerOAuthRoutes } from '../oauth';
 import { OAuthLoginSessionManager } from '../../../services/oauth/oauth-login-session';
 import { OAuthAuthManager } from '../../../services/oauth/oauth-auth-manager';
 import { CodexVersionService } from '../../../services/oauth/codex-version-service';
+import { ConfigService } from '../../../services/configuration/config-service';
 import { CODEX_IMAGE_MODELS } from '../../../services/providers/provider-model-discovery';
 import { registerSpy } from '../../../../test/test-utils';
 
@@ -406,6 +407,116 @@ describe('OAuth management routes', () => {
       expect(json.source).toBe('catalog');
       expect(json.warning).toEqual(expect.stringContaining('static catalog'));
       expect(json.data.map((model) => model.id)).toContain('muse-spark-1.3-contributor');
+    });
+  });
+
+  describe('credential status', () => {
+    beforeEach(() => {
+      ConfigService.resetInstance();
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      ConfigService.resetInstance();
+    });
+
+    it('reports credential age and expiry when ready', async () => {
+      const authManager = OAuthAuthManager.getInstance();
+      const hasProvider = registerSpy(authManager, 'hasProvider').mockReturnValue(true);
+      const getCredentials = registerSpy(authManager, 'getCredentials').mockReturnValue({
+        access: 'secret_access',
+        refresh: 'secret_refresh',
+        expires: 1_900_000_000_000,
+      });
+      const getTimestamps = registerSpy(
+        ConfigService.getInstance(),
+        'getOAuthCredentialTimestamps'
+      ).mockResolvedValue({
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_800_000_000_000,
+        expiresAt: 1_850_000_000_000,
+      });
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: '/v0/management/oauth/credentials/status?providerId=meta&accountId=%20work%20',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(hasProvider).toHaveBeenCalledWith('meta', 'work');
+      expect(getTimestamps).toHaveBeenCalledWith('meta', 'work');
+      expect(getCredentials).toHaveBeenCalledWith('meta', 'work');
+      // The in-memory expiry wins over the row's; tokens never leave.
+      expect(response.json()).toEqual({
+        data: {
+          ready: true,
+          connectedAt: 1_700_000_000_000,
+          refreshedAt: 1_800_000_000_000,
+          expiresAt: 1_900_000_000_000,
+        },
+      });
+      expect(response.body).not.toContain('secret_');
+    });
+
+    it('still reports readiness and expiry when the timestamps cannot be read', async () => {
+      const authManager = OAuthAuthManager.getInstance();
+      registerSpy(authManager, 'hasProvider').mockReturnValue(true);
+      registerSpy(authManager, 'getCredentials').mockReturnValue({
+        access: 'a',
+        refresh: 'r',
+        expires: 1_900_000_000_000,
+      });
+      registerSpy(ConfigService.getInstance(), 'getOAuthCredentialTimestamps').mockRejectedValue(
+        new Error('db unavailable')
+      );
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: '/v0/management/oauth/credentials/status?providerId=meta&accountId=work',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ data: { ready: true, expiresAt: 1_900_000_000_000 } });
+    });
+
+    it('omits a missing expiry and a missing row', async () => {
+      const authManager = OAuthAuthManager.getInstance();
+      registerSpy(authManager, 'hasProvider').mockReturnValue(true);
+      registerSpy(authManager, 'getCredentials').mockReturnValue({
+        access: 'a',
+        refresh: 'r',
+        expires: 0,
+      });
+      registerSpy(ConfigService.getInstance(), 'getOAuthCredentialTimestamps').mockResolvedValue(
+        null
+      );
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: '/v0/management/oauth/credentials/status?providerId=meta&accountId=work',
+      });
+
+      expect(response.json()).toEqual({ data: { ready: true } });
+    });
+
+    it('returns only readiness when not ready', async () => {
+      const authManager = OAuthAuthManager.getInstance();
+      registerSpy(authManager, 'hasProvider').mockReturnValue(false);
+      const getCredentials = registerSpy(authManager, 'getCredentials');
+      const getTimestamps = registerSpy(
+        ConfigService.getInstance(),
+        'getOAuthCredentialTimestamps'
+      );
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: '/v0/management/oauth/credentials/status?providerId=meta&accountId=work',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ data: { ready: false } });
+      expect(getTimestamps).not.toHaveBeenCalled();
+      expect(getCredentials).not.toHaveBeenCalled();
     });
   });
 });
