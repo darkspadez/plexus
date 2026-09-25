@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { ProviderPresetSchema, type ProviderPreset } from '@plexus/shared';
+import builtinPresetsJson from '../../data/provider-presets.json' with { type: 'json' };
 import { logger } from '../utils/logger';
 
 /**
@@ -50,19 +51,26 @@ export function parseAndValidatePresets(raw: unknown, sourceLabel: string): Prov
 export async function loadLocalPresets(
   presetsPath: string = defaultPresetsPath()
 ): Promise<ProviderPreset[]> {
-  let raw: unknown;
-  try {
-    raw = await Bun.file(presetsPath).json();
-  } catch (error) {
-    logger.error(`Provider presets unreadable at ${presetsPath}: ${error}`);
-    throw new Error(`Provider presets unreadable at ${presetsPath}`);
+  // Prefer the file on disk so hand-edits take effect without a restart.
+  // Inside compiled release binaries the data directory is not shipped and
+  // import.meta.url resolves to a virtual path, so fall back to the copy the
+  // bundler embeds via the static JSON import above.
+  if (await Bun.file(presetsPath).exists()) {
+    let raw: unknown;
+    try {
+      raw = await Bun.file(presetsPath).json();
+    } catch (error) {
+      logger.error(`Provider presets unreadable at ${presetsPath}: ${error}`);
+      throw new Error(`Provider presets unreadable at ${presetsPath}`);
+    }
+    try {
+      return parseAndValidatePresets(raw, presetsPath);
+    } catch (error) {
+      logger.error(error instanceof Error ? error.message : String(error));
+      throw error;
+    }
   }
-  try {
-    return parseAndValidatePresets(raw, presetsPath);
-  } catch (error) {
-    logger.error(error instanceof Error ? error.message : String(error));
-    throw error;
-  }
+  return parseAndValidatePresets(builtinPresetsJson, 'built-in provider-presets.json');
 }
 
 async function fetchRemotePresets(url: string): Promise<ProviderPreset[]> {

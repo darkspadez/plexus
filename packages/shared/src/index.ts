@@ -16,6 +16,7 @@ export {
   ProviderPresetSchema,
   applyProviderPreset,
   findProviderPreset,
+  findUnresolvedPresetVars,
   substitutePresetVars,
 } from './provider-presets';
 export type {

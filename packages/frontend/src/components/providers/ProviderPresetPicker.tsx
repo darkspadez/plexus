@@ -3,6 +3,7 @@ import { AlertTriangle, ExternalLink } from 'lucide-react';
 import {
   applyProviderPreset,
   findProviderPreset,
+  findUnresolvedPresetVars,
   substitutePresetVars,
   type ProviderPreset,
 } from '@plexus/shared';
@@ -25,12 +26,24 @@ interface Props {
  * providers only; never offered on edit, where applying would clobber a
  * working config.
  */
+/** Draft fields a preset apply touches — snapshotted so Custom can undo it. */
+interface PresetTouchedFields {
+  id: string;
+  name: string;
+  apiBaseUrl?: string | Record<string, string>;
+  type: string | string[];
+  pi_ai_provider?: string;
+  auto_compat?: boolean;
+}
+
 export function ProviderPresetPicker({ editingProvider, setEditingProvider }: Props) {
   const [presets, setPresets] = useState<ProviderPreset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState('');
   const [varValues, setVarValues] = useState<Record<string, string>>({});
+  const [appliedPreset, setAppliedPreset] = useState<ProviderPreset | null>(null);
+  const [prePresetSnapshot, setPrePresetSnapshot] = useState<PresetTouchedFields | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,8 +52,11 @@ export function ProviderPresetPicker({ editingProvider, setEditingProvider }: Pr
       .then((loaded) => {
         if (!cancelled) setPresets(loaded);
       })
-      .catch(() => {
-        if (!cancelled) setLoadFailed(true);
+      .catch((error) => {
+        if (!cancelled) {
+          console.error('Failed to load provider presets', error);
+          setLoadError(error instanceof Error ? error.message : String(error));
+        }
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -50,10 +66,6 @@ export function ProviderPresetPicker({ editingProvider, setEditingProvider }: Pr
     };
   }, []);
 
-  // Without the catalog the picker has nothing to offer — the blank custom
-  // flow below it is unaffected.
-  if (loadFailed) return null;
-
   const selectedPreset: ProviderPreset | undefined = selectedPresetId
     ? findProviderPreset(presets, selectedPresetId)
     : undefined;
@@ -61,10 +73,37 @@ export function ProviderPresetPicker({ editingProvider, setEditingProvider }: Pr
   const handleSelect = (presetId: string) => {
     setSelectedPresetId(presetId);
     setVarValues({});
-    if (!presetId) return; // back to Custom — leave the draft untouched
+    if (!presetId) {
+      // Back to Custom: restore whatever the draft held before the first
+      // preset was applied (the API key and everything else stay as typed).
+      if (prePresetSnapshot) {
+        const snapshot = prePresetSnapshot;
+        setEditingProvider((prev) => ({ ...prev, ...snapshot }));
+      }
+      setAppliedPreset(null);
+      setPrePresetSnapshot(null);
+      return;
+    }
     const preset = findProviderPreset(presets, presetId);
     if (!preset) return;
-    setEditingProvider((prev) => applyProviderPreset(prev, preset));
+    const previous = appliedPreset;
+    if (!previous) {
+      setPrePresetSnapshot({
+        id: editingProvider.id,
+        name: editingProvider.name,
+        apiBaseUrl:
+          typeof editingProvider.apiBaseUrl === 'string'
+            ? editingProvider.apiBaseUrl
+            : { ...(editingProvider.apiBaseUrl ?? {}) },
+        type: Array.isArray(editingProvider.type)
+          ? [...editingProvider.type]
+          : editingProvider.type,
+        pi_ai_provider: editingProvider.pi_ai_provider,
+        auto_compat: editingProvider.auto_compat,
+      });
+    }
+    setAppliedPreset(preset);
+    setEditingProvider((prev) => applyProviderPreset(prev, preset, {}, previous ?? undefined));
   };
 
   const handleVarChange = (preset: ProviderPreset, key: string, value: string) => {
@@ -94,9 +133,7 @@ export function ProviderPresetPicker({ editingProvider, setEditingProvider }: Pr
     typeof editingProvider.apiBaseUrl === 'object' && editingProvider.apiBaseUrl !== null
       ? (editingProvider.apiBaseUrl as Record<string, string>)
       : {};
-  const hasUnresolvedVars = Object.values(draftMap).some(
-    (url) => typeof url === 'string' && url.includes('{')
-  );
+  const unresolvedVars = findUnresolvedPresetVars(draftMap);
 
   return (
     <div className="flex flex-col gap-2 border border-border-glass rounded-md p-3 bg-bg-subtle">
@@ -117,6 +154,12 @@ export function ProviderPresetPicker({ editingProvider, setEditingProvider }: Pr
             </option>
           ))}
         </select>
+        {loadError && (
+          <div className="text-[11px] text-text-secondary" style={{ fontStyle: 'italic' }}>
+            Couldn&apos;t load provider presets ({loadError}). You can still configure a provider
+            manually below.
+          </div>
+        )}
       </div>
 
       {selectedPreset && (
@@ -153,12 +196,12 @@ export function ProviderPresetPicker({ editingProvider, setEditingProvider }: Pr
             </div>
           )}
 
-          {hasUnresolvedVars && (
+          {unresolvedVars.length > 0 && (
             <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
               <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
               <span className="text-warning">
-                Some base URLs still contain <code>{'{placeholders}'}</code> — fill them in above or
-                edit the URLs directly.
+                Unfilled template values ({unresolvedVars.join(', ')}) — fill them in above or edit
+                the URLs directly. Saving is blocked until they are resolved.
               </span>
             </div>
           )}

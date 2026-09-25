@@ -6,6 +6,7 @@ import {
   ProviderPresetSchema,
   applyProviderPreset,
   findProviderPreset,
+  findUnresolvedPresetVars,
   substitutePresetVars,
   type ProviderPreset,
   type ProviderPresetDraft,
@@ -124,10 +125,10 @@ describe('built-in presets catalog (data/provider-presets.json)', () => {
 });
 
 describe('loadLocalPresets failures', () => {
-  test('missing file throws a descriptive error', async () => {
-    await expect(loadLocalPresets(join(tmpdir(), 'no-such-presets.json'))).rejects.toThrow(
-      /unreadable/
-    );
+  test('missing disk file falls back to the embedded catalog (release binaries)', async () => {
+    const presets = await loadLocalPresets(join(tmpdir(), 'no-such-presets.json'));
+    expect(presets.length).toBe(catalog.length);
+    expect(presets.map((preset) => preset.id)).toEqual(catalog.map((preset) => preset.id));
   });
 
   test('malformed JSON throws a descriptive error', async () => {
@@ -217,6 +218,50 @@ describe('loadProviderPresets remote source', () => {
   });
 });
 
+describe('strict catalog validation', () => {
+  const validEntry = {
+    id: 'strict',
+    name: 'Strict',
+    suggestedProviderId: 'strict',
+    suggestedName: 'Strict',
+    apiBaseUrl: { chat: 'https://example.test/v1' },
+    piAiProvider: 'openai',
+    autoCompat: true,
+  };
+
+  test.each([
+    ['javascript: docsUrl', { ...validEntry, docsUrl: 'javascript:alert(1)' }],
+    ['non-http endpoint', { ...validEntry, apiBaseUrl: { chat: 'ftp://example.test/v1' } }],
+    [
+      'undeclared placeholder',
+      { ...validEntry, apiBaseUrl: { chat: 'https://{region}.example.test/v1' } },
+    ],
+    [
+      'prototype-shadowing templateVar key',
+      {
+        ...validEntry,
+        apiBaseUrl: { chat: 'https://example.test/{toString}/v1' },
+        templateVars: [{ key: 'toString', label: 'Bad' }],
+      },
+    ],
+    ['prototype-named experimental api', { ...validEntry, experimentalApis: ['toString'] }],
+  ])('rejects %s', (_label, entry) => {
+    expect(ProviderPresetSchema.safeParse(entry).success).toBe(false);
+  });
+});
+
+describe('findUnresolvedPresetVars', () => {
+  test('lists placeholders and ignores resolved URLs', () => {
+    expect(
+      findUnresolvedPresetVars({
+        chat: 'https://api.example.test/v1',
+        messages: 'https://api.example.test/{account_id}/v1',
+      })
+    ).toEqual(['account_id']);
+    expect(findUnresolvedPresetVars({ chat: 'https://api.example.test/v1' })).toEqual([]);
+  });
+});
+
 describe('substitutePresetVars', () => {
   test('replaces known placeholders and leaves unknown ones visible', () => {
     expect(
@@ -287,6 +332,27 @@ describe('applyProviderPreset', () => {
       messages: 'https://api.cloudflare.com/client/v4/accounts/acct123/ai/v1',
       responses: 'https://api.cloudflare.com/client/v4/accounts/acct123/ai/v1',
     });
+  });
+
+  test('switching presets overwrites fields still holding the previous suggestion', () => {
+    const openai = presetOrThrow('openai');
+    const moonshot = presetOrThrow('moonshot');
+    const first = applyProviderPreset(blankDraft(), openai);
+    expect(first.id).toBe('openai');
+
+    const second = applyProviderPreset(first, moonshot, {}, openai);
+    expect(second.id).toBe('moonshot');
+    expect(second.name).toBe('Moonshot');
+    expect(second.apiBaseUrl).toEqual(moonshot.apiBaseUrl);
+  });
+
+  test('switching presets preserves operator-typed id and name', () => {
+    const openai = presetOrThrow('openai');
+    const moonshot = presetOrThrow('moonshot');
+    const first = applyProviderPreset({ ...blankDraft(), id: 'mine', name: 'Mine' }, openai);
+    const second = applyProviderPreset(first, moonshot, {}, openai);
+    expect(second.id).toBe('mine');
+    expect(second.name).toBe('Mine');
   });
 
   test('does not mutate the draft or the preset', () => {
