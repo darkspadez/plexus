@@ -1,4 +1,5 @@
 import { API_BASE, encodePathPreservingSlashes, fetchWithAuth, inferProviderTypes } from './core';
+import type { ProviderPreset } from '@plexus/shared';
 import type {
   CompactionSettings,
   Cooldown,
@@ -450,6 +451,18 @@ export const getProviders = async (): Promise<Provider[]> => {
     console.error('API Error getProviders', e);
     return [];
   }
+};
+
+/**
+ * Fetch the pre-configured provider preset catalog served by the backend
+ * from `packages/backend/data/provider-presets.json`. Backs the Add
+ * Provider preset picker.
+ */
+export const getProviderPresets = async (): Promise<ProviderPreset[]> => {
+  const res = await fetchWithAuth(`${API_BASE}/v0/management/provider-presets`);
+  if (!res.ok) throw new Error('Failed to fetch provider presets');
+  const json = (await res.json()) as { data: ProviderPreset[] };
+  return Array.isArray(json.data) ? json.data : [];
 };
 
 export const saveProvider = async (provider: Provider, oldId?: string): Promise<void> => {

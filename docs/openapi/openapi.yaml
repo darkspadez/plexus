@@ -443,6 +443,8 @@ paths:
     $ref: paths/v0_management_providers_{slug}.yaml
   /v0/management/providers/fetch-models:
     $ref: paths/v0_management_providers_fetch-models.yaml
+  /v0/management/provider-presets:
+    $ref: paths/v0_management_provider-presets.yaml
   /v0/management/pi/providers:
     $ref: paths/v0_management_pi_providers.yaml
   /v0/management/pi/models:

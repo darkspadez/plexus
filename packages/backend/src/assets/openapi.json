@@ -4009,6 +4009,100 @@
         "operationId": "postV0ManagementProvidersFetchmodels"
       }
     },
+    "/v0/management/provider-presets": {
+      "get": {
+        "tags": [
+          "Management — Config"
+        ],
+        "summary": "List pre-configured provider presets (admin only)",
+        "description": "Returns the pre-configured provider preset catalog. Each preset pre-fills\nthe endpoint map, pi-ai provider id, and auto-compat for a known provider,\nso the Add Provider flow is pick-a-preset plus an API key.\n\nThe catalog defaults to the plexus repo's raw GitHub URL, so preset\nupdates ship as a data-file commit with no release. Any remote failure\nfalls back to the built-in `packages/backend/data/provider-presets.json`.\nThe `source` field reports which catalog was served.\n\nEntries carry `experimentalApis` (documented but not yet probed live) and\noptional `templateVars` (`{key}` placeholders the operator fills at setup\ntime, e.g. the Cloudflare account ID).\n\n**Admin only** — limited principals receive 403.\n",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preset catalog.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "remote",
+                        "local"
+                      ],
+                      "description": "Which catalog was served"
+                    },
+                    "data": {
+                      "type": "array",
+                      "description": "Provider presets",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "docsUrl": {
+                            "type": "string"
+                          },
+                          "suggestedProviderId": {
+                            "type": "string"
+                          },
+                          "suggestedName": {
+                            "type": "string"
+                          },
+                          "apiBaseUrl": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "experimentalApis": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "templateVars": {
+                            "type": "array",
+                            "items": {
+                              "type": "object"
+                            }
+                          },
+                          "piAiProvider": {
+                            "type": "string"
+                          },
+                          "autoCompat": {
+                            "type": "boolean"
+                          },
+                          "notes": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid credentials."
+          }
+        },
+        "operationId": "getV0ManagementProviderPresets"
+      }
+    },
     "/v0/management/pi/providers": {
       "get": {
         "tags": [
