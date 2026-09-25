@@ -31,10 +31,57 @@ interface PresetTouchedFields {
   id: string;
   name: string;
   apiBaseUrl?: string | Record<string, string>;
+  apiKey: string;
+  oauthProvider?: string;
   type: string | string[];
   pi_ai_provider?: string;
   auto_compat?: boolean;
 }
+
+/** Minimal draft for replaying a preset apply during comparison. */
+function blankPresetDraftBase() {
+  return {
+    id: '',
+    name: '',
+    apiBaseUrl: {} as string | Record<string, string>,
+    apiKey: '',
+    oauthProvider: '' as string | undefined,
+    type: [] as string | string[],
+    pi_ai_provider: undefined as string | undefined,
+    auto_compat: undefined as boolean | undefined,
+  };
+}
+
+/** Shallow equality for draft field comparison (arrays and maps by value). */
+function isEqualValue(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, index) => item === b[index])
+    );
+  }
+  if (a !== null && b !== null && typeof a === 'object' && typeof b === 'object') {
+    const aRecord = a as Record<string, unknown>;
+    const bRecord = b as Record<string, unknown>;
+    const keys = new Set([...Object.keys(aRecord), ...Object.keys(bRecord)]);
+    return [...keys].every((key) => aRecord[key] === bRecord[key]);
+  }
+  return a === b;
+}
+
+/** Fields whose preset-applied values Custom may restore. */
+const RESTORABLE_KEYS = [
+  'id',
+  'name',
+  'apiBaseUrl',
+  'apiKey',
+  'oauthProvider',
+  'type',
+  'pi_ai_provider',
+  'auto_compat',
+] as const;
 
 export function ProviderPresetPicker({ editingProvider, setEditingProvider }: Props) {
   const [presets, setPresets] = useState<ProviderPreset[]>([]);
@@ -74,14 +121,29 @@ export function ProviderPresetPicker({ editingProvider, setEditingProvider }: Pr
     setSelectedPresetId(presetId);
     setVarValues({});
     if (!presetId) {
-      // Back to Custom: restore whatever the draft held before the first
-      // preset was applied (the API key and everything else stay as typed).
-      if (prePresetSnapshot) {
-        const snapshot = prePresetSnapshot;
-        setEditingProvider((prev) => ({ ...prev, ...snapshot }));
-      }
+      // Back to Custom: restore the pre-preset values, but only for fields
+      // the operator hasn't touched since the preset was applied — same rule
+      // as switching presets, so post-apply edits are never clobbered.
+      const snapshot = prePresetSnapshot;
+      const applied = appliedPreset;
       setAppliedPreset(null);
       setPrePresetSnapshot(null);
+      if (snapshot && applied) {
+        const appliedValues = applyProviderPreset(
+          { ...blankPresetDraftBase(), ...snapshot },
+          applied,
+          varValues
+        );
+        setEditingProvider((prev) => {
+          const restored: Partial<Provider> = {};
+          for (const key of RESTORABLE_KEYS) {
+            if (isEqualValue(prev[key], appliedValues[key])) {
+              (restored as Record<string, unknown>)[key] = snapshot[key];
+            }
+          }
+          return { ...prev, ...restored };
+        });
+      }
       return;
     }
     const preset = findProviderPreset(presets, presetId);
@@ -95,6 +157,8 @@ export function ProviderPresetPicker({ editingProvider, setEditingProvider }: Pr
           typeof editingProvider.apiBaseUrl === 'string'
             ? editingProvider.apiBaseUrl
             : { ...(editingProvider.apiBaseUrl ?? {}) },
+        apiKey: editingProvider.apiKey,
+        oauthProvider: editingProvider.oauthProvider,
         type: Array.isArray(editingProvider.type)
           ? [...editingProvider.type]
           : editingProvider.type,

@@ -48,6 +48,16 @@ export function parseAndValidatePresets(raw: unknown, sourceLabel: string): Prov
   return parsed.data;
 }
 
+const PROCESS_STARTED_AT = Date.now();
+
+/** True when the disk file was edited after this process started. Exported for tests. */
+export async function diskFileEditedSinceStartup(presetsPath: string): Promise<boolean> {
+  const file = Bun.file(presetsPath);
+  if (!(await file.exists())) return false;
+  const mtime = file.lastModified;
+  return Number.isFinite(mtime) && mtime > PROCESS_STARTED_AT;
+}
+
 export async function loadLocalPresets(
   presetsPath: string = defaultPresetsPath()
 ): Promise<ProviderPreset[]> {
@@ -84,6 +94,13 @@ async function fetchRemotePresets(url: string): Promise<ProviderPreset[]> {
 export async function loadProviderPresets(
   remoteUrl: string = REMOTE_PRESETS_URL
 ): Promise<ProviderPresetsResult> {
+  // A disk file edited after startup is an operator customization: it wins
+  // over the remote catalog so local hand-edits always take effect. A
+  // pristine disk file (or a missing one, e.g. inside release binaries)
+  // defers to remote, falling back to the embedded copy when unreachable.
+  if (await diskFileEditedSinceStartup(defaultPresetsPath())) {
+    return { presets: await loadLocalPresets(), source: 'local' };
+  }
   try {
     return { presets: await fetchRemotePresets(remoteUrl), source: 'remote' };
   } catch (error) {

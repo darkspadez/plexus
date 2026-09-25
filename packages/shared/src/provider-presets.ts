@@ -18,11 +18,15 @@ import { z } from 'zod';
 /** Matches `{key}` template placeholders in endpoint URLs. */
 const PLACEHOLDER_PATTERN = /\{([^{}]+)\}/g;
 
-/** http(s) URLs, tolerating `{key}` template placeholders (validated separately). */
+/**
+ * https URLs, tolerating `{key}` template placeholders (validated
+ * separately). Plain http is rejected: these endpoints receive operator API
+ * keys, so presets must not suggest cleartext hosts.
+ */
 function isPresetUrl(value: unknown): boolean {
   if (typeof value !== 'string') return false;
   const deTemplated = value.replace(PLACEHOLDER_PATTERN, 'x');
-  return /^https?:\/\//i.test(deTemplated);
+  return /^https:\/\//i.test(deTemplated);
 }
 
 const PresetTemplateVarSchema = z.object({
@@ -49,8 +53,8 @@ export const ProviderPresetSchema = z
     docsUrl: z
       .string()
       .url()
-      .refine((value) => /^https?:\/\//i.test(value), {
-        message: 'docsUrl must be an http(s) URL',
+      .refine((value) => /^https:\/\//i.test(value), {
+        message: 'docsUrl must be an https URL',
       })
       .optional(),
     /** Pre-filled provider id / display name (only applied to empty fields). */

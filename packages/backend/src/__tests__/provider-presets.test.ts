@@ -14,6 +14,7 @@ import {
 import {
   REMOTE_PRESETS_URL,
   defaultPresetsPath,
+  diskFileEditedSinceStartup,
   loadLocalPresets,
   loadProviderPresets,
 } from '../services/provider-presets';
@@ -159,6 +160,17 @@ describe('loadLocalPresets failures', () => {
   });
 });
 
+describe('diskFileEditedSinceStartup', () => {
+  test('fresh files count as edited, pristine catalog does not', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'presets-'));
+    const fresh = join(dir, 'fresh.json');
+    writeFileSync(fresh, '{}');
+    expect(await diskFileEditedSinceStartup(fresh)).toBe(true);
+    expect(await diskFileEditedSinceStartup(defaultPresetsPath())).toBe(false);
+    expect(await diskFileEditedSinceStartup(join(dir, 'missing.json'))).toBe(false);
+  });
+});
+
 describe('loadProviderPresets remote source', () => {
   let handler: (req: Request) => Response = () =>
     new Response(JSON.stringify({ presets: [remoteEntry] }), {
@@ -245,6 +257,8 @@ describe('strict catalog validation', () => {
       },
     ],
     ['prototype-named experimental api', { ...validEntry, experimentalApis: ['toString'] }],
+    ['plain-http endpoint', { ...validEntry, apiBaseUrl: { chat: 'http://example.test/v1' } }],
+    ['plain-http docsUrl', { ...validEntry, docsUrl: 'http://example.test/docs' }],
   ])('rejects %s', (_label, entry) => {
     expect(ProviderPresetSchema.safeParse(entry).success).toBe(false);
   });
