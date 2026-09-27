@@ -204,6 +204,48 @@ display behavior as built-in checkers.
 - Custom checker code runs with the permissions of the Plexus process. Only
   trusted administrators should be allowed to create or edit checkers.
 
+## Generate a checker with AI
+
+Fill in the brackets, paste the block into your AI assistant, then paste the
+returned code into the checker editor and use **Test code** to verify it.
+
+````text
+Build a Plexus custom quota checker for:
+
+Provider: [name, e.g. ExampleAI]
+Quota API docs: [paste URL and/or the relevant endpoint, auth, and response excerpt]
+Endpoint to call: [full URL, or a default I can override via options.endpoint]
+Auth: [e.g. provider API key as Bearer token in Authorization header. Plexus injects it, so never hard-code a key]
+What to report: [e.g. USD credit balance; hourly requests remaining]
+Example API response JSON: [paste it]
+
+Rules:
+- Output a JavaScript function body that receives a single `ctx` object. Async is allowed.
+- No TypeScript, no `import`, no `require`, no npm packages.
+- Use `ctx.fetch(input, init?)` so the provider API key and configured headers apply.
+  Only use bare `fetch` with `headers: ctx.requestHeaders()` if there is a reason.
+- Read configurable values with `ctx.getOption('endpoint', '<default-url>')` or
+  `ctx.requireOption('<key>')`. Never hard-code secrets.
+- Check `response.ok` and throw a useful `Error` with status (and a short body excerpt)
+  on HTTP failures.
+- Parse with `Number()` and validate with `Number.isFinite()`. Throw a useful error
+  on invalid responses.
+- Return ONLY an array of meters built with `ctx.balance()` and/or `ctx.allowance()`.
+- `ctx.balance({ key, label, unit, limit?, used?, remaining?, group?, scope?, exhaustionThreshold? })`.
+  `key`, `label`, and `unit` are required. Use it for credits / dollars depleting toward zero.
+- `ctx.allowance({ key, label, unit, periodValue, periodUnit, periodCycle, limit?, used?, remaining?, resetsAt? })`.
+  All of `key`, `label`, `unit`, `periodValue`, `periodUnit`, and `periodCycle` are required.
+  `periodUnit` is one of `minute`, `hour`, `day`, `week`, or `month`.
+  `periodCycle` is `fixed` or `rolling`. `resetsAt` is an ISO date string.
+  Use it for request / token rate limits.
+- Keep it fast (10-second timeout) with one or two HTTP calls.
+
+Return:
+1. The function body in one ```js code block, ready to paste.
+2. The provider settings to use (Request endpoint, Authentication header/prefix, Additional headers, Other options).
+3. Anything you assumed or left configurable.
+````
+
 ## Management API
 
 All custom checker endpoints require the `x-admin-key` header:
