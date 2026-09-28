@@ -142,6 +142,69 @@ function nonStreamingMessagesRequest(): UnifiedChatRequest {
   } as any;
 }
 
+// Same shape, but a tool whose name is not a native tool at all — the masking
+// pipeline files it under `mcp__client__` (namespace shape, not collision).
+function streamingSearchRequest(): UnifiedChatRequest {
+  const tools = [
+    {
+      name: 'web_search_exa',
+      description: 'a third-party search tool',
+      input_schema: {
+        type: 'object',
+        properties: { query: { type: 'string' } },
+        required: ['query'],
+      },
+    },
+  ];
+  const body = {
+    model: 'test-alias',
+    stream: true,
+    max_tokens: 100,
+    messages: [{ role: 'user', content: 'hi' }],
+    tools,
+  };
+  return {
+    model: 'test-alias',
+    messages: [{ role: 'user', content: 'hi' }],
+    tools: tools.map((t) => ({
+      type: 'function',
+      function: { name: t.name, description: t.description, parameters: t.input_schema },
+    })),
+    stream: true,
+    incomingApiType: 'messages',
+    originalBody: body,
+  } as any;
+}
+
+function nonStreamingSearchRequest(): UnifiedChatRequest {
+  const request = streamingSearchRequest();
+  request.stream = false;
+  (request.originalBody as any).stream = false;
+  return request;
+}
+
+// An upstream response whose tool_use uses the NAMESPACE-masked name
+// `mcp__client__web_search_exa` — must be reversed to the caller's
+// `web_search_exa`, exactly like a collision rename.
+const UPSTREAM_SEARCH_SSE = [
+  'event: content_block_start',
+  'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_x","name":"mcp__client__web_search_exa","input":{}}}',
+  '',
+  'event: message_stop',
+  'data: {"type":"message_stop"}',
+  '',
+].join('\n');
+
+const UPSTREAM_SEARCH_JSON = JSON.stringify({
+  id: 'msg_x',
+  type: 'message',
+  role: 'assistant',
+  model: 'claude-sonnet-5',
+  content: [{ type: 'tool_use', id: 'toolu_x', name: 'mcp__client__web_search_exa', input: {} }],
+  stop_reason: 'tool_use',
+  usage: { input_tokens: 1, output_tokens: 1 },
+});
+
 // A non-streaming Anthropic Messages response whose tool_use uses the MASKED
 // name `mcp__client__Bash` — must be reversed to the caller's `Bash`.
 const UPSTREAM_JSON = JSON.stringify({
@@ -269,5 +332,37 @@ describe('Native OAuth pass-through', () => {
     // Went native: real endpoint, no pi-ai executor.
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect((fetchSpy.mock.calls[0] as any[])[0]).toBe('https://api.anthropic.com/v1/messages');
+  });
+
+  test('reverses a NAMESPACE tool rename (not just collision renames) on a streaming response', async () => {
+    setConfigForTesting(anthropicOAuthConfig());
+    fetchSpy.mockResolvedValueOnce(
+      new Response(UPSTREAM_SEARCH_SSE, {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+      })
+    );
+
+    const response = await new Dispatcher().dispatch(streamingSearchRequest());
+    const clientBytes = await drain(response.stream!);
+
+    expect(clientBytes).toContain('"name":"web_search_exa"');
+    expect(clientBytes).not.toContain('mcp__client__web_search_exa');
+  });
+
+  test('reverses a NAMESPACE tool rename on a non-streaming response body', async () => {
+    setConfigForTesting(anthropicOAuthConfig());
+    fetchSpy.mockResolvedValueOnce(
+      new Response(UPSTREAM_SEARCH_JSON, {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+    const response = await new Dispatcher().dispatch(nonStreamingSearchRequest());
+    const raw = JSON.stringify((response as any).rawResponse);
+
+    expect(raw).toContain('"name":"web_search_exa"');
+    expect(raw).not.toContain('mcp__client__web_search_exa');
   });
 });
