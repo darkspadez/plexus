@@ -54,7 +54,7 @@
     {
       "id": "requesty",
       "name": "Requesty",
-      "description": "Requesty LLM gateway, OpenAI chat and responses plus Anthropic messages.",
+      "description": "Requesty LLM gateway, OpenAI chat and responses plus Anthropic messages on one base.",
       "docsUrl": "https://docs.requesty.ai",
       "suggestedProviderId": "requesty",
       "suggestedName": "Requesty",
@@ -63,9 +63,52 @@
         "messages": "https://router.requesty.ai/v1",
         "responses": "https://router.requesty.ai/v1"
       },
-      "piAiProvider": "openrouter",
+      "piAiQuirks": {
+        "chat": {
+          "api": "openai-completions",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high"
+          },
+          "compat": {
+            "supportsTemperature": true,
+            "maxTokensField": "max_tokens",
+            "supportsReasoningEffort": true
+          }
+        },
+        "messages": {
+          "api": "anthropic-messages",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "off": "disabled",
+            "minimal": "minimal",
+            "low": "low",
+            "medium": "medium",
+            "high": "high"
+          },
+          "compat": {
+            "supportsTemperature": true
+          }
+        },
+        "responses": {
+          "api": "openai-responses",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "minimal": "minimal",
+            "low": "low",
+            "medium": "medium",
+            "high": "high"
+          },
+          "compat": {
+            "supportsTemperature": true
+          }
+        }
+      },
       "autoCompat": true,
-      "notes": "Get a key at https://app.requesty.ai/api-keys. Model ids look like openai/gpt-4o-mini. For EU routing use https://router.eu.requesty.ai/v1."
+      "notes": "Get a key at https://app.requesty.ai/api-keys. Model ids look like openai/gpt-4o-mini. Fetch Models reads GET /v1/models on the same base. Reasoning effort above high is model dependent upstream, so it clamps to high. For EU routing use https://router.eu.requesty.ai/v1."
     },
     {
       "id": "meta",

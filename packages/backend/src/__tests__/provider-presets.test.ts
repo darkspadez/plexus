@@ -23,6 +23,7 @@ import {
   loadProviderPresets,
   parseAndValidatePresets,
 } from '../services/provider-presets';
+import { applyRegistryAutoCompat } from '../services/dispatch/dispatcher-auto-compat';
 
 let catalog: ProviderPreset[] = [];
 
@@ -139,6 +140,39 @@ describe('built-in presets catalog (data/provider-presets.json)', () => {
     );
     // DeepSeek chat has no /v1 segment upstream.
     expect(presetOrThrow('deepseek').apiBaseUrl.chat).toBe('https://api.deepseek.com');
+  });
+
+  test('requesty declares inline quirks instead of borrowing the openrouter catalog', () => {
+    const requesty = presetOrThrow('requesty');
+    expect(requesty.piAiProvider).toBeUndefined();
+    expect(requesty.autoCompat).toBe(true);
+    expect(Object.keys(requesty.piAiQuirks ?? {}).sort()).toEqual([
+      'chat',
+      'messages',
+      'responses',
+    ]);
+
+    const project = (targetApiType: string, body: Record<string, unknown>) =>
+      applyRegistryAutoCompat(
+        body,
+        { model: 'alias', messages: [], incomingApiType: targetApiType } as any,
+        {
+          provider: 'requesty',
+          model: 'anthropic/claude-sonnet-4-5',
+          config: { auto_compat: true, pi_ai_quirks: requesty.piAiQuirks } as any,
+        } as any,
+        targetApiType
+      );
+
+    // Requesty chat reads top-level reasoning_effort; it ignores the OpenRouter
+    // reasoning object on Anthropic models and its router rejects "minimal".
+    const chat = project('chat', { reasoning: { effort: 'high' } });
+    expect(chat.reasoning).toBeUndefined();
+    expect(chat.reasoning_effort).toBe('high');
+    expect(requesty.piAiQuirks?.chat?.thinkingLevelMap?.minimal).toBeNull();
+
+    const messages = project('messages', { max_tokens: 4000, reasoning_effort: 'low' });
+    expect(messages.thinking).toMatchObject({ type: 'enabled', budget_tokens: 2048 });
   });
 });
 
