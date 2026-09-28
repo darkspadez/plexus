@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { buildToolRenamePairs } from '../registry';
 import { dedupeSyntheticToolCollisions } from '../dedupe';
+import { CC_TOOL_REFERENCE } from '../cc-reference-tools';
+import { NON_CC_TOOL_NAMESPACE, namespaceNonCcToolName } from '../cc-namespace-shape';
 import type { ToolDescriptor } from '../types';
 
-function tool(name: string, required: string[] = []): ToolDescriptor {
-  return { name, parameters: { type: 'object', required } };
+function tool(name: string, required: string[] = [], type?: string): ToolDescriptor {
+  const descriptor: ToolDescriptor = { name, parameters: { type: 'object', required } };
+  if (type !== undefined) descriptor.type = type;
+  return descriptor;
 }
 
 describe('buildToolRenamePairs', () => {
@@ -13,7 +17,9 @@ describe('buildToolRenamePairs', () => {
     // Write requires file_path/content — same name, different shape.
     const tools = [tool('Write', ['filePath', 'content'])];
     const pairs = buildToolRenamePairs(tools);
-    expect(pairs).toEqual([['Write', 'mcp__Write', 'ALWAYS USE THIS TOOL INSTEAD OF Write.']]);
+    expect(pairs).toEqual([
+      ['Write', `${NON_CC_TOOL_NAMESPACE}Write`, 'ALWAYS USE THIS TOOL INSTEAD OF Write.'],
+    ]);
   });
 
   it('does not rename a tool whose name collides with a real Claude Code tool and already matches its shape', () => {
@@ -22,141 +28,140 @@ describe('buildToolRenamePairs', () => {
     expect(buildToolRenamePairs(tools)).toEqual([]);
   });
 
-  it('does not rename current Claude Code tools whose all-optional schemas omit required', () => {
-    // Captured from claude-cli/2.1.207. JSON Schema represents an
-    // all-optional input object by omitting `required`, rather than `[]`.
-    const tools: ToolDescriptor[] = ['EnterWorktree', 'ScheduleWakeup', 'Workflow'].map((name) => ({
-      name,
-      parameters: { type: 'object', properties: {} },
-    }));
-
-    expect(buildToolRenamePairs(tools)).toEqual([]);
+  it('leaves every current real CC tool name bare', () => {
+    for (const [name, required] of Object.entries(CC_TOOL_REFERENCE)) {
+      const pairs = buildToolRenamePairs([tool(name, [...required])]);
+      expect(pairs, `${name} must pass through bare`).toEqual([]);
+    }
   });
 
-  it('does not rename tools with no name collision against any real Claude Code tool', () => {
-    // None of these names appear in the CC reference table at all (case-
-    // sensitive exact match), regardless of which client sent them.
-    const tools = [
-      tool('webfetch', ['url']),
-      tool('skill', ['name']),
-      tool('question'),
-      tool('glob', ['pattern']),
-      tool('grep', ['pattern']),
-    ];
-    expect(buildToolRenamePairs(tools)).toEqual([]);
+  it('namespaces a caller tool that is not a current real CC tool name', () => {
+    // The exact name Anthropic fingerprints as third-party traffic (verified
+    // on staging: bare `web_search_exa` -> 400 "out of extra usage").
+    const tools = [tool('web_search_exa', ['query', 'objective'])];
+    expect(buildToolRenamePairs(tools)).toEqual([
+      ['web_search_exa', `${NON_CC_TOOL_NAMESPACE}web_search_exa`],
+    ]);
   });
 
-  it('clusters MCP-server tools by shared prefix into mcp__<server>__<tool> form', () => {
+  it('namespaces flat MCP-ish names wholesale rather than by prefix clustering', () => {
+    // No cluster-size threshold: even a two-tool "server" is namespaced, and
+    // the namespaced name preserves the whole original (no fake server
+    // derived from the first underscore).
     const tools = [
-      tool('github_search_users'),
-      tool('github_get_me'),
-      tool('github_list_issues'),
-      tool('github_create_gist'),
+      tool('web_search_exa', ['query']),
+      tool('web_fetch_exa', ['urls']),
+      tool('calculator'),
     ];
-    const pairs = buildToolRenamePairs(tools);
-    expect(Object.fromEntries(pairs.map(([from, to]) => [from, to]))).toEqual({
-      github_search_users: 'mcp__github__search_users',
-      github_get_me: 'mcp__github__get_me',
-      github_list_issues: 'mcp__github__list_issues',
-      github_create_gist: 'mcp__github__create_gist',
+    expect(Object.fromEntries(buildToolRenamePairs(tools).map(([f, t]) => [f, t]))).toEqual({
+      web_search_exa: `${NON_CC_TOOL_NAMESPACE}web_search_exa`,
+      web_fetch_exa: `${NON_CC_TOOL_NAMESPACE}web_fetch_exa`,
+      calculator: `${NON_CC_TOOL_NAMESPACE}calculator`,
     });
   });
 
-  it('leaves tools that are already in mcp__<server>__<tool> form untouched', () => {
-    // Real Claude Code already emits this convention. Clustering on the first
-    // underscore reads their literal "mcp" prefix as a server name and
-    // double-prefixes them (mcp__github__get_me ->
-    // mcp__mcp___github__get_me), which desynchronizes tools[].name from the
-    // tool_reference blocks in the message history and makes Anthropic reject
-    // the request with 400 "Tool reference ... not found in available tools".
+  it('leaves tools already in the mcp__ namespace untouched (no double-prefix)', () => {
     const tools = [
       tool('mcp__github__get_me'),
-      tool('mcp__github__search_users'),
-      tool('mcp__playwright__browser_click'),
-      tool('mcp__playwright__browser_navigate'),
+      tool('mcp__exa__web_search_exa'),
       tool('mcp__home-assistant__ha_get_state'),
     ];
     expect(buildToolRenamePairs(tools)).toEqual([]);
   });
 
-  it('still clusters flat server_tool names when CC-shaped MCP tools are present alongside them', () => {
+  it('leaves server-side tools byte-identical', () => {
+    // Server tools carry a closed Anthropic-owned schema; renaming the
+    // declaration would break it (see cc-tools-server-tools.test.ts).
     const tools = [
-      ...Array.from({ length: 4 }, (_, i) => tool(`mcp__playwright__tool_${i}`)),
-      ...Array.from({ length: 4 }, (_, i) => tool(`github_tool_${i}`)),
-    ];
-    const pairs = buildToolRenamePairs(tools);
-    expect(Object.fromEntries(pairs.map(([from, to]) => [from, to]))).toEqual({
-      github_tool_0: 'mcp__github__tool_0',
-      github_tool_1: 'mcp__github__tool_1',
-      github_tool_2: 'mcp__github__tool_2',
-      github_tool_3: 'mcp__github__tool_3',
-    });
-  });
-
-  it('does not cluster prefixes with too few tools (avoids false positives)', () => {
-    // Only 3 tools share the "list" prefix — below MIN_CLUSTER_SIZE (4) — so
-    // opencode's own list_mcp_resources / list_mcp_resource_templates /
-    // list_types must NOT be misidentified as an MCP server named "list".
-    const tools = [
-      tool('list_mcp_resources'),
-      tool('list_mcp_resource_templates'),
-      tool('list_types'),
+      tool('web_search', [], 'web_search_20250305'),
+      tool('bash', [], 'bash_20250124'),
+      tool('advisor', [], 'advisor_20260301'),
     ];
     expect(buildToolRenamePairs(tools)).toEqual([]);
   });
 
-  it('does not double-rename a name already claimed by the CC-collision shape', () => {
-    // "Edit" collides with real CC's Edit under an incompatible shape and is
-    // claimed by cc-collision-shape first; mcp-shape never sees "Edit" (nor
-    // would it match — no underscore) as a candidate for its own clustering.
-    const tools = [tool('Edit', ['filePath', 'oldString', 'newString']), tool('bash_run')];
+  it('namespaces a server-tool lookalike only when it is a caller custom tool', () => {
+    const tools = [
+      tool('web_search', ['query'], 'custom'),
+      tool('web_search', [], 'web_search_20250305'),
+    ];
+    // Only the custom declaration (first) is renamed; the server declaration
+    // shares the name but is skipped, so no pair is emitted for it. (Duplicate
+    // names are invalid input regardless.)
     const pairs = buildToolRenamePairs(tools);
-    expect(pairs).toEqual([['Edit', 'mcp__Edit', 'ALWAYS USE THIS TOOL INSTEAD OF Edit.']]);
+    expect(pairs).toEqual([['web_search', `${NON_CC_TOOL_NAMESPACE}web_search`]]);
   });
 
-  it('handles the full real-world trace shape (opencode + 3 MCP servers + unmatched extras)', () => {
+  it('produces names that respect the 64-char Anthropic limit', () => {
+    const long = 'x'.repeat(120);
+    const pairs = buildToolRenamePairs([tool(long, [], 'custom')]);
+    expect(pairs).toHaveLength(1);
+    const [, renamed] = pairs[0]!;
+    expect(renamed.length).toBeLessThanOrEqual(64);
+    expect(renamed.startsWith(NON_CC_TOOL_NAMESPACE)).toBe(true);
+  });
+
+  it('sanitizes characters Anthropic rejects in tool names', () => {
+    const pairs = buildToolRenamePairs([tool('weird tool/name.v2', [], 'custom')]);
+    expect(pairs).toEqual([['weird tool/name.v2', `${NON_CC_TOOL_NAMESPACE}weird_tool_name_v2`]]);
+  });
+
+  it('disambiguates two caller names that sanitize to the same namespace target', () => {
+    const pairs = buildToolRenamePairs([tool('a b', [], 'custom'), tool('a_b', [], 'custom')]);
+    expect(Object.fromEntries(pairs.map(([f, t]) => [f, t]))).toEqual({
+      'a b': `${NON_CC_TOOL_NAMESPACE}a_b`,
+      a_b: `${NON_CC_TOOL_NAMESPACE}a_b_2`,
+    });
+  });
+
+  it('is deterministic for identical input', () => {
     const tools = [
-      // opencode built-ins, pre-pi-ai-rename casing/shape: lowercase names
-      // don't collide with any real CC tool name at all (case-sensitive).
-      ...['bash', 'edit', 'read', 'write', 'todowrite'].map((n) => tool(n)),
-      ...['webfetch', 'skill', 'question', 'glob', 'grep'].map((n) => tool(n)),
-      ...['list_mcp_resource_templates', 'list_mcp_resources', 'read_mcp_resource'].map((n) =>
-        tool(n)
-      ),
-      ...['list_types', 'lookup_type', 'type_check'].map((n) => tool(n)),
-      ...Array.from({ length: 13 }, (_, i) => tool(`ESPhome_tool_${i}`)),
-      ...Array.from({ length: 55 }, (_, i) => tool(`github_tool_${i}`)),
-      ...Array.from({ length: 58 }, (_, i) => tool(`home-assistant_tool_${i}`)),
+      tool('web_search_exa', ['query']),
+      tool('calculator'),
+      tool('Write', ['filePath']),
+    ];
+    expect(buildToolRenamePairs(tools)).toEqual(buildToolRenamePairs(tools));
+  });
+
+  it('does not double-rename a name already claimed by the CC-collision shape', () => {
+    // "Edit" collides with real CC's Edit under an incompatible shape and is
+    // claimed first; the namespace shape must not see it again.
+    const tools = [tool('Edit', ['filePath', 'oldString', 'newString']), tool('calculator')];
+    const pairs = buildToolRenamePairs(tools);
+    expect(Object.fromEntries(pairs.map(([f, t]) => [f, t]))).toEqual({
+      Edit: `${NON_CC_TOOL_NAMESPACE}Edit`,
+      calculator: `${NON_CC_TOOL_NAMESPACE}calculator`,
+    });
+    expect(pairs.filter(([from]) => from === 'Edit')).toHaveLength(1);
+  });
+
+  it('handles the full fixture shape (mixed CC names + a messy client surface)', () => {
+    const tools = [
+      tool('Bash', ['command']),
+      tool('Read', ['filePath']), // CC name, wrong shape -> collision rename
+      tool('web_search_exa', ['query']), // Anthropic-fingerprinted third-party name
+      tool('home-assistant_ha_get_state'),
+      tool('github_search_users'),
+      tool('mcp__exa__web_search_exa'), // already namespaced
+      tool('web_search', [], 'web_search_20250305'), // server tool
     ];
     const pairs = buildToolRenamePairs(tools);
-    const renamedNames = new Set(pairs.map(([, renamed]) => renamed));
-    // No CC-name collisions here (all lowercase) — only the 3 MCP clusters: 13 + 55 + 58 = 126.
-    expect(pairs).toHaveLength(13 + 55 + 58);
-    // No collisions among the renamed target names.
-    expect(renamedNames.size).toBe(pairs.length);
-    // Unmatched tools (the opencode built-ins/extras, none of which collide
-    // with a real CC name while lowercase) are untouched.
-    const renamedSources = new Set(pairs.map(([from]) => from));
-    for (const untouched of [
-      'bash',
-      'edit',
-      'read',
-      'write',
-      'todowrite',
-      'webfetch',
-      'skill',
-      'question',
-      'glob',
-      'grep',
-      'list_mcp_resource_templates',
-      'list_mcp_resources',
-      'read_mcp_resource',
-      'list_types',
-      'lookup_type',
-      'type_check',
-    ]) {
-      expect(renamedSources.has(untouched)).toBe(false);
-    }
+    expect(Object.fromEntries(pairs.map(([f, t]) => [f, t]))).toEqual({
+      Read: `${NON_CC_TOOL_NAMESPACE}Read`,
+      web_search_exa: `${NON_CC_TOOL_NAMESPACE}web_search_exa`,
+      'home-assistant_ha_get_state': `${NON_CC_TOOL_NAMESPACE}home-assistant_ha_get_state`,
+      github_search_users: `${NON_CC_TOOL_NAMESPACE}github_search_users`,
+    });
+  });
+});
+
+describe('namespaceNonCcToolName', () => {
+  it('preserves readable suffixes so the model can still distinguish tools', () => {
+    expect(namespaceNonCcToolName('web_search_exa')).toBe(`${NON_CC_TOOL_NAMESPACE}web_search_exa`);
+  });
+
+  it('falls back to a non-empty body when the name sanitizes away', () => {
+    expect(namespaceNonCcToolName('!!!')).toBe(`${NON_CC_TOOL_NAMESPACE}___`);
   });
 });
 
