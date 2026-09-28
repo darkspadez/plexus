@@ -8,6 +8,8 @@ import chatLogo from '../../assets/chat.svg';
 import geminiLogo from '../../assets/gemini.svg';
 // @ts-ignore
 import responsesLogo from '../../assets/responses.svg';
+// @ts-ignore
+import ollamaLogo from '../../assets/ollama.svg';
 
 export const DESKTOP_STATUS_COLUMN_WIDTH = '32px';
 export const DESKTOP_DATE_COLUMN_WIDTH = '96px';
@@ -25,6 +27,7 @@ export const API_LOGOS: Record<string, string> = {
   gemini: geminiLogo,
   responses: responsesLogo,
   'openai-responses': responsesLogo,
+  ollama: ollamaLogo,
   // pi-ai/OAuth outgoing API types
   'google-generative-ai': geminiLogo,
   'openai-completions': chatLogo,

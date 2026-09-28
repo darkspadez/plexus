@@ -1,4 +1,11 @@
 import type { UsageRecord } from '../../types/usage';
+import { getApiBaseType } from '../../lib/apiFormats';
+
+const DECISIONS_API_TYPES = new Set(['decisions', 'openrouter-decisions', 'typesafe-decisions']);
+
+/** True when `apiType` is a Decisions ingress or target protocol. */
+export const isDecisionsApiType = (apiType?: string | null): boolean =>
+  apiType ? DECISIONS_API_TYPES.has(getApiBaseType(apiType)) : false;
 
 export const formatReasoningEffort = (effort?: string | null): string | null => {
   if (!effort) return null;
