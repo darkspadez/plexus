@@ -5,13 +5,13 @@
     "@biomejs/biome": "2.5.14",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
-    "@redocly/cli": "^2.53.3",
-    "@vitest/coverage-istanbul": "5.0.1",
+    "@redocly/cli": "^2.55.0",
+    "@vitest/coverage-istanbul": "5.0.2",
     "agent-browser": "^0.38.1",
     "bun-types": "1.4.2",
     "lefthook": "^2.1.14",
     "octokit": "^5.0.5",
-    "vitest": "^5.0.1",
+    "vitest": "^5.0.2",
     "yaml": "^2.9.1",
     "zod": "^4.6.5"
   },
@@ -94,6 +94,6 @@
     "zod": "^4.6.5"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "0.86.1"
+    "@earendil-works/pi-ai": "0.87.1"
   }
 }
