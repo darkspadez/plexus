@@ -13,9 +13,6 @@ import {
   BrainCog,
   PackageOpen,
   Copy,
-  Variable,
-  AudioLines,
-  Volume2,
   Wrench,
   MessagesSquare,
   PlugZap,
@@ -24,11 +21,6 @@ import {
   Hammer,
   RulerDimensionLine,
   ChevronDown,
-  Image as ImageIcon,
-  ShieldCheck,
-  Gavel,
-  Disc,
-  BadgeQuestionMark,
   Braces,
   RotateCcw,
   PencilLine,
@@ -52,10 +44,9 @@ import {
   formatTPS,
   getEstimatedBytesPerToken,
 } from '../../lib/format';
-import { formatApiTypeLabel, getApiBaseType } from '../../lib/apiFormats';
+import { formatApiTypeLabel } from '../../lib/apiFormats';
 import { isClipboardAvailable, copyToClipboard } from '../../lib/clipboard';
 import {
-  API_LOGOS,
   PI_AI_OUTGOING_TYPES,
   DESKTOP_STATUS_COLUMN_WIDTH,
   DESKTOP_DATE_COLUMN_WIDTH,
@@ -70,8 +61,8 @@ import {
   formatReasoningEffort,
   getAttemptIndicatorLabel,
   hasUpstreamRewrite,
-  isDecisionsApiType,
 } from './helpers';
+import { ApiTypeIcon } from './ApiTypeIcon';
 import type { DesktopLogRowProps } from './types';
 
 export const DesktopLogRow = React.memo(
@@ -267,61 +258,11 @@ export const DesktopLogRow = React.memo(
             {/* API type icons */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
               <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                {log.incomingApiType === 'embeddings' ? (
-                  <Variable size={16} className="text-green-500" />
-                ) : log.incomingApiType === 'transcriptions' ? (
-                  <AudioLines size={16} className="text-purple-500" />
-                ) : log.incomingApiType === 'speech' ? (
-                  <Volume2 size={16} className="text-orange-500" />
-                ) : log.incomingApiType === 'images' ? (
-                  <ImageIcon size={16} className="text-fuchsia-500" />
-                ) : log.incomingApiType === 'completions' ? (
-                  <Disc size={16} className="text-blue-500" />
-                ) : log.incomingApiType === 'raw' ? (
-                  <BadgeQuestionMark size={16} className="text-cyan-400" />
-                ) : isDecisionsApiType(log.incomingApiType) ? (
-                  <Gavel size={16} className="text-sky-500" />
-                ) : log.incomingApiType === 'oauth' ? (
-                  <ShieldCheck size={16} className="text-emerald-500" />
-                ) : log.incomingApiType && API_LOGOS[getApiBaseType(log.incomingApiType)] ? (
-                  <img
-                    src={API_LOGOS[getApiBaseType(log.incomingApiType)]}
-                    alt={formatApiTypeLabel(log.incomingApiType)}
-                    title={formatApiTypeLabel(log.incomingApiType)}
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                ) : (
-                  '?'
-                )}
+                <ApiTypeIcon apiType={log.incomingApiType} size={16} />
               </div>
               <span style={{ width: '14px', textAlign: 'center' }}>→</span>
               <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                {log.outgoingApiType === 'embeddings' ? (
-                  <Variable size={16} className="text-green-500" />
-                ) : log.outgoingApiType === 'transcriptions' ? (
-                  <AudioLines size={16} className="text-purple-500" />
-                ) : log.outgoingApiType === 'speech' ? (
-                  <Volume2 size={16} className="text-orange-500" />
-                ) : log.outgoingApiType === 'images' ? (
-                  <ImageIcon size={16} className="text-fuchsia-500" />
-                ) : log.outgoingApiType === 'completions' ? (
-                  <Disc size={16} className="text-blue-500" />
-                ) : log.outgoingApiType === 'raw' ? (
-                  <BadgeQuestionMark size={16} className="text-cyan-400" />
-                ) : isDecisionsApiType(log.outgoingApiType) ? (
-                  <Gavel size={16} className="text-sky-500" />
-                ) : log.outgoingApiType === 'oauth' ? (
-                  <ShieldCheck size={16} className="text-emerald-500" />
-                ) : log.outgoingApiType && API_LOGOS[getApiBaseType(log.outgoingApiType)] ? (
-                  <img
-                    src={API_LOGOS[getApiBaseType(log.outgoingApiType)]}
-                    alt={formatApiTypeLabel(log.outgoingApiType)}
-                    title={formatApiTypeLabel(log.outgoingApiType)}
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                ) : (
-                  '?'
-                )}
+                <ApiTypeIcon apiType={log.outgoingApiType} size={16} />
               </div>
             </div>
             <div className="hidden min-[1150px]:block">
