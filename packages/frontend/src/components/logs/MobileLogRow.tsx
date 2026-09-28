@@ -7,10 +7,12 @@ import {
   Timer,
   XCircle,
   KeyRound,
-  Braces,
   Variable,
   AudioLines,
   Volume2,
+  Gavel,
+  Disc,
+  BadgeQuestionMark,
   Image as ImageIcon,
   ShieldCheck,
   MessagesSquare,
@@ -32,6 +34,7 @@ import {
   formatReasoningEffort,
   getAttemptIndicatorLabel,
   hasUpstreamRewrite,
+  isDecisionsApiType,
 } from './helpers';
 import type { LogRowProps } from './types';
 
@@ -196,7 +199,7 @@ export const MobileLogRow = React.memo(
                   title={formatApiTypeLabel(log.incomingApiType || '')}
                 >
                   {log.incomingApiType === 'raw' ? (
-                    <Braces size={12} className="text-cyan-400" />
+                    <BadgeQuestionMark size={12} className="text-cyan-400" />
                   ) : log.incomingApiType === 'embeddings' ? (
                     <Variable size={12} className="text-green-500" />
                   ) : log.incomingApiType === 'transcriptions' ? (
@@ -205,6 +208,10 @@ export const MobileLogRow = React.memo(
                     <Volume2 size={12} className="text-orange-500" />
                   ) : log.incomingApiType === 'images' ? (
                     <ImageIcon size={12} className="text-fuchsia-500" />
+                  ) : log.incomingApiType === 'completions' ? (
+                    <Disc size={12} className="text-blue-500" />
+                  ) : isDecisionsApiType(log.incomingApiType) ? (
+                    <Gavel size={12} className="text-sky-500" />
                   ) : log.incomingApiType === 'oauth' ? (
                     <ShieldCheck size={12} className="text-emerald-500" />
                   ) : log.incomingApiType && API_LOGOS[getApiBaseType(log.incomingApiType)] ? (
@@ -226,7 +233,7 @@ export const MobileLogRow = React.memo(
                   title={formatApiTypeLabel(log.outgoingApiType || '')}
                 >
                   {log.outgoingApiType === 'raw' ? (
-                    <Braces size={12} className="text-cyan-400" />
+                    <BadgeQuestionMark size={12} className="text-cyan-400" />
                   ) : log.outgoingApiType === 'embeddings' ? (
                     <Variable size={12} className="text-green-500" />
                   ) : log.outgoingApiType === 'transcriptions' ? (
@@ -235,6 +242,10 @@ export const MobileLogRow = React.memo(
                     <Volume2 size={12} className="text-orange-500" />
                   ) : log.outgoingApiType === 'images' ? (
                     <ImageIcon size={12} className="text-fuchsia-500" />
+                  ) : log.outgoingApiType === 'completions' ? (
+                    <Disc size={12} className="text-blue-500" />
+                  ) : isDecisionsApiType(log.outgoingApiType) ? (
+                    <Gavel size={12} className="text-sky-500" />
                   ) : log.outgoingApiType === 'oauth' ? (
                     <ShieldCheck size={12} className="text-emerald-500" />
                   ) : log.outgoingApiType && API_LOGOS[getApiBaseType(log.outgoingApiType)] ? (

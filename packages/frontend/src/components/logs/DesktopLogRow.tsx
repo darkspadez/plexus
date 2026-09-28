@@ -26,6 +26,9 @@ import {
   ChevronDown,
   Image as ImageIcon,
   ShieldCheck,
+  Gavel,
+  Disc,
+  BadgeQuestionMark,
   Braces,
   RotateCcw,
   PencilLine,
@@ -67,6 +70,7 @@ import {
   formatReasoningEffort,
   getAttemptIndicatorLabel,
   hasUpstreamRewrite,
+  isDecisionsApiType,
 } from './helpers';
 import type { DesktopLogRowProps } from './types';
 
@@ -271,6 +275,12 @@ export const DesktopLogRow = React.memo(
                   <Volume2 size={16} className="text-orange-500" />
                 ) : log.incomingApiType === 'images' ? (
                   <ImageIcon size={16} className="text-fuchsia-500" />
+                ) : log.incomingApiType === 'completions' ? (
+                  <Disc size={16} className="text-blue-500" />
+                ) : log.incomingApiType === 'raw' ? (
+                  <BadgeQuestionMark size={16} className="text-cyan-400" />
+                ) : isDecisionsApiType(log.incomingApiType) ? (
+                  <Gavel size={16} className="text-sky-500" />
                 ) : log.incomingApiType === 'oauth' ? (
                   <ShieldCheck size={16} className="text-emerald-500" />
                 ) : log.incomingApiType && API_LOGOS[getApiBaseType(log.incomingApiType)] ? (
@@ -294,6 +304,12 @@ export const DesktopLogRow = React.memo(
                   <Volume2 size={16} className="text-orange-500" />
                 ) : log.outgoingApiType === 'images' ? (
                   <ImageIcon size={16} className="text-fuchsia-500" />
+                ) : log.outgoingApiType === 'completions' ? (
+                  <Disc size={16} className="text-blue-500" />
+                ) : log.outgoingApiType === 'raw' ? (
+                  <BadgeQuestionMark size={16} className="text-cyan-400" />
+                ) : isDecisionsApiType(log.outgoingApiType) ? (
+                  <Gavel size={16} className="text-sky-500" />
                 ) : log.outgoingApiType === 'oauth' ? (
                   <ShieldCheck size={16} className="text-emerald-500" />
                 ) : log.outgoingApiType && API_LOGOS[getApiBaseType(log.outgoingApiType)] ? (
