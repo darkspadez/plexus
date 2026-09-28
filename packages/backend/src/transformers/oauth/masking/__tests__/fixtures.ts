@@ -25,8 +25,8 @@
  * catch. `Bash` is the one exception: opencode's `command`-only shape
  * happens to already match real CC's, so it passes through unrenamed.
  * `Glob`/`Grep`/`TodoWrite` collide with no CURRENT real CC tool name (CC
- * dropped Glob/Grep/TodoRead; TodoWrite was never a CC name to begin with)
- * so they're untouched for a different reason: no collision at all.
+ * dropped Glob/Grep/TodoRead; TodoWrite was never a CC name to begin with),
+ * so they take the plain namespace rename with no collision note.
  */
 
 import type { ToolDescriptor } from '../types';
@@ -60,8 +60,8 @@ function tool(
  * exists to catch. `Bash` collides too, but its shape already matches real
  * CC's (`command`-only), so it's left alone. `Glob`/`Grep`/`TodoWrite`
  * don't collide with any CURRENT real CC tool name at all (CC dropped
- * Glob/Grep/TodoRead; TodoWrite was never a CC name) — untouched for a
- * different reason: no name collision to begin with.
+ * Glob/Grep/TodoRead; TodoWrite was never a CC name), so they take the
+ * plain namespace rename with no collision note.
  */
 function opencodeToolsAlreadyRenamedByPiAi(): AnthropicToolFixture[] {
   return [
@@ -109,11 +109,10 @@ function opencodeToolsAlreadyRenamedByPiAi(): AnthropicToolFixture[] {
 
 /**
  * pi-ai also renames these two to Claude Code casing before our pipeline
- * runs. Both collide with a real CC tool name under an incompatible shape
- * (opencode's `webfetch` takes `url`, no `prompt`; real CC's `WebFetch`
- * requires both — see rawrequest.json) or no CC equivalent's shape at all
- * (`Skill` here uses `name`; real CC's `Skill` requires `skill`) — either
- * way `cc-collision-shape.ts` catches both.
+ * runs. Both collide with a current CC tool name under an incompatible
+ * shape (opencode's `webfetch` takes `url` only; real CC's `WebFetch`
+ * requires `url` and `prompt`; real CC's `Skill` requires `skill`, not
+ * `name`), so `cc-collision-shape.ts` catches both.
  */
 function toolsRenamedByPiAiOnly(): AnthropicToolFixture[] {
   return [
@@ -126,7 +125,7 @@ function toolsRenamedByPiAiOnly(): AnthropicToolFixture[] {
   ];
 }
 
-/** opencode-specific tool with no Claude Code equivalent — stays lowercase. */
+/** opencode-specific tool with no Claude Code equivalent — gets namespaced. */
 function untouchedOpencodeTools(): AnthropicToolFixture[] {
   return [
     tool('question'),
@@ -163,7 +162,7 @@ export function buildFixtureTools(): AnthropicToolFixture[] {
 }
 
 export function toToolDescriptors(tools: AnthropicToolFixture[]): ToolDescriptor[] {
-  return tools.map((t) => ({ name: t.name, parameters: t.input_schema }));
+  return tools.map((t) => ({ name: t.name, parameters: t.input_schema, type: (t as any).type }));
 }
 
 /**

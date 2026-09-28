@@ -22,15 +22,17 @@
  * "when the client is not Claude Code" is exactly the condition under
  * which a name collision like this can even arise.
  *
- * The renamed-to name is prefixed `mcp__` (this pipeline's existing
- * convention for "not a native CC tool name" — see `mcp-shape.ts`) rather
- * than invented ad hoc, and its description gets an appended instruction
- * telling the model to prefer it over the real CC tool of the same name,
- * since the model will see both in `tools[]` and needs a reason to pick
- * the caller's version for calls the caller will actually execute.
+ * The renamed-to name is filed under the same `mcp__client__` namespace
+ * `cc-namespace-shape.ts` uses for every non-CC tool (see
+ * `namespaceNonCcToolName`), rather than invented ad hoc, and its
+ * description gets an appended instruction telling the model to prefer it
+ * over the real CC tool of the same name, since the model will see both in
+ * `tools[]` and needs a reason to pick the caller's version for calls the
+ * caller will actually execute.
  */
 
 import { CC_TOOL_REFERENCE, matchesReferenceShape } from './cc-reference-tools';
+import { namespaceNonCcToolName } from './cc-namespace-shape';
 import type { RenamePair, ToolDescriptor, ToolShape } from './types';
 
 function requiredParamsOf(tool: ToolDescriptor): string[] | undefined {
@@ -48,7 +50,7 @@ export const ccCollisionShape: ToolShape = {
       if (!(tool.name in CC_TOOL_REFERENCE)) continue;
       if (matchesReferenceShape(tool.name, requiredParamsOf(tool))) continue;
 
-      const renamed = `mcp__${tool.name}`;
+      const renamed = namespaceNonCcToolName(tool.name);
       pairs.push([tool.name, renamed, `ALWAYS USE THIS TOOL INSTEAD OF ${tool.name}.`]);
     }
     return pairs;

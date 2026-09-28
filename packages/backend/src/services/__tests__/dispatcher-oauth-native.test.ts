@@ -17,7 +17,7 @@ import type { UnifiedChatRequest } from '../../types/unified';
 const { Dispatcher } = await import('../dispatch/dispatcher');
 
 // A real-shape Anthropic Messages SSE stream, including the bits the pi-ai
-// executor discarded. The upstream tool_use name is `mcp__Bash` — the name the
+// executor discarded. The upstream tool_use name is `mcp__client__Bash` — the name the
 // masking pipeline renamed the caller's `Bash` tool to (collision-shape). On
 // the way back it MUST be reversed to the caller's original `Bash`.
 const UPSTREAM_SSE = [
@@ -28,7 +28,7 @@ const UPSTREAM_SSE = [
   'data: {"type": "ping"}',
   '',
   'event: content_block_start',
-  'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_x","name":"mcp__Bash","input":{}}}',
+  'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_x","name":"mcp__client__Bash","input":{}}}',
   '',
   'event: content_block_delta',
   'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{}"}}',
@@ -77,7 +77,7 @@ function anthropicOAuthConfig() {
 function streamingMessagesRequest(): UnifiedChatRequest {
   // Caller sends a `Bash` tool whose schema collides in shape with the real
   // Claude Code Bash tool, forcing the masking pipeline to rename it to
-  // `mcp__Bash` on the way out. The response must reverse it back to `Bash`.
+  // `mcp__client__Bash` on the way out. The response must reverse it back to `Bash`.
   const tools = [
     {
       name: 'Bash',
@@ -143,7 +143,7 @@ function nonStreamingMessagesRequest(): UnifiedChatRequest {
 }
 
 // A non-streaming Anthropic Messages response whose tool_use uses the MASKED
-// name `mcp__Bash` — must be reversed to the caller's `Bash`.
+// name `mcp__client__Bash` — must be reversed to the caller's `Bash`.
 const UPSTREAM_JSON = JSON.stringify({
   id: 'msg_x',
   type: 'message',
@@ -151,7 +151,7 @@ const UPSTREAM_JSON = JSON.stringify({
   model: 'claude-sonnet-5',
   content: [
     { type: 'text', text: 'running' },
-    { type: 'tool_use', id: 'toolu_x', name: 'mcp__Bash', input: { foo: 'ls' } },
+    { type: 'tool_use', id: 'toolu_x', name: 'mcp__client__Bash', input: { foo: 'ls' } },
   ],
   stop_reason: 'tool_use',
   usage: { input_tokens: 2, output_tokens: 5 },
@@ -206,11 +206,11 @@ describe('Native OAuth pass-through', () => {
     expect(clientBytes).toContain('"service_tier":"standard","inference_geo":"global"}}}  }');
     expect(clientBytes).toContain('"type":"content_block_stop","index":0  }');
 
-    // Tool-name reversal: the upstream `mcp__Bash` (masking's rename of the
+    // Tool-name reversal: the upstream `mcp__client__Bash` (masking's rename of the
     // caller's `Bash`) MUST be restored to `Bash` on the way to the client, and
     // the renamed wire name must NOT leak through.
     expect(clientBytes).toContain('"name":"Bash"');
-    expect(clientBytes).not.toContain('mcp__Bash');
+    expect(clientBytes).not.toContain('mcp__client__Bash');
 
     // Went native: real endpoint, no pi-ai executor.
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -256,15 +256,15 @@ describe('Native OAuth pass-through', () => {
     const response = await new Dispatcher().dispatch(nonStreamingMessagesRequest());
 
     // rawResponse holds the (reversed) upstream Anthropic body. The masked
-    // `mcp__Bash` must be restored to the caller's `Bash`, with no leak.
+    // `mcp__client__Bash` must be restored to the caller's `Bash`, with no leak.
     const raw = JSON.stringify((response as any).rawResponse);
     expect(raw).toContain('"name":"Bash"');
-    expect(raw).not.toContain('mcp__Bash');
+    expect(raw).not.toContain('mcp__client__Bash');
 
     // The synthetic-parsed tool call the client sees also carries the reversed name.
     const toolCallNames = (response.tool_calls ?? []).map((tc: any) => tc.function?.name);
     expect(toolCallNames).toContain('Bash');
-    expect(toolCallNames).not.toContain('mcp__Bash');
+    expect(toolCallNames).not.toContain('mcp__client__Bash');
 
     // Went native: real endpoint, no pi-ai executor.
     expect(fetchSpy).toHaveBeenCalledTimes(1);

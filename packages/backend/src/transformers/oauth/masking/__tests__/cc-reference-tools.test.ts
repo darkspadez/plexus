@@ -15,7 +15,7 @@ describe('matchesReferenceShape', () => {
   });
 
   it('matches a reference tool with no required params when given an empty array', () => {
-    expect(matchesReferenceShape('TaskList', [])).toBe(true);
+    expect(matchesReferenceShape('ListAgents', [])).toBe(true);
     expect(matchesReferenceShape('Workflow', [])).toBe(true);
   });
 
@@ -34,7 +34,7 @@ describe('matchesReferenceShape', () => {
   });
 
   it('does not match an unknown tool name (not in the reference table)', () => {
-    expect(matchesReferenceShape('glob', ['pattern'])).toBe(false);
+    expect(matchesReferenceShape('web_search_exa', ['query'])).toBe(false);
     expect(matchesReferenceShape('NotARealTool', [])).toBe(false);
   });
 
@@ -46,7 +46,7 @@ describe('matchesReferenceShape', () => {
   it('treats an absent required field as an empty required list', () => {
     // Current Claude Code omits JSON Schema's optional `required` key for
     // tools whose parameters are all optional.
-    expect(matchesReferenceShape('TaskList', undefined)).toBe(true);
+    expect(matchesReferenceShape('ListAgents', undefined)).toBe(true);
     expect(matchesReferenceShape('EnterWorktree', undefined)).toBe(true);
     expect(matchesReferenceShape('ScheduleWakeup', undefined)).toBe(true);
     expect(matchesReferenceShape('Workflow', undefined)).toBe(true);
