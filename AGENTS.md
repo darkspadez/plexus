@@ -6,35 +6,15 @@ This file is a **guardrail**, not general documentation.
 1. Read **Critical rules**.
 2. Match the task in **Task triggers**.
 3. Use the listed command/workflow exactly.
-4. If unsure, **ask** instead of guessing.
 
-A generated symbol index is available at `.repomap.txt`.
-
-Do not read `.repomap.txt` sequentially or attempt to load the whole file into context. It is intended as a searchable index.
-
-Use it to quickly locate relevant files, symbols, classes, and functions before opening source files. Prefer targeted searches such as:
-
-```sh
-rg -i '<symbol-or-keyword>' .repomap.txt
-```
-
-When useful, combine multiple likely terms or narrow by package/path.
-
-After identifying likely source files from the map, inspect the source directly. Treat `.repomap.txt` as a navigation aid, not as authoritative implementation context.
-
-For broader architectural or conceptual questions where a symbol name is not known, search the repository itself rather than relying exclusively on the symbol index.
+Use the built-in search tool to query `.repomap.txt` by symbol, keyword, or path; never load the whole index. Read the matching source files to verify the implementation. For broader architectural questions, search the repository directly.
 
 ## Critical rules
 
-- **NEVER** commit, push, or create a PR unless the user explicitly asks.
-- **NEVER** treat earlier permission as ongoing permission. Each individual commit/push needs fresh approval in local/interactive sessions.
 - **NEVER** use `--no-verify` or `LEFTHOOK=0` without user permission.
 - **NEVER** manually create or edit migration artifacts.
 - **NEVER** produce implementation or summary documents unless specifically requested.
-- **DEBUGGING** Plexus instances: read and use the `plexus-cli` skill. The worktree `.env` contains the relevant staging configuration. When the user specifies `staging`, use `PLEXUS_STAGING_URL` for the staging URL and `PLEXUS_ADMIN_KEY` for the admin key.
-- **AVOID** searching library type definitions for documentation. Use context/search skills first when available.
-- **ASK** when requirements are ambiguous.
-- **USE** agents / subtasks aggressively where tools allow for improved cost and performance.
+- **DEBUGGING** Plexus instances: read and use the `plexus-cli` skill. For live CLI debugging of `staging`, use the worktree `.env` values `PLEXUS_STAGING_URL` and `PLEXUS_ADMIN_KEY`. This is separate from `scripts/prep-dev.ts`, which uses `PLEXUS_STAGING_ADMIN_KEY` for staging imports and `PLEXUS_ADMIN_KEY` for the local instance.
 
 ## Task triggers
 

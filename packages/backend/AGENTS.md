@@ -53,9 +53,9 @@ required; verify each against the **live** server, not just unit tests.
 - **Curl the live dev server** (default `ADMIN_KEY=password` locally):
   `curl -H "x-admin-key: password"
   localhost:<port>/v0/management/oauth/providers` must list the new id.
-  Unit tests run against the working tree — only the live endpoint proves
-  the committed code serves it. When the UI disagrees with the tests, check
-  this endpoint first: a missing id means a missing registration, not a
-  stale server.
+  Unit tests run against the working tree; the live endpoint verifies the
+  running server. When the UI disagrees with the tests, check this endpoint
+  first. A missing id can mean missing registration or a stale server;
+  confirm the server is running the current code before diagnosing registration.
 - After every commit: `git show --stat HEAD` must list all intended files
   (see the `git-commit` skill's Verify Every Commit section).
