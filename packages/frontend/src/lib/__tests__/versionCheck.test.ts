@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   hasBlockingForm,
+  hashText,
   isVersionStale,
   parseHealthzVersion,
   type BlockingFormDocument,
@@ -34,6 +35,26 @@ describe('isVersionStale', () => {
 
   it('ignores a missing server version (old backend)', () => {
     expect(isVersionStale('a', null)).toBe(false);
+  });
+
+  it('treats dev as unknown, never stale', () => {
+    expect(isVersionStale('dev', 'dev')).toBe(false);
+    expect(isVersionStale('dev', '2026.09.29.1')).toBe(false);
+    expect(isVersionStale('2026.09.29.1', 'dev')).toBe(false);
+  });
+});
+
+describe('hashText', () => {
+  it('is deterministic', () => {
+    expect(hashText('hello')).toBe(hashText('hello'));
+  });
+
+  it('distinguishes different bundle contents', () => {
+    expect(hashText('console.log(1)')).not.toBe(hashText('console.log(2)'));
+  });
+
+  it('returns a hex string', () => {
+    expect(hashText('x')).toMatch(/^[0-9a-f]+$/);
   });
 });
 

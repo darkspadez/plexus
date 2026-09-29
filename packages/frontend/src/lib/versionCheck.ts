@@ -11,6 +11,14 @@
 /** How often to poll /healthz for a new build id. */
 export const VERSION_POLL_INTERVAL_MS = 60_000;
 
+/**
+ * Placeholder build id used when APP_VERSION is unset at build or run time.
+ * It means "unknown", never a real build — string-comparing it would reload
+ * forever (e.g. release binaries bake in `v1.x` but run without the env var,
+ * so /healthz would report `dev` against a `v1.x` bundle on every poll).
+ */
+export const DEV_VERSION = 'dev';
+
 /** Build id baked into this bundle at build time. */
 export const getBundledVersion = (): string => {
   try {
@@ -29,12 +37,29 @@ export const parseHealthzVersion = (body: unknown): string | null => {
 
 /**
  * True when the server is running a different build than this tab.
- * A null server version means an old backend without the field — never
- * treat that as stale.
+ * A null server version means an old backend without the field, and `dev`
+ * on either side means the build id is unknown — neither is comparable,
+ * so neither is ever treated as stale.
  */
 export const isVersionStale = (current: string, server: string | null): boolean => {
   if (!server || !current) return false;
-  return current !== server;
+  if (current === server) return false;
+  if (current === DEV_VERSION || server === DEV_VERSION) return false;
+  return true;
+};
+
+/**
+ * FNV-1a 32-bit hash, hex-encoded. Used for dev-mode bundle change
+ * detection (`/ui/main.js`), where every build id is `dev` and the version
+ * string alone can never reveal a rebuild.
+ */
+export const hashText = (text: string): string => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16);
 };
 
 /** Minimal DOM surface `hasBlockingForm` needs — keeps unit tests DOM-free. */
