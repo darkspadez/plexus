@@ -1399,12 +1399,12 @@ packages/backend/src/transformers/responses/normalization.ts:56 [function] norma
 packages/backend/src/transformers/responses/normalization.ts:83 [function] normalizeResponsesReasoningContent
 packages/backend/src/transformers/responses/normalization.ts:9 [function] normalizeCompositeResponsesCallIds
 packages/backend/src/transformers/responses/request-builder.ts:7 [function] buildResponsesRequest
+packages/backend/src/transformers/responses/request-parser.ts:103 [function] convertInputItemsToMessages
 packages/backend/src/transformers/responses/request-parser.ts:14 [function] normalizeInput
-packages/backend/src/transformers/responses/request-parser.ts:205 [function] parseResponsesRequest
+packages/backend/src/transformers/responses/request-parser.ts:213 [function] parseResponsesRequest
 packages/backend/src/transformers/responses/request-parser.ts:36 [function] mapInputRole
 packages/backend/src/transformers/responses/request-parser.ts:54 [function] convertContentParts
-packages/backend/src/transformers/responses/request-parser.ts:84 [function] normalizeMessageContent
-packages/backend/src/transformers/responses/request-parser.ts:99 [function] convertInputItemsToMessages
+packages/backend/src/transformers/responses/request-parser.ts:88 [function] normalizeMessageContent
 packages/backend/src/transformers/responses/response-formatter.ts:13 [function] convertChatResponseToOutputItems
 packages/backend/src/transformers/responses/response-formatter.ts:91 [function] formatResponsesResponse
 packages/backend/src/transformers/responses/response-transformer.ts:17 [function] transformResponsesResponse
