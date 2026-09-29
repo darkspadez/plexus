@@ -194,7 +194,7 @@ packages/backend/src/routes/inference/images.ts:82 [function] extractImageEditUp
 packages/backend/src/routes/inference/index.ts:19 [function] registerInferenceRoutes
 packages/backend/src/routes/inference/messages.ts:21 [function] registerMessagesRoute
 packages/backend/src/routes/inference/models-ui.ts:25 [function] renderModelsUiPage
-packages/backend/src/routes/inference/models.ts:421 [function] registerMuseCodeModelsRoute
+packages/backend/src/routes/inference/models.ts:422 [function] registerMuseCodeModelsRoute
 packages/backend/src/routes/inference/models.ts:46 [function] inlineTraitsForAlias
 packages/backend/src/routes/inference/models.ts:64 [function] registerModelsRoute
 packages/backend/src/routes/inference/responses.ts:27 [function] detectResponsesApiType
