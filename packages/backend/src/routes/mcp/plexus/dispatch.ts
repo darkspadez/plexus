@@ -4,6 +4,7 @@ import {
   handleConfigTool,
   handleKeyTool,
   handleModelAliasTool,
+  handlePiCatalogTool,
   handleProviderTool,
   handleQuotaCheckerTool,
   handleQuotaTool,
@@ -42,6 +43,8 @@ export async function handleToolCall(
         return await handleConfigTool(input, shimContext);
       case 'plexus_provider':
         return await handleProviderTool(input, shimContext);
+      case 'plexus_pi_catalog':
+        return await handlePiCatalogTool(input, shimContext);
       case 'plexus_model_alias':
         return await handleModelAliasTool(input, shimContext);
       case 'plexus_key':

@@ -60,6 +60,7 @@ export type ManagementShimContext = {
 export type PlexusToolName =
   | 'plexus_config'
   | 'plexus_provider'
+  | 'plexus_pi_catalog'
   | 'plexus_model_alias'
   | 'plexus_key'
   | 'plexus_quota'

@@ -52,6 +52,7 @@ describe('Plexus management MCP routes - protocol', () => {
       expect.arrayContaining([
         'plexus_config',
         'plexus_provider',
+        'plexus_pi_catalog',
         'plexus_model_alias',
         'plexus_key',
         'plexus_quota',
