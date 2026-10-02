@@ -3,12 +3,14 @@ import { AlertTriangle, Info } from 'lucide-react';
 import {
   apiAccessToKey,
   hasApiAccess,
+  isDecisionsTargetAccess,
   keepDecisionsAccess,
   legacyDecisionsAccessKind,
   migrateLegacyDecisionsAccess,
   stripDecisionsAccess,
   toggleApiAccess,
 } from '../../../lib/apiFormats';
+import type { ApiAccess } from '../../../lib/apiFormats';
 import { Tooltip } from '../../ui/Tooltip';
 import type { PiAiModel } from './usePiAiModels';
 import {
@@ -96,6 +98,14 @@ export function ModelIdentity({
   // or remove System One.
   const hasMixedDecisionsAccess =
     (mCfg.type ?? 'text') !== 'decisions' && legacyDecisionsAccessKind(mCfg.access_via) !== 'none';
+  // A decisions-typed model with no System One base URL and no decisions
+  // `access_via` entry cannot serve anything (routing fails closed), and
+  // Access Via is hidden for this type — so warn here instead of
+  // silently saving an unroutable model.
+  const decisionsTypeWithoutProtocol =
+    mCfg.type === 'decisions' &&
+    !Object.keys(getApiBaseUrlMap()).some((t) => isDecisionsTargetAccess(t)) &&
+    !((mCfg.access_via ?? []) as ApiAccess[]).some((entry) => isDecisionsTargetAccess(entry));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -157,6 +167,16 @@ export function ModelIdentity({
           <option value="decisions">Decisions</option>
         </select>
       </div>
+      {decisionsTypeWithoutProtocol && (
+        <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
+          <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
+          <span className="text-[11px] text-warning">
+            This provider has no System One base URL and this model has no decisions Access Via
+            entry, so it cannot serve any requests. Add a systemone base URL to the provider, or
+            switch the model type.
+          </span>
+        </div>
+      )}
 
       {(!mCfg.type || mCfg.type === 'text' || mCfg.type === 'image') && (
         <div className="flex flex-col gap-1">
