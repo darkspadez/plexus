@@ -22,10 +22,6 @@ export const CODEX_IMAGE_API_ACCESS_OPTIONS: readonly ApiAccessOption[] = [
   { type: 'codex-images', label: 'Codex Images (ChatGPT OAuth)' },
 ];
 
-export const DECISIONS_API_ACCESS_OPTIONS: readonly ApiAccessOption[] = [
-  { type: 'systemone', label: 'System One' },
-];
-
 export const CODEX_OAUTH_PROVIDER = 'openai-codex';
 export const DEFAULT_IMAGE_ACCESS = 'openai-images';
 export const CODEX_IMAGE_ACCESS = 'codex-images';

@@ -46,10 +46,24 @@ export function selectTargetApiType(
 
   // The available types for this specific routing
   // If model specific types are defined and not empty, use them. Otherwise fallback to provider types.
-  const availableTypes =
-    modelSpecificTypes && modelSpecificTypes.length > 0
-      ? normalizeApiAccessList(modelSpecificTypes)
+  // A `decisions`-typed model is decisions-only regardless of `access_via`
+  // (which is irrelevant for that type), so its provider types stay in
+  // scope for finding the System One protocol — otherwise a stale or
+  // mis-scoped `access_via` (e.g. ['chat']) would break protocol selection
+  // after routing already admitted the target. An explicit decisions
+  // advertisement in `access_via` is still honoured (it may carry subtypes).
+  const isDecisionsTypedModel = route.modelConfig?.type === 'decisions';
+  const normalizedModelTypes = modelSpecificTypes ? normalizeApiAccessList(modelSpecificTypes) : [];
+  let availableTypes: string[];
+  if (isDecisionsTypedModel) {
+    availableTypes = normalizedModelTypes.some((t) => isDecisionsTargetApiType(t))
+      ? normalizedModelTypes
       : providerTypes;
+  } else if (modelSpecificTypes && modelSpecificTypes.length > 0) {
+    availableTypes = normalizedModelTypes;
+  } else {
+    availableTypes = providerTypes;
+  }
 
   let targetApiType = availableTypes[0]; // Default to first one
 

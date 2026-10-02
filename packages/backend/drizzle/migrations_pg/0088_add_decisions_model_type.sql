@@ -1,0 +1,1 @@
+ALTER TYPE "public"."model_type" ADD VALUE 'decisions';

@@ -60,6 +60,31 @@ export function isDecisionsTargetAccess(access: ApiAccess): boolean {
   return DECISIONS_TARGET_BASE_TYPES.has(getApiBaseType(apiAccessToKey(access)));
 }
 
+/**
+ * Classify a non-decisions provider model's `access_via` for System One
+ * exclusivity. `pure` (every entry decisions-capable) means the model is
+ * really a decisions-only model from before `type: 'decisions'` existed —
+ * converting it to that type preserves routing exactly, while stripping
+ * would silently make it unconstrained. `mixed` (some entries are chat
+ * surfaces) must not be mutated on render: either conversion or stripping
+ * would silently remove a capability.
+ */
+export function legacyDecisionsAccessKind(
+  access: readonly ApiAccess[] | undefined
+): 'pure' | 'mixed' | 'none' {
+  if (!access || access.length === 0) return 'none';
+  const decisions = access.filter((entry) => isDecisionsTargetAccess(entry));
+  if (decisions.length === 0) return 'none';
+  return decisions.length === access.length ? 'pure' : 'mixed';
+}
+
+/** Remove decisions-capable entries from an `access_via` list. */
+export function stripDecisionsAccess(
+  access: readonly ApiAccess[] | undefined
+): ApiAccess[] | undefined {
+  return access?.filter((entry) => !isDecisionsTargetAccess(entry));
+}
+
 function systemOneAccessEntry(entry: ApiAccess): ApiAccess {
   const base = getApiBaseType(apiAccessToKey(entry));
   if (base === 'systemone' || !DECISIONS_TARGET_BASE_TYPES.has(base)) return entry;

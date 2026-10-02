@@ -246,16 +246,24 @@ async function filterGroupTargets(
   // caller fails instead of mistranslating the payload onto a chat model.
   // Conversely, decisions-only targets (and `decisions` aliases) never serve
   // any other incoming API type. Targets with unconstrained `access_via`
-  // keep the existing generic cross-format fallback in both directions.
+  // keep the existing generic cross-format fallback in both directions —
+  // except models explicitly typed `decisions`, which are decisions-only
+  // regardless of `access_via` (empty or not).
   if (incomingApiType === 'decisions') {
     const decisionsTargets = healthyTargets.filter((target) => {
       const providerConfig = config.providers[target.provider];
       if (!providerConfig) return false;
 
       let modelSpecificTypes: ModelProviderConfig['access_via'];
+      let modelType: ModelProviderConfig['type'];
       if (!Array.isArray(providerConfig.models) && providerConfig.models) {
-        modelSpecificTypes = providerConfig.models[target.model]?.access_via;
+        const modelConfig = providerConfig.models[target.model];
+        modelSpecificTypes = modelConfig?.access_via;
+        modelType = modelConfig?.type;
       }
+      // A model declared `decisions` is decisions-capable regardless of
+      // `access_via` (which is irrelevant for that type).
+      if (modelType === 'decisions') return true;
       const availableTypes =
         modelSpecificTypes && modelSpecificTypes.length > 0
           ? normalizeApiAccessList(modelSpecificTypes)
@@ -285,9 +293,14 @@ async function filterGroupTargets(
       if (!providerConfig) return false;
 
       let modelSpecificTypes: ModelProviderConfig['access_via'];
+      let modelType: ModelProviderConfig['type'];
       if (!Array.isArray(providerConfig.models) && providerConfig.models) {
-        modelSpecificTypes = providerConfig.models[target.model]?.access_via;
+        const modelConfig = providerConfig.models[target.model];
+        modelSpecificTypes = modelConfig?.access_via;
+        modelType = modelConfig?.type;
       }
+      // A model declared `decisions` serves decisions requests only.
+      if (modelType === 'decisions') return false;
       const advertised =
         modelSpecificTypes && modelSpecificTypes.length > 0
           ? normalizeApiAccessList(modelSpecificTypes)
@@ -323,6 +336,9 @@ async function filterGroupTargets(
       if (normalizedIncoming === 'images' && (modelType === 'text' || modelType === 'embeddings')) {
         return false;
       }
+      // A model declared `decisions` serves decisions requests only,
+      // regardless of `access_via`.
+      if (modelType === 'decisions') return normalizedIncoming === 'decisions';
       const availableTypes =
         modelSpecificTypes && modelSpecificTypes.length > 0
           ? normalizeApiAccessList(modelSpecificTypes)

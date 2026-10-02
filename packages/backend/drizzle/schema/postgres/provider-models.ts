@@ -17,6 +17,7 @@ export const modelTypeEnum = pgEnum('model_type', [
   'speech',
   'image',
   'responses',
+  'decisions',
 ]);
 
 export const providerModels = pgTable(

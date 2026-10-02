@@ -132,4 +132,62 @@ describe('Router decisions eligibility', () => {
     expect(await Router.resolveCandidates('generic_alias', 'chat')).toHaveLength(1);
     expect(await Router.resolveCandidates('generic_alias', 'decisions')).toEqual([]);
   });
+
+  test('a model declared type decisions serves decisions requests without access_via', async () => {
+    setConfigForTesting({
+      providers: {
+        direct: {
+          api_base_url: { systemone: 'https://systemone.example.com/v1' },
+          api_key: 'direct-key',
+          models: { 'jev-direct': { type: 'decisions' } },
+        },
+      },
+      models: {
+        decisions_alias: {
+          selector: 'in_order',
+          type: 'decisions',
+          targets: [{ provider: 'direct', model: 'jev-direct' }],
+        },
+        chat_alias: {
+          selector: 'in_order',
+          type: 'text',
+          targets: [{ provider: 'direct', model: 'jev-direct' }],
+        },
+      },
+      keys: {},
+      failover: { enabled: true, retryableStatusCodes: [], retryableErrors: [] },
+      quotas: [],
+    } as any);
+
+    expect(await Router.resolveCandidates('decisions_alias', 'decisions')).toHaveLength(1);
+    // `type: 'decisions'` is decisions-only even though access_via is empty.
+    expect(await Router.resolveCandidates('chat_alias', 'chat')).toEqual([]);
+  });
+
+  test('a decisions-typed model is admitted for decisions even without alias type or systemone URL', async () => {
+    // Isolates the `modelType === 'decisions'` check in the decisions
+    // capability filter: the alias is text-typed and the provider has no
+    // decisions-capable base URL, so only the declared type admits the target.
+    setConfigForTesting({
+      providers: {
+        chatonly: {
+          api_base_url: 'https://chat.example.com/v1',
+          api_key: 'chat-key',
+          models: { 'jev-no-url': { type: 'decisions' } },
+        },
+      },
+      models: {
+        text_alias: {
+          selector: 'in_order',
+          type: 'text',
+          targets: [{ provider: 'chatonly', model: 'jev-no-url' }],
+        },
+      },
+      keys: {},
+      failover: { enabled: true, retryableStatusCodes: [], retryableErrors: [] },
+      quotas: [],
+    } as any);
+
+    expect(await Router.resolveCandidates('text_alias', 'decisions')).toHaveLength(1);
+  });
 });

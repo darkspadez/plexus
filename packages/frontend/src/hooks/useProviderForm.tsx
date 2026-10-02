@@ -591,7 +591,8 @@ export function useProviderForm() {
       ? undefined
       : provider?.models?.[modelId]?.access_via;
     const availableTypes = accessVia?.length ? accessVia : inferProviderTypes(provider?.apiBaseUrl);
-    const usesDecisions = availableTypes.some((type) => isDecisionsTargetAccess(type));
+    const usesDecisions =
+      availableTypes.some((type) => isDecisionsTargetAccess(type)) || modelType === 'decisions';
     let testApiTypes: string[] = ['chat'];
     if (usesDecisions) testApiTypes = ['decisions'];
     else if (modelType === 'embeddings') testApiTypes = ['embeddings'];
