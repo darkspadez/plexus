@@ -1,5 +1,9 @@
 # dependencies (bun install)
 node_modules
+# Real install dir; the .nosync suffix keeps iCloud from evicting package
+# contents (it was hollowing out files and breaking builds). node_modules
+# above is a symlink to this.
+node_modules.nosync
 
 # output
 out
