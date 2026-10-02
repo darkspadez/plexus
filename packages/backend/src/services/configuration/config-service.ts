@@ -111,7 +111,8 @@ export class ConfigService {
 
   /**
    * One-time startup migration: rewrite legacy model_type values 'chat' and
-   * 'responses' to the canonical capability type 'text'.
+   * 'responses' to the canonical capability type 'text', for both aliases
+   * and provider models.
    *
    * 'chat' was overloaded (wire protocol + capability type); 'responses' was
    * incorrectly stored as a capability type when it is only a wire protocol.
@@ -121,7 +122,7 @@ export class ConfigService {
     const affected = await this.repo.migrateModelTypes();
     if (affected > 0) {
       logger.info(
-        `Migrated ${affected} alias model_type value(s) from legacy 'chat'/'responses' to 'text'`
+        `Migrated ${affected} model_type value(s) from legacy 'chat'/'responses' to 'text'`
       );
       await this.executeRebuild();
     }

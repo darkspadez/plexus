@@ -85,6 +85,13 @@ export function stripDecisionsAccess(
   return access?.filter((entry) => !isDecisionsTargetAccess(entry));
 }
 
+/** Keep only decisions-capable entries in an `access_via` list. */
+export function keepDecisionsAccess(
+  access: readonly ApiAccess[] | undefined
+): ApiAccess[] | undefined {
+  return access?.filter((entry) => isDecisionsTargetAccess(entry));
+}
+
 function systemOneAccessEntry(entry: ApiAccess): ApiAccess {
   const base = getApiBaseType(apiAccessToKey(entry));
   if (base === 'systemone' || !DECISIONS_TARGET_BASE_TYPES.has(base)) return entry;

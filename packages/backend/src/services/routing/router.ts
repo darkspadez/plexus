@@ -17,6 +17,7 @@ import { StickySessionManager } from './sticky-session-manager';
 import { splitServiceTierSuffix, type ServiceTierSplit } from './service-tier-suffix';
 import {
   getApiBaseType,
+  hasDecisionsProtocol,
   isApiSubtype,
   isDecisionsTargetApiType,
   isImageTargetApiType,
@@ -267,11 +268,7 @@ async function filterGroupTargets(
       // `access_via` entry). The type alone must not send a Decisions payload
       // to a chat base URL; without a protocol the target stays rejected.
       if (modelType === 'decisions') {
-        const candidateTypes = [
-          ...(modelSpecificTypes ? normalizeApiAccessList(modelSpecificTypes) : []),
-          ...getProviderTypes(providerConfig),
-        ];
-        return candidateTypes.some((type) => isDecisionsTargetApiType(type));
+        return hasDecisionsProtocol(modelSpecificTypes, getProviderTypes(providerConfig));
       }
       const availableTypes =
         modelSpecificTypes && modelSpecificTypes.length > 0
@@ -349,12 +346,10 @@ async function filterGroupTargets(
       // regardless of `access_via` — and only when a decisions protocol
       // actually exists (same guard as the capability filter above).
       if (modelType === 'decisions') {
-        if (normalizedIncoming !== 'decisions') return false;
-        const candidateTypes = [
-          ...(modelSpecificTypes ? normalizeApiAccessList(modelSpecificTypes) : []),
-          ...providerTypes,
-        ];
-        return candidateTypes.some((t) => isDecisionsTargetApiType(t));
+        return (
+          normalizedIncoming === 'decisions' &&
+          hasDecisionsProtocol(modelSpecificTypes, providerTypes)
+        );
       }
       const availableTypes =
         modelSpecificTypes && modelSpecificTypes.length > 0

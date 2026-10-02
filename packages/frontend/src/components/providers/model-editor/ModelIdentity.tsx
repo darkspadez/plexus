@@ -3,7 +3,9 @@ import { AlertTriangle, Info } from 'lucide-react';
 import {
   apiAccessToKey,
   hasApiAccess,
+  keepDecisionsAccess,
   legacyDecisionsAccessKind,
+  migrateLegacyDecisionsAccess,
   stripDecisionsAccess,
   toggleApiAccess,
 } from '../../../lib/apiFormats';
@@ -130,12 +132,13 @@ export function ModelIdentity({
                 access_via: [isCodexOAuthProvider ? CODEX_IMAGE_ACCESS : DEFAULT_IMAGE_ACCESS],
               });
             else if (newType === 'decisions')
-              // access_via is irrelevant for decisions routing; keep explicit
-              // decisions entries (they may carry subtypes) and drop chat
-              // surfaces so routing relies on the declared type alone.
+              // access_via is irrelevant for decisions routing; keep the
+              // decisions-capable entries (normalized onto `systemone`, so
+              // subtypes survive) and drop chat surfaces — the opposite of
+              // every other type switch, which strips decisions entries.
               updateModelConfig(modelId, {
                 type: newType,
-                access_via: stripDecisionsAccess(mCfg.access_via),
+                access_via: migrateLegacyDecisionsAccess(keepDecisionsAccess(mCfg.access_via)),
               });
             else
               updateModelConfig(modelId, {

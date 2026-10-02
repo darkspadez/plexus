@@ -2,6 +2,7 @@ import { getProviderTypes, isOAuthPlaceholderUrl } from '../../config';
 import { logger } from '../../utils/logger';
 import {
   getApiBaseType,
+  hasDecisionsProtocol,
   isApiSubtype,
   isDecisionsTargetApiType,
   isImageTargetApiType,
@@ -56,9 +57,14 @@ export function selectTargetApiType(
   const normalizedModelTypes = modelSpecificTypes ? normalizeApiAccessList(modelSpecificTypes) : [];
   let availableTypes: string[];
   if (isDecisionsTypedModel) {
-    availableTypes = normalizedModelTypes.some((t) => isDecisionsTargetApiType(t))
-      ? normalizedModelTypes
-      : providerTypes;
+    // Only look at the model's list when it actually advertises a decisions
+    // protocol (same helper the router's guard uses); otherwise fall back to
+    // the provider types so protocol selection stays possible.
+    availableTypes =
+      hasDecisionsProtocol(modelSpecificTypes, providerTypes) &&
+      normalizedModelTypes.some((t) => isDecisionsTargetApiType(t))
+        ? normalizedModelTypes
+        : providerTypes;
   } else if (modelSpecificTypes && modelSpecificTypes.length > 0) {
     availableTypes = normalizedModelTypes;
   } else {
