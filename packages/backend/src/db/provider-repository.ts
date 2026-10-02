@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { ResponsesExtension } from '@plexus/shared';
 import { getDatabase, getSchema } from './client';
 import { decryptField, encryptField } from '../utils/encryption';
@@ -8,6 +8,7 @@ import {
   decryptJsonField,
   encryptJsonField,
   fromBool,
+  getAffectedRowCount,
   normalizeAdapterEntries,
   now,
   parseJson,
@@ -81,6 +82,28 @@ export class ProviderRepository {
 
   private schema() {
     return getSchema();
+  }
+
+  /**
+   * One-time startup migration: rewrite legacy provider-model model_type
+   * values to the canonical capability types, mirroring the alias migration.
+   *
+   * - 'chat'      → 'text'  (was overloaded to mean both wire protocol and capability)
+   * - 'responses' → 'text'  (was incorrectly stored as a capability type)
+   * - null / other values are left untouched.
+   *
+   * Without this, a legacy 'chat' provider model skips the router's
+   * `modelType === 'text'` guards (and, on Postgres before migration 0088,
+   * writing 'text' failed outright because the enum lacked the value).
+   * Idempotent.
+   */
+  async migrateModelTypes(): Promise<number> {
+    const schema = this.schema();
+    const updateResult = await this.db()
+      .update(schema.providerModels)
+      .set({ modelType: 'text' })
+      .where(sql`${schema.providerModels.modelType} IN ('chat', 'responses')`);
+    return getAffectedRowCount(updateResult);
   }
 
   async getAllProviders(): Promise<Record<string, ProviderConfig>> {

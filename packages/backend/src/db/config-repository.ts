@@ -208,8 +208,12 @@ export class ConfigRepository {
     return this.aliases.migrateLegacyTargetGroups();
   }
 
-  migrateModelTypes(): Promise<number> {
-    return this.aliases.migrateModelTypes();
+  async migrateModelTypes(): Promise<number> {
+    const [aliases, models] = await Promise.all([
+      this.aliases.migrateModelTypes(),
+      this.providers.migrateModelTypes(),
+    ]);
+    return aliases + models;
   }
 
   repairCorruptedAliasFallbackSlugs(): Promise<number> {

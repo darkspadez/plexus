@@ -209,7 +209,10 @@ const ModelProviderConfigSchema = z.object({
     output: 0,
   }),
   access_via: z.array(z.union([z.string().trim().min(1), ApiFormatSchema])).optional(),
-  type: z.enum(['text', 'embeddings', 'transcriptions', 'speech', 'image']).optional(),
+  // `decisions` marks a Decisions-only target: it serves incoming `decisions`
+  // requests and is excluded from every other API type, regardless of
+  // `access_via`.
+  type: z.enum(['text', 'embeddings', 'transcriptions', 'speech', 'image', 'decisions']).optional(),
   extraBody: z.record(z.string(), z.any()).optional(),
   adapter: AdapterConfigSchema,
   auto_compat: z.boolean().optional(),
@@ -654,9 +657,6 @@ export const ModelConfigSchema = z
       .optional(),
     // Alias capability type. `decisions` marks a buffered Jev-style alias
     // (served through `systemone` targets).
-    // Provider-model `type` intentionally has no `decisions` value: on
-    // Postgres it persists into a pgEnum without that value, so provider
-    // models advertise Decisions capability through `access_via` instead.
     type: z
       .enum(['text', 'embeddings', 'transcriptions', 'speech', 'image', 'decisions'])
       .optional(),

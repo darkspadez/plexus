@@ -83,3 +83,20 @@ const DECISIONS_TARGET_API_TYPE_SET: ReadonlySet<string> = new Set(DECISIONS_TAR
 export function isDecisionsTargetApiType(apiType: string): boolean {
   return DECISIONS_TARGET_API_TYPE_SET.has(getApiBaseType(apiType));
 }
+
+/**
+ * True when a target can actually speak a decisions protocol: either its
+ * model-level `access_via` or the provider's API types advertise one. Used
+ * by the router's decisions guards and by target API-type selection so the
+ * "does a decisions protocol exist?" question is answered in exactly one
+ * place — a `type: 'decisions'` model without any protocol must never
+ * receive a Decisions payload.
+ */
+export function hasDecisionsProtocol(
+  modelAccess: readonly ApiAccess[] | undefined,
+  providerTypes: readonly string[]
+): boolean {
+  return [...(modelAccess ? normalizeApiAccessList(modelAccess) : []), ...providerTypes].some(
+    (type) => isDecisionsTargetApiType(type)
+  );
+}

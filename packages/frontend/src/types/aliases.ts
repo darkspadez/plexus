@@ -5,7 +5,7 @@ export interface Model {
   name: string;
   providerId: string;
   pricingSource?: string;
-  type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image';
+  type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image' | 'decisions';
 }
 
 // ─── Alias advanced behaviors ────────────────────────────────

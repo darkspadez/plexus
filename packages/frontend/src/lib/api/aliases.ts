@@ -147,7 +147,7 @@ export const getModels = async (): Promise<Model[]> => {
               string,
               {
                 pricing?: { source?: string };
-                type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image';
+                type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image' | 'decisions';
               }
             >;
       }

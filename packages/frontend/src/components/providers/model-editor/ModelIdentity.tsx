@@ -4,6 +4,10 @@ import {
   apiAccessToKey,
   hasApiAccess,
   isDecisionsTargetAccess,
+  keepDecisionsAccess,
+  legacyDecisionsAccessKind,
+  migrateLegacyDecisionsAccess,
+  stripDecisionsAccess,
   toggleApiAccess,
 } from '../../../lib/apiFormats';
 import type { ApiAccess } from '../../../lib/apiFormats';
@@ -13,7 +17,6 @@ import {
   API_ACCESS_OPTIONS,
   CODEX_IMAGE_ACCESS,
   CODEX_IMAGE_API_ACCESS_OPTIONS,
-  DECISIONS_API_ACCESS_OPTIONS,
   DEFAULT_IMAGE_ACCESS,
   FIELD_CLS,
   getApiBadgeStyle,
@@ -84,21 +87,25 @@ export function ModelIdentity({
   const imageAccessOptions = isCodexOAuthProvider
     ? CODEX_IMAGE_API_ACCESS_OPTIONS
     : IMAGE_API_ACCESS_OPTIONS;
-  // The System One protocol is offered on text models once the provider has a
-  // System One base URL (or one is already selected), so existing chat-model
-  // forms stay unchanged. Provider models cannot carry a `decisions` type
-  // (Postgres persists it into a pgEnum without that value); they advertise
-  // Decisions capability via `access_via` instead.
-  const providerApiTypes = Object.keys(getApiBaseUrlMap());
-  const hasDecisionsAccess = (mCfg.access_via ?? []).some((entry: ApiAccess) =>
-    isDecisionsTargetAccess(entry)
-  );
-  const showDecisionsAccess =
-    hasDecisionsAccess || providerApiTypes.some((t) => isDecisionsTargetAccess(t));
-  const textAccessOptions =
-    mCfg.type !== 'image' && showDecisionsAccess
-      ? [...API_ACCESS_OPTIONS, ...DECISIONS_API_ACCESS_OPTIONS]
-      : API_ACCESS_OPTIONS;
+  // System One is exclusive to `decisions`-typed models, where Access Via is
+  // irrelevant and hidden entirely — so the picker below never offers it.
+  // Legacy pure-decisions `access_via` configs are converted to
+  // `type: 'decisions'` once, when the provider form loads (see
+  // useProviderForm's handleEdit). Lists left with any System One entries
+  // (mixed chat+System One, or pure after unchecking the last chat chip
+  // mid-session) can't be normalized losslessly on the user's behalf, so
+  // the banner below explains the options: switch the type to Decisions,
+  // or remove System One.
+  const hasMixedDecisionsAccess =
+    (mCfg.type ?? 'text') !== 'decisions' && legacyDecisionsAccessKind(mCfg.access_via) !== 'none';
+  // A decisions-typed model with no System One base URL and no decisions
+  // `access_via` entry cannot serve anything (routing fails closed), and
+  // Access Via is hidden for this type — so warn here instead of
+  // silently saving an unroutable model.
+  const decisionsTypeWithoutProtocol =
+    mCfg.type === 'decisions' &&
+    !Object.keys(getApiBaseUrlMap()).some((t) => isDecisionsTargetAccess(t)) &&
+    !((mCfg.access_via ?? []) as ApiAccess[]).some((entry) => isDecisionsTargetAccess(entry));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -117,7 +124,8 @@ export function ModelIdentity({
               | 'embeddings'
               | 'transcriptions'
               | 'speech'
-              | 'image';
+              | 'image'
+              | 'decisions';
             if (newType === 'embeddings')
               updateModelConfig(modelId, {
                 type: newType,
@@ -135,7 +143,20 @@ export function ModelIdentity({
                 type: newType,
                 access_via: [isCodexOAuthProvider ? CODEX_IMAGE_ACCESS : DEFAULT_IMAGE_ACCESS],
               });
-            else updateModelConfig(modelId, { type: newType });
+            else if (newType === 'decisions')
+              // access_via is irrelevant for decisions routing; keep the
+              // decisions-capable entries (normalized onto `systemone`, so
+              // subtypes survive) and drop chat surfaces — the opposite of
+              // every other type switch, which strips decisions entries.
+              updateModelConfig(modelId, {
+                type: newType,
+                access_via: migrateLegacyDecisionsAccess(keepDecisionsAccess(mCfg.access_via)),
+              });
+            else
+              updateModelConfig(modelId, {
+                type: newType,
+                access_via: stripDecisionsAccess(mCfg.access_via),
+              });
           }}
         >
           <option value="text">Text</option>
@@ -143,8 +164,19 @@ export function ModelIdentity({
           <option value="transcriptions">Transcriptions</option>
           <option value="speech">Speech</option>
           <option value="image">Image</option>
+          <option value="decisions">Decisions</option>
         </select>
       </div>
+      {decisionsTypeWithoutProtocol && (
+        <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
+          <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
+          <span className="text-[11px] text-warning">
+            This provider has no System One base URL and this model has no decisions Access Via
+            entry, so it cannot serve any requests. Add a systemone base URL to the provider, or
+            switch the model type.
+          </span>
+        </div>
+      )}
 
       {(!mCfg.type || mCfg.type === 'text' || mCfg.type === 'image') && (
         <div className="flex flex-col gap-1">
@@ -152,7 +184,7 @@ export function ModelIdentity({
             Access Via
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {(mCfg.type === 'image' ? imageAccessOptions : textAccessOptions).map((option) => {
+            {(mCfg.type === 'image' ? imageAccessOptions : API_ACCESS_OPTIONS).map((option) => {
               const key = apiAccessToKey(option);
               const selected = hasApiAccess(mCfg.access_via, key);
               return (
@@ -233,6 +265,28 @@ export function ModelIdentity({
             <span className="font-body text-[11px] text-text-muted italic">
               empty = use any provider API
             </span>
+          )}
+          {hasMixedDecisionsAccess && (
+            <div className="flex items-start gap-2 py-1.5 px-2 bg-info/10 border border-info/30 rounded-sm">
+              <Info size={14} className="text-info shrink-0 mt-0.5" />
+              <span className="text-[11px] text-info">
+                This model advertises System One through a legacy Access Via entry. Set{' '}
+                <span style={{ fontWeight: 600 }}>Model Type: Decisions</span> to make it
+                decisions-only, or it will keep serving that protocol alongside the selected
+                surfaces.
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  updateModelConfig(modelId, {
+                    access_via: stripDecisionsAccess(mCfg.access_via),
+                  })
+                }
+                className="ml-auto shrink-0 cursor-pointer rounded-sm border border-info/40 px-2 py-0.5 text-[11px] text-info transition-colors hover:bg-info/20"
+              >
+                Remove System One
+              </button>
+            </div>
           )}
           {(() => {
             const providerBaseUrlMap = getApiBaseUrlMap();

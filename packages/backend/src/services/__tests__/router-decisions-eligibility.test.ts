@@ -132,4 +132,87 @@ describe('Router decisions eligibility', () => {
     expect(await Router.resolveCandidates('generic_alias', 'chat')).toHaveLength(1);
     expect(await Router.resolveCandidates('generic_alias', 'decisions')).toEqual([]);
   });
+
+  test('a model declared type decisions serves decisions requests without access_via', async () => {
+    setConfigForTesting({
+      providers: {
+        direct: {
+          api_base_url: { systemone: 'https://systemone.example.com/v1' },
+          api_key: 'direct-key',
+          models: { 'jev-direct': { type: 'decisions' } },
+        },
+      },
+      models: {
+        decisions_alias: {
+          selector: 'in_order',
+          type: 'decisions',
+          targets: [{ provider: 'direct', model: 'jev-direct' }],
+        },
+        chat_alias: {
+          selector: 'in_order',
+          type: 'text',
+          targets: [{ provider: 'direct', model: 'jev-direct' }],
+        },
+      },
+      keys: {},
+      failover: { enabled: true, retryableStatusCodes: [], retryableErrors: [] },
+      quotas: [],
+    } as any);
+
+    expect(await Router.resolveCandidates('decisions_alias', 'decisions')).toHaveLength(1);
+    // `type: 'decisions'` is decisions-only even though access_via is empty.
+    expect(await Router.resolveCandidates('chat_alias', 'chat')).toEqual([]);
+  });
+
+  test('a decisions-typed model without any decisions protocol is rejected', async () => {
+    // `type: 'decisions'` alone must not admit a chat-only provider: the
+    // Decisions payload would be mistranslated onto the chat base URL.
+    setConfigForTesting({
+      providers: {
+        chatonly: {
+          api_base_url: 'https://chat.example.com/v1',
+          api_key: 'chat-key',
+          models: { 'jev-no-url': { type: 'decisions' } },
+        },
+      },
+      models: {
+        text_alias: {
+          selector: 'in_order',
+          type: 'text',
+          targets: [{ provider: 'chatonly', model: 'jev-no-url' }],
+        },
+      },
+      keys: {},
+      failover: { enabled: true, retryableStatusCodes: [], retryableErrors: [] },
+      quotas: [],
+    } as any);
+
+    expect(await Router.resolveCandidates('text_alias', 'decisions')).toEqual([]);
+  });
+
+  test('a decisions-typed model with an explicit decisions access_via is admitted despite a chat-only provider URL', async () => {
+    // The explicit `access_via` entry is the protocol advertisement when the
+    // provider has no systemone base URL of its own.
+    setConfigForTesting({
+      providers: {
+        chatonly: {
+          api_base_url: 'https://systemone.example.com/v1',
+          api_key: 'chat-key',
+          models: { 'jev-entry': { type: 'decisions', access_via: ['systemone'] } },
+        },
+      },
+      models: {
+        text_alias: {
+          selector: 'in_order',
+          type: 'text',
+          targets: [{ provider: 'chatonly', model: 'jev-entry' }],
+        },
+      },
+      keys: {},
+      failover: { enabled: true, retryableStatusCodes: [], retryableErrors: [] },
+      quotas: [],
+    } as any);
+
+    expect(await Router.resolveCandidates('text_alias', 'decisions')).toHaveLength(1);
+  });
 });
