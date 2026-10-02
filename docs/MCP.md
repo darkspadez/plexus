@@ -78,6 +78,7 @@ All normal responses redact sensitive fields (API keys, secrets, tokens, cookies
 |------|-----------|-------------|
 | `plexus_config` | `get`, `export`, `status` | Inspect full Plexus configuration or summary status. |
 | `plexus_provider` | `list`, `get`, `put`, `create`, `update`, `delete`, `fetch_models` | Inspect and manage providers and routing configuration. |
+| `plexus_pi_catalog` | `providers`, `models`, `validate_config` | Read pi-ai provider/model IDs and validate configured `pi_ai_provider` / `pi_ai_model_id` references against the merged catalog. `validate_config` reports model IDs that lack a provider mapping as invalid. `models` takes the pi-ai provider ID in `id` and supports an optional `query.q` search. |
 | `plexus_model_alias` | `list`, `get`, `put`, `create`, `update`, `delete`, `delete_all` | Inspect and manage model aliases, targets, and target groups. |
 | `plexus_key` | `list`, `get`, `put`, `create`, `update`, `delete` | Inspect and manage inference keys (secrets redacted). |
 | `plexus_quota` | `list`, `get`, `put`, `create`, `update`, `delete` | Inspect and manage user quota definitions. |

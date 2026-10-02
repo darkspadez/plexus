@@ -189,6 +189,36 @@ export function createPlexusMcpTestFixture(): PlexusMcpTestFixture {
       if (method === 'GET' && path === '/v0/management/providers') {
         return json(setConfigSnapshot().providers ?? {});
       }
+      if (method === 'GET' && path === '/v0/management/pi/providers') {
+        return json({ data: ['anthropic', 'openai'] });
+      }
+      if (method === 'GET' && path === '/v0/management/pi/models') {
+        if (typeof query.provider !== 'string' || !query.provider) {
+          return json({ error: "Missing 'provider' parameter" }, 400);
+        }
+        const models =
+          query.provider === 'openai'
+            ? [{ id: 'gpt-4.1', name: 'GPT-4.1', api: 'openai-responses', custom: false }]
+            : query.provider === 'anthropic'
+              ? [
+                  {
+                    id: 'claude-sonnet-4',
+                    name: 'Claude Sonnet 4',
+                    api: 'anthropic-messages',
+                    custom: false,
+                  },
+                ]
+              : [];
+        const q = typeof query.q === 'string' ? query.q.toLowerCase() : '';
+        return json({
+          data: q
+            ? models.filter(
+                (model) =>
+                  model.id.toLowerCase().includes(q) || model.name.toLowerCase().includes(q)
+              )
+            : models,
+        });
+      }
       if (method === 'GET' && path.startsWith('/v0/management/providers/')) {
         const id = decodeURIComponent(path.replace('/v0/management/providers/', ''));
         const provider = setConfigSnapshot().providers?.[id];

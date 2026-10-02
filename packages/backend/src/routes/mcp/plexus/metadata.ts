@@ -11,6 +11,7 @@ Destructive or high-impact operations require destructive: "acknowledged". Secre
 Common workflows:
 - Review request activity with plexus_usage list or summary.
 - Inspect or update provider setup with plexus_provider list, get, put, update, delete, or fetch_models.
+- Inspect pi-ai provider/model IDs with plexus_pi_catalog providers, models, or validate_config.
 - Raw provider access uses provider raw_passthrough { enabled, base_url, auth } plus key allowRawPassthrough. It is provider-wide, bypasses model restrictions/routing/failover/transformation, and should be treated as high-impact.
 - Inspect or update model routing with plexus_model_alias list, get, put, update, delete, or delete_all.
 - Inspect or update inference keys with plexus_key list, get, put, update, or delete; normal responses redact secrets.
@@ -32,6 +33,7 @@ Best practices:
 export const TOOL_NAMES = [
   'plexus_config',
   'plexus_provider',
+  'plexus_pi_catalog',
   'plexus_model_alias',
   'plexus_key',
   'plexus_quota',
@@ -50,6 +52,8 @@ export function getToolDescription(toolName: string) {
       return 'Inspect Plexus configuration and status. Initial operations: get, export, status.';
     case 'plexus_provider':
       return 'Inspect and manage providers and provider routing configuration. Operations: list, get, put, create, update, delete, fetch_models. Static API-key providers may define raw_passthrough { enabled, base_url, auth } to expose /raw/{provider}/* without routing, failover, adapters, or payload transformation.';
+    case 'plexus_pi_catalog':
+      return 'Read the merged pi-ai model catalog. Operations: providers, models (id: pi-ai provider ID; optional query.q search), validate_config (checks configured pi_ai_provider and pi_ai_model_id references, including model IDs missing a provider mapping, without changing configuration).';
     case 'plexus_model_alias':
       return 'Inspect and manage model aliases, targets, and target groups. Operations: list, get, put, create, update, delete, delete_all.';
     case 'plexus_key':
