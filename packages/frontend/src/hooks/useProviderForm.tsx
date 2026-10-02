@@ -603,9 +603,12 @@ export function useProviderForm() {
     const accessVia: string[] | undefined = Array.isArray(provider?.models)
       ? undefined
       : provider?.models?.[modelId]?.access_via;
-    const availableTypes = accessVia?.length ? accessVia : inferProviderTypes(provider?.apiBaseUrl);
+    // Only a decisions-typed model or an explicit decisions `access_via`
+    // entry gets a decisions probe. Inferred provider base-URL types must
+    // not drive this: a Text model with empty `access_via` on a provider
+    // that also has a systemone base URL is still a chat model.
     const usesDecisions =
-      availableTypes.some((type) => isDecisionsTargetAccess(type)) || modelType === 'decisions';
+      modelType === 'decisions' || (accessVia ?? []).some((type) => isDecisionsTargetAccess(type));
     let testApiTypes: string[] = ['chat'];
     if (usesDecisions) testApiTypes = ['decisions'];
     else if (modelType === 'embeddings') testApiTypes = ['embeddings'];

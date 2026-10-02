@@ -3,6 +3,7 @@ import { getCurrentDialect, getDatabase, getSchema } from './client';
 import type { MetadataOverrides, ModelConfig, ModelTargetGroup, SelectorType } from '../config';
 import {
   fromBool,
+  getAffectedRowCount,
   hasAnyOverrideField,
   now,
   overrideRowToOverrides,
@@ -236,14 +237,7 @@ export class AliasRepository {
       .update(schema.modelAliases)
       .set({ modelType: 'text', updatedAt: now() })
       .where(sql`${schema.modelAliases.modelType} IN ('chat', 'responses')`);
-    // Both SQLite (bun) and postgres-js drivers expose rowCount/changes on the result
-    const result = updateResult as {
-      rowsAffected?: number;
-      changes?: number;
-      rowCount?: number;
-    };
-    const affected = result.rowsAffected ?? result.changes ?? result.rowCount ?? 0;
-    return Number(affected);
+    return getAffectedRowCount(updateResult);
   }
 
   /**
@@ -285,13 +279,7 @@ export class AliasRepository {
           AND ${schema.modelAliasTargets.providerSlug} IS NOT NULL
           AND ${schema.modelAliasTargets.modelName} IS NOT NULL`
       );
-    const result = updateResult as {
-      rowsAffected?: number;
-      changes?: number;
-      rowCount?: number;
-    };
-    const affected = result.rowsAffected ?? result.changes ?? result.rowCount ?? 0;
-    return Number(affected);
+    return getAffectedRowCount(updateResult);
   }
 
   /**

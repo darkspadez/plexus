@@ -240,6 +240,38 @@ async function filterGroupTargets(
     healthyTargets = imageTargets;
   }
 
+  // Shared per-target model info lookup: all three capability filters below
+  // read the same model-config record (record-form `models` only — array
+  // form carries no per-model config).
+  const getTargetModelInfo = (target: {
+    provider: string;
+    model: string;
+  }): { accessVia: ModelProviderConfig['access_via']; type: ModelProviderConfig['type'] } => {
+    const providerConfig = config.providers[target.provider];
+    if (!providerConfig || Array.isArray(providerConfig.models) || !providerConfig.models) {
+      return { accessVia: undefined, type: undefined };
+    }
+    const modelConfig = providerConfig.models[target.model];
+    return { accessVia: modelConfig?.access_via, type: modelConfig?.type };
+  };
+
+  // A decisions-typed target is decisions-only: it serves a decisions
+  // request only when a decisions protocol actually exists (`access_via`
+  // entry or provider base URL — `hasDecisionsProtocol`), and never serves
+  // anything else. Non-decisions-typed targets return undefined so the
+  // caller applies its own rules.
+  const decisionsTypedEligibility = (
+    target: { provider: string; model: string },
+    incomingApiType: string
+  ): boolean | undefined => {
+    const { accessVia, type } = getTargetModelInfo(target);
+    if (type !== 'decisions') return undefined;
+    if (incomingApiType !== 'decisions') return false;
+    const providerConfig = config.providers[target.provider];
+    if (!providerConfig) return false;
+    return hasDecisionsProtocol(accessVia, getProviderTypes(providerConfig));
+  };
+
   // 3.6. Decisions capability filter.
   //
   // Decisions requests never fall back to incompatible providers: with no
@@ -255,21 +287,9 @@ async function filterGroupTargets(
       const providerConfig = config.providers[target.provider];
       if (!providerConfig) return false;
 
-      let modelSpecificTypes: ModelProviderConfig['access_via'];
-      let modelType: ModelProviderConfig['type'];
-      if (!Array.isArray(providerConfig.models) && providerConfig.models) {
-        const modelConfig = providerConfig.models[target.model];
-        modelSpecificTypes = modelConfig?.access_via;
-        modelType = modelConfig?.type;
-      }
-      // A model declared `decisions` is decisions-capable regardless of
-      // `access_via` (which is irrelevant for that type) — but only when an
-      // actual decisions protocol exists (provider base URL or an explicit
-      // `access_via` entry). The type alone must not send a Decisions payload
-      // to a chat base URL; without a protocol the target stays rejected.
-      if (modelType === 'decisions') {
-        return hasDecisionsProtocol(modelSpecificTypes, getProviderTypes(providerConfig));
-      }
+      const typedEligibility = decisionsTypedEligibility(target, 'decisions');
+      if (typedEligibility !== undefined) return typedEligibility;
+      const { accessVia: modelSpecificTypes } = getTargetModelInfo(target);
       const availableTypes =
         modelSpecificTypes && modelSpecificTypes.length > 0
           ? normalizeApiAccessList(modelSpecificTypes)
@@ -298,14 +318,8 @@ async function filterGroupTargets(
       const providerConfig = config.providers[target.provider];
       if (!providerConfig) return false;
 
-      let modelSpecificTypes: ModelProviderConfig['access_via'];
-      let modelType: ModelProviderConfig['type'];
-      if (!Array.isArray(providerConfig.models) && providerConfig.models) {
-        const modelConfig = providerConfig.models[target.model];
-        modelSpecificTypes = modelConfig?.access_via;
-        modelType = modelConfig?.type;
-      }
       // A model declared `decisions` serves decisions requests only.
+      const { accessVia: modelSpecificTypes, type: modelType } = getTargetModelInfo(target);
       if (modelType === 'decisions') return false;
       const advertised =
         modelSpecificTypes && modelSpecificTypes.length > 0
@@ -332,25 +346,12 @@ async function filterGroupTargets(
       if (!providerConfig) return false;
 
       const providerTypes = getProviderTypes(providerConfig);
-      let modelSpecificTypes: ModelProviderConfig['access_via'];
-      let modelType: ModelProviderConfig['type'];
-      if (!Array.isArray(providerConfig.models) && providerConfig.models) {
-        const modelConfig = providerConfig.models[target.model];
-        modelSpecificTypes = modelConfig?.access_via;
-        modelType = modelConfig?.type;
-      }
+      const { accessVia: modelSpecificTypes, type: modelType } = getTargetModelInfo(target);
       if (normalizedIncoming === 'images' && (modelType === 'text' || modelType === 'embeddings')) {
         return false;
       }
-      // A model declared `decisions` serves decisions requests only,
-      // regardless of `access_via` — and only when a decisions protocol
-      // actually exists (same guard as the capability filter above).
-      if (modelType === 'decisions') {
-        return (
-          normalizedIncoming === 'decisions' &&
-          hasDecisionsProtocol(modelSpecificTypes, providerTypes)
-        );
-      }
+      const typedEligibility = decisionsTypedEligibility(target, normalizedIncoming);
+      if (typedEligibility !== undefined) return typedEligibility;
       const availableTypes =
         modelSpecificTypes && modelSpecificTypes.length > 0
           ? normalizeApiAccessList(modelSpecificTypes)

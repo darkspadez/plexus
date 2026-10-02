@@ -8,6 +8,7 @@ import {
   decryptJsonField,
   encryptJsonField,
   fromBool,
+  getAffectedRowCount,
   normalizeAdapterEntries,
   now,
   parseJson,
@@ -102,14 +103,7 @@ export class ProviderRepository {
       .update(schema.providerModels)
       .set({ modelType: 'text' })
       .where(sql`${schema.providerModels.modelType} IN ('chat', 'responses')`);
-    // Both SQLite (bun) and postgres-js drivers expose rowCount/changes on the result
-    const result = updateResult as {
-      rowsAffected?: number;
-      changes?: number;
-      rowCount?: number;
-    };
-    const affected = result.rowsAffected ?? result.changes ?? result.rowCount ?? 0;
-    return Number(affected);
+    return getAffectedRowCount(updateResult);
   }
 
   async getAllProviders(): Promise<Record<string, ProviderConfig>> {

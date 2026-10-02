@@ -89,11 +89,13 @@ export function ModelIdentity({
   // irrelevant and hidden entirely — so the picker below never offers it.
   // Legacy pure-decisions `access_via` configs are converted to
   // `type: 'decisions'` once, when the provider form loads (see
-  // useProviderForm's handleEdit). Mixed lists cannot be normalized
-  // losslessly on the user's behalf, so the banner below explains the
-  // options: switch the type to Decisions, or remove System One.
+  // useProviderForm's handleEdit). Lists left with any System One entries
+  // (mixed chat+System One, or pure after unchecking the last chat chip
+  // mid-session) can't be normalized losslessly on the user's behalf, so
+  // the banner below explains the options: switch the type to Decisions,
+  // or remove System One.
   const hasMixedDecisionsAccess =
-    (mCfg.type ?? 'text') !== 'decisions' && legacyDecisionsAccessKind(mCfg.access_via) === 'mixed';
+    (mCfg.type ?? 'text') !== 'decisions' && legacyDecisionsAccessKind(mCfg.access_via) !== 'none';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
