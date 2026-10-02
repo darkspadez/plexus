@@ -11,6 +11,7 @@ import type { QuotaCheckerInfo } from '../types/quota';
 import type { OAuthCredentialStatus } from '../types/settings';
 import {
   isDecisionsTargetAccess,
+  legacyDecisionsAccessKind,
   migrateLegacyDecisionsAccess,
   migrateLegacyDecisionsBaseUrls,
 } from '../lib/apiFormats';
@@ -468,12 +469,24 @@ export function useProviderForm() {
     if (migratedBaseUrls !== cloned.apiBaseUrl) cloned.apiBaseUrl = migratedBaseUrls;
     if (cloned.models && !Array.isArray(cloned.models)) {
       for (const [modelId, modelConfig] of Object.entries(cloned.models)) {
-        const access = (modelConfig as { access_via?: unknown })?.access_via;
+        const cfg = modelConfig as { access_via?: unknown; type?: unknown };
+        const access = cfg?.access_via;
         if (!Array.isArray(access)) continue;
         const migrated = migrateLegacyDecisionsAccess(access);
-        if (migrated && JSON.stringify(migrated) !== JSON.stringify(access)) {
+        // A legacy model whose access_via is entirely decisions-capable is
+        // really a decisions-only model from before `type: 'decisions'`
+        // existed — convert it once, at load, so the editor form reflects
+        // the canonical shape. Explicit decisions entries are kept (they may
+        // carry subtypes); routing is identical.
+        if ((cfg.type ?? 'text') !== 'decisions' && legacyDecisionsAccessKind(access) === 'pure') {
           (cloned.models as Record<string, unknown>)[modelId] = {
-            ...(modelConfig as Record<string, unknown>),
+            ...cfg,
+            type: 'decisions',
+            access_via: migrated,
+          };
+        } else if (migrated && JSON.stringify(migrated) !== JSON.stringify(access)) {
+          (cloned.models as Record<string, unknown>)[modelId] = {
+            ...cfg,
             access_via: migrated,
           };
         }

@@ -262,8 +262,17 @@ async function filterGroupTargets(
         modelType = modelConfig?.type;
       }
       // A model declared `decisions` is decisions-capable regardless of
-      // `access_via` (which is irrelevant for that type).
-      if (modelType === 'decisions') return true;
+      // `access_via` (which is irrelevant for that type) — but only when an
+      // actual decisions protocol exists (provider base URL or an explicit
+      // `access_via` entry). The type alone must not send a Decisions payload
+      // to a chat base URL; without a protocol the target stays rejected.
+      if (modelType === 'decisions') {
+        const candidateTypes = [
+          ...(modelSpecificTypes ? normalizeApiAccessList(modelSpecificTypes) : []),
+          ...getProviderTypes(providerConfig),
+        ];
+        return candidateTypes.some((type) => isDecisionsTargetApiType(type));
+      }
       const availableTypes =
         modelSpecificTypes && modelSpecificTypes.length > 0
           ? normalizeApiAccessList(modelSpecificTypes)
@@ -337,8 +346,16 @@ async function filterGroupTargets(
         return false;
       }
       // A model declared `decisions` serves decisions requests only,
-      // regardless of `access_via`.
-      if (modelType === 'decisions') return normalizedIncoming === 'decisions';
+      // regardless of `access_via` — and only when a decisions protocol
+      // actually exists (same guard as the capability filter above).
+      if (modelType === 'decisions') {
+        if (normalizedIncoming !== 'decisions') return false;
+        const candidateTypes = [
+          ...(modelSpecificTypes ? normalizeApiAccessList(modelSpecificTypes) : []),
+          ...providerTypes,
+        ];
+        return candidateTypes.some((t) => isDecisionsTargetApiType(t));
+      }
       const availableTypes =
         modelSpecificTypes && modelSpecificTypes.length > 0
           ? normalizeApiAccessList(modelSpecificTypes)

@@ -1,5 +1,5 @@
 {
-  "id": "7c3fc7e6-0cc2-4981-8aaa-e3f346296144",
+  "id": "36792068-c0c9-4c37-ae17-eb54c7df6f44",
   "prevId": "a0eaf2a9-b960-44df-9305-88ce42efc85a",
   "version": "7",
   "dialect": "postgresql",
@@ -3995,6 +3995,7 @@
       "schema": "public",
       "values": [
         "chat",
+        "text",
         "embeddings",
         "transcriptions",
         "speech",

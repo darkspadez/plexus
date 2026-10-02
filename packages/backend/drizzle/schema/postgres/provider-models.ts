@@ -12,6 +12,7 @@ import { providers } from './providers';
 
 export const modelTypeEnum = pgEnum('model_type', [
   'chat',
+  'text',
   'embeddings',
   'transcriptions',
   'speech',

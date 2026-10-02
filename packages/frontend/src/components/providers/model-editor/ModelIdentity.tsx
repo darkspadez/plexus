@@ -85,19 +85,13 @@ export function ModelIdentity({
     : IMAGE_API_ACCESS_OPTIONS;
   // System One is exclusive to `decisions`-typed models, where Access Via is
   // irrelevant and hidden entirely — so the picker below never offers it.
-  // A legacy model whose `access_via` is entirely decisions-capable is
-  // converted to `type: 'decisions'` (same routing, new canonical form);
-  // mixed lists are left untouched on render because neither conversion nor
-  // stripping is lossless — the banner below asks the user to pick a type.
+  // Legacy pure-decisions `access_via` configs are converted to
+  // `type: 'decisions'` once, when the provider form loads (see
+  // useProviderForm's handleEdit). Mixed lists cannot be normalized
+  // losslessly on the user's behalf, so the banner below explains the
+  // options: switch the type to Decisions, or remove System One.
   const hasMixedDecisionsAccess =
     (mCfg.type ?? 'text') !== 'decisions' && legacyDecisionsAccessKind(mCfg.access_via) === 'mixed';
-
-  useEffect(() => {
-    if ((mCfg.type ?? 'text') === 'decisions') return;
-    if (legacyDecisionsAccessKind(mCfg.access_via) === 'pure') {
-      updateModelConfig(modelId, { type: 'decisions', access_via: [] });
-    }
-  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -136,9 +130,13 @@ export function ModelIdentity({
                 access_via: [isCodexOAuthProvider ? CODEX_IMAGE_ACCESS : DEFAULT_IMAGE_ACCESS],
               });
             else if (newType === 'decisions')
-              // access_via is irrelevant for decisions models; clear it so
-              // routing relies on the declared type alone.
-              updateModelConfig(modelId, { type: newType, access_via: [] });
+              // access_via is irrelevant for decisions routing; keep explicit
+              // decisions entries (they may carry subtypes) and drop chat
+              // surfaces so routing relies on the declared type alone.
+              updateModelConfig(modelId, {
+                type: newType,
+                access_via: stripDecisionsAccess(mCfg.access_via),
+              });
             else
               updateModelConfig(modelId, {
                 type: newType,
@@ -252,6 +250,17 @@ export function ModelIdentity({
                 decisions-only, or it will keep serving that protocol alongside the selected
                 surfaces.
               </span>
+              <button
+                type="button"
+                onClick={() =>
+                  updateModelConfig(modelId, {
+                    access_via: stripDecisionsAccess(mCfg.access_via),
+                  })
+                }
+                className="ml-auto shrink-0 cursor-pointer rounded-sm border border-info/40 px-2 py-0.5 text-[11px] text-info transition-colors hover:bg-info/20"
+              >
+                Remove System One
+              </button>
             </div>
           )}
           {(() => {
