@@ -16,12 +16,6 @@ export function getApiBaseType(apiType: string): string {
   return apiType.trim().toLowerCase().split(':', 1)[0] || '';
 }
 
-export function getApiSubtype(apiType: string): string | undefined {
-  const normalized = apiType.trim().toLowerCase();
-  const separator = normalized.indexOf(':');
-  return separator === -1 ? undefined : normalized.slice(separator + 1) || undefined;
-}
-
 export function hasApiAccess(access: readonly ApiAccess[] | undefined, key: string): boolean {
   const normalizedKey = key.toLowerCase();
   return access?.some((entry) => apiAccessToKey(entry) === normalizedKey) ?? false;
@@ -150,14 +144,4 @@ export function migrateLegacyDecisionsBaseUrls<
     }
   }
   return next as T;
-}
-
-export function formatApiTypeLabel(apiType: string | undefined): string {
-  if (!apiType) return '?';
-  const base = getApiBaseType(apiType);
-  const subtype = getApiSubtype(apiType);
-  const baseLabel = base.charAt(0).toUpperCase() + base.slice(1);
-  return subtype
-    ? `${baseLabel} · ${subtype.charAt(0).toUpperCase() + subtype.slice(1)}`
-    : baseLabel;
 }

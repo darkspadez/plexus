@@ -20,24 +20,6 @@ export const isClipboardAvailable = (): boolean => {
 };
 
 /**
- * Check if we're in a secure context where clipboard operations work.
- */
-export const isSecureContext = (): boolean => {
-  // @ts-ignore - secureContext may not be defined in older browsers
-  return typeof window !== 'undefined' && (window.isSecureContext ?? true);
-};
-
-/**
- * Get a user-friendly message explaining why clipboard is unavailable.
- */
-export const getClipboardUnavailableMessage = (): string => {
-  if (!isSecureContext()) {
-    return 'Copy requires HTTPS connection';
-  }
-  return 'Copy not available in this browser';
-};
-
-/**
  * Legacy copy path for non-secure contexts (plain HTTP) where
  * navigator.clipboard is unavailable. Uses a temporary off-screen textarea
  * with document.execCommand('copy'), which is not restricted to secure

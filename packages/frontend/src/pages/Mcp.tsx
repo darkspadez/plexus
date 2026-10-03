@@ -356,7 +356,7 @@ export const McpPage: React.FC = () => {
 
   const handleCopyMcpPath = async (path: string) => {
     if (!isClipboardAvailable()) {
-      toast.error('Copy requires HTTPS connection');
+      toast.error('Copy is not supported in this browser');
       return;
     }
     const success = await copyToClipboard(path);
@@ -370,7 +370,7 @@ export const McpPage: React.FC = () => {
   const handleCopySkill = async (skill: string, name: string) => {
     const canCopy = isClipboardAvailable();
     if (!canCopy) {
-      toast.error('Copy requires HTTPS connection');
+      toast.error('Copy is not supported in this browser');
       return;
     }
     const success = await copyToClipboard(skill);

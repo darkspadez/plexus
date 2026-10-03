@@ -58,8 +58,8 @@ After your PR merges, CI auto-generates the migration. Do **not** create or edit
 - Do **not** add an `apiKey` field — it is auto-inherited from the provider config.
 - Call `onChange` whenever any option changes.
 
-### `index.ts`
-- Export the config component.
+Import the config component directly from its file — there is no `components/quota` barrel
+on this branch.
 
 ---
 

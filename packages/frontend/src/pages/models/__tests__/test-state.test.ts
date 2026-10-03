@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { getAliasTestKeys, getRowTestState, targetTestKey } from '../test-state';
+import {
+  aliasTestApiTypes,
+  createRunTracker,
+  getAliasTestKeys,
+  getRowTestState,
+  targetTestKey,
+} from '../test-state';
 
 const alias = (id: string, targetCounts: number[]) => ({
   id,
@@ -63,5 +69,35 @@ describe('getRowTestState', () => {
     expect(getRowTestState({ id: 'x', target_groups: [] }, { 'x-0-0': { loading: true } })).toEqual(
       { loading: false, error: false, success: false }
     );
+  });
+});
+
+describe('aliasTestApiTypes', () => {
+  it.each([
+    [undefined, ['chat']],
+    ['text', ['chat']],
+    ['embeddings', ['embeddings']],
+    ['image', ['images']],
+    ['decisions', ['decisions']],
+    ['speech', ['chat']],
+  ] as const)('maps alias type %s to %j', (type, expected) => {
+    expect(aliasTestApiTypes({ type })).toEqual([...expected]);
+  });
+});
+
+describe('createRunTracker', () => {
+  it('treats only the latest run per key as current', () => {
+    const t = createRunTracker();
+    const r1 = t.start('a');
+    const r2 = t.start('a');
+    expect(t.isCurrent('a', r1)).toBe(false);
+    expect(t.isCurrent('a', r2)).toBe(true);
+  });
+
+  it('tracks keys independently', () => {
+    const t = createRunTracker();
+    const a = t.start('a');
+    t.start('b');
+    expect(t.isCurrent('a', a)).toBe(true);
   });
 });

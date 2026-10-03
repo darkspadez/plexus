@@ -1,7 +1,8 @@
 import Fuse from 'fuse.js';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { api, Alias, Provider, Model } from '../lib/api';
+import { createRunTracker, type TargetTestState } from '../pages/models/test-state';
 import { useToast } from '../contexts/ToastContext';
 import {
   useAliases,
@@ -241,18 +242,8 @@ export const useModels = () => {
   // ---------------------------------------------------------------------------
   // Test State (local — test result lifecycle is ephemeral)
   // ---------------------------------------------------------------------------
-  const [testStates, setTestStates] = useState<
-    Record<
-      string,
-      {
-        loading: boolean;
-        result?: 'success' | 'error';
-        message?: string;
-        showResult: boolean;
-        showMessage?: boolean;
-      }
-    >
-  >({});
+  const [testStates, setTestStates] = useState<Record<string, TargetTestState>>({});
+  const testRuns = useRef(createRunTracker());
 
   // ---------------------------------------------------------------------------
   // Import Orphaned Models State (local — UI-only state)
@@ -351,7 +342,9 @@ export const useModels = () => {
     provider: string,
     model: string,
     apiTypes: string[]
-  ) => {
+  ): Promise<'success' | 'error'> => {
+    const run = testRuns.current.start(testKey);
+    const isCurrent = () => testRuns.current.isCurrent(testKey, run);
     setTestStates((prev) => ({
       ...prev,
       [testKey]: { loading: true, showResult: true, showMessage: false },
@@ -367,56 +360,78 @@ export const useModels = () => {
       const totalDuration = results.reduce((sum, r) => sum + (r.durationMs || 0), 0);
       const avgDuration = Math.round(totalDuration / results.length);
 
-      setTestStates((prev) => ({
-        ...prev,
-        [testKey]: {
-          loading: false,
-          result: allSuccess ? 'success' : 'error',
-          message: allSuccess
-            ? apiTypes.includes('decisions')
-              ? `Success (${avgDuration}ms): ${results.find((r) => r.apiType === 'decisions')?.response || ''}`
-              : `Success (${avgDuration}ms avg, ${apiTypes.length} API${apiTypes.length > 1 ? 's' : ''})`
-            : `Failed via ${firstError?.apiType || 'unknown'}: ${firstError?.error || 'Test failed'}`,
-          showResult: true,
-          showMessage: true,
-        },
-      }));
+      setTestStates((prev) =>
+        isCurrent()
+          ? {
+              ...prev,
+              [testKey]: {
+                loading: false,
+                result: allSuccess ? 'success' : 'error',
+                message: allSuccess
+                  ? apiTypes.includes('decisions')
+                    ? `Success (${avgDuration}ms): ${results.find((r) => r.apiType === 'decisions')?.response || ''}`
+                    : `Success (${avgDuration}ms avg, ${apiTypes.length} API${apiTypes.length > 1 ? 's' : ''})`
+                  : `Failed via ${firstError?.apiType || 'unknown'}: ${firstError?.error || 'Test failed'}`,
+                showResult: true,
+                showMessage: true,
+              },
+            }
+          : prev
+      );
 
       setTimeout(
         () => {
-          setTestStates((prev) => ({
-            ...prev,
-            [testKey]: { ...prev[testKey], showResult: false },
-          }));
+          setTestStates((prev) =>
+            isCurrent()
+              ? {
+                  ...prev,
+                  [testKey]: { ...prev[testKey], showResult: false },
+                }
+              : prev
+          );
         },
         allSuccess ? 3000 : 1500
       );
 
       if (allSuccess) {
         setTimeout(() => {
-          setTestStates((prev) => ({
-            ...prev,
-            [testKey]: { ...prev[testKey], showMessage: false },
-          }));
+          setTestStates((prev) =>
+            isCurrent()
+              ? {
+                  ...prev,
+                  [testKey]: { ...prev[testKey], showMessage: false },
+                }
+              : prev
+          );
         }, 3000);
       }
+      return allSuccess ? 'success' : 'error';
     } catch (e) {
-      setTestStates((prev) => ({
-        ...prev,
-        [testKey]: {
-          loading: false,
-          result: 'error',
-          message: String(e),
-          showResult: true,
-          showMessage: true,
-        },
-      }));
+      setTestStates((prev) =>
+        isCurrent()
+          ? {
+              ...prev,
+              [testKey]: {
+                loading: false,
+                result: 'error',
+                message: String(e),
+                showResult: true,
+                showMessage: true,
+              },
+            }
+          : prev
+      );
       setTimeout(() => {
-        setTestStates((prev) => ({
-          ...prev,
-          [testKey]: { ...prev[testKey], showResult: false },
-        }));
+        setTestStates((prev) =>
+          isCurrent()
+            ? {
+                ...prev,
+                [testKey]: { ...prev[testKey], showResult: false },
+              }
+            : prev
+        );
       }, 1500);
+      return 'error';
     }
   };
 

@@ -12,7 +12,12 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
 import { RequestDetailPanel } from '../components/logs/RequestDetailPanel';
 import { apiFormatsDiffer, getRoutePath } from '../components/logs/route';
-import { getAttemptIndicatorLabel, hasUpstreamRewrite } from '../components/logs/helpers';
+import {
+  formatDateSafely,
+  formatReasoningEffort,
+  getAttemptIndicatorLabel,
+  hasUpstreamRewrite,
+} from '../components/logs/helpers';
 import { ApiFormatChip, Pill } from '../components/chips';
 import type { PillTone } from '../components/chips';
 import { SECTION_NAMES } from '../lib/nav';
@@ -72,11 +77,6 @@ const EMPTY_LOG_FILTERS = {
   endDate: '',
 };
 
-const formatReasoningEffort = (effort?: string | null): string | null => {
-  if (!effort) return null;
-  return effort.charAt(0).toUpperCase() + effort.slice(1);
-};
-
 /** Live progress frame for an in-flight request, delivered on the `progress` SSE event. */
 interface ProgressUpdate {
   requestId: string;
@@ -119,20 +119,6 @@ const getOffsetFromSearchParams = (searchParams: URLSearchParams) => {
   if (!Number.isFinite(parsedOffset) || parsedOffset < 0) return 0;
 
   return Math.floor(parsedOffset);
-};
-
-const formatDateSafely = (dateStr: string | undefined | null) => {
-  if (!dateStr) return { time: '-', date: '-' };
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return { time: 'Invalid', date: 'Date' };
-    return {
-      time: d.toLocaleTimeString(),
-      date: d.toISOString().split('T')[0],
-    };
-  } catch {
-    return { time: 'Error', date: 'Date' };
-  }
 };
 
 interface PaginationControlsProps {
@@ -242,7 +228,11 @@ const LogRouteCell = React.memo(({ log }: { log: UsageRecord }) => {
               await copyToClipboard(log.incomingModelAlias || '');
             }}
             className="flex shrink-0 items-center border-0 bg-transparent p-0 opacity-0 transition-opacity group-hover/alias:opacity-100 disabled:opacity-0"
-            title={isClipboardAvailable() ? 'Copy incoming model alias' : 'Copy requires HTTPS'}
+            title={
+              isClipboardAvailable()
+                ? 'Copy incoming model alias'
+                : 'Copy is not supported in this browser'
+            }
             disabled={!isClipboardAvailable()}
           >
             <Copy size={12} className="text-foreground-muted hover:text-foreground" />
@@ -266,7 +256,11 @@ const LogRouteCell = React.memo(({ log }: { log: UsageRecord }) => {
               await copyToClipboard(log.selectedModelName || '');
             }}
             className="flex shrink-0 items-center border-0 bg-transparent p-0 opacity-0 transition-opacity group-hover/selected:opacity-100 disabled:opacity-0"
-            title={isClipboardAvailable() ? 'Copy selected model name' : 'Copy requires HTTPS'}
+            title={
+              isClipboardAvailable()
+                ? 'Copy selected model name'
+                : 'Copy is not supported in this browser'
+            }
             disabled={!isClipboardAvailable()}
           >
             <Copy size={10} className="text-foreground-muted hover:text-foreground" />

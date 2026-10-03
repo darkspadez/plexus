@@ -23,6 +23,40 @@ export interface RowTestState {
   success: boolean;
 }
 
+/**
+ * Per-key run counter. Each test run bumps its key's counter and captures the
+ * value; delayed updates (result/message hide timers, late results) only apply
+ * while their captured run is still the latest, so a stale run can never
+ * clobber a newer run's state.
+ */
+export function createRunTracker() {
+  const runs = new Map<string, number>();
+  return {
+    start(key: string): number {
+      const next = (runs.get(key) ?? 0) + 1;
+      runs.set(key, next);
+      return next;
+    },
+    isCurrent(key: string, run: number): boolean {
+      return runs.get(key) === run;
+    },
+  };
+}
+
+/** API types exercised when testing a target of the given alias. */
+export function aliasTestApiTypes(alias: Pick<Alias, 'type'>): string[] {
+  switch (alias.type) {
+    case 'embeddings':
+      return ['embeddings'];
+    case 'image':
+      return ['images'];
+    case 'decisions':
+      return ['decisions'];
+    default:
+      return ['chat'];
+  }
+}
+
 /** The single test-state key shape: one per (alias, group, target). */
 export function targetTestKey(aliasId: string, groupIndex: number, targetIndex: number): string {
   return `${aliasId}-${groupIndex}-${targetIndex}`;

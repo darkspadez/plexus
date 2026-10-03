@@ -69,8 +69,6 @@ export const ApiFormatChip: React.FC<ApiFormatChipProps> = ({ format, className 
         <ApiTypeIcon
           apiType={format}
           size={10}
-          logos={false}
-          decorative
           fallback={<span aria-hidden className="inline-block size-1.5 rounded-full bg-current" />}
         />
         {format}

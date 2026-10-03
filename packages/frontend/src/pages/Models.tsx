@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Alias } from '../lib/api';
 import { getModelOptionKey } from '../lib/modelOptions';
-import { getRowTestState, targetTestKey } from './models/test-state';
+import { aliasTestApiTypes, getRowTestState, targetTestKey } from './models/test-state';
 import { useModels } from '../hooks/useModels';
 import { AliasMobileCard } from '../components/models/AliasMobileCard';
 import { TargetGroupEditor } from '../components/models/TargetGroupEditor';
@@ -16,6 +16,7 @@ import { ModelTypeBadge } from '../components/models/ModelTypeBadge';
 import { ActiveDots, type DotState } from '../components/models/ActiveDots';
 import { RoutingAliasesEditor } from '../components/models/RoutingAliasesEditor';
 import { ProviderMappingsEditor } from '../components/models/ProviderMappingsEditor';
+import { TargetTestMessage } from '../components/models/TargetTestMessage';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
@@ -164,7 +165,7 @@ export const Models = () => {
     handleDeleteAll: hookDeleteAll,
     handleToggleTarget,
     handleUpdateAlias,
-    handleTestTarget,
+    handleTestTarget: runTestTarget,
     dismissTestMessage,
     isImportModalOpen,
     setIsImportModalOpen,
@@ -323,15 +324,27 @@ export const Models = () => {
     return 'Mixed';
   };
 
+  // A failed test auto-expands its row so the error message is visible;
+  // successes never expand.
+  const handleTestTarget = async (
+    aliasId: string,
+    testKey: string,
+    provider: string,
+    model: string,
+    apiTypes: string[]
+  ) => {
+    const outcome = await runTestTarget(aliasId, testKey, provider, model, apiTypes);
+    if (outcome === 'error') {
+      setExpandedIds((prev) => (prev.has(aliasId) ? prev : new Set(prev).add(aliasId)));
+    }
+  };
+
   // Row-level test indicator derived from this alias's own per-target keys.
   const rowTestState = (alias: Alias) => getRowTestState(alias, testStates);
 
   // Play (▷) action — test every enabled target of the alias.
   const handleTestAll = (alias: Alias) => {
-    let apiTypes: string[] = ['chat'];
-    if (alias.type === 'embeddings') apiTypes = ['embeddings'];
-    else if (alias.type === 'image') apiTypes = ['images'];
-    else if (alias.type === 'decisions') apiTypes = ['decisions'];
+    const apiTypes = aliasTestApiTypes(alias);
     alias.target_groups.forEach((group, groupIdx) => {
       group.targets.forEach((t, targetIdx) => {
         if (t.enabled === false || !t.provider || !t.model) return;
@@ -596,19 +609,35 @@ export const Models = () => {
                           handleUpdateAlias({ ...alias, target_groups: groups });
                         }}
                         onTest={(index, provider, model) => {
-                          let apiTypes: string[] = ['chat'];
-                          if (alias.type === 'embeddings') apiTypes = ['embeddings'];
-                          else if (alias.type === 'image') apiTypes = ['images'];
-                          else if (alias.type === 'decisions') apiTypes = ['decisions'];
                           handleTestTarget(
                             alias.id,
                             targetTestKey(alias.id, 0, index),
                             provider,
                             model,
-                            apiTypes
+                            aliasTestApiTypes(alias)
                           );
                         }}
                       />
+                      {/* The mappings editor only edits group 0; surface test
+                          messages for targets in every further group too. */}
+                      {alias.target_groups.slice(1).flatMap((group, offset) =>
+                        group.targets.map((t, targetIdx) => {
+                          const key = targetTestKey(alias.id, offset + 1, targetIdx);
+                          const state = testStates[key];
+                          if (!state?.showMessage || !state.message) return null;
+                          return (
+                            <div key={key} className="flex flex-col gap-0.5 pl-6">
+                              <span className="font-mono text-[10px] text-foreground-subtle">
+                                {group.name} · {t.provider}/{t.model}
+                              </span>
+                              <TargetTestMessage
+                                state={state}
+                                onDismiss={() => dismissTestMessage(key)}
+                              />
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 )}

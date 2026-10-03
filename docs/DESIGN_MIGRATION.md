@@ -57,13 +57,14 @@ landed in files this branch had replaced were placed in a follow-up commit.
 
 ## Outstanding
 
-- `--accent-foreground` on the default amber accent is about 3.2:1, below AA for body-size
-  text (primary buttons, the Playground user bubble). A token-level fix, not per-component.
-- `components/config/DisplayPreferencesCard.tsx` — the currency `Select` renders narrower
-  than its chevron wrapper, so the chevron floats at the card's far edge.
-- `components/chips/ApiFormatChip.tsx` imports `ApiTypeIcon` from `components/logs/`; the
-  icon, its logo map and `isDecisionsApiType` belong in `chips/` or `lib/`.
-- `components/models/AliasTableRow.tsx` has no importers on this branch but is still
-  modified upstream; delete it in a dedicated change so future merges stop conflicting on it.
+- `text-accent` (accent-colored text on page surfaces) is below 4.5:1 for the warm accents
+  in light theme and for violet in dark theme. Filled accents are fine since
+  `--accent-foreground` became per-accent ink; text likely wants its own `--accent-text` token.
+- `components/chips/ApiFormatChip.tsx` imports `ApiTypeIcon` and `isDecisionsApiType` from
+  `components/logs/`; both belong in `chips/` or `lib/`.
+- Upstream-owned files deleted on this branch as dead code — `components/models/AliasTableRow.tsx`,
+  `components/quota/index.ts`, `components/quota/WaferQuotaDisplay.tsx`,
+  `components/logs/constants.ts` and the API logo SVGs — return as modify/delete conflicts
+  whenever upstream edits them. Resolve by keeping them deleted.
 - `components/config/types.ts` is now largely unused; the self-contained settings panels
   carry their own schemas. Kept as the documented shared contract pending a cleanup pass.

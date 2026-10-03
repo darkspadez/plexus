@@ -52,7 +52,7 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
         onClick={handleCopy}
         disabled={!canCopy}
         aria-label={copied ? 'Copied' : label}
-        title={!canCopy ? 'Copy requires HTTPS connection' : copied ? 'Copied!' : label}
+        title={!canCopy ? 'Copy is not supported in this browser' : copied ? 'Copied!' : label}
         className={clsx(
           'inline-flex items-center justify-center rounded-md transition-colors duration-150',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
@@ -73,7 +73,7 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
       type="button"
       onClick={handleCopy}
       disabled={!canCopy}
-      title={!canCopy ? 'Copy requires HTTPS connection' : undefined}
+      title={!canCopy ? 'Copy is not supported in this browser' : undefined}
       className={clsx(
         'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',

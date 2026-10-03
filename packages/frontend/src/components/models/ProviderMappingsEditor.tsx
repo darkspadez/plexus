@@ -27,25 +27,18 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Switch } from '../ui/Switch';
-import { targetTestKey } from '../../pages/models/test-state';
+import { targetTestKey, type TargetTestState } from '../../pages/models/test-state';
+import { TargetTestMessage } from './TargetTestMessage';
 import type { AliasTargetGroup, Provider, Model } from '../../lib/api';
 
 type Target = AliasTargetGroup['targets'][number];
-
-interface TestState {
-  loading?: boolean;
-  result?: 'success' | 'error';
-  showResult?: boolean;
-  showMessage?: boolean;
-  message?: string;
-}
 
 interface ProviderMappingsEditorProps {
   aliasId: string;
   targets: Target[];
   providers: Provider[];
   availableModels: Model[];
-  testStates: Record<string, TestState | undefined>;
+  testStates: Record<string, TargetTestState | undefined>;
   onChange: (targets: Target[]) => void;
   onTest: (index: number, provider: string, model: string) => void;
   onDismissTestMessage?: (testKey: string) => void;
@@ -60,7 +53,7 @@ const MappingRow: React.FC<{
   target: Target;
   providers: Provider[];
   availableModels: Model[];
-  testState?: TestState;
+  testState?: TargetTestState;
   onChange: (patch: Partial<Target>) => void;
   onTest: () => void;
   onDelete: () => void;
@@ -162,27 +155,7 @@ const MappingRow: React.FC<{
           <Trash2 size={14} />
         </button>
       </div>
-      {testState?.showMessage && testState.message && (
-        <button
-          type="button"
-          aria-label="Dismiss test message"
-          onClick={onDismissMessage}
-          className={`ml-6 w-fit max-w-full cursor-pointer rounded border px-2 py-1 text-left ${
-            testState.result === 'error'
-              ? 'border-danger/30 bg-danger/10'
-              : 'border-success/30 bg-success/10'
-          }`}
-          title="Click to dismiss"
-        >
-          <span
-            className={`break-words text-[11px] italic ${
-              testState.result === 'error' ? 'text-danger' : 'text-success'
-            }`}
-          >
-            {testState.message} [×]
-          </span>
-        </button>
-      )}
+      <TargetTestMessage state={testState} onDismiss={onDismissMessage} className="ml-6" />
     </div>
   );
 };

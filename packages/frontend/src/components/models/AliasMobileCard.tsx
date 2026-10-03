@@ -5,17 +5,22 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Switch } from '../ui/Switch';
 import { ModelTypeBadge } from './ModelTypeBadge';
+import { TargetTestMessage } from './TargetTestMessage';
 import type { Alias, Provider, Cooldown } from '../../lib/api';
 import { getAliasProviderLabels, getAliasTargetCount } from '../../lib/modelList';
 import { dedupeStrings } from '../../lib/modelOptions';
 import { formatMsToMinSec } from '@plexus/shared';
-import { targetTestKey } from '../../pages/models/test-state';
+import {
+  aliasTestApiTypes,
+  targetTestKey,
+  type TargetTestState,
+} from '../../pages/models/test-state';
 
 interface Props {
   alias: Alias;
   providers: Provider[];
   cooldowns: Cooldown[];
-  testStates: Record<string, any>;
+  testStates: Record<string, TargetTestState | undefined>;
   onEdit: (alias: Alias) => void;
   onDelete: (alias: Alias) => void;
   onToggleTarget: (
@@ -231,12 +236,13 @@ export const AliasMobileCard: React.FC<Props> = ({
                         type="button"
                         onClick={() => {
                           if (isDisabled || !t.provider || !t.model) return;
-                          let testApiTypes: string[] = ['chat'];
-                          if (alias.type === 'embeddings') testApiTypes = ['embeddings'];
-                          else if (alias.type === 'image') testApiTypes = ['images'];
-                          else if (alias.type === 'decisions') testApiTypes = ['decisions'];
-
-                          onTestTarget(alias.id, testKey, t.provider, t.model, testApiTypes);
+                          onTestTarget(
+                            alias.id,
+                            testKey,
+                            t.provider,
+                            t.model,
+                            aliasTestApiTypes(alias)
+                          );
                         }}
                         disabled={isDisabled}
                         className="flex h-7 w-7 items-center justify-center rounded text-accent transition-colors hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-40"
@@ -260,30 +266,11 @@ export const AliasMobileCard: React.FC<Props> = ({
                       />
                     </div>
                   </div>
-                  {testState?.showMessage && testState.message && (
-                    <button
-                      type="button"
-                      aria-label="Dismiss test message"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDismissTestMessage(testKey);
-                      }}
-                      className={`mt-2 block w-fit max-w-full cursor-pointer rounded border px-2 py-1 text-left ${
-                        testState.result === 'error'
-                          ? 'border-danger/30 bg-danger/10'
-                          : 'border-success/30 bg-success/10'
-                      }`}
-                      title="Click to dismiss"
-                    >
-                      <span
-                        className={`break-words text-[11px] italic ${
-                          testState.result === 'error' ? 'text-danger' : 'text-success'
-                        }`}
-                      >
-                        {testState.message} [×]
-                      </span>
-                    </button>
-                  )}
+                  <TargetTestMessage
+                    state={testState}
+                    onDismiss={() => onDismissTestMessage(testKey)}
+                    className="mt-2 block"
+                  />
                 </div>
               );
             })}
