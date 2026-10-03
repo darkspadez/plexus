@@ -44,7 +44,7 @@ export const Switch: React.FC<SwitchProps> = ({
       <span
         aria-hidden="true"
         className={clsx(
-          'absolute top-0 left-0 inline-block rounded-full bg-foreground-muted group-data-[checked=true]:bg-accent-foreground transition-transform duration-150',
+          'absolute top-0 left-0 inline-block rounded-full bg-foreground-muted group-data-[checked=true]:bg-[var(--neutral-50)] transition-transform duration-150',
           {
             'h-3.5 w-3.5 group-data-[checked=true]:translate-x-3': size === 'sm',
             'h-4 w-4 group-data-[checked=true]:translate-x-3.5': size === 'md',

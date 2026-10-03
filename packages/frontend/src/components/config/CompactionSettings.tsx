@@ -138,7 +138,7 @@ export function CompactionSettings() {
                     { value: 'native', label: 'native' },
                     { value: 'headroom', label: 'headroom' },
                   ]}
-                  className="w-48"
+                  containerClassName="w-48"
                 />
               )}
             />

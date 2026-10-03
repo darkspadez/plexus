@@ -16,6 +16,8 @@ interface SelectProps<V extends string = string>
   label?: string;
   error?: string;
   placeholder?: string;
+  /** Classes for the root container (label + field + error); put width classes here. */
+  containerClassName?: string;
 }
 
 export function Select<V extends string = string>({
@@ -26,6 +28,7 @@ export function Select<V extends string = string>({
   error,
   placeholder,
   className,
+  containerClassName,
   id,
   ...rest
 }: SelectProps<V>) {
@@ -33,7 +36,7 @@ export function Select<V extends string = string>({
   const selectId = id || generatedId;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={clsx('flex flex-col gap-1.5', containerClassName)}>
       {label && (
         <label htmlFor={selectId} className="font-sans text-xs font-medium text-foreground-muted">
           {label}

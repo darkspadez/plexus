@@ -19,7 +19,7 @@ export function DisplayPreferencesCard() {
             value: option.code,
             label: `${option.label} (${option.code}) — ${option.symbol}`,
           }))}
-          className="w-full sm:w-80"
+          containerClassName="w-full sm:w-80"
         />
         {!ratesAvailable && currency !== 'USD' && (
           <p className="flex items-center gap-1.5 font-sans text-[11px] text-foreground-subtle">

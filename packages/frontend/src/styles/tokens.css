@@ -30,7 +30,7 @@
   --hue-blue-500:   #2563EB;
   --hue-green-500:  #16A34A;
   --hue-orange-500: #EA580C;
-  --hue-violet-500: #7C5CFC;
+  --hue-violet-500: #7857FC;
   --hue-rose-500:   #D6638F;
   --hue-amber-500:  #D97706;
 
@@ -156,31 +156,31 @@
 
 [data-accent="green"] {
   --accent:            var(--hue-green-500);
-  --accent-foreground: #FFFFFF;
+  --accent-foreground: var(--neutral-950);
   --accent-subtle:     rgba(22, 163, 74, 0.12);
 }
 
 [data-accent="orange"] {
   --accent:            var(--hue-orange-500);
-  --accent-foreground: #FFFFFF;
+  --accent-foreground: var(--neutral-950);
   --accent-subtle:     rgba(234, 88, 12, 0.12);
 }
 
 [data-accent="violet"] {
   --accent:            var(--hue-violet-500);
   --accent-foreground: #FFFFFF;
-  --accent-subtle:     rgba(124, 92, 252, 0.12);
+  --accent-subtle:     rgba(120, 87, 252, 0.12);
 }
 
 [data-accent="rose"] {
   --accent:            var(--hue-rose-500);
-  --accent-foreground: #FFFFFF;
+  --accent-foreground: var(--neutral-950);
   --accent-subtle:     rgba(214, 99, 143, 0.12);
 }
 
 [data-accent="amber"] {
   --accent:            var(--hue-amber-500);
-  --accent-foreground: #FFFFFF;
+  --accent-foreground: var(--neutral-950);
   --accent-subtle:     rgba(217, 119, 6, 0.12);
 }
 
