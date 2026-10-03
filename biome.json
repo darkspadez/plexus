@@ -17,7 +17,8 @@
       "!!packages/backend/src/transformers/oauth/__tests__/golden-fixtures/**",
       "!!.claude/**",
       "!!.cora/**",
-      "!!.git.nosync/**"
+      "!!.git.nosync/**",
+      "!!node_modules.nosync/**"
     ]
   },
   "formatter": {
