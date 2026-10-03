@@ -1,10 +1,17 @@
 import { UsageRecord } from '../types/usage';
 import { PricingManager } from '../services/observability/pricing-manager';
 
+export interface CostAttribution {
+  upstreamModel?: string;
+  pricingModel?: string;
+  pricingFallback?: boolean;
+}
+
 export function calculateCosts(
   usageRecord: Partial<UsageRecord>,
   pricing: any,
-  providerDiscount?: number
+  providerDiscount?: number,
+  attribution?: CostAttribution
 ) {
   const inputTokens = usageRecord.tokensInput || 0;
   const outputTokens = usageRecord.tokensOutput || 0;
@@ -18,8 +25,27 @@ export function calculateCosts(
   let calculated = false;
 
   // Default to 'default' source with 0-cost metadata
+  const attributionKeys =
+    attribution &&
+    (attribution.upstreamModel ||
+      attribution.pricingModel ||
+      attribution.pricingFallback !== undefined)
+      ? {
+          ...(attribution.upstreamModel ? { upstream_model: attribution.upstreamModel } : {}),
+          ...(attribution.pricingModel ? { pricing_model: attribution.pricingModel } : {}),
+          ...(attribution.pricingFallback !== undefined
+            ? { pricing_fallback: attribution.pricingFallback }
+            : {}),
+        }
+      : {};
   usageRecord.costSource = 'default';
-  usageRecord.costMetadata = JSON.stringify({ input: 0, output: 0, cached: 0, cache_write: 0 });
+  usageRecord.costMetadata = JSON.stringify({
+    input: 0,
+    output: 0,
+    cached: 0,
+    cache_write: 0,
+    ...attributionKeys,
+  });
 
   if (!pricing) return;
 
@@ -43,6 +69,7 @@ export function calculateCosts(
     usageRecord.costMetadata = JSON.stringify({
       ...pricing,
       discount: effectiveDiscount,
+      ...attributionKeys,
     });
   } else if (pricing.source === 'defined' && Array.isArray(pricing.range)) {
     const match = pricing.range.find((r: any) => {
@@ -76,6 +103,7 @@ export function calculateCosts(
         cache_write: match.cache_write_per_m || 0,
         range: match,
         discount: effectiveDiscount,
+        ...attributionKeys,
       });
     }
   } else if (pricing.source === 'openrouter' && pricing.slug) {
@@ -112,6 +140,7 @@ export function calculateCosts(
         input_cache_read: cacheReadRate,
         input_cache_write: cacheWriteRate,
         discount: effectiveDiscount,
+        ...attributionKeys,
       });
     }
   } else if (pricing.source === 'per_request') {
@@ -125,7 +154,7 @@ export function calculateCosts(
     calculated = true;
 
     usageRecord.costSource = 'per_request';
-    usageRecord.costMetadata = JSON.stringify({ amount: pricing.amount });
+    usageRecord.costMetadata = JSON.stringify({ amount: pricing.amount, ...attributionKeys });
   }
 
   if (calculated) {

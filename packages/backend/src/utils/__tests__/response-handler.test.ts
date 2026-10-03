@@ -9,6 +9,21 @@ import { UsageRecord } from '../../types/usage';
 import { registerSpy } from '../../../test/test-utils';
 import { logger } from '../../utils/logger';
 import { DebugManager } from '../../services/observability/debug-manager';
+import { SYNTHETIC_SAFEGUARD_EXPLANATION } from '../../transformers/anthropic/synthetic-safeguards';
+
+// Force the alias toggle on for the synthetic-safeguard regression test
+// without depending on global config state; every other test in this file
+// uses apiType 'chat' or omits `safeguards`, so the gate stays closed for them.
+vi.mock('../../transformers/anthropic/synthetic-safeguards', async (importOriginal) => {
+  const mod =
+    await importOriginal<typeof import('../../transformers/anthropic/synthetic-safeguards')>();
+  return {
+    ...mod,
+    resolveSyntheticSafeguardToggle: (canonical?: string | null) =>
+      (globalThis as { __forceSyntheticToggle?: boolean }).__forceSyntheticToggle ??
+      mod.resolveSyntheticSafeguardToggle(canonical),
+  };
+});
 
 describe('handleResponse', () => {
   const originalAdminKey = process.env.ADMIN_KEY;
@@ -946,5 +961,70 @@ describe('handleResponse', () => {
       expect(usageRecord.responseStatus).toBe('empty');
       expect(mockStorage.saveError).not.toHaveBeenCalled();
     });
+  });
+
+  test('unary messages response gains synthetic safeguard_results when the alias toggle is on', async () => {
+    (globalThis as { __forceSyntheticToggle?: boolean }).__forceSyntheticToggle = true;
+    try {
+      const messagesTransformer: Transformer = {
+        ...mockTransformer,
+        formatResponse: vi.fn((r: UnifiedChatResponse) =>
+          Promise.resolve({
+            id: 'msg_1',
+            type: 'message',
+            role: 'assistant',
+            model: 'luna',
+            content: [{ type: 'tool_use', id: 'toolu_x', name: 'Bash', input: {} }],
+            stop_reason: 'tool_use',
+          })
+        ),
+      };
+      const unifiedResponse: UnifiedChatResponse = {
+        id: 'resp-synth',
+        model: 'luna',
+        content: null,
+        tool_calls: [
+          { id: 'toolu_x', type: 'function', function: { name: 'Bash', arguments: '{}' } },
+        ],
+        plexus: {
+          provider: 'test-provider',
+          model: 'gpt-5.6-luna',
+          canonicalModel: 'luna-alias',
+          apiType: 'responses',
+        },
+      };
+      const usageRecord: Partial<UsageRecord> = { requestId: 'req-synth-unary' };
+      const originalRequest = {
+        model: 'luna-alias',
+        messages: [{ role: 'user', content: 'hi' }],
+        safeguards: [{ type: 'dangerous_tool_use', classifier_context: { v: 1 } }],
+      };
+
+      await handleResponse(
+        mockRequest,
+        mockReply,
+        unifiedResponse,
+        messagesTransformer,
+        usageRecord,
+        mockStorage,
+        Date.now(),
+        'messages',
+        false,
+        originalRequest
+      );
+
+      const lastCall = (mockReply.send as any).mock.calls.at(-1);
+      const result = lastCall[0];
+      // Internal routing metadata must be stripped even though the gate needed it.
+      expect(result.plexus).toBeUndefined();
+      const verdict = result.safeguard_results?.[0]?.status?.tool_uses?.['toolu_x'];
+      expect(verdict).toMatchObject({
+        type: 'evaluated',
+        outcome: 'not_flagged',
+        explanation: SYNTHETIC_SAFEGUARD_EXPLANATION,
+      });
+    } finally {
+      delete (globalThis as { __forceSyntheticToggle?: boolean }).__forceSyntheticToggle;
+    }
   });
 });

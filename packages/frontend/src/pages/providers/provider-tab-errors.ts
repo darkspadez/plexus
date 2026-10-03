@@ -31,15 +31,11 @@ export function isValidHttpUrl(value: string): boolean {
 export function computeProviderTabErrors(args: {
   id: string | undefined;
   isOAuthMode: boolean;
-  oauthAccount: string | undefined;
   quotaValidationError: string | null;
   rawPassthrough: Provider['rawPassthrough'];
 }): ProviderTabErrors {
-  const connection = !args.id?.trim()
-    ? 'Provider ID is required'
-    : args.isOAuthMode && !args.oauthAccount?.trim()
-      ? 'OAuth account is required'
-      : null;
+  // The OAuth account is the provider ID (#913), so the ID check covers OAuth too.
+  const connection = !args.id?.trim() ? 'Provider ID is required' : null;
 
   let transformations: string | null = null;
   if (args.rawPassthrough?.enabled) {

@@ -2,6 +2,8 @@ import { createParser } from 'eventsource-parser';
 import {
   UnifiedChatRequest,
   UnifiedChatResponse,
+  UnifiedDecisionsRequest,
+  UnifiedDecisionsResponse,
   UnifiedTranscriptionRequest,
   UnifiedTranscriptionResponse,
   UnifiedSpeechRequest,
@@ -44,6 +46,7 @@ import {
 } from './upstream-execution';
 import { isPiAiRoute } from '../oauth/oauth-dispatcher';
 import { setupProviderHeaders } from '../providers/provider-request-headers';
+import { applyHeaderCacheKeyInjection } from './cache-key-injection';
 import {
   applyGeminiThinkingConfig,
   getApiMetadata,
@@ -369,9 +372,17 @@ export class Dispatcher {
     attemptedProviders: string[],
     retryHistory: RetryAttemptRecord[],
     finalRoute: RouteResult,
-    apiType: string
+    apiType: string,
+    upstreamModel?: string
   ): void {
-    attachAttemptMetadata(response, attemptedProviders, retryHistory, finalRoute, apiType);
+    attachAttemptMetadata(
+      response,
+      attemptedProviders,
+      retryHistory,
+      finalRoute,
+      apiType,
+      upstreamModel
+    );
   }
 
   private appendSkippedAttempt(
@@ -435,9 +446,10 @@ export class Dispatcher {
   private appendSuccessAttempt(
     retryHistory: RetryAttemptRecord[],
     route: RouteResult,
-    apiType?: string
+    apiType?: string,
+    upstreamModel?: string
   ): void {
-    appendSuccessAttempt(retryHistory, route, apiType);
+    appendSuccessAttempt(retryHistory, route, apiType, upstreamModel);
   }
 
   private appendFailureAttempt(
@@ -445,7 +457,8 @@ export class Dispatcher {
     route: RouteResult,
     error: any,
     apiType?: string,
-    retryable?: boolean
+    retryable?: boolean,
+    upstreamModel?: string
   ): void {
     appendFailureAttempt(
       retryHistory,
@@ -453,7 +466,8 @@ export class Dispatcher {
       error,
       this.formatFailureReason.bind(this),
       apiType,
-      retryable
+      retryable,
+      upstreamModel
     );
   }
 
@@ -561,10 +575,13 @@ export class Dispatcher {
     // Native OAuth routes carry fully-built wire headers (Bearer token + CC
     // fingerprint headers) stashed during payload preparation.
     const nativeOAuth = (route as any)[NATIVE_OAUTH_STASH];
-    if (nativeOAuth?.headers) {
-      return { ...nativeOAuth.headers };
-    }
-    return setupProviderHeaders(route, apiType, request);
+    const headers = nativeOAuth?.headers
+      ? { ...nativeOAuth.headers }
+      : setupProviderHeaders(route, apiType, request);
+    // Inject the provider's configured cache/session key header, if any. Runs
+    // after both paths so it also covers native OAuth (e.g. Meta), which builds
+    // its headers from scratch and never calls setupProviderHeaders.
+    return applyHeaderCacheKeyInjection(headers, route, request);
   }
 
   private getApiMetadata(metadata: Record<string, any>): Record<string, any> {
@@ -1065,6 +1082,14 @@ export class Dispatcher {
     resolveTimeoutMs?: ResolveTimeoutMs
   ): Promise<UnifiedImageGenerationResponse> {
     return this.getMediaDispatcher().dispatchImageGenerations(request, signal, resolveTimeoutMs);
+  }
+
+  async dispatchDecisions(
+    request: UnifiedDecisionsRequest,
+    signal?: AbortSignal,
+    resolveTimeoutMs?: ResolveTimeoutMs
+  ): Promise<UnifiedDecisionsResponse> {
+    return this.getMediaDispatcher().dispatchDecisions(request, signal, resolveTimeoutMs);
   }
 
   /**

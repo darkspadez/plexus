@@ -3,6 +3,7 @@ import { getCurrentDialect, getDatabase, getSchema } from './client';
 import type { MetadataOverrides, ModelConfig, ModelTargetGroup, SelectorType } from '../config';
 import {
   fromBool,
+  getAffectedRowCount,
   hasAnyOverrideField,
   now,
   overrideRowToOverrides,
@@ -45,6 +46,7 @@ interface AliasRow {
   useImageFallthrough: unknown;
   modelArchitecture: unknown;
   enforceLimits: unknown;
+  syntheticSafeguardApproval: unknown;
   stickySession: unknown;
   preferredApi: unknown;
   piModel: unknown;
@@ -235,14 +237,7 @@ export class AliasRepository {
       .update(schema.modelAliases)
       .set({ modelType: 'text', updatedAt: now() })
       .where(sql`${schema.modelAliases.modelType} IN ('chat', 'responses')`);
-    // Both SQLite (bun) and postgres-js drivers expose rowCount/changes on the result
-    const result = updateResult as {
-      rowsAffected?: number;
-      changes?: number;
-      rowCount?: number;
-    };
-    const affected = result.rowsAffected ?? result.changes ?? result.rowCount ?? 0;
-    return Number(affected);
+    return getAffectedRowCount(updateResult);
   }
 
   /**
@@ -284,13 +279,7 @@ export class AliasRepository {
           AND ${schema.modelAliasTargets.providerSlug} IS NOT NULL
           AND ${schema.modelAliasTargets.modelName} IS NOT NULL`
       );
-    const result = updateResult as {
-      rowsAffected?: number;
-      changes?: number;
-      rowCount?: number;
-    };
-    const affected = result.rowsAffected ?? result.changes ?? result.rowCount ?? 0;
-    return Number(affected);
+    return getAffectedRowCount(updateResult);
   }
 
   /**
@@ -340,6 +329,7 @@ export class AliasRepository {
       useImageFallthrough: fromBool(config.use_image_fallthrough === true),
       modelArchitecture: null,
       enforceLimits: fromBool(config.enforce_limits === true),
+      syntheticSafeguardApproval: fromBool(config.synthetic_safeguard_approval === true),
       stickySession: fromBool(config.sticky_session === true),
       preferredApi: config.preferred_api ? toJson(config.preferred_api) : null,
       piModel: config.pi_model ? toJson(config.pi_model) : null,
@@ -499,6 +489,7 @@ export class AliasRepository {
       priority: row.priority ?? 'selector',
       use_image_fallthrough: toBool(row.useImageFallthrough),
       enforce_limits: toBool(row.enforceLimits),
+      synthetic_safeguard_approval: toBool(row.syntheticSafeguardApproval),
       sticky_session: toBool(row.stickySession),
       ...(row.selector ? { selector: row.selector } : {}),
       ...(row.modelType ? { type: row.modelType } : {}),

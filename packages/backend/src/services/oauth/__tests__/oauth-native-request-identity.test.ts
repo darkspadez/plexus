@@ -6,11 +6,15 @@
  * from both the `user-agent` header and the `x-anthropic-billing-header`
  * system block's `cc_version`. An outdated identity is rejected with
  * `claude_code_version_too_old` (claude-fable-5-1 requires >= 2.1.251),
- * so both fields must derive from the same, up-to-date CC_VERSION constant.
+ * so both fields must derive from the same, up-to-date version. That version
+ * is served live by `ClaudeCodeVersionService` (npm `latest` dist-tag,
+ * refreshed on startup + every 60 min); `CC_VERSION` is only its
+ * startup/offline fallback.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { CC_VERSION } from '../../../transformers/oauth/masking/cc-constants';
+import { ClaudeCodeVersionService } from '../claude-code-version-service';
 import { prepareOAuthNativeRequest } from '../oauth-native-request';
 
 const AUTH = { mode: 'oauth', token: 'oauth-token-for-test' } as const;
@@ -48,6 +52,10 @@ function isVersionAtLeast(candidate: string, minimum: string): boolean {
 }
 
 describe('prepareOAuthNativeRequest — Claude Code identity', () => {
+  beforeEach(() => {
+    ClaudeCodeVersionService.resetForTesting();
+  });
+
   it('advertises CC_VERSION in the user-agent header', () => {
     const { userAgent } = preparedIdentity();
     expect(userAgent).toBe(`claude-cli/${CC_VERSION} (external, cli)`);
@@ -66,5 +74,20 @@ describe('prepareOAuthNativeRequest — Claude Code identity', () => {
     // version 2.1.251 or newer is required." Bump this floor if a future
     // model raises the gate.
     expect(isVersionAtLeast(CC_VERSION, '2.1.251')).toBe(true);
+  });
+
+  it('picks up a refreshed version without a restart', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ latest: '9.9.9' }),
+      })
+    );
+    await ClaudeCodeVersionService.getInstance().fetchVersion();
+
+    const { userAgent, ccVersion } = preparedIdentity();
+    expect(userAgent).toBe('claude-cli/9.9.9 (external, cli)');
+    expect(ccVersion).toMatch(/^9\.9\.9\.[0-9a-f]{3}$/);
   });
 });

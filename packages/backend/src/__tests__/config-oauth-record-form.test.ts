@@ -33,17 +33,26 @@ describe('api_base_url oauth:// handling', () => {
   );
 
   test.each(['OAuth://', ' oauth:// ', ' OAUTH:// '])(
-    'requires OAuth metadata for string placeholder %j even with a static key',
+    'requires an OAuth provider for string placeholder %j even with a static key',
     (api_base_url) => {
       const parsed = ProviderConfigSchema.safeParse({ api_key: 'key', api_base_url });
 
       expect(parsed.success).toBe(false);
       expect(parsed.error?.issues.map((issue) => issue.message)).toEqual(
-        expect.arrayContaining([
-          "'oauth_provider' must be specified when using oauth://",
-          "'oauth_account' must be specified when using oauth://",
-        ])
+        expect.arrayContaining(["'oauth_provider' must be specified when using oauth://"])
       );
+    }
+  );
+
+  test.each(['oauth://', 'OAuth://', ' oauth:// '])(
+    'accepts a placeholder %j with no account (derived from the provider slug)',
+    (api_base_url) => {
+      const parsed = ProviderConfigSchema.safeParse({
+        oauth_provider: oauthProvider.oauth_provider,
+        api_base_url,
+      });
+
+      expect(parsed.success).toBe(true);
     }
   );
 

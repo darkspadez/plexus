@@ -1,6 +1,10 @@
 import { ConfigRepository, OAuthCredentialsData } from '../../db/config-repository';
 import { logger } from '../../utils/logger';
-import { assertNoAliasRefCycles, isOAuthPlaceholderUrl } from '../../config';
+import {
+  assertNoAliasRefCycles,
+  isOAuthPlaceholderUrl,
+  normalizeSystemOneProviderConfig,
+} from '../../config';
 import type {
   PlexusConfig,
   ProviderConfig,
@@ -107,7 +111,8 @@ export class ConfigService {
 
   /**
    * One-time startup migration: rewrite legacy model_type values 'chat' and
-   * 'responses' to the canonical capability type 'text'.
+   * 'responses' to the canonical capability type 'text', for both aliases
+   * and provider models.
    *
    * 'chat' was overloaded (wire protocol + capability type); 'responses' was
    * incorrectly stored as a capability type when it is only a wire protocol.
@@ -117,7 +122,7 @@ export class ConfigService {
     const affected = await this.repo.migrateModelTypes();
     if (affected > 0) {
       logger.info(
-        `Migrated ${affected} alias model_type value(s) from legacy 'chat'/'responses' to 'text'`
+        `Migrated ${affected} model_type value(s) from legacy 'chat'/'responses' to 'text'`
       );
       await this.executeRebuild();
     }
@@ -233,10 +238,14 @@ export class ConfigService {
     this.rebuildCache();
   }
 
-  async deleteProvider(slug: string, cascade: boolean = true): Promise<void> {
-    await this.repo.deleteProvider(slug, cascade);
+  async deleteProvider(
+    slug: string,
+    cascade: boolean = true
+  ): Promise<{ providerType: string; accountId: string } | null> {
+    const deletedCredential = await this.repo.deleteProvider(slug, cascade);
     this.pendingWrites++;
     this.rebuildCache();
+    return deletedCredential;
   }
 
   // ─── Alias CRUD ──────────────────────────────────────────────────
@@ -347,11 +356,29 @@ export class ConfigService {
     accountId: string,
     creds: OAuthCredentialsData
   ): Promise<void> {
-    await this.repo.setOAuthCredentials(providerType, accountId, creds);
+    const { created, linkedProviderSlugs } = await this.repo.setOAuthCredentials(
+      providerType,
+      accountId,
+      creds
+    );
+    // A new login (or a slug backfill link) changes how providers hydrate
+    // `oauth_account`; routine token rotations of an existing row do not.
+    if (created || linkedProviderSlugs.length > 0) {
+      this.rebuildCache();
+    }
   }
 
   async deleteOAuthCredentials(providerType: string, accountId: string): Promise<void> {
     await this.repo.deleteOAuthCredentials(providerType, accountId);
+    // The FK nulls linked providers, which re-hydrate through the fallbacks.
+    this.rebuildCache();
+  }
+
+  async getOAuthCredentialTimestamps(
+    providerType: string,
+    accountId: string
+  ): Promise<{ createdAt: number; updatedAt: number; expiresAt: number } | null> {
+    return this.repo.getOAuthCredentialTimestamps(providerType, accountId);
   }
 
   async getAllOAuthProviders(): Promise<Array<{ providerType: string; accountId: string }>> {
@@ -491,7 +518,16 @@ export class ConfigService {
    * Core rebuild logic — loads the full config graph from the database.
    */
   private async doRebuild(): Promise<void> {
-    const providers = await this.repo.getAllProviders();
+    const rawProviders = await this.repo.getAllProviders();
+    // Collapse legacy Decisions targets onto `systemone` at load time so
+    // stored configs keep routing without a data migration (mirrors
+    // hydrateConfig for file-based configs).
+    const providers = Object.fromEntries(
+      Object.entries(rawProviders).map(([slug, cfg]) => [
+        slug,
+        normalizeSystemOneProviderConfig(cfg),
+      ])
+    );
     const models = await this.repo.getAllAliases();
     assertNoAliasRefCycles(models);
     const keys = await this.repo.getAllKeys();

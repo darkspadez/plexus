@@ -39,6 +39,7 @@ interface RetryAttempt {
   index: number;
   provider: string;
   model: string;
+  upstreamModel?: string;
   apiType?: string;
   status: 'success' | 'failed' | 'skipped';
   reason: string;
@@ -443,6 +444,9 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
                     </span>
                     <span className="font-mono text-foreground">
                       {attempt.provider}:{attempt.model}
+                      {attempt.upstreamModel && attempt.upstreamModel !== attempt.model
+                        ? ` → ${attempt.upstreamModel}`
+                        : null}
                     </span>
                     {attempt.apiType && (
                       <span className="font-mono text-foreground-muted">{attempt.apiType}</span>

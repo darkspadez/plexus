@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { isOAuthPlaceholderUrl } from '@plexus/shared';
+import { findUnresolvedPresetVars, isOAuthPlaceholderUrl } from '@plexus/shared';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
@@ -10,7 +10,19 @@ import {
   type OAuthProviderInfo,
   fetchQuotaCheckers,
 } from '../lib/api';
+import {
+  collectProviderEndpointUrls,
+  isOAuthProviderDraft,
+  PI_AI_AUTO_VALUE,
+} from '../lib/piAiProvider';
 import type { QuotaCheckerInfo } from '../types/quota';
+import type { OAuthCredentialStatus } from '../types/settings';
+import {
+  isDecisionsTargetAccess,
+  legacyDecisionsAccessKind,
+  migrateLegacyDecisionsAccess,
+  migrateLegacyDecisionsBaseUrls,
+} from '../lib/apiFormats';
 import { formatMeterValue } from '../components/quota/MeterValue';
 import {
   periodAbbrev,
@@ -51,6 +63,7 @@ const KNOWN_APIS = [
   'openai-images',
   'openrouter-images',
   'codex-images',
+  'systemone',
   'responses',
   'ollama',
 ];
@@ -62,6 +75,7 @@ const getOAuthCheckerType = (oauthProvider?: string): string | null => {
     anthropic: 'claude-code',
     'claude-code': 'claude-code',
     'github-copilot': 'copilot',
+    meta: 'muse-code',
   };
   return map[oauthProvider] ?? null;
 };
@@ -87,13 +101,14 @@ export const EMPTY_PROVIDER: Provider = {
   type: [],
   apiKey: '',
   oauthProvider: '',
-  oauthAccount: '',
   enabled: true,
   disableCooldown: false,
   stallCooldown: false,
   allow100PercentUtilization: false,
   estimateTokens: false,
   useClaudeMasking: false,
+  cacheKeyInjection: undefined,
+  responsesExtensions: undefined,
   apiBaseUrl: {},
   headers: {},
   extraBody: {},
@@ -201,8 +216,9 @@ export function useProviderForm() {
   const editingProvider = watch() as unknown as Provider;
 
   // setEditingProvider-compatible: sub-editors call setEditingProvider({ ...editingProvider, field: value })
-  // We intercept by wrapping reset(). Since all sub-editors use the object form (not function form),
-  // this is safe. We cast through ProviderFormValues since Provider and ProviderFormValues are structurally identical.
+  // and async effects (pi-ai auto-detect) use the updater form; both route through reset(),
+  // which accepts either. We cast through ProviderFormValues since Provider and
+  // ProviderFormValues are structurally identical.
   const setEditingProvider: React.Dispatch<React.SetStateAction<Provider>> = useCallback(
     (valueOrUpdater: Provider | ((prev: Provider) => Provider)) => {
       if (typeof valueOrUpdater === 'function') {
@@ -224,6 +240,8 @@ export function useProviderForm() {
   // ---------------------------------------------------------------------------
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [originalId, setOriginalId] = useState<string | null>(null);
+  // True once a preset is applied — suppresses pi-ai auto-detection (#914).
+  const [presetSelected, setPresetSelected] = useState(false);
 
   // ---------------------------------------------------------------------------
   // OAuth local state (unchanged — OAuth session lifecycle stays local)
@@ -232,10 +250,15 @@ export function useProviderForm() {
   const [oauthSession, setOauthSession] = useState<OAuthSession | null>(null);
   const [oauthPromptValue, setOauthPromptValue] = useState('');
   const [oauthManualCode, setOauthManualCode] = useState('');
+  const [oauthSelectValue, setOauthSelectValue] = useState('');
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [oauthBusy, setOauthBusy] = useState(false);
   const [oauthCredentialReady, setOauthCredentialReady] = useState(false);
   const [oauthCredentialChecking, setOauthCredentialChecking] = useState(false);
+  // Credential age (connected / refreshed / expires) for the status line.
+  const [oauthCredentialStatus, setOauthCredentialStatus] = useState<OAuthCredentialStatus | null>(
+    null
+  );
 
   // Tabbed drawer state
   const [activeTab, setActiveTabState] = useState<ProviderFormTab>('connection');
@@ -358,7 +381,8 @@ export function useProviderForm() {
         in_progress: 'Starting',
         awaiting_auth: 'Awaiting browser',
         awaiting_prompt: 'Awaiting input',
-        awaiting_manual_code: 'Awaiting redirect',
+        awaiting_manual_code: 'Awaiting code',
+        awaiting_select: 'Awaiting method',
         success: 'Authenticated',
         error: 'Error',
         cancelled: 'Cancelled',
@@ -385,6 +409,7 @@ export function useProviderForm() {
     if (!isModalOpen) {
       resetOAuthState();
       setOauthCredentialReady(false);
+      setOauthCredentialStatus(null);
       setOauthCredentialChecking(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -394,45 +419,103 @@ export function useProviderForm() {
   useEffect(() => {
     if (!isModalOpen || !isOAuthMode) {
       setOauthCredentialReady(false);
+      setOauthCredentialStatus(null);
       setOauthCredentialChecking(false);
       return;
     }
     const providerId = editingProvider.oauthProvider || (OAUTH_PROVIDERS[0]?.value ?? '');
-    const accountId = editingProvider.oauthAccount?.trim();
+    // The OAuth account is the provider ID (1:1) — never typed separately.
+    const accountId = editingProvider.id.trim();
     if (!accountId) {
       setOauthCredentialReady(false);
+      setOauthCredentialStatus(null);
       setOauthCredentialChecking(false);
       return;
     }
     let cancelled = false;
-    setOauthCredentialChecking(true);
-    api
-      .getOAuthCredentialStatus(providerId, accountId)
-      .then((result) => {
-        if (!cancelled) setOauthCredentialReady(!!result.ready);
-      })
-      .catch(() => {
-        if (!cancelled) setOauthCredentialReady(false);
-      })
-      .finally(() => {
-        if (!cancelled) setOauthCredentialChecking(false);
-      });
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const checkStatus = async (initial: boolean) => {
+      if (initial) setOauthCredentialChecking(true);
+      try {
+        const result = await api.getOAuthCredentialStatus(providerId, accountId);
+        if (cancelled) return;
+        setOauthCredentialReady(!!result.ready);
+        setOauthCredentialStatus(result.ready ? result : null);
+      } catch {
+        if (cancelled) return;
+        if (initial) {
+          setOauthCredentialReady(false);
+          setOauthCredentialStatus(null);
+        }
+      } finally {
+        if (!cancelled) {
+          if (initial) setOauthCredentialChecking(false);
+          timer = setTimeout(() => void checkStatus(false), 10_000);
+        }
+      }
+    };
+    void checkStatus(true);
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
-  }, [
-    isModalOpen,
-    isOAuthMode,
-    editingProvider.oauthProvider,
-    editingProvider.oauthAccount,
-    oauthStatus,
-  ]);
+  }, [isModalOpen, isOAuthMode, editingProvider.oauthProvider, editingProvider.id, oauthStatus]);
 
   useEffect(() => {
     if (!isOAuthMode) return;
     resetOAuthState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingProvider.oauthProvider, isOAuthMode]);
+
+  // Auto-detect the pi-ai provider for new Custom drafts only. A preset
+  // explicitly chooses builtin, inline quirks, or neither; URL matching must
+  // not override that choice. Existing configs and manual selections are
+  // never changed.
+  const lastAutoSuggestion = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isModalOpen) {
+      lastAutoSuggestion.current = null;
+      return;
+    }
+    if (originalId !== null) return;
+    if (presetSelected) return;
+    const urls = collectProviderEndpointUrls(editingProvider.apiBaseUrl);
+    const oauthProvider = isOAuthProviderDraft(editingProvider.apiBaseUrl)
+      ? editingProvider.oauthProvider?.trim() || undefined
+      : undefined;
+    if (urls.length === 0 && !oauthProvider) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      let suggestion: string | null = null;
+      try {
+        suggestion = await api.resolvePiAiProvider({ urls, oauthProvider });
+      } catch {
+        return; // non-fatal — the user can still pick manually
+      }
+      if (cancelled || !suggestion) return;
+      const previous = lastAutoSuggestion.current;
+      lastAutoSuggestion.current = suggestion;
+      setEditingProvider((prev) => {
+        if (prev.pi_ai_quirks) return prev;
+        const current = prev.pi_ai_provider;
+        const untouched = !current || current === PI_AI_AUTO_VALUE || current === previous;
+        if (!untouched) return prev;
+        if (current === suggestion && prev.auto_compat === true) return prev;
+        return { ...prev, pi_ai_provider: suggestion, auto_compat: true };
+      });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [
+    isModalOpen,
+    originalId,
+    presetSelected,
+    editingProvider.apiBaseUrl,
+    editingProvider.oauthProvider,
+  ]);
 
   // OAuth session polling
   useEffect(() => {
@@ -443,7 +526,11 @@ export function useProviderForm() {
         const session = await api.getOAuthSession(oauthSessionId);
         if (cancelled) return;
         setOauthSession(session);
-        if (['awaiting_prompt', 'awaiting_manual_code', 'awaiting_auth'].includes(session.status)) {
+        if (
+          ['awaiting_prompt', 'awaiting_manual_code', 'awaiting_select', 'awaiting_auth'].includes(
+            session.status
+          )
+        ) {
           setOauthBusy(false);
         }
         if (['success', 'error', 'cancelled'].includes(session.status)) {
@@ -478,12 +565,46 @@ export function useProviderForm() {
   };
 
   const handleEdit = (provider: Provider) => {
+    setPresetSelected(false);
     setOriginalId(provider.id);
-    // Deep-clone the provider into the rhf form (like old JSON.parse behavior)
-    openDrawer(JSON.parse(JSON.stringify(provider)) as ProviderFormValues);
+    const cloned: Provider = JSON.parse(JSON.stringify(provider));
+    // Collapse legacy Decisions config onto `systemone` when the form loads
+    // so saving persists the migration (the backend normalizes at runtime
+    // regardless). Both halves migrate together: models without a matching
+    // base URL (or vice versa) would leave the row internally inconsistent.
+    const migratedBaseUrls = migrateLegacyDecisionsBaseUrls(cloned.apiBaseUrl);
+    if (migratedBaseUrls !== cloned.apiBaseUrl) cloned.apiBaseUrl = migratedBaseUrls;
+    if (cloned.models && !Array.isArray(cloned.models)) {
+      for (const [modelId, modelConfig] of Object.entries(cloned.models)) {
+        const cfg = modelConfig as { access_via?: unknown; type?: unknown };
+        const access = cfg?.access_via;
+        if (!Array.isArray(access)) continue;
+        const migrated = migrateLegacyDecisionsAccess(access);
+        // A legacy model whose access_via is entirely decisions-capable is
+        // really a decisions-only model from before `type: 'decisions'`
+        // existed — convert it once, at load, so the editor form reflects
+        // the canonical shape. Explicit decisions entries are kept (they may
+        // carry subtypes); routing is identical.
+        if ((cfg.type ?? 'text') !== 'decisions' && legacyDecisionsAccessKind(access) === 'pure') {
+          (cloned.models as Record<string, unknown>)[modelId] = {
+            ...cfg,
+            type: 'decisions',
+            access_via: migrated,
+          };
+        } else if (migrated && JSON.stringify(migrated) !== JSON.stringify(access)) {
+          (cloned.models as Record<string, unknown>)[modelId] = {
+            ...cfg,
+            access_via: migrated,
+          };
+        }
+      }
+    }
+    // Deep-cloned above; open the rhf form on the migrated copy.
+    openDrawer(cloned as unknown as ProviderFormValues);
   };
 
   const handleAddNew = () => {
+    setPresetSelected(false);
     setOriginalId(null);
     openDrawer(JSON.parse(JSON.stringify(PROVIDER_FORM_DEFAULTS)) as ProviderFormValues);
   };
@@ -527,7 +648,6 @@ export function useProviderForm() {
     const errors = computeProviderTabErrors({
       id: formValues.id,
       isOAuthMode,
-      oauthAccount: formValues.oauthAccount,
       quotaValidationError,
       rawPassthrough: editingProvider.rawPassthrough,
     });
@@ -535,6 +655,17 @@ export function useProviderForm() {
     if (errorTab) {
       setActiveTab(errorTab);
       toast.error(errors[errorTab] as string);
+      return;
+    }
+    // Template placeholders (e.g. a preset's {account_id}) are never valid
+    // upstream hosts — the backend accepts map values verbatim, so block
+    // the save here instead of persisting a broken provider.
+    const unresolvedTemplateVars =
+      typeof editingProvider.apiBaseUrl === 'object' && editingProvider.apiBaseUrl !== null
+        ? findUnresolvedPresetVars(editingProvider.apiBaseUrl as Record<string, string>)
+        : [];
+    if (unresolvedTemplateVars.length > 0) {
+      toast.error(`Fill in template values (${unresolvedTemplateVars.join(', ')}) before saving`);
       return;
     }
 
@@ -576,8 +707,28 @@ export function useProviderForm() {
       ...prev,
       [testKey]: { loading: true, showResult: true, showMessage: false },
     }));
+    const provider =
+      editingProvider.id === providerId
+        ? editingProvider
+        : providers.find((candidate) => candidate.id === providerId);
+    const accessVia: string[] | undefined = Array.isArray(provider?.models)
+      ? undefined
+      : provider?.models?.[modelId]?.access_via;
+    // A decisions probe goes only to a decisions-typed model, a model with
+    // an explicit decisions `access_via` entry, or an unconstrained model on
+    // a provider whose every base URL is decisions-capable (otherwise a
+    // System One-only provider's rows would get a chat probe the router
+    // rejects). Inferred types on a shared provider must not drive this: a
+    // Text model with empty `access_via` alongside a chat URL is still a
+    // chat model.
+    const inferredTypes = accessVia?.length ? [] : inferProviderTypes(provider?.apiBaseUrl);
+    const usesDecisions =
+      modelType === 'decisions' ||
+      (accessVia ?? []).some((type) => isDecisionsTargetAccess(type)) ||
+      (inferredTypes.length > 0 && inferredTypes.every((type) => isDecisionsTargetAccess(type)));
     let testApiTypes: string[] = ['chat'];
-    if (modelType === 'embeddings') testApiTypes = ['embeddings'];
+    if (usesDecisions) testApiTypes = ['decisions'];
+    else if (modelType === 'embeddings') testApiTypes = ['embeddings'];
     else if (modelType === 'image') testApiTypes = ['images'];
     else if (modelType === 'responses') testApiTypes = ['responses'];
     else if (modelType === 'transcriptions') testApiTypes = ['transcriptions'];
@@ -595,7 +746,9 @@ export function useProviderForm() {
         loading: false,
         result: allSuccess ? 'success' : 'error',
         message: allSuccess
-          ? `Success (${avgDuration}ms avg, ${testApiTypes.length} API${testApiTypes.length > 1 ? 's' : ''})`
+          ? usesDecisions
+            ? `Success (${avgDuration}ms): ${results[0]?.response || ''}`
+            : `Success (${avgDuration}ms avg, ${testApiTypes.length} API${testApiTypes.length > 1 ? 's' : ''})`
           : `Failed via ${firstError?.apiType || 'unknown'}: ${firstError?.error || 'Test failed'}`,
         showResult: true,
         showMessage: true,
@@ -641,15 +794,16 @@ export function useProviderForm() {
     setOauthSession(null);
     setOauthPromptValue('');
     setOauthManualCode('');
+    setOauthSelectValue('');
     setOauthError(null);
     setOauthBusy(false);
   };
 
   const handleStartOAuth = async () => {
     const providerId = editingProvider.oauthProvider || (OAUTH_PROVIDERS[0]?.value ?? '');
-    const accountId = editingProvider.oauthAccount?.trim();
+    const accountId = editingProvider.id.trim();
     if (!accountId) {
-      setOauthError('OAuth account is required before starting login');
+      setOauthError('Provider ID is required before starting login');
       return;
     }
     setOauthBusy(true);
@@ -660,7 +814,11 @@ export function useProviderForm() {
       const session = await api.startOAuthSession(providerId, accountId);
       setOauthSessionId(session.id);
       setOauthSession(session);
-      if (['awaiting_prompt', 'awaiting_manual_code', 'awaiting_auth'].includes(session.status))
+      if (
+        ['awaiting_prompt', 'awaiting_manual_code', 'awaiting_select', 'awaiting_auth'].includes(
+          session.status
+        )
+      )
         setOauthBusy(false);
     } catch (error) {
       setOauthError(error instanceof Error ? error.message : 'Failed to start OAuth');
@@ -698,6 +856,23 @@ export function useProviderForm() {
     }
   };
 
+  const handleSubmitSelect = async () => {
+    if (!oauthSessionId || !oauthSession?.select) return;
+    const value = oauthSelectValue || oauthSession.select.options[0]?.id;
+    if (!value) return;
+    setOauthBusy(true);
+    setOauthError(null);
+    try {
+      const session = await api.submitOAuthSelect(oauthSessionId, value);
+      setOauthSession(session);
+      setOauthSelectValue('');
+    } catch (error) {
+      setOauthError(error instanceof Error ? error.message : 'Failed to submit selection');
+    } finally {
+      setOauthBusy(false);
+    }
+  };
+
   const handleCancelOAuth = async () => {
     if (!oauthSessionId) return;
     setOauthBusy(true);
@@ -707,6 +882,27 @@ export function useProviderForm() {
       setOauthSession(session);
     } catch (error) {
       setOauthError(error instanceof Error ? error.message : 'Failed to cancel session');
+    } finally {
+      setOauthBusy(false);
+    }
+  };
+
+  const handleDeleteOAuthCredential = async () => {
+    const providerId = editingProvider.oauthProvider || (OAUTH_PROVIDERS[0]?.value ?? '');
+    const accountId = editingProvider.id.trim();
+    if (!accountId) {
+      setOauthError('Provider ID is required');
+      return;
+    }
+    setOauthBusy(true);
+    setOauthError(null);
+    try {
+      await api.deleteOAuthCredentials(providerId, accountId);
+      setOauthCredentialReady(false);
+      setOauthCredentialStatus(null);
+      resetOAuthState();
+    } catch (error) {
+      setOauthError(error instanceof Error ? error.message : 'Failed to delete OAuth credentials');
     } finally {
       setOauthBusy(false);
     }
@@ -951,9 +1147,8 @@ export function useProviderForm() {
   const handleFetchModels = async () => {
     if (isOAuthMode) {
       const oauthProvider = editingProvider.oauthProvider || (OAUTH_PROVIDERS[0]?.value ?? '');
-      // Codex model lists are account-scoped; without an account the backend
-      // falls back to the static catalog and returns a warning.
-      const accountId = editingProvider.oauthAccount?.trim();
+      // OAuth model lists are account-scoped; the account is the provider ID.
+      const accountId = editingProvider.id.trim() || undefined;
       setIsFetchingModels(true);
       setFetchError(null);
       setFetchWarning(null);
@@ -1085,12 +1280,28 @@ export function useProviderForm() {
   const getQuotaDisplay = (provider: Provider): React.ReactNode => {
     if (!provider.quotaChecker?.enabled) return null;
     if (quotasLoading) return <span className="text-foreground-muted text-xs">—</span>;
-    const quota = quotas.find((q) => q.checkerId === provider.id);
-    if (!quota?.meters?.length) return null;
     const handleQuotaClick = (e: React.MouseEvent) => {
       e.stopPropagation();
       navigate('/quotas');
     };
+    const quota = quotas.find((q) => q.checkerId === provider.id);
+    if (!quota) return null;
+    // GET /v0/management/quotas reports success:false with no error before
+    // the first snapshot exists — only badge an actual check failure.
+    if (!quota.success && quota.error) {
+      return (
+        <Badge
+          status="error"
+          noDot
+          className="cursor-pointer text-[10px] py-0.5 px-2"
+          onClick={handleQuotaClick}
+          title={quota.error}
+        >
+          Quota error
+        </Badge>
+      );
+    }
+    if (!quota.meters?.length) return null;
 
     const badges: React.ReactNode[] = [];
 
@@ -1149,7 +1360,6 @@ export function useProviderForm() {
   const tabErrors = computeProviderTabErrors({
     id: editingProvider.id,
     isOAuthMode,
-    oauthAccount: editingProvider.oauthAccount,
     quotaValidationError,
     rawPassthrough: editingProvider.rawPassthrough,
   });
@@ -1162,6 +1372,7 @@ export function useProviderForm() {
     setIsModalOpen,
     editingProvider,
     setEditingProvider,
+    setPresetSelected,
     originalId,
     isSaving,
     quotaCheckerTypes,
@@ -1174,10 +1385,13 @@ export function useProviderForm() {
     setOauthPromptValue,
     oauthManualCode,
     setOauthManualCode,
+    oauthSelectValue,
+    setOauthSelectValue,
     oauthError,
     oauthBusy,
     oauthCredentialReady,
     oauthCredentialChecking,
+    oauthCredentialStatus,
     oauthStatus,
     oauthIsTerminal,
     oauthStatusLabel,
@@ -1234,7 +1448,9 @@ export function useProviderForm() {
     handleStartOAuth,
     handleSubmitPrompt,
     handleSubmitManualCode,
+    handleSubmitSelect,
     handleCancelOAuth,
+    handleDeleteOAuthCredential,
     // API URLs
     getApiBaseUrlMap,
     getApiUrlValue,

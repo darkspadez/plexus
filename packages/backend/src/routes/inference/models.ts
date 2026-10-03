@@ -1,8 +1,10 @@
 import { FastifyInstance } from 'fastify';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import crypto from 'crypto';
 import { getSupportedThinkingLevels } from '@earendil-works/pi-ai';
 import type { Api, Model as PiAiModel } from '@earendil-works/pi-ai';
 import { getConfig } from '../../config';
+import type { ModelConfig, ProviderConfig } from '../../config';
 import { PricingManager } from '../../services/observability/pricing-manager';
 import {
   ModelMetadataManager,
@@ -11,6 +13,8 @@ import {
   resolvePreferredApi,
 } from '../../services/models/model-metadata-manager';
 import { getCatalogModel } from '../../services/pi-ai/catalog';
+import { resolveInlineQuirks } from '../../services/dispatch/dispatcher-auto-compat';
+import { renderModelsUiPage } from './models-ui';
 
 let v1ModelsLastHash: string | null = null;
 let v1ModelsLastModified: string | null = null;
@@ -40,6 +44,24 @@ const MUSE_CODE_STATIC_METADATA = {
   },
 };
 
+function inlineTraitsForAlias(
+  modelConfig: ModelConfig,
+  providers: Record<string, ProviderConfig>,
+  preferredApi: string[] | undefined
+) {
+  const targets = (modelConfig.target_groups ?? [])
+    .flatMap((group) => group.targets)
+    .filter((target) => target.enabled !== false && target.provider && target.model);
+  const unique = new Map(targets.map((target) => [`${target.provider}\0${target.model}`, target]));
+  if (unique.size !== 1) return undefined;
+  const target = [...unique.values()][0]!;
+  const quirks = providers[target.provider!]?.pi_ai_quirks;
+  if (!quirks) return undefined;
+  if (preferredApi?.length !== 1) return undefined;
+  const apiType = preferredApi[0] === 'chat_completions' ? 'chat' : preferredApi[0]!;
+  return resolveInlineQuirks(quirks, apiType, target.model!);
+}
+
 export async function registerModelsRoute(fastify: FastifyInstance) {
   /**
    * GET /v1/models
@@ -55,6 +77,12 @@ export async function registerModelsRoute(fastify: FastifyInstance) {
   fastify.get('/v1/models', async (request, reply) => {
     const config = getConfig();
     const metadataManager = ModelMetadataManager.getInstance();
+    // Presence of the `ui` query key (e.g. /v1/models?ui) selects the
+    // standalone HTML viewer instead of the normal JSON payload.
+    const wantsUi =
+      request.query !== null &&
+      typeof request.query === 'object' &&
+      'ui' in (request.query as Record<string, unknown>);
 
     const created = MODEL_CREATED_AT;
     const hasVisionFallthrough = !!config.vision_fallthrough;
@@ -67,11 +95,24 @@ export async function registerModelsRoute(fastify: FastifyInstance) {
       );
       let piModelConfig = modelConfig?.pi_model;
       const preferredApi = resolvePreferredApi(aliasId, modelConfig, config.providers);
+      const inlineSource =
+        !modelConfig?.pi_model &&
+        (modelConfig.target_groups ?? []).some((group) =>
+          group.targets.some(
+            (target) =>
+              target.enabled !== false &&
+              target.provider &&
+              config.providers[target.provider]?.pi_ai_quirks
+          )
+        );
+      const inlineTraits = inlineSource
+        ? inlineTraitsForAlias(modelConfig, config.providers, preferredApi)
+        : undefined;
 
       // Look up pi compat options if a pi model reference is configured.
       let piOptions: Record<string, unknown> | undefined;
       let piModel: PiAiModel<Api> | null = null;
-      if (!piModelConfig && automaticIdentity.provider) {
+      if (!inlineSource && !piModelConfig && automaticIdentity.provider) {
         const inferred = getCatalogModel(automaticIdentity.provider, automaticIdentity.model);
         if (inferred) {
           piModelConfig = {
@@ -92,24 +133,31 @@ export async function registerModelsRoute(fastify: FastifyInstance) {
       // (e.g. OpenCode) instead of relying on fallback behavior. Values use
       // pi's canonical vocabulary ('off' | 'minimal' | 'low' | 'medium' |
       // 'high' | 'xhigh' | 'max'); clients map them to provider-native values.
+      const inlineLevels =
+        inlineTraits?.reasoning === true && inlineTraits.thinkingLevelMap
+          ? Object.entries(inlineTraits.thinkingLevelMap)
+              .filter(([, value]) => value !== null)
+              .map(([level]) => level)
+          : [];
       const reasoningOptions = piModel?.reasoning
-        ? [
-            {
-              type: 'effort' as const,
-              values: [...getSupportedThinkingLevels(piModel)],
-            },
-          ]
-        : undefined;
+        ? [{ type: 'effort' as const, values: [...getSupportedThinkingLevels(piModel)] }]
+        : inlineLevels.length > 0
+          ? [{ type: 'effort' as const, values: inlineLevels }]
+          : undefined;
 
       const base = {
         id: aliasId,
         object: 'model' as const,
         created,
         owned_by: 'plexus',
+        type: modelConfig.type ?? 'text',
         ...(preferredApi !== undefined && { preferred_api: preferredApi }),
         ...(piModelConfig && { pi_provider: piModelConfig.provider }),
         ...(piModelConfig && { pi_model: piModelConfig.model_id }),
         ...(piOptions !== undefined && { pi_options: piOptions }),
+        ...(inlineTraits?.compat &&
+          Object.keys(inlineTraits.compat).length > 0 &&
+          !piOptions && { pi_options: inlineTraits.compat }),
         ...(reasoningOptions !== undefined && { reasoning_options: reasoningOptions }),
       };
 
@@ -170,6 +218,14 @@ export async function registerModelsRoute(fastify: FastifyInstance) {
       data: models,
     };
     const payloadString = JSON.stringify(payload);
+
+    if (wantsUi) {
+      // The viewer is intentionally unauthenticated like /v1/models itself:
+      // a self-contained page reusing only Plexus theme tokens (no admin UI).
+      return reply
+        .type('text/html; charset=utf-8')
+        .send(renderModelsUiPage(payloadString, models.length));
+    }
 
     // Computing the hash on the fly of the fully serialized JSON is explicitly
     // accepted here as benchmarks show it is extremely fast (<0.01ms for 12KB)
@@ -360,12 +416,14 @@ export async function registerModelsRoute(fastify: FastifyInstance) {
 }
 
 /**
- * GET /v1/muse-code/models
+ * GET /v1/muse-code/models and /muse-code/models
  * Returns configured aliases in the catalog format expected by the Muse CLI.
- * This route is registered in the authenticated inference scope.
+ * The Muse CLI ignores the path in base_url and always requests
+ * {origin}/muse-code/models, so both paths are registered.
+ * These routes are registered in the authenticated inference scope.
  */
 export async function registerMuseCodeModelsRoute(fastify: FastifyInstance) {
-  fastify.get('/v1/muse-code/models', async (_request, reply) => {
+  const handler = async (_request: FastifyRequest, reply: FastifyReply) => {
     const config = getConfig();
     const metadataManager = ModelMetadataManager.getInstance();
 
@@ -432,5 +490,8 @@ export async function registerMuseCodeModelsRoute(fastify: FastifyInstance) {
     });
 
     return reply.type('application/json').send({ object: 'list', data });
-  });
+  };
+
+  fastify.get('/v1/muse-code/models', handler);
+  fastify.get('/muse-code/models', handler);
 }

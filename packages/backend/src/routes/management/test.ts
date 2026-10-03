@@ -10,6 +10,7 @@ const VALID_API_TYPES: ProbeApiType[] = [
   'responses',
   'embeddings',
   'images',
+  'decisions',
   'speech',
   'oauth',
 ];

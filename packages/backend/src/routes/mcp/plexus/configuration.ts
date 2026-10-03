@@ -113,6 +113,120 @@ export async function handleProviderTool(
   }
 }
 
+export async function handlePiCatalogTool(
+  input: ToolInput,
+  shimContext: ManagementShimContext
+): Promise<ToolResponse> {
+  switch (input.operation) {
+    case 'providers':
+      return successResponse(
+        input.operation,
+        await callManagementRoute(shimContext, 'GET', '/v0/management/pi/providers')
+      );
+    case 'models': {
+      const provider = requireId(input, 'pi-ai provider');
+      return successResponse(
+        input.operation,
+        await callManagementRoute(shimContext, 'GET', '/v0/management/pi/models', undefined, {
+          provider,
+          q: typeof input.query?.q === 'string' ? input.query.q : undefined,
+        })
+      );
+    }
+    case 'validate_config': {
+      const [configuredProviders, catalogProvidersResponse] = await Promise.all([
+        callManagementRoute(shimContext, 'GET', '/v0/management/providers'),
+        callManagementRoute(shimContext, 'GET', '/v0/management/pi/providers'),
+      ]);
+      const catalogProviderIds = new Set(
+        Array.isArray(catalogProvidersResponse?.data)
+          ? catalogProvidersResponse.data.filter(
+              (provider: unknown): provider is string => typeof provider === 'string'
+            )
+          : []
+      );
+      const configured = Object.entries(asObject(configuredProviders)).flatMap(
+        ([providerId, value]) => {
+          const provider = asObject(value);
+          const piAiProvider =
+            typeof provider.pi_ai_provider === 'string' && provider.pi_ai_provider
+              ? provider.pi_ai_provider
+              : null;
+          const models =
+            provider.models &&
+            typeof provider.models === 'object' &&
+            !Array.isArray(provider.models)
+              ? Object.entries(provider.models)
+              : [];
+          const modelReferences = models.flatMap(([modelId, modelValue]) => {
+            const piAiModelId = asObject(modelValue).pi_ai_model_id;
+            return typeof piAiModelId === 'string' && piAiModelId ? [{ modelId, piAiModelId }] : [];
+          });
+          if (!piAiProvider && modelReferences.length === 0) return [];
+          return [{ providerId, piAiProvider, models: modelReferences }];
+        }
+      );
+      const modelsByProvider = new Map<string, Set<string>>();
+      await Promise.all(
+        [...new Set(configured.flatMap(({ piAiProvider }) => (piAiProvider ? [piAiProvider] : [])))]
+          .filter((provider) => catalogProviderIds.has(provider))
+          .map(async (provider) => {
+            const response = await callManagementRoute(
+              shimContext,
+              'GET',
+              '/v0/management/pi/models',
+              undefined,
+              { provider }
+            );
+            modelsByProvider.set(
+              provider,
+              new Set(
+                Array.isArray(response?.data)
+                  ? response.data.flatMap((model: unknown) =>
+                      typeof asObject(model).id === 'string' ? [asObject(model).id as string] : []
+                    )
+                  : []
+              )
+            );
+          })
+      );
+
+      const results = configured.map(({ providerId, piAiProvider, models }) => {
+        const validProvider = piAiProvider !== null && catalogProviderIds.has(piAiProvider);
+        const modelResults = models.map(({ modelId, piAiModelId }) => ({
+          id: modelId,
+          pi_ai_model_id: piAiModelId,
+          valid:
+            validProvider &&
+            piAiProvider !== null &&
+            (modelsByProvider.get(piAiProvider)?.has(piAiModelId) ?? false),
+        }));
+        return {
+          provider: providerId,
+          pi_ai_provider: piAiProvider,
+          validProvider,
+          models: modelResults,
+          valid: validProvider && modelResults.every(({ valid }) => valid),
+        };
+      });
+      const checkedModels = results.reduce((total, result) => total + result.models.length, 0);
+      return successResponse(input.operation, {
+        valid: results.every(({ valid }) => valid),
+        checkedProviders: results.length,
+        checkedModels,
+        invalidProviders: results.filter(({ validProvider }) => !validProvider).length,
+        invalidModels: results.reduce(
+          (total, result) => total + result.models.filter(({ valid }) => !valid).length,
+          0
+        ),
+        results,
+      });
+    }
+    default:
+      throw unsupportedOperation(input.operation, ['providers', 'models', 'validate_config']);
+  }
+}
+
 export async function handleModelAliasTool(
   input: ToolInput,
   shimContext: ManagementShimContext

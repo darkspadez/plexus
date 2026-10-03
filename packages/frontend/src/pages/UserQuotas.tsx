@@ -168,7 +168,10 @@ export const UserQuotas: React.FC = () => {
         )}
 
         {/* Default quotas — moved here from the Keys page */}
-        <Card title="Default quotas">
+        <Card
+          title="Default quotas"
+          className="!overflow-visible [&>div:first-child]:rounded-t-[11px]"
+        >
           <p className="text-xs text-foreground-muted mb-3">
             Applied to any key with no quotas of its own (non-stacking — a key&apos;s own{' '}
             <code>quotas</code> always wins over this fallback when set).

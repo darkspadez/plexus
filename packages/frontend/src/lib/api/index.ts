@@ -57,6 +57,7 @@ export const api = {
 
   // Providers
   getProviders: settingsApi.getProviders,
+  getProviderPresets: settingsApi.getProviderPresets,
   saveProvider: settingsApi.saveProvider,
   updateProviderEnabled: settingsApi.updateProviderEnabled,
   getVisionFallthroughConfig: aliasesApi.getVisionFallthroughConfig,
@@ -106,14 +107,18 @@ export const api = {
   getOAuthSession: settingsApi.getOAuthSession,
   submitOAuthPrompt: settingsApi.submitOAuthPrompt,
   submitOAuthManualCode: settingsApi.submitOAuthManualCode,
+  submitOAuthSelect: settingsApi.submitOAuthSelect,
   cancelOAuthSession: settingsApi.cancelOAuthSession,
 
   // Metadata Catalogs & Pi Models
   searchModelMetadata: aliasesApi.searchModelMetadata,
   getModelMetadata: aliasesApi.getModelMetadata,
   refreshModelMetadata: aliasesApi.refreshModelMetadata,
+  getCatalogStatus: aliasesApi.getCatalogStatus,
+  refreshAllCatalogs: aliasesApi.refreshAllCatalogs,
   getPiProviders: aliasesApi.getPiProviders,
   getPiModels: aliasesApi.getPiModels,
+  resolvePiAiProvider: aliasesApi.resolvePiAiProvider,
   getOAuthProviderModels: settingsApi.getOAuthProviderModels,
 
   // MCP Servers

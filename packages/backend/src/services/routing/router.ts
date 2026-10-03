@@ -14,9 +14,12 @@ import { ConcurrencyTracker } from '../runtime/concurrency-tracker';
 import { SelectorFactory } from './selectors/factory';
 import { EnrichedModelTarget } from './selectors/base';
 import { StickySessionManager } from './sticky-session-manager';
+import { splitServiceTierSuffix, type ServiceTierSplit } from './service-tier-suffix';
 import {
   getApiBaseType,
+  hasDecisionsProtocol,
   isApiSubtype,
+  isDecisionsTargetApiType,
   isImageTargetApiType,
   normalizeApiAccessList,
 } from '../../utils/api-format';
@@ -237,6 +240,102 @@ async function filterGroupTargets(
     healthyTargets = imageTargets;
   }
 
+  // Shared per-target model info lookup: all three capability filters below
+  // read the same model-config record (record-form `models` only — array
+  // form carries no per-model config).
+  const getTargetModelInfo = (target: {
+    provider: string;
+    model: string;
+  }): { accessVia: ModelProviderConfig['access_via']; type: ModelProviderConfig['type'] } => {
+    const providerConfig = config.providers[target.provider];
+    if (!providerConfig || Array.isArray(providerConfig.models) || !providerConfig.models) {
+      return { accessVia: undefined, type: undefined };
+    }
+    const modelConfig = providerConfig.models[target.model];
+    return { accessVia: modelConfig?.access_via, type: modelConfig?.type };
+  };
+
+  // A decisions-typed target is decisions-only: it serves a decisions
+  // request only when a decisions protocol actually exists (`access_via`
+  // entry or provider base URL — `hasDecisionsProtocol`), and never serves
+  // anything else. Non-decisions-typed targets return undefined so the
+  // caller applies its own rules.
+  const decisionsTypedEligibility = (
+    target: { provider: string; model: string },
+    incomingApiType: string
+  ): boolean | undefined => {
+    const { accessVia, type } = getTargetModelInfo(target);
+    if (type !== 'decisions') return undefined;
+    if (incomingApiType !== 'decisions') return false;
+    const providerConfig = config.providers[target.provider];
+    if (!providerConfig) return false;
+    return hasDecisionsProtocol(accessVia, getProviderTypes(providerConfig));
+  };
+
+  // 3.6. Decisions capability filter.
+  //
+  // Decisions requests never fall back to incompatible providers: with no
+  // decisions-capable target the candidate list stays empty (strict), so the
+  // caller fails instead of mistranslating the payload onto a chat model.
+  // Conversely, decisions-only targets (and `decisions` aliases) never serve
+  // any other incoming API type. Targets with unconstrained `access_via`
+  // keep the existing generic cross-format fallback in both directions —
+  // except models explicitly typed `decisions`, which are decisions-only
+  // regardless of `access_via` (empty or not).
+  if (incomingApiType === 'decisions') {
+    const decisionsTargets = healthyTargets.filter((target) => {
+      const providerConfig = config.providers[target.provider];
+      if (!providerConfig) return false;
+
+      const typedEligibility = decisionsTypedEligibility(target, 'decisions');
+      if (typedEligibility !== undefined) return typedEligibility;
+      const { accessVia: modelSpecificTypes } = getTargetModelInfo(target);
+      const availableTypes =
+        modelSpecificTypes && modelSpecificTypes.length > 0
+          ? normalizeApiAccessList(modelSpecificTypes)
+          : getProviderTypes(providerConfig);
+      if (availableTypes.some((type) => isDecisionsTargetApiType(type))) return true;
+      // A `decisions` alias with unconstrained targets may serve decisions.
+      if ((!modelSpecificTypes || modelSpecificTypes.length === 0) && alias.type === 'decisions') {
+        return true;
+      }
+      return false;
+    });
+
+    if (decisionsTargets.length > 0) {
+      if (logModelName) {
+        logger.info(
+          `Router: Filtered to ${decisionsTargets.length} decisions-compatible targets (from ${healthyTargets.length} total).`
+        );
+      }
+    } else if (logModelName) {
+      logger.warn(`Router: No decisions-compatible targets found for '${logModelName}'.`);
+    }
+    healthyTargets = decisionsTargets;
+  } else {
+    const nonDecisionsTargets = healthyTargets.filter((target) => {
+      if (alias.type === 'decisions') return false;
+      const providerConfig = config.providers[target.provider];
+      if (!providerConfig) return false;
+
+      // A model declared `decisions` serves decisions requests only.
+      const { accessVia: modelSpecificTypes, type: modelType } = getTargetModelInfo(target);
+      if (modelType === 'decisions') return false;
+      const advertised =
+        modelSpecificTypes && modelSpecificTypes.length > 0
+          ? normalizeApiAccessList(modelSpecificTypes)
+          : [];
+      // Only constrained decisions-only targets are excluded; unconstrained
+      // targets keep the generic cross-format fallback.
+      if (advertised.length > 0 && advertised.every((type) => isDecisionsTargetApiType(type))) {
+        return false;
+      }
+      return true;
+    });
+
+    healthyTargets = nonDecisionsTargets;
+  }
+
   const findApiCompatibleTargets = (
     targets: (ModelTarget & { provider: string; model: string })[],
     requestedApiType: string
@@ -247,20 +346,24 @@ async function filterGroupTargets(
       if (!providerConfig) return false;
 
       const providerTypes = getProviderTypes(providerConfig);
-      let modelSpecificTypes: ModelProviderConfig['access_via'];
-      let modelType: ModelProviderConfig['type'];
-      if (!Array.isArray(providerConfig.models) && providerConfig.models) {
-        const modelConfig = providerConfig.models[target.model];
-        modelSpecificTypes = modelConfig?.access_via;
-        modelType = modelConfig?.type;
-      }
+      const { accessVia: modelSpecificTypes, type: modelType } = getTargetModelInfo(target);
       if (normalizedIncoming === 'images' && (modelType === 'text' || modelType === 'embeddings')) {
         return false;
       }
+      const typedEligibility = decisionsTypedEligibility(target, normalizedIncoming);
+      if (typedEligibility !== undefined) return typedEligibility;
       const availableTypes =
         modelSpecificTypes && modelSpecificTypes.length > 0
           ? normalizeApiAccessList(modelSpecificTypes)
           : providerTypes;
+      if (normalizedIncoming === 'decisions') {
+        return availableTypes.some((t) => isDecisionsTargetApiType(t));
+      }
+      // Decisions-only targets never satisfy other API types, even under
+      // `api_match` priority where cross-format fallback otherwise applies.
+      if (availableTypes.length > 0 && availableTypes.every((t) => isDecisionsTargetApiType(t))) {
+        return false;
+      }
       return availableTypes.some(
         (t) =>
           t.toLowerCase() === normalizedIncoming ||
@@ -459,6 +562,22 @@ async function buildGroupCandidates(
 }
 
 export class Router {
+  /**
+   * Splits an `<alias>@<tier>` model name into the bare alias and the service tier.
+   *
+   * The name is returned unchanged when it is itself an alias (or `additional_aliases` entry),
+   * so an alias that legitimately contains `@` keeps working, and when the bare name is not an
+   * alias, so unknown models still fail as "not found" under the name the client sent.
+   */
+  static splitServiceTier(modelName: string): ServiceTierSplit {
+    const config = getConfig();
+    if (findAlias(config, modelName).alias) return { model: modelName };
+
+    const split = splitServiceTierSuffix(modelName);
+    if (!split.serviceTier || !findAlias(config, split.model).alias) return { model: modelName };
+    return split;
+  }
+
   static async resolveCandidates(
     modelName: string,
     incomingApiType?: string,

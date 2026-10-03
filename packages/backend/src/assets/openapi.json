@@ -4009,6 +4009,100 @@
         "operationId": "postV0ManagementProvidersFetchmodels"
       }
     },
+    "/v0/management/provider-presets": {
+      "get": {
+        "tags": [
+          "Management — Config"
+        ],
+        "summary": "List pre-configured provider presets (admin only)",
+        "description": "Returns the pre-configured provider preset catalog. Each preset pre-fills\nthe endpoint map, pi-ai provider id, and auto-compat for a known provider,\nso the Add Provider flow is pick-a-preset plus an API key.\n\nThe catalog defaults to the plexus repo's raw GitHub URL, so preset\nupdates ship as a data-file commit with no release. Any remote failure\nfalls back to the built-in `packages/backend/data/provider-presets.json`.\nThe `source` field reports which catalog was served.\n\nEntries carry `experimentalApis` (documented but not yet probed live) and\noptional `templateVars` (`{key}` placeholders the operator fills at setup\ntime, e.g. the Cloudflare account ID).\n\n**Admin only** — limited principals receive 403.\n",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preset catalog.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "remote",
+                        "local"
+                      ],
+                      "description": "Which catalog was served"
+                    },
+                    "data": {
+                      "type": "array",
+                      "description": "Provider presets",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "docsUrl": {
+                            "type": "string"
+                          },
+                          "suggestedProviderId": {
+                            "type": "string"
+                          },
+                          "suggestedName": {
+                            "type": "string"
+                          },
+                          "apiBaseUrl": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "experimentalApis": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "templateVars": {
+                            "type": "array",
+                            "items": {
+                              "type": "object"
+                            }
+                          },
+                          "piAiProvider": {
+                            "type": "string"
+                          },
+                          "autoCompat": {
+                            "type": "boolean"
+                          },
+                          "notes": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid credentials."
+          }
+        },
+        "operationId": "getV0ManagementProviderPresets"
+      }
+    },
     "/v0/management/pi/providers": {
       "get": {
         "tags": [
@@ -4140,6 +4234,79 @@
           }
         },
         "operationId": "getV0ManagementPiModels"
+      }
+    },
+    "/v0/management/pi/resolve-provider": {
+      "post": {
+        "tags": [
+          "Management — PI (Plexus Internal)"
+        ],
+        "summary": "Resolve the pi-ai provider for a new provider config (admin only)",
+        "description": "Resolves the pi-ai provider ID matching a prospective provider config, so\nthe management UI can pre-select `ProviderConfig.pi_ai_provider` and enable\n`auto_compat` when creating a provider — and so the pi-ai dropdown's\n`- auto -` entry can resolve to a concrete provider.\n\nResolution rules (shared with the UI's auto-detect):\n\n- An `oauthProvider` that names a known pi-ai builtin provider wins outright:\n  an OAuth provider singularly identifies its compatible pi-ai provider.\n- Otherwise `urls` (values from the provider's `api_base_url`) are matched\n  against pi-ai builtin base URLs — exact match first, then longest prefix —\n  so known API endpoints resolve even with extra path segments.\n- Returns `{ \"provider\": null }` when nothing matches.\n\n**Admin only** — limited principals receive 403.\n",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "urls": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Endpoint URL(s) from the provider's api_base_url."
+                  },
+                  "oauthProvider": {
+                    "type": "string",
+                    "description": "OAuth provider ID when the provider uses oauth://."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resolution result; provider is null when nothing matches.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Matching pi-ai provider ID, or null."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body."
+          },
+          "401": {
+            "description": "Authentication required or invalid credentials."
+          },
+          "403": {
+            "description": "Admin privileges required."
+          }
+        },
+        "operationId": "postV0ManagementPiResolveProvider"
       }
     },
     "/v0/management/aliases": {
@@ -5918,7 +6085,7 @@
           "Management — Quotas (Provider)"
         ],
         "summary": "List quota checker types and configured checkers (admin only)",
-        "description": "Returns both the available quota checker types and the status of\ncurrently configured quota checkers.\n\n## Response structure\n\n- `knownTypes` — Array of available quota checker types:\n  - `type` — Checker type identifier\n  - `displayName` — Human-readable name\n- `configured` — Array of configured checker instances:\n  - `checkerId` — Unique checker ID (`{provider}:{account}`)\n  - `checkerType` — Type of checker\n  - `displayName` — Human-readable name\n  - `pending` — Whether initial check is pending\n  - `meters` — Current quota meter readings\n  - `success` — Whether last check succeeded\n  - `error` — Error message if last check failed (optional)\n  - `oauthAccountId` — OAuth account ID if using OAuth (optional)\n  - `oauthProvider` — OAuth provider if using OAuth (optional)\n\n## Use case\n\nUse this endpoint to:\n1. Discover available quota checker types\n2. See which providers have quota tracking configured\n3. Check the health status of each quota checker\n\n**Admin only** — limited principals receive 403.\n",
+        "description": "Returns both the available quota checker types and the status of\ncurrently configured quota checkers.\n\n## Response structure\n\n- `knownTypes` — Array of available quota checker types:\n  - `type` — Checker type identifier\n  - `displayName` — Human-readable name\n- `configured` — Array of configured checker instances:\n  - `checkerId` — Unique checker ID (`{provider}:{account}`)\n  - `checkerType` — Type of checker\n  - `displayName` — Human-readable name\n  - `pending` — Whether initial check is pending\n  - `meters` — Current quota meter readings\n  - `checkedAt` — Timestamp represented by the result; older when stale\n  - `success` — Whether a successful quota snapshot is available\n  - `stale` — Whether the returned meters are from an earlier successful check\n  - `error` — Latest check error; can be present when `success` is true and `stale` is true\n  - `oauthAccountId` — OAuth account ID if using OAuth (optional)\n  - `oauthProvider` — OAuth provider if using OAuth (optional)\n\nIf a check fails after a successful reading is available, the configured\nentry includes the last successful reading with `success: true`,\n`stale: true`, and the latest check error. If there is no successful\nreading to reuse, `success` is false and `meters` is empty.\n\n## Use case\n\nUse this endpoint to:\n1. Discover available quota checker types\n2. See which providers have quota tracking configured\n3. Check the health status of each quota checker\n\n**Admin only** — limited principals receive 403.\n",
         "security": [
           {
             "AdminKey": []
@@ -5963,6 +6130,10 @@
                           "pending": {
                             "type": "boolean"
                           },
+                          "checkedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
                           "meters": {
                             "type": "array",
                             "items": {
@@ -5970,6 +6141,9 @@
                             }
                           },
                           "success": {
+                            "type": "boolean"
+                          },
+                          "stale": {
                             "type": "boolean"
                           },
                           "error": {
@@ -8263,7 +8437,7 @@
           "Management — OAuth"
         ],
         "summary": "Check whether OAuth credentials exist (admin only)",
-        "description": "Polls whether credentials exist for a provider/account combination.\n\n## Use case\n\nUsed by the UI to determine if a provider is \"connected\" (can make\nrequests) or needs re-authentication.\n\n## Response\n\n- `ready: true` — Credentials exist and the provider can be used\n- `ready: false` — No credentials found; user needs to start OAuth flow\n\n## Note\n\nThis endpoint requires both `providerId` and `accountId` as query\nparameters. The credentials are keyed by both values.\n\n**Admin only** — limited principals receive 403.\n",
+        "description": "Polls whether credentials exist for a provider/account combination.\n\n## Use case\n\nUsed by the UI to determine if a provider is \"connected\" (can make\nrequests) or needs re-authentication.\n\n## Response\n\n- `ready: true` — Credentials exist and the provider can be used\n- `ready: false` — No credentials found; user needs to start OAuth flow\n- `connectedAt` — When the credential was first stored (epoch ms)\n- `refreshedAt` — When the credential was last saved, by login or token\n  refresh (epoch ms)\n- `expiresAt` — When the current access token expires (epoch ms)\n\nThe timestamps are present only when `ready` is true and never include\ntoken values.\n\n## Note\n\nThis endpoint requires both `providerId` and `accountId` as query\nparameters. The credentials are keyed by both values.\n\n**Admin only** — limited principals receive 403.\n",
         "security": [
           {
             "AdminKey": []
@@ -8302,6 +8476,18 @@
                       "properties": {
                         "ready": {
                           "type": "boolean"
+                        },
+                        "connectedAt": {
+                          "type": "integer",
+                          "description": "First stored (epoch ms)."
+                        },
+                        "refreshedAt": {
+                          "type": "integer",
+                          "description": "Last saved by login or refresh (epoch ms)."
+                        },
+                        "expiresAt": {
+                          "type": "integer",
+                          "description": "Current access token expiry (epoch ms)."
                         }
                       }
                     }
@@ -11909,6 +12095,18 @@
             "const": "plexus",
             "description": "Fixed value indicating Plexus-managed."
           },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "embeddings",
+              "transcriptions",
+              "speech",
+              "image",
+              "decisions"
+            ],
+            "description": "Alias capability type — what the model produces. Defaults to `text` when the alias has no explicit `type`.\n"
+          },
           "name": {
             "type": "string",
             "description": "Display name (e.g. \"OpenAI: GPT-4.1 Nano\").\n"
@@ -12091,6 +12289,363 @@
           }
         }
       },
+      "thinkingLevelMap": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "off": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "minimal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "low": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "medium": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "high": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "xhigh": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "compat": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thinkingFormat": {
+            "type": "string",
+            "enum": [
+              "zai",
+              "qwen",
+              "qwen-chat-template",
+              "deepseek",
+              "openrouter",
+              "ant-ling",
+              "together",
+              "string-thinking"
+            ]
+          },
+          "supportsTemperature": {
+            "type": "boolean"
+          },
+          "maxTokensField": {
+            "type": "string",
+            "enum": [
+              "max_tokens",
+              "max_completion_tokens"
+            ]
+          },
+          "forceAdaptiveThinking": {
+            "type": "boolean"
+          },
+          "supportsReasoningEffort": {
+            "type": "boolean"
+          }
+        }
+      },
+      "traits": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "reasoning": {
+            "type": "boolean"
+          },
+          "thinkingLevelMap": {
+            "$ref": "#/components/schemas/thinkingLevelMap"
+          },
+          "maxTokens": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "compat": {
+            "$ref": "#/components/schemas/compat"
+          }
+        }
+      },
+      "target": {
+        "type": "object",
+        "required": [
+          "api"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "api": {
+            "type": "string",
+            "enum": [
+              "openai-completions",
+              "openai-responses",
+              "anthropic-messages",
+              "google-generative-ai"
+            ]
+          },
+          "reasoning": {
+            "type": "boolean"
+          },
+          "thinkingLevelMap": {
+            "$ref": "#/components/schemas/thinkingLevelMap"
+          },
+          "maxTokens": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "compat": {
+            "$ref": "#/components/schemas/compat"
+          },
+          "models": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/traits"
+            }
+          }
+        }
+      },
+      "PiAiQuirks": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "chat": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/target"
+              },
+              {
+                "properties": {
+                  "api": {
+                    "const": "openai-completions"
+                  }
+                }
+              }
+            ]
+          },
+          "completions": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/target"
+              },
+              {
+                "properties": {
+                  "api": {
+                    "const": "openai-completions"
+                  }
+                }
+              }
+            ]
+          },
+          "messages": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/target"
+              },
+              {
+                "properties": {
+                  "api": {
+                    "const": "anthropic-messages"
+                  }
+                }
+              }
+            ]
+          },
+          "responses": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/target"
+              },
+              {
+                "properties": {
+                  "api": {
+                    "const": "openai-responses"
+                  }
+                }
+              }
+            ]
+          },
+          "gemini": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/target"
+              },
+              {
+                "properties": {
+                  "api": {
+                    "const": "google-generative-ai"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "$defs": {
+          "thinkingLevelMap": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "off": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "minimal": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "low": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "medium": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "high": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "xhigh": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "max": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "compat": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "thinkingFormat": {
+                "type": "string",
+                "enum": [
+                  "zai",
+                  "qwen",
+                  "qwen-chat-template",
+                  "deepseek",
+                  "openrouter",
+                  "ant-ling",
+                  "together",
+                  "string-thinking"
+                ]
+              },
+              "supportsTemperature": {
+                "type": "boolean"
+              },
+              "maxTokensField": {
+                "type": "string",
+                "enum": [
+                  "max_tokens",
+                  "max_completion_tokens"
+                ]
+              },
+              "forceAdaptiveThinking": {
+                "type": "boolean"
+              },
+              "supportsReasoningEffort": {
+                "type": "boolean"
+              }
+            }
+          },
+          "traits": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "reasoning": {
+                "type": "boolean"
+              },
+              "thinkingLevelMap": {
+                "$ref": "#/components/schemas/thinkingLevelMap"
+              },
+              "maxTokens": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "compat": {
+                "$ref": "#/components/schemas/compat"
+              }
+            }
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "api"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "api": {
+                "type": "string",
+                "enum": [
+                  "openai-completions",
+                  "openai-responses",
+                  "anthropic-messages",
+                  "google-generative-ai"
+                ]
+              },
+              "reasoning": {
+                "type": "boolean"
+              },
+              "thinkingLevelMap": {
+                "$ref": "#/components/schemas/thinkingLevelMap"
+              },
+              "maxTokens": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "compat": {
+                "$ref": "#/components/schemas/compat"
+              },
+              "models": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/traits"
+                }
+              }
+            }
+          }
+        }
+      },
       "ProviderConfig": {
         "type": "object",
         "description": "Provider configuration. Used to define upstream LLM providers that Plexus can route requests to. Stored in the database. `providers` section.\n",
@@ -12129,7 +12684,7 @@
           },
           "oauth_account": {
             "type": "string",
-            "description": "OAuth account identifier. Required when `api_base_url` uses an `oauth://` URI.\n"
+            "description": "OAuth account identifier. Derived from the provider ID (one login per provider) and never set by users; accepted on write only as a grandfathered fallback for restores/imports that predate slug keying.\n"
           },
           "enabled": {
             "type": "boolean",
@@ -12229,7 +12784,7 @@
                     "auto_compat": {
                       "type": "boolean",
                       "default": false,
-                      "description": "When true, enables registry-aware compatibility mapping for this model. Requires `pi_ai_model_id` to resolve to a builtin pi-ai model. Overrides are opt-in; omitted/false means no automatic reasoning/thinking/generation compatibility fields are injected.\n"
+                      "description": "Enables compatibility mapping for this model when the provider links to a builtin pi-ai model or declares inline quirks for the target API. Omitted/false leaves provider-level opt-in in effect; it does not disable an enabled provider setting.\n"
                     },
                     "pi_ai_model_id": {
                       "type": "string",
@@ -12314,11 +12869,15 @@
           "auto_compat": {
             "type": "boolean",
             "default": false,
-            "description": "When true, enables registry-aware compatibility mapping for all models under this provider that have a resolvable `pi_ai_model_id`. Plexus uses pi-ai builtin registry metadata to map client reasoning/thinking and generation intent to provider-specific request fields. The step is opt-in and skipped for models without a registry link.\n"
+            "description": "Opts into compatibility mapping from either `pi_ai_provider` plus a resolvable per-model `pi_ai_model_id`, or `pi_ai_quirks` for the target API and exact upstream model ID. Without either source, requests pass through unchanged.\n"
           },
           "pi_ai_provider": {
             "type": "string",
-            "description": "Builtin pi-ai provider ID used to validate `models[*].pi_ai_model_id` links and populate registry-backed model selectors. Custom pi-ai providers/models are not managed through Plexus; this field links only to pi-ai's builtin registry.\n"
+            "description": "Builtin pi-ai provider ID used with `models[*].pi_ai_model_id`. Mutually exclusive with `pi_ai_quirks`.\n"
+          },
+          "pi_ai_quirks": {
+            "$ref": "#/components/schemas/PiAiQuirks",
+            "description": "Inline compatibility traits, keyed by target API type. Model overrides use exact upstream model IDs; `thinkingLevelMap` replaces the common map and named `compat` flags merge. No builtin pi-ai provider or per-model pi-ai ID is needed. Mutually exclusive with `pi_ai_provider`. Send null in PATCH to clear a previously saved source.\n"
           },
           "useClaudeMasking": {
             "type": "boolean",
@@ -12649,6 +13208,11 @@
             "type": "boolean",
             "default": false,
             "description": "When enabled, multi-turn conversations prefer the same provider/model from the previous turn (when still healthy) for better prompt-cache hit rates.\n"
+          },
+          "synthetic_safeguard_approval": {
+            "type": "boolean",
+            "default": false,
+            "description": "When enabled, translated (non-native Messages) responses for this alias carry synthetic safeguard_results (evaluated/not_flagged with an explanatory note) when the inbound Messages request asked via safeguards. Opt-in: no real classifier runs.\n"
           },
           "metadata": {
             "description": "Model metadata strategy. When omitted or set to `auto`, Plexus derives a canonical identity from the alias targets, looks for an exact catalog entry, and falls back to conservative name and modality heuristics. Catalog sources pin a specific entry, `custom` supplies all fields, and `disabled` suppresses enrichment. Overrides win over resolved values.\n",
@@ -13674,7 +14238,7 @@
               "string",
               "null"
             ],
-            "description": "Final model name sent to the upstream provider. May differ from `canonicalModelName` due to provider-specific transformations.\n"
+            "description": "Route-selected model name. Stays at the routing choice even when a provider adapter rewrote the outbound model; see `upstreamModel`.\n"
           },
           "finalAttemptProvider": {
             "type": [
@@ -13688,7 +14252,14 @@
               "string",
               "null"
             ],
-            "description": "Model used for the final attempt."
+            "description": "Route-selected model for the final attempt. Quota scope matching uses this value."
+          },
+          "upstreamModel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Post-adapter model actually present in the dispatched provider payload. Equals `finalAttemptModel` when no rewrite occurred; null for historical rows or failures before a payload was dispatched.\n"
           },
           "allAttemptedProviders": {
             "type": [
@@ -14336,7 +14907,7 @@
       },
       "QuotaCheckerSnapshot": {
         "type": "object",
-        "description": "Latest quota snapshot for a single provider checker, returned by `GET /v0/management/quotas` and `GET /v0/management/quotas/{checkerId}`.\n\nA checker reports its current readings as an array of `Meter` objects (one per quota dimension). When the last check failed, `success` is false, `meters` is empty, and `error` carries the failure message.\n",
+        "description": "Latest quota snapshot for a single provider checker, returned by `GET /v0/management/quotas` and `GET /v0/management/quotas/{checkerId}`.\n\nA checker reports readings as an array of `Meter` objects (one per quota dimension). If a check fails after a successful reading is available, the response includes that last successful reading with `success: true`, `stale: true`, and the failed check's message in `error`. In that case, `checkedAt` is the timestamp of the returned reading, not the failed attempt. If there is no successful reading to reuse, `success` is false, `meters` is empty, and `error` carries the failure message.\n",
         "properties": {
           "checkerId": {
             "type": "string",
@@ -14358,20 +14929,29 @@
             "type": "string",
             "description": "OAuth provider identifier (e.g. `openai-codex`, `anthropic-claude-code`). Present when credentials are stored via OAuth flow.\n"
           },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp represented by this result. For a stale fallback, this is the timestamp of the older successful reading; without a successful reading, it is the failed attempt's timestamp.\n"
+          },
           "success": {
             "type": "boolean",
-            "description": "Whether the most recent quota check succeeded."
+            "description": "Whether a successful quota snapshot is available. A stale snapshot can have `success: true` even though the most recent check failed.\n"
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "Whether the returned meters come from an earlier successful check because the most recent check failed. Omitted for a current result.\n"
           },
           "error": {
             "type": "string",
-            "description": "Error message when the most recent check failed. Omitted on success."
+            "description": "Error from the most recent failed check. Can be present with `success: true` when `stale` is true.\n"
           },
           "meters": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Meter"
             },
-            "description": "Current meter readings for this checker (one `Meter` per quota dimension). Empty when the last check failed.\n"
+            "description": "Current meter readings for this checker (one `Meter` per quota dimension). For a stale result, these are the meters from the last successful reading. Can be empty when that reading reported no meters, or when there is no successful reading to reuse.\n"
           }
         }
       },

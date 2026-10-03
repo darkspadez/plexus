@@ -207,6 +207,7 @@ export function ProviderModelsEditor({
           updateModelKV={updateModelKV}
           removeModelKV={removeModelKV}
           piAiProvider={piAiProvider}
+          inlineQuirksAvailable={!!editingProvider.pi_ai_quirks}
           piModels={piAiModels.piModels}
           piModelCustom={piAiModels.piModelCustom}
           setPiModelCustom={piAiModels.setPiModelCustom}

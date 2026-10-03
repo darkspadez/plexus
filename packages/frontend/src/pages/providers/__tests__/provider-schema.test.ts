@@ -13,8 +13,8 @@
  *   1. OpenAI-style (chat URL, apiKey, no OAuth, no quota)
  *   2. Ollama (ollama URL map, no apiKey, no quota)
  *   3. Custom with quota checker + quota options
- *   4. OAuth provider (oauthProvider + oauthAccount, no apiKey)
- *   5. OAuth — missing account → error (old code returned early from handleSave)
+ *   4. OAuth provider (oauthProvider, no apiKey)
+ *   5. OAuth — no separate account; the provider ID is the account (#913)
  *   6. OAuth — missing oauthProvider → defaults to 'anthropic'
  *   7. Provider with empty quotaChecker.type → quotaChecker stripped
  *   8. Advanced fields (stall, gpu, timeout, maxConcurrency)
@@ -27,6 +27,7 @@ import {
   OAUTH_PROVIDERS_DEFAULT,
   type ProviderFormValues,
 } from '../provider-schema';
+import { PI_AI_AUTO_VALUE } from '../../../lib/piAiProvider';
 
 // ---------------------------------------------------------------------------
 // Helper — build a minimal valid ProviderFormValues
@@ -85,11 +86,10 @@ describe('toProviderPayload — OpenAI-style provider', () => {
     });
     // No quotaChecker in input → should remain undefined
     expect(p.quotaChecker).toBeUndefined();
-    // OAuth fields — PROVIDER_FORM_DEFAULTS has '' for these, matching old EMPTY_PROVIDER.
-    // (old code: EMPTY_PROVIDER = { ..., oauthProvider: '', oauthAccount: '', ... })
-    // For non-OAuth mode, these remain as empty strings (falsy, passed through unchanged).
+    // PROVIDER_FORM_DEFAULTS has '' for oauthProvider, matching EMPTY_PROVIDER. Non-OAuth
+    // mode passes it through unchanged. There is no account field since #913.
     expect(p.oauthProvider).toBe('');
-    expect(p.oauthAccount).toBe('');
+    expect(p.oauthAccount).toBeUndefined();
   });
 
   test('schema validates an OpenAI-style form correctly', () => {
@@ -342,35 +342,19 @@ describe('toProviderPayload — OAuth provider (valid)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. OAuth — missing oauthAccount → error
+// 5. OAuth — the provider ID is the account (#913); no separate account check
 // ---------------------------------------------------------------------------
 
-describe('toProviderPayload — OAuth validation', () => {
-  test('returns error when oauthAccount is empty in OAuth mode', () => {
+describe('toProviderPayload — OAuth account', () => {
+  test('saves an OAuth provider without a separate account', () => {
     const input = base({
       id: 'oauth-no-account',
       apiBaseUrl: 'oauth://anthropic',
       oauthProvider: 'anthropic',
-      oauthAccount: '',
     });
 
     const result = toProviderPayload(input, { isOAuthMode: true });
-    expect(result.ok).toBe(false);
-    if (result.ok) throw new Error('Expected error');
-    expect(result.error).toMatch(/account.*required/i);
-  });
-
-  test('returns error when oauthAccount is whitespace-only in OAuth mode', () => {
-    const input = base({
-      id: 'oauth-ws-account',
-      apiBaseUrl: 'oauth://anthropic',
-      oauthProvider: 'anthropic',
-      oauthAccount: '   ',
-    });
-
-    const result = toProviderPayload(input, { isOAuthMode: true });
-    expect(result.ok).toBe(false);
-    if (result.ok) throw new Error('Expected error');
+    expect(result.ok).toBe(true);
   });
 });
 
@@ -619,5 +603,52 @@ describe('PROVIDER_FORM_DEFAULTS', () => {
   test('validates successfully when id is set', () => {
     const result = providerFormSchema.safeParse({ ...PROVIDER_FORM_DEFAULTS, id: 'my-provider' });
     expect(result.success).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 11. Upstream-owned fields round-trip (data-loss guard)
+//
+// Saving from the drawer must never drop fields the drawer does not render:
+// a provider configured via a preset or the API would otherwise lose them.
+// ---------------------------------------------------------------------------
+
+describe('toProviderPayload — upstream-owned fields', () => {
+  test('pi-ai quirks, cache-key injection and Responses extensions round-trip', () => {
+    const quirks = { compat: { supportsDeveloperRole: false } } as unknown as NonNullable<
+      ProviderFormValues['pi_ai_quirks']
+    >;
+    const input = base({
+      pi_ai_provider: 'openrouter',
+      pi_ai_quirks: quirks,
+      cacheKeyInjection: 'session_id',
+      responsesExtensions: ['namespace_tools'],
+    });
+
+    const result = toProviderPayload(input);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected ok');
+    expect(result.provider.pi_ai_provider).toBe('openrouter');
+    expect(result.provider.pi_ai_quirks).toEqual(quirks);
+    expect(result.provider.cacheKeyInjection).toBe('session_id');
+    expect(result.provider.responsesExtensions).toEqual(['namespace_tools']);
+  });
+
+  test('never persists the pi-ai auto sentinel', () => {
+    const result = toProviderPayload(base({ pi_ai_provider: PI_AI_AUTO_VALUE }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected ok');
+    expect(result.provider.pi_ai_provider).toBeUndefined();
+  });
+
+  test('fields unknown to the form pass through verbatim', () => {
+    const input = { ...base(), someFutureField: { nested: true } } as ProviderFormValues;
+
+    const result = toProviderPayload(input);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected ok');
+    expect((result.provider as unknown as Record<string, unknown>).someFutureField).toEqual({
+      nested: true,
+    });
   });
 });

@@ -56,6 +56,8 @@ export interface CheckerDefinition<TOptions extends z.ZodTypeAny = z.ZodTypeAny>
   type: string;
   displayName: string;
   optionsSchema: TOptions;
+  /** Display order for meter keys; unlisted meters follow in their stored order. */
+  meterOrder?: readonly string[];
   check(ctx: MeterContext): Promise<Meter[]>;
 }
 
@@ -289,6 +291,7 @@ export async function loadAllCheckers(): Promise<void> {
   await import('./checkers/kilo-checker');
   await import('./checkers/openai-codex-checker');
   await import('./checkers/kimi-code-checker');
+  await import('./checkers/muse-code-checker');
   await import('./checkers/claude-code-checker');
   await import('./checkers/copilot-checker');
   await import('./checkers/wisdomgate-checker');

@@ -78,6 +78,7 @@ type RetryAttempt = {
   index?: number;
   provider?: string;
   model?: string;
+  upstreamModel?: string;
   apiType?: string;
   status?: 'success' | 'failed' | 'skipped';
   reason?: string;
@@ -100,6 +101,7 @@ type PlaygroundRouting = {
   attemptCount?: number;
   finalAttemptProvider?: string;
   finalAttemptModel?: string;
+  upstreamModel?: string;
   allAttemptedProviders?: string;
   retryHistory?: string;
 };
@@ -250,6 +252,7 @@ export const Playground = () => {
               attemptCount: record.attemptCount ?? undefined,
               finalAttemptProvider: record.finalAttemptProvider ?? record.provider ?? undefined,
               finalAttemptModel: record.finalAttemptModel ?? record.selectedModelName ?? undefined,
+              upstreamModel: record.upstreamModel ?? undefined,
               allAttemptedProviders: record.allAttemptedProviders ?? undefined,
               retryHistory: record.retryHistory ?? undefined,
             },
@@ -281,10 +284,13 @@ export const Playground = () => {
 
   const retryHistory = parseRetryHistory(routingInfo.routing?.retryHistory);
   const attemptedProviders = parseAttemptedProviders(routingInfo.routing?.allAttemptedProviders);
-  const finalRoute = formatRoute(
-    routingInfo.routing?.finalAttemptProvider || routingInfo.routing?.provider,
-    routingInfo.routing?.finalAttemptModel || routingInfo.routing?.model
-  );
+  const finalRoute = (() => {
+    const provider = routingInfo.routing?.finalAttemptProvider || routingInfo.routing?.provider;
+    const routeModel = routingInfo.routing?.finalAttemptModel || routingInfo.routing?.model;
+    const upstream = routingInfo.routing?.upstreamModel;
+    const base = formatRoute(provider, routeModel);
+    return upstream && routeModel && upstream !== routeModel ? `${base} → ${upstream}` : base;
+  })();
 
   if (loading) {
     return (
@@ -642,8 +648,22 @@ export const Playground = () => {
                         className="rounded-md bg-slate-950/40 p-2"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="min-w-0 truncate font-medium text-text">
+                          <span
+                            className="min-w-0 truncate font-medium text-text"
+                            title={
+                              attempt.upstreamModel &&
+                              attempt.model &&
+                              attempt.upstreamModel !== attempt.model
+                                ? 'Route → upstream; quota uses route'
+                                : undefined
+                            }
+                          >
                             {formatRoute(attempt.provider, attempt.model)}
+                            {attempt.upstreamModel &&
+                            attempt.model &&
+                            attempt.upstreamModel !== attempt.model
+                              ? ` → ${attempt.upstreamModel}`
+                              : null}
                           </span>
                           <Badge
                             status={

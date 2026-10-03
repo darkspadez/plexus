@@ -82,7 +82,7 @@ export const aliasFormSchema = z.object({
   id: z.string().trim().min(1, 'Alias ID is required'),
   aliases: z.array(z.string()).optional(),
   priority: z.enum(['selector', 'api_match']).optional(),
-  type: z.enum(['text', 'embeddings', 'transcriptions', 'speech', 'image']).optional(),
+  type: z.enum(['text', 'embeddings', 'transcriptions', 'speech', 'image', 'decisions']).optional(),
   target_groups: z.array(aliasTargetGroupSchema),
   advanced: z.array(stripAdaptiveThinkingBehaviorSchema).optional(),
   metadata: aliasMetadataSchema.optional(),

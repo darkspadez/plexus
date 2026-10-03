@@ -1,9 +1,11 @@
 import { UnifiedChatRequest, UnifiedMessage } from '../../types/unified';
 import {
   ResponsesToolState,
+  clearResponsesToolState,
   convertToolsForUnified,
   convertToolChoiceForChatCompletions,
   customToolArgumentsForModel,
+  resolveHistoryToolName,
 } from './tool-mapper';
 
 export * from './normalization';
@@ -51,7 +53,11 @@ export function mapInputRole(role?: string): UnifiedMessage['role'] {
 /**
  * Converts Responses API content parts to Chat Completions format
  */
-export function convertContentParts(parts: any[]): string | any[] {
+export function convertContentParts(rawParts: any[]): string | any[] {
+  // Some clients (e.g. opencode) replay history with null entries in the
+  // content array; drop anything that isn't a part object.
+  const parts = rawParts.filter((part) => part !== null && typeof part === 'object');
+
   if (parts.length === 1 && (parts[0].type === 'input_text' || parts[0].type === 'output_text')) {
     return parts[0].text;
   }
@@ -103,6 +109,7 @@ export function convertInputItemsToMessages(
   const messages: UnifiedMessage[] = [];
 
   for (const item of items) {
+    if (item === null || typeof item !== 'object') continue;
     switch (item.type) {
       case 'message':
         messages.push({
@@ -112,9 +119,9 @@ export function convertInputItemsToMessages(
         break;
 
       case 'function_call': {
-        // Codex CLI namespace extension: join namespace-qualified calls
-        // back to the flat name providers were given in convertToolsForUnified.
-        const flatName = item.namespace ? `${item.namespace}__${item.name}` : item.name;
+        // Namespace-qualified calls (any client spelling) join back to the
+        // flat name providers were given in convertToolsForUnified.
+        const flatName = resolveHistoryToolName(item.name, item.namespace, state);
         messages.push({
           role: 'assistant',
           content: null,
@@ -136,7 +143,8 @@ export function convertInputItemsToMessages(
         // Codex CLI custom (freeform) tool, e.g. apply_patch. Wrap the raw
         // string input as JSON function-call arguments so the model sees a
         // normal function tool, matching customToolArgumentsForModel.
-        state?.customToolNames.add(item.name);
+        const flatName = resolveHistoryToolName(item.name, item.namespace, state);
+        state?.customToolNames.add(flatName);
         messages.push({
           role: 'assistant',
           content: null,
@@ -145,7 +153,7 @@ export function convertInputItemsToMessages(
               id: item.call_id,
               type: 'function',
               function: {
-                name: item.name,
+                name: flatName,
                 arguments: customToolArgumentsForModel(item.input),
               },
             },
@@ -173,7 +181,10 @@ export function convertInputItemsToMessages(
       case 'reasoning':
         // Convert reasoning to assistant message (limited support)
         if (item.summary && item.summary.length > 0) {
-          const reasoningText = item.summary.map((part: any) => part.text).join('\n');
+          const reasoningText = item.summary
+            .filter((part: any) => part !== null && typeof part === 'object')
+            .map((part: any) => part.text)
+            .join('\n');
           messages.push({
             role: 'assistant',
             content: reasoningText,
@@ -214,8 +225,7 @@ export async function parseResponsesRequest(
     throw new Error('Missing required field: input');
   }
 
-  state?.namespaceMap.clear();
-  state?.customToolNames.clear();
+  if (state) clearResponsesToolState(state);
 
   // Normalize input to array format
   const normalizedInput = normalizeInput(input.input);

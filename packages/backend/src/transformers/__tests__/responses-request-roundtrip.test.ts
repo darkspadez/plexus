@@ -4,6 +4,7 @@ import {
   normalizeCompositeResponsesCallIds,
   normalizeResponsesFunctionCallItemIds,
   normalizeResponsesReasoningContent,
+  normalizeResponsesNullEntries,
 } from '../responses';
 import { OpenAITransformer } from '../openai';
 import { parseAnthropicRequest } from '../anthropic/request-parser';
@@ -700,5 +701,65 @@ describe('transformRequest tool strict-field hygiene', () => {
 
     expect(Object.hasOwn(responsesPayload.tools[0], 'strict')).toBe(false);
     expect(Object.hasOwn(chatPayload.tools[0].function, 'strict')).toBe(false);
+  });
+});
+
+describe('Responses request parsing tolerates null entries', () => {
+  it('drops null content parts, input items, and reasoning summary parts', async () => {
+    const transformer = new ResponsesTransformer();
+    const unified = await transformer.parseRequest({
+      model: 'gpt-4o',
+      input: [
+        null,
+        { type: 'message', role: 'user', content: [null, { type: 'input_text', text: 'Hi' }] },
+        { type: 'reasoning', summary: [null, { type: 'summary_text', text: 'thinking' }] },
+        {
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'output_text', text: 'a' }, null, { type: 'output_text', text: 'b' }],
+        },
+      ],
+    });
+
+    expect(unified.messages).toEqual([
+      { role: 'user', content: 'Hi' },
+      { role: 'assistant', content: 'thinking' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'a' },
+          { type: 'text', text: 'b' },
+        ],
+      },
+    ]);
+  });
+});
+
+describe('normalizeResponsesNullEntries', () => {
+  it('removes null input items, content parts, and summary parts from the dispatch body', () => {
+    const body = {
+      model: 'gpt-4o',
+      input: [
+        null,
+        { type: 'message', role: 'user', content: [null, { type: 'input_text', text: 'hi' }] },
+        { type: 'reasoning', summary: [null, { type: 'summary_text', text: 't' }] },
+      ],
+    };
+
+    expect(normalizeResponsesNullEntries(body)).toBe(3);
+    expect(body.input).toEqual([
+      { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hi' }] },
+      { type: 'reasoning', summary: [{ type: 'summary_text', text: 't' }] },
+    ]);
+  });
+
+  it('leaves string input and clean bodies untouched', () => {
+    const stringBody = { model: 'gpt-4o', input: 'hi' };
+    expect(normalizeResponsesNullEntries(stringBody)).toBe(0);
+    expect(stringBody.input).toBe('hi');
+
+    const clean = { input: [{ type: 'message', role: 'user', content: 'hi' }] };
+    expect(normalizeResponsesNullEntries(clean)).toBe(0);
+    expect(clean.input).toEqual([{ type: 'message', role: 'user', content: 'hi' }]);
   });
 });

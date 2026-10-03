@@ -5,7 +5,7 @@ export interface Model {
   name: string;
   providerId: string;
   pricingSource?: string;
-  type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image';
+  type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image' | 'decisions';
 }
 
 // ─── Alias advanced behaviors ────────────────────────────────
@@ -94,6 +94,55 @@ export interface ModelMetadataRefreshResult {
   };
 }
 
+export interface PiCatalogRefreshSummary {
+  refreshed: number;
+  errors: Record<string, string>;
+}
+
+export interface VersionRefreshSummary {
+  previous: string;
+  current: string;
+  error?: string;
+}
+
+export interface CatalogRefreshAllResult {
+  success: boolean;
+  message: string;
+  trigger: 'manual';
+  refreshedAt: string;
+  durationMs: number;
+  hadErrors: boolean;
+  metadata: ModelMetadataRefreshResult;
+  piCatalog: PiCatalogRefreshSummary;
+  versions: {
+    codex: VersionRefreshSummary;
+    claudeCode: VersionRefreshSummary;
+  };
+}
+
+export interface CatalogStatusSource {
+  initialized: boolean;
+  count: number;
+}
+
+export interface CatalogStatus {
+  intervals: {
+    metadataMinutes: number;
+    piCatalogMs: number;
+    versionMinutes: number;
+  };
+  versions: {
+    codex: string;
+    claudeCode: string;
+  };
+  metadata: {
+    openrouter: CatalogStatusSource;
+    modelsDev: CatalogStatusSource;
+    catwalk: CatalogStatusSource;
+  };
+  piCatalog: { modelCount: number };
+}
+
 // Discriminated union mirrors backend validation: catalog-backed sources
 // must carry a non-empty source_path; 'custom' may omit it but MUST carry
 // an overrides blob with a non-empty `name` (there is no catalog fallback).
@@ -134,13 +183,14 @@ export interface Alias {
   id: string;
   aliases?: string[];
   priority?: 'selector' | 'api_match';
-  type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image';
+  type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image' | 'decisions';
   target_groups: AliasTargetGroup[];
   advanced?: AliasBehavior[];
   metadata?: AliasMetadata;
   use_image_fallthrough?: boolean;
   enforce_limits?: boolean;
   sticky_session?: boolean;
+  synthetic_safeguard_approval?: boolean;
   preferred_api?: Array<PreferredApiValue>;
   pi_model?: { provider: string; model_id: string };
   extraBody?: Record<string, unknown>;

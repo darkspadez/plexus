@@ -9,6 +9,8 @@ interface Props {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   updateModelConfig: (modelId: string, updates: any) => void;
+  piAiProvider?: string;
+  inlineQuirksAvailable: boolean;
 }
 
 export function ModelAdvanced({
@@ -17,7 +19,10 @@ export function ModelAdvanced({
   isOpen,
   setIsOpen,
   updateModelConfig,
+  piAiProvider,
+  inlineQuirksAvailable,
 }: Props) {
+  const mappingReady = !!piAiProvider || inlineQuirksAvailable;
   return (
     <SectionCard
       size="sm"
@@ -43,9 +48,17 @@ export function ModelAdvanced({
     >
       <div className="flex flex-col gap-1.5">
         <div className="flex flex-col gap-0.5">
-          <label className="flex items-start gap-2 py-1 cursor-pointer">
+          <label
+            className="flex items-start gap-2 py-1 cursor-pointer"
+            title={
+              !mappingReady && modelConfig.auto_compat !== true
+                ? 'Select a pi-ai provider or inline quirks first'
+                : undefined
+            }
+          >
             <input
               type="checkbox"
+              disabled={!mappingReady && modelConfig.auto_compat !== true}
               checked={modelConfig.auto_compat === true}
               onChange={(e) =>
                 updateModelConfig(modelId, {
@@ -56,7 +69,8 @@ export function ModelAdvanced({
             <div>
               <div className="font-sans text-[12px] text-foreground">Auto Compat</div>
               <div className="font-sans text-[11px] leading-snug text-foreground-muted">
-                Use pi-ai registry hints for this model.
+                Translates this model's reasoning and generation options using its mapped pi-ai
+                model or the provider's inline quirks. Requires Auto Compat here or on the provider.
               </div>
             </div>
           </label>

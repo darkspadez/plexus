@@ -24,6 +24,7 @@ import { SidebarProvider } from './contexts/SidebarContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AccentProvider } from './contexts/AccentContext';
+import { VersionReloader } from './components/VersionReloader';
 
 /** App-wide QueryClient — sensible defaults for a server-management UI. */
 const queryClient = new QueryClient({
@@ -179,6 +180,7 @@ const AppShell: React.FC = () => {
         <AuthProvider>
           <SidebarProvider>
             <AppRoutes />
+            <VersionReloader />
           </SidebarProvider>
         </AuthProvider>
       </ToastProvider>

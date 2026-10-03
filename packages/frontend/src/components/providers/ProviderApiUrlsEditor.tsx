@@ -18,6 +18,7 @@ const KNOWN_APIS = [
   'openai-images',
   'openrouter-images',
   'codex-images',
+  'systemone',
   'responses',
   'ollama',
 ];
@@ -136,6 +137,9 @@ export function ProviderApiUrlsEditor({
   const primaryTypeOptions = API_TYPE_OPTIONS.filter(
     (opt) => opt.value === primaryType || !otherApiTypes.has(opt.value)
   );
+  if (primaryType && !KNOWN_APIS.includes(primaryType)) {
+    primaryTypeOptions.push({ value: primaryType, label: `${primaryType} (legacy)` });
+  }
   const additionalBaseUrlEntries = Object.entries(apiBaseUrlMap).slice(1);
 
   return (
@@ -151,7 +155,6 @@ export function ProviderApiUrlsEditor({
                 apiBaseUrl: 'oauth://',
                 apiKey: 'oauth',
                 oauthProvider: editingProvider.oauthProvider || OAUTH_PROVIDERS[0].value,
-                oauthAccount: editingProvider.oauthAccount || '',
                 type: ['oauth'],
               });
             } else {
@@ -160,7 +163,6 @@ export function ProviderApiUrlsEditor({
                 apiBaseUrl: {},
                 apiKey: '',
                 oauthProvider: '',
-                oauthAccount: '',
                 type: [],
               });
             }
@@ -170,23 +172,14 @@ export function ProviderApiUrlsEditor({
 
         {isOAuthMode ? (
           <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Select
-                label="OAuth Provider"
-                value={editingProvider.oauthProvider || OAUTH_PROVIDERS[0].value}
-                onChange={(value) =>
-                  setEditingProvider({ ...editingProvider, oauthProvider: value })
-                }
-                options={OAUTH_PROVIDERS}
-              />
-              <Input
-                label="OAuth Account"
-                value={editingProvider.oauthAccount || ''}
-                onChange={(e) =>
-                  setEditingProvider({ ...editingProvider, oauthAccount: e.target.value })
-                }
-                placeholder="e.g. work, personal, team-a"
-              />
+            <Select
+              label="OAuth Provider"
+              value={editingProvider.oauthProvider || OAUTH_PROVIDERS[0].value}
+              onChange={(value) => setEditingProvider({ ...editingProvider, oauthProvider: value })}
+              options={OAUTH_PROVIDERS}
+            />
+            <div className="text-[11px] leading-normal text-foreground-muted">
+              Uses the provider ID as its OAuth account — one login per provider.
             </div>
             {oauthSlot}
           </div>
@@ -243,7 +236,9 @@ export function ProviderApiUrlsEditor({
                       e.stopPropagation();
                       addAdditionalBaseUrlEntry();
                     }}
-                    disabled={Object.keys(getApiBaseUrlMap()).length >= KNOWN_APIS.length}
+                    disabled={KNOWN_APIS.every((t) =>
+                      Object.prototype.hasOwnProperty.call(getApiBaseUrlMap(), t)
+                    )}
                   >
                     <Plus size={14} />
                   </Button>
@@ -269,9 +264,17 @@ export function ProviderApiUrlsEditor({
                               typeof url === 'string' ? url : ''
                             )
                           }
-                          options={KNOWN_APIS.filter(
-                            (t) => t === apiType || !(t in apiBaseUrlMap)
-                          ).map((t) => ({ value: t, label: t }))}
+                          options={[
+                            ...KNOWN_APIS.filter((t) => t === apiType || !(t in apiBaseUrlMap)).map(
+                              (t) => ({ value: t, label: t })
+                            ),
+                            // Stored configs can carry types no longer offered (e.g.
+                            // pre-collapse Decisions names): show the current value so
+                            // the select never misrepresents the config.
+                            ...(KNOWN_APIS.includes(apiType)
+                              ? []
+                              : [{ value: apiType, label: `${apiType} (legacy)` }]),
+                          ]}
                         />
                       </div>
                       <div className="min-w-0 flex-1">

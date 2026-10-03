@@ -1,4 +1,5 @@
 // Unified Message Types
+import type { DecisionsAnswer, DecisionsQuestion } from './decisions';
 
 export interface TextContent {
   type: 'text';
@@ -166,6 +167,15 @@ export interface UnifiedChatRequest {
   user?: string;
   cacheRoutingHeaders?: CacheRoutingHeaders;
   anthropicBeta?: string;
+  /** Inbound `user-agent` header (captured by the inference routes). */
+  userAgent?: string;
+  /** Inbound `x-claude-code-session-id` header (Claude Code clients). */
+  claudeCodeSessionId?: string;
+  /**
+   * OpenAI service tier selected by an `@<tier>` model-name suffix (e.g. `gpt-6-luna@flex`).
+   * Set by route resolution; `model` keeps the name the client sent. See service-tier-suffix.ts.
+   */
+  serviceTier?: string;
   incomingApiType?: string;
   originalBody?: any;
   metadata?: Record<string, any> & { plexus_metadata?: PlexusMetadata };
@@ -178,6 +188,7 @@ export interface CacheRoutingHeaders {
   'x-session-id'?: string;
   'x-prompt-cache-isolation-key'?: string;
   'x-multi-turn-session-id'?: string;
+  'x-opencode-session'?: string;
 }
 
 // Unified Response
@@ -274,6 +285,10 @@ export interface UnifiedChatResponse {
     attemptCount?: number;
     finalAttemptProvider?: string;
     finalAttemptModel?: string;
+    /** Post-adapter model actually dispatched (providerPayload.model). */
+    upstreamModel?: string;
+    pricingModel?: string;
+    pricingFallback?: boolean;
     allAttemptedProviders?: string;
     retryHistory?: string;
   };
@@ -402,6 +417,13 @@ export interface UnifiedChatStreamChunk {
    * other formatters have no equivalent and simply ignore the field.
    */
   client_tool_calls?: UnifiedClientToolCall[];
+  /**
+   * Synthetic Claude Code `safeguard_results` attached to the terminal
+   * unified chunk when the alias opted into `synthetic_safeguard_approval`.
+   * Only the Anthropic stream formatter consumes this; all other formatters
+   * ignore it so cross-format streams stay byte-identical.
+   */
+  safeguard_results?: unknown;
 }
 
 // Unified Embeddings Request
@@ -539,6 +561,47 @@ export interface UnifiedSpeechResponse {
   };
   rawResponse?: any;
   isStreamed?: boolean;
+}
+
+// Unified Decisions Request
+//
+// Buffered Jev-style evaluations served by `systemone` targets (TypeSafe's
+// System One protocol). Local failover follows the alias target order.
+export interface UnifiedDecisionsRequest {
+  requestId?: string;
+  model: string;
+  state: string | Record<string, any> | any[];
+  questions: Record<string, DecisionsQuestion>;
+  // Internal tracking
+  incomingApiType?: string;
+  originalBody?: any;
+  metadata?: Record<string, any> & { plexus_metadata?: PlexusMetadata };
+}
+
+// Unified Decisions Response
+export interface UnifiedDecisionsResponse {
+  model: string;
+  answers: Record<string, DecisionsAnswer>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cost?: number;
+  };
+  /** OpenRouter generation id, when the upstream reports one. */
+  id?: string;
+  /** Upstream provider name (e.g. `TypeSafe`), when reported. */
+  provider?: string;
+  plexus?: {
+    provider?: string;
+    model?: string;
+    apiType?: string;
+    targetApiType?: string;
+    pricing?: any;
+    providerDiscount?: number;
+    canonicalModel?: string;
+    config?: any;
+  };
+  rawResponse?: any;
 }
 
 // Unified Image Generation Request

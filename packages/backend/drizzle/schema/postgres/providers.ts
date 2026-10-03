@@ -31,6 +31,8 @@ export const providers = pgTable(
     estimateTokens: boolean('estimate_tokens').notNull().default(false),
     useClaudeMasking: boolean('use_claude_masking').notNull().default(false),
     geminiThinkingEnabled: boolean('gemini_thinking_enabled').notNull().default(false),
+    cacheKeyInjection: text('cache_key_injection'), // enum: cache/session key injection destination
+    responsesExtensions: jsonb('responses_extensions'), // string[] — Responses extensions accepted verbatim
     headers: text('headers'), // JSON or encrypted string — text for encryption compatibility
     extraBody: text('extra_body'), // JSON — not encrypted, text for consistency
     compaction: jsonb('compaction'), // compaction config
@@ -59,6 +61,7 @@ export const providers = pgTable(
     stallGracePeriodMs: integer('stall_grace_period_ms'), // Grace period in ms before throughput enforcement
     maxConcurrency: integer('max_concurrency'), // Max concurrent requests for this provider (NULL = no limit)
     piAiProvider: text('pi_ai_provider'), // pi-ai provider name (e.g. 'anthropic', 'openai', 'google')
+    piAiQuirks: jsonb('pi_ai_quirks'), // Inline target API compatibility traits
     rawPassthrough: jsonb('raw_passthrough'), // { enabled, base_url, auth }
     createdAt: bigint('created_at', { mode: 'number' }).notNull(),
     updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),

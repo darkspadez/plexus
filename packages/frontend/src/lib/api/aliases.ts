@@ -5,6 +5,8 @@ import type {
   Alias,
   AliasTargetGroup,
   CatalogMetadataSource,
+  CatalogRefreshAllResult,
+  CatalogStatus,
   Model,
   ModelMetadataRefreshResult,
   ModelResolutionPreview,
@@ -20,6 +22,7 @@ export function aliasToConfigPayload(alias: Alias): Record<string, unknown> {
     use_image_fallthrough: alias.use_image_fallthrough || false,
     enforce_limits: alias.enforce_limits || false,
     sticky_session: alias.sticky_session ?? true,
+    synthetic_safeguard_approval: alias.synthetic_safeguard_approval || false,
     ...(alias.preferred_api?.length ? { preferred_api: alias.preferred_api } : {}),
     ...(alias.type && { type: alias.type }),
     ...(alias.advanced?.length ? { advanced: alias.advanced } : {}),
@@ -145,7 +148,7 @@ export const getModels = async (): Promise<Model[]> => {
               string,
               {
                 pricing?: { source?: string };
-                type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image';
+                type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image' | 'decisions';
               }
             >;
       }
@@ -208,11 +211,12 @@ export const getAliases = async (): Promise<Alias[]> => {
     interface RawAliasRecord {
       additional_aliases?: string[];
       priority?: 'selector' | 'api_match';
-      type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image';
+      type?: 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image' | 'decisions';
       target_groups?: RawTargetGroup[];
       use_image_fallthrough?: boolean;
       enforce_limits?: boolean;
       sticky_session?: boolean;
+      synthetic_safeguard_approval?: boolean;
       advanced?: Alias['advanced'];
       metadata?: Alias['metadata'];
       preferred_api?: Alias['preferred_api'];
@@ -272,6 +276,7 @@ export const getAliases = async (): Promise<Alias[]> => {
         use_image_fallthrough: val.use_image_fallthrough || false,
         enforce_limits: val.enforce_limits || false,
         sticky_session: val.sticky_session ?? true,
+        synthetic_safeguard_approval: val.synthetic_safeguard_approval || false,
         advanced: val.advanced || [],
         metadata: val.metadata,
         preferred_api: val.preferred_api || [],
@@ -370,11 +375,51 @@ export const refreshModelMetadata = async (): Promise<ModelMetadataRefreshResult
   return (await res.json()) as ModelMetadataRefreshResult;
 };
 
+export const getCatalogStatus = async (): Promise<CatalogStatus> => {
+  const res = await fetchWithAuth(`${API_BASE}/v0/management/catalog/status`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch catalog status');
+  }
+  return (await res.json()) as CatalogStatus;
+};
+
+export const refreshAllCatalogs = async (): Promise<CatalogRefreshAllResult> => {
+  const res = await fetchWithAuth(`${API_BASE}/v0/management/catalog/refresh-all`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error || 'Failed to refresh catalogs');
+  }
+  return (await res.json()) as CatalogRefreshAllResult;
+};
+
 export const getPiProviders = async (): Promise<string[]> => {
   const res = await fetchWithAuth(`${API_BASE}/v0/management/pi/providers`);
   if (!res.ok) throw new Error('Failed to fetch pi providers');
   const json = (await res.json()) as { data: string[] };
   return json.data;
+};
+
+/**
+ * Resolve the pi-ai provider id matching a prospective provider config.
+ * An `oauthProvider` that names a known pi-ai builtin wins outright;
+ * otherwise `urls` are matched against pi-ai builtin base URLs. Returns
+ * null when nothing matches. Backs new-provider auto-detect and the pi-ai
+ * dropdown's `- auto -` entry.
+ */
+export const resolvePiAiProvider = async (input: {
+  urls?: string[];
+  oauthProvider?: string;
+}): Promise<string | null> => {
+  const res = await fetchWithAuth(`${API_BASE}/v0/management/pi/resolve-provider`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error('Failed to resolve pi-ai provider');
+  const json = (await res.json()) as { data: { provider: string | null } };
+  return json.data.provider;
 };
 
 export const getPiModels = async (

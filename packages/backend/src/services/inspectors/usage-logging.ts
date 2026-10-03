@@ -2,7 +2,7 @@ import { logger } from '../../utils/logger';
 import { PassThrough } from 'stream';
 import { UsageStorageService } from '../observability/usage-storage';
 import { UsageRecord } from '../../types/usage';
-import { calculateCosts } from '../../utils/calculate-costs';
+import { calculateCosts, type CostAttribution } from '../../utils/calculate-costs';
 import { DebugManager } from '../observability/debug-manager';
 import { estimateTokensFromReconstructed, estimateInputTokens } from '../../utils/estimate-tokens';
 import {
@@ -110,6 +110,7 @@ export class UsageInspector extends PassThrough {
   private keyName?: string;
   private rawDebugCapture?: DebugLoggingInspector;
   private transformedDebugCapture?: DebugLoggingInspector;
+  private costAttribution?: CostAttribution;
   private _flushed = false;
 
   constructor(
@@ -126,7 +127,8 @@ export class UsageInspector extends PassThrough {
     quotaEnforcer?: any,
     keyName?: string,
     rawDebugCapture?: DebugLoggingInspector,
-    transformedDebugCapture?: DebugLoggingInspector
+    transformedDebugCapture?: DebugLoggingInspector,
+    costAttribution?: CostAttribution
   ) {
     super();
     this.usageStorage = usageStorage;
@@ -142,6 +144,7 @@ export class UsageInspector extends PassThrough {
     this.keyName = keyName;
     this.rawDebugCapture = rawDebugCapture;
     this.transformedDebugCapture = transformedDebugCapture;
+    this.costAttribution = costAttribution;
   }
 
   override _transform(chunk: any, encoding: BufferEncoding, callback: Function) {
@@ -242,7 +245,7 @@ export class UsageInspector extends PassThrough {
           timeToTokensMs > 0 ? (totalOutputTokens / timeToTokensMs) * 1000 : 0;
       }
 
-      calculateCosts(this.usageRecord, this.pricing, this.providerDiscount);
+      calculateCosts(this.usageRecord, this.pricing, this.providerDiscount, this.costAttribution);
 
       // Override with provider-reported cost if available
       // Some providers emit `: cost {"request_cost_usd": ...}` as SSE comments
@@ -389,7 +392,7 @@ export class UsageInspector extends PassThrough {
         this.usageRecord.tokensReasoning = usage.reasoningTokens || null;
       }
       if (reconstructed || usage) {
-        calculateCosts(this.usageRecord, this.pricing, this.providerDiscount);
+        calculateCosts(this.usageRecord, this.pricing, this.providerDiscount, this.costAttribution);
       }
 
       this.usageStorage.saveRequest(this.usageRecord as UsageRecord).catch((saveErr) => {

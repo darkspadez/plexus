@@ -224,15 +224,13 @@ export const AliasMobileCard: React.FC<Props> = ({
                           Cooldown ({cooldownText})
                         </div>
                       )}
-                      {testState?.showResult && testState.message && (
-                        <div
-                          className={`mt-1 text-[11px] italic ${
-                            testState.result === 'success' ? 'text-success' : 'text-danger'
-                          }`}
-                        >
-                          {testState.message}
-                        </div>
-                      )}
+                      {testState?.showResult &&
+                        testState.result === 'success' &&
+                        testState.message && (
+                          <div className="mt-1 text-[11px] italic text-success">
+                            {testState.message}
+                          </div>
+                        )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <button
@@ -242,14 +240,9 @@ export const AliasMobileCard: React.FC<Props> = ({
                           let testApiTypes: string[] = ['chat'];
                           if (alias.type === 'embeddings') testApiTypes = ['embeddings'];
                           else if (alias.type === 'image') testApiTypes = ['images'];
+                          else if (alias.type === 'decisions') testApiTypes = ['decisions'];
 
-                          onTestTarget(
-                            alias.id,
-                            `${alias.id}-mobile-${i}`,
-                            t.provider,
-                            t.model,
-                            testApiTypes
-                          );
+                          onTestTarget(alias.id, testKey, t.provider, t.model, testApiTypes);
                         }}
                         disabled={isDisabled}
                         className="flex h-7 w-7 items-center justify-center rounded text-accent transition-colors hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-40"

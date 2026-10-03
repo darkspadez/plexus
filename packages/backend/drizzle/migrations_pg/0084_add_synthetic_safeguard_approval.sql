@@ -1,0 +1,1 @@
+ALTER TABLE "model_aliases" ADD COLUMN "synthetic_safeguard_approval" boolean DEFAULT false NOT NULL;

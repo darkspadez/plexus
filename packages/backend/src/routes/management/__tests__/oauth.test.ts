@@ -5,6 +5,7 @@ import { registerOAuthRoutes } from '../oauth';
 import { OAuthLoginSessionManager } from '../../../services/oauth/oauth-login-session';
 import { OAuthAuthManager } from '../../../services/oauth/oauth-auth-manager';
 import { CodexVersionService } from '../../../services/oauth/codex-version-service';
+import { ConfigService } from '../../../services/configuration/config-service';
 import { CODEX_IMAGE_MODELS } from '../../../services/providers/provider-model-discovery';
 import { registerSpy } from '../../../../test/test-utils';
 
@@ -22,9 +23,12 @@ const waitForStatus = async (
       method: 'GET',
       url: `/v0/management/oauth/sessions/${sessionId}`,
     });
-    const json = response.json() as { data?: { status?: string } };
+    const json = response.json() as { data?: { status?: string; error?: string } };
     if (json.data?.status === status) {
       return json;
+    }
+    if (json.data?.status === 'error') {
+      throw new Error(`OAuth session failed: ${json.data.error ?? 'unknown error'}`);
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
@@ -80,7 +84,13 @@ describe('OAuth management routes', () => {
     OAuthAuthManager.resetForTesting();
   });
 
-  it('persists credentials after prompt flow', async () => {
+  it('stores credentials after prompt flow', async () => {
+    const configService = ConfigService.getInstance();
+    const saveCredentials = registerSpy(configService, 'setOAuthCredentials').mockResolvedValue();
+    const deleteCredentials = registerSpy(
+      configService,
+      'deleteOAuthCredentials'
+    ).mockResolvedValue();
     const accountId = 'work';
     const response = await fastify.inject({
       method: 'POST',
@@ -106,8 +116,12 @@ describe('OAuth management routes', () => {
 
     await waitForStatus(fastify, session.data.id, 'success');
 
-    // Credentials are now stored in the database, not auth.json.
-    // Verify via the in-memory state of OAuthAuthManager.
+    // The route calls the persistence seam before the session reports success.
+    expect(saveCredentials).toHaveBeenCalledWith(
+      'test-provider',
+      accountId,
+      expect.objectContaining({ accessToken: 'access-token' })
+    );
     const authManager = OAuthAuthManager.getInstance();
     expect(authManager.hasProvider('test-provider' as any, accountId)).toBe(true);
 
@@ -117,6 +131,7 @@ describe('OAuth management routes', () => {
       payload: { providerId: 'test-provider', accountId },
     });
     expect(deleteResponse.statusCode).toBe(200);
+    expect(deleteCredentials).toHaveBeenCalledWith('test-provider', accountId);
 
     // After delete, the in-memory cache should reflect the removal.
     await authManager.reload();
@@ -124,6 +139,10 @@ describe('OAuth management routes', () => {
   });
 
   it('accepts manual code input for callback flows', async () => {
+    const saveCredentials = registerSpy(
+      ConfigService.getInstance(),
+      'setOAuthCredentials'
+    ).mockResolvedValue();
     const accountId = 'personal';
     const manualProvider: OAuthProviderDescriptor = {
       id: 'manual-provider',
@@ -172,8 +191,13 @@ describe('OAuth management routes', () => {
 
     const awaiting = await waitForStatus(fastify, session.data.id, 'awaiting_manual_code');
     // Manual-code entry uses the dedicated redirect-URL input only — the
-    // generic prompt object must stay unset so the UI renders one input.
+    // generic prompt object must stay unset so the UI renders one input. The
+    // provider's own message/placeholder ride along so the input is not
+    // hardcoded to one provider.
     expect((awaiting.data as { prompt?: unknown })?.prompt).toBeUndefined();
+    expect(
+      (awaiting.data as { manualCode?: { message?: string; placeholder?: string } }).manualCode
+    ).toEqual({ message: 'Enter the code from the browser' });
 
     await fastify.inject({
       method: 'POST',
@@ -183,9 +207,88 @@ describe('OAuth management routes', () => {
 
     await waitForStatus(fastify, session.data.id, 'success');
 
-    // Credentials are now stored in the database, not auth.json.
+    expect(saveCredentials).toHaveBeenCalledWith(
+      'manual-provider',
+      accountId,
+      expect.objectContaining({ accessToken: 'manual-access' })
+    );
     const authManager = OAuthAuthManager.getInstance();
     expect(authManager.hasProvider('manual-provider' as any, accountId)).toBe(true);
+  });
+
+  it('surfaces a select prompt and submits the chosen method', async () => {
+    const saveCredentials = registerSpy(
+      ConfigService.getInstance(),
+      'setOAuthCredentials'
+    ).mockResolvedValue();
+    const accountId = 'personal';
+    const selectProvider: OAuthProviderDescriptor = {
+      id: 'select-provider',
+      name: 'Select Provider',
+      usesCallbackServer: false,
+      oauth: {
+        name: 'Select Provider',
+        async login(interaction) {
+          const method = await interaction.prompt({
+            type: 'select',
+            message: 'Select login method:',
+            options: [
+              { id: 'browser', label: 'Browser login (default)' },
+              { id: 'device_code', label: 'Device code login (headless)' },
+            ],
+          });
+          return {
+            type: 'oauth',
+            access: method,
+            refresh: 'select-refresh',
+            expires: Date.now() + 60_000,
+          };
+        },
+        async refresh(credential) {
+          return credential;
+        },
+        async toAuth(credential) {
+          return { apiKey: credential.access };
+        },
+      },
+    };
+
+    manager.dispose();
+    manager = new OAuthLoginSessionManager((id) =>
+      id === selectProvider.id ? selectProvider : undefined
+    );
+    fastify = Fastify();
+    await registerOAuthRoutes(fastify, manager);
+
+    const response = await fastify.inject({
+      method: 'POST',
+      url: '/v0/management/oauth/sessions',
+      payload: { providerId: 'select-provider', accountId },
+    });
+    const session = response.json() as { data: { id: string } };
+
+    const awaiting = await waitForStatus(fastify, session.data.id, 'awaiting_select');
+    expect((awaiting.data as { select?: unknown }).select).toEqual({
+      message: 'Select login method:',
+      options: [
+        { id: 'browser', label: 'Browser login (default)' },
+        { id: 'device_code', label: 'Device code login (headless)' },
+      ],
+    });
+
+    await fastify.inject({
+      method: 'POST',
+      url: `/v0/management/oauth/sessions/${session.data.id}/select`,
+      payload: { value: 'device_code' },
+    });
+
+    await waitForStatus(fastify, session.data.id, 'success');
+
+    expect(saveCredentials).toHaveBeenCalledWith(
+      'select-provider',
+      accountId,
+      expect.objectContaining({ accessToken: 'device_code' })
+    );
   });
 
   it('fetches OAuth provider models', async () => {
@@ -337,6 +440,185 @@ describe('OAuth management routes', () => {
       expect(json.source).toBe('catalog');
       expect(json.warning).toEqual(expect.stringContaining('static catalog'));
       expect(json.data.map((model) => model.id)).toContain('gpt-image-2');
+    });
+  });
+
+  describe('Muse Code live model discovery', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('forwards accountId to the Muse backend and reports the live source', async () => {
+      const getApiKey = registerSpy(OAuthAuthManager.getInstance(), 'getApiKey').mockResolvedValue(
+        'mk_live_abc'
+      );
+      const fetchSpy = registerSpy(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          object: 'list',
+          data: [
+            { id: 'muse-spark-1.3', object: 'model' },
+            { id: 'muse-spark-1.2', object: 'model' },
+          ],
+        }),
+      } as any);
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: '/v0/management/oauth/models?providerId=meta&accountId=work',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(getApiKey).toHaveBeenCalledWith('meta', 'work');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchSpy.mock.calls[0]!;
+      expect(url).toBe('https://api.meta.ai/v1/models');
+      expect((init?.headers as Record<string, string>)['x-api-version']).toBe('1.0.0');
+
+      const json = response.json() as {
+        data: Array<{ id: string }>;
+        source: string;
+        warning?: string;
+      };
+      expect(json.source).toBe('muse-backend');
+      expect(json.warning).toBeUndefined();
+      expect(json.data.map((model) => model.id)).toEqual(['muse-spark-1.2', 'muse-spark-1.3']);
+    });
+
+    it('degrades to the static catalog with a warning when discovery fails', async () => {
+      registerSpy(OAuthAuthManager.getInstance(), 'getApiKey').mockRejectedValue(
+        new Error('OAuth: Not authenticated for provider')
+      );
+      const fetchSpy = registerSpy(globalThis, 'fetch');
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: '/v0/management/oauth/models?providerId=meta',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(fetchSpy).not.toHaveBeenCalled();
+
+      const json = response.json() as {
+        data: Array<{ id: string }>;
+        source: string;
+        warning?: string;
+      };
+      expect(json.source).toBe('catalog');
+      expect(json.warning).toEqual(expect.stringContaining('static catalog'));
+      expect(json.data.map((model) => model.id)).toContain('muse-spark-1.3-contributor');
+    });
+  });
+
+  describe('credential status', () => {
+    beforeEach(() => {
+      ConfigService.resetInstance();
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      ConfigService.resetInstance();
+    });
+
+    it('reports credential age and expiry when ready', async () => {
+      const authManager = OAuthAuthManager.getInstance();
+      const hasProvider = registerSpy(authManager, 'hasProvider').mockReturnValue(true);
+      const getCredentials = registerSpy(authManager, 'getCredentials').mockReturnValue({
+        access: 'secret_access',
+        refresh: 'secret_refresh',
+        expires: 1_900_000_000_000,
+      });
+      const getTimestamps = registerSpy(
+        ConfigService.getInstance(),
+        'getOAuthCredentialTimestamps'
+      ).mockResolvedValue({
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_800_000_000_000,
+        expiresAt: 1_850_000_000_000,
+      });
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: '/v0/management/oauth/credentials/status?providerId=meta&accountId=%20work%20',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(hasProvider).toHaveBeenCalledWith('meta', 'work');
+      expect(getTimestamps).toHaveBeenCalledWith('meta', 'work');
+      expect(getCredentials).toHaveBeenCalledWith('meta', 'work');
+      // The in-memory expiry wins over the row's; tokens never leave.
+      expect(response.json()).toEqual({
+        data: {
+          ready: true,
+          connectedAt: 1_700_000_000_000,
+          refreshedAt: 1_800_000_000_000,
+          expiresAt: 1_900_000_000_000,
+        },
+      });
+      expect(response.body).not.toContain('secret_');
+    });
+
+    it('still reports readiness and expiry when the timestamps cannot be read', async () => {
+      const authManager = OAuthAuthManager.getInstance();
+      registerSpy(authManager, 'hasProvider').mockReturnValue(true);
+      registerSpy(authManager, 'getCredentials').mockReturnValue({
+        access: 'a',
+        refresh: 'r',
+        expires: 1_900_000_000_000,
+      });
+      registerSpy(ConfigService.getInstance(), 'getOAuthCredentialTimestamps').mockRejectedValue(
+        new Error('db unavailable')
+      );
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: '/v0/management/oauth/credentials/status?providerId=meta&accountId=work',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ data: { ready: true, expiresAt: 1_900_000_000_000 } });
+    });
+
+    it('omits a missing expiry and a missing row', async () => {
+      const authManager = OAuthAuthManager.getInstance();
+      registerSpy(authManager, 'hasProvider').mockReturnValue(true);
+      registerSpy(authManager, 'getCredentials').mockReturnValue({
+        access: 'a',
+        refresh: 'r',
+        expires: 0,
+      });
+      registerSpy(ConfigService.getInstance(), 'getOAuthCredentialTimestamps').mockResolvedValue(
+        null
+      );
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: '/v0/management/oauth/credentials/status?providerId=meta&accountId=work',
+      });
+
+      expect(response.json()).toEqual({ data: { ready: true } });
+    });
+
+    it('returns only readiness when not ready', async () => {
+      const authManager = OAuthAuthManager.getInstance();
+      registerSpy(authManager, 'hasProvider').mockReturnValue(false);
+      const getCredentials = registerSpy(authManager, 'getCredentials');
+      const getTimestamps = registerSpy(
+        ConfigService.getInstance(),
+        'getOAuthCredentialTimestamps'
+      );
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: '/v0/management/oauth/credentials/status?providerId=meta&accountId=work',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ data: { ready: false } });
+      expect(getTimestamps).not.toHaveBeenCalled();
+      expect(getCredentials).not.toHaveBeenCalled();
     });
   });
 });

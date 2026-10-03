@@ -43,26 +43,26 @@ describe('applyClaudeCodeMasking (regression: debug trace 17404760-e986-49b3-8a2
 
     // Glob/Grep/TodoRead are no longer injected as synthetic stubs — real
     // Claude Code stopped sending these (confirmed against a genuine
-    // on-the-wire capture), so padding them in caused clients whose own
-    // tool surface lacks Grep/Glob to receive tool_use calls for tools they
-    // never registered a handler for. The fixture's own Glob/Grep tools
-    // (which our pipeline also leaves untouched — see the "stale-collision"
-    // test below) still exist exactly once each, unaffected.
-    expect(names.filter((n) => n === 'Glob')).toHaveLength(1);
-    expect(names.filter((n) => n === 'Grep')).toHaveLength(1);
+    // on-the-wire capture). The fixture's own Glob/Grep/TodoWrite tools are
+    // not current CC names, so the namespace shape files them under
+    // mcp__client__ rather than leaving them bare.
+    expect(names).not.toContain('Glob');
+    expect(names).not.toContain('Grep');
     expect(names).not.toContain('TodoRead');
+    expect(names).toContain('mcp__client__Glob');
+    expect(names).toContain('mcp__client__Grep');
 
     // 161 fixture tools + 2 synthetic (Agent, NotebookEdit) - 0 collisions = 163.
     expect(payload.tools).toHaveLength(buildFixtureTools().length + 2);
   });
 
-  it('renames MCP-server tools to the mcp__<server>__<tool> convention, clustered per server', () => {
+  it('namespaces every non-CC caller tool under a single mcp__client__ server', () => {
     const { payload } = applyClaudeCodeMasking(JSON.stringify(buildPiAiOutputFixture()));
     const names: string[] = payload.tools.map((t: any) => t.name);
 
-    expect(names.filter((n) => n.startsWith('mcp__home-assistant__'))).toHaveLength(78);
-    expect(names.filter((n) => n.startsWith('mcp__github__'))).toHaveLength(55);
-    expect(names.filter((n) => n.startsWith('mcp__ESPhome__'))).toHaveLength(12);
+    expect(names.filter((n) => n.startsWith('mcp__client__home-assistant_'))).toHaveLength(78);
+    expect(names.filter((n) => n.startsWith('mcp__client__github_'))).toHaveLength(55);
+    expect(names.filter((n) => n.startsWith('mcp__client__ESPhome_'))).toHaveLength(12);
 
     // Original flat-prefixed names must be gone.
     expect(names.some((n) => n.startsWith('home-assistant_'))).toBe(false);
@@ -70,11 +70,11 @@ describe('applyClaudeCodeMasking (regression: debug trace 17404760-e986-49b3-8a2
     expect(names.some((n) => n.startsWith('ESPhome_'))).toBe(false);
   });
 
-  it('leaves tools with no Claude Code equivalent untouched', () => {
+  it('namespaces caller tools with no Claude Code equivalent', () => {
     const { payload } = applyClaudeCodeMasking(JSON.stringify(buildPiAiOutputFixture()));
     const names: string[] = payload.tools.map((t: any) => t.name);
 
-    for (const untouched of [
+    for (const original of [
       'question',
       'list_mcp_resource_templates',
       'list_mcp_resources',
@@ -83,7 +83,8 @@ describe('applyClaudeCodeMasking (regression: debug trace 17404760-e986-49b3-8a2
       'lookup_type',
       'type_check',
     ]) {
-      expect(names).toContain(untouched);
+      expect(names).not.toContain(original);
+      expect(names).toContain(`mcp__client__${original}`);
     }
   });
 
@@ -93,15 +94,20 @@ describe('applyClaudeCodeMasking (regression: debug trace 17404760-e986-49b3-8a2
     const { payload } = applyClaudeCodeMasking(JSON.stringify(buildPiAiOutputFixture()));
     const names: string[] = payload.tools.map((t: any) => t.name);
     expect(names).toContain('Bash');
-    expect(names).not.toContain('mcp__Bash');
+    expect(names).not.toContain('mcp__client__Bash');
   });
 
-  it('leaves a stale-collision tool (Glob/Grep/TodoWrite) alone since it matches no CURRENT real CC tool name', () => {
+  it('namespaces a stale non-CC tool name (Glob/Grep/TodoWrite) rather than leaving it bare', () => {
     const { payload } = applyClaudeCodeMasking(JSON.stringify(buildPiAiOutputFixture()));
     const names: string[] = payload.tools.map((t: any) => t.name);
-    expect(names).toContain('Glob');
-    expect(names).toContain('Grep');
-    expect(names).toContain('TodoWrite');
+    for (const [original, renamed] of [
+      ['Glob', 'mcp__client__Glob'],
+      ['Grep', 'mcp__client__Grep'],
+      ['TodoWrite', 'mcp__client__TodoWrite'],
+    ]) {
+      expect(names).not.toContain(original);
+      expect(names).toContain(renamed);
+    }
   });
 
   it('renames a real-CC-name collision with an incompatible shape and appends a preference note', () => {
@@ -113,11 +119,11 @@ describe('applyClaudeCodeMasking (regression: debug trace 17404760-e986-49b3-8a2
     const toolsByName = new Map(payload.tools.map((t: any) => [t.name, t]));
 
     for (const [original, renamed] of [
-      ['Edit', 'mcp__Edit'],
-      ['Read', 'mcp__Read'],
-      ['Write', 'mcp__Write'],
-      ['WebFetch', 'mcp__WebFetch'],
-      ['Skill', 'mcp__Skill'],
+      ['Edit', 'mcp__client__Edit'],
+      ['Read', 'mcp__client__Read'],
+      ['Write', 'mcp__client__Write'],
+      ['WebFetch', 'mcp__client__WebFetch'],
+      ['Skill', 'mcp__client__Skill'],
     ]) {
       expect(toolsByName.has(original)).toBe(false);
       expect(toolsByName.has(renamed)).toBe(true);
@@ -181,21 +187,21 @@ describe('applyClaudeCodeMasking (regression: debug trace 17404760-e986-49b3-8a2
     const { toolRenamePairs } = applyClaudeCodeMasking(JSON.stringify(buildPiAiOutputFixture()));
 
     const pairsMap = Object.fromEntries(toolRenamePairs);
-    expect(pairsMap['home-assistant_ha_action_0']).toBe('mcp__home-assistant__ha_action_0');
-    expect(pairsMap['github_action_0']).toBe('mcp__github__action_0');
-    expect(pairsMap['ESPhome_device_action_0']).toBe('mcp__ESPhome__device_action_0');
+    expect(pairsMap['home-assistant_ha_action_0']).toBe('mcp__client__home-assistant_ha_action_0');
+    expect(pairsMap['github_action_0']).toBe('mcp__client__github_action_0');
+    expect(pairsMap['ESPhome_device_action_0']).toBe('mcp__client__ESPhome_device_action_0');
   });
 
   describe('tool description preservation (end-to-end wiring)', () => {
     // MCP-renamed tools carry no collision note, so their description is a
     // clean before/after signal. Original name `github_action_0` renames to
-    // `mcp__github__action_0`; its description is `Synthetic description for
-    // github_action_0` (see fixtures.ts).
+    // `mcp__client__github_action_0`; its description is `Synthetic
+    // description for github_action_0` (see fixtures.ts).
     const named = (payload: any, name: string) => payload.tools.find((t: any) => t.name === name);
 
     it('default run preserves the caller tool descriptions', () => {
       const { payload } = applyClaudeCodeMasking(JSON.stringify(buildPiAiOutputFixture()));
-      expect(named(payload, 'mcp__github__action_0').description).toBe(
+      expect(named(payload, 'mcp__client__github_action_0').description).toBe(
         'Synthetic description for github_action_0'
       );
     });

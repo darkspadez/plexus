@@ -171,6 +171,10 @@ export function isStreamOperation(operation: OpenApiOperation): boolean {
 }
 
 export function isRisky(operation: Operation): boolean {
+  // GET/HEAD are safe methods — the name heuristic below only guards
+  // state-changing calls (its substrings also match harmless words like
+  // the "reset" in "provider-presets").
+  if (operation.method === 'get' || operation.method === 'head') return false;
   return operation.method === 'delete' || RISKY_OPERATION.test(`${operation.id} ${operation.path}`);
 }
 

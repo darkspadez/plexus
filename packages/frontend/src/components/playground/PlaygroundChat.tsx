@@ -17,9 +17,11 @@ import {
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
 import {
   Type,
+  normalizeContext,
   type Api,
   type AssistantMessage,
   type Context,
+  type JsonObject,
   type Message,
   type Model,
   type ProviderStreams,
@@ -34,8 +36,9 @@ import { googleGenerativeAIApi } from '@earendil-works/pi-ai/api/google-generati
 import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy';
 import { openAIResponsesApi } from '@earendil-works/pi-ai/api/openai-responses.lazy';
 import { ArrowDown, Copy, Paperclip, SendHorizontal, Square, Wrench, X } from 'lucide-react';
-import { memo, useMemo, useRef } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 import type { KeyConfig } from '../../lib/api';
+import { generateUUID } from '../../lib/clipboard';
 
 export type PlaygroundApi =
   | 'openai-completions'
@@ -216,7 +219,7 @@ const toPiContext = (messages: readonly ThreadMessage[], tools: Tool[] | undefin
           type: 'toolCall',
           id: part.toolCallId,
           name: part.toolName,
-          arguments: part.args as Record<string, unknown>,
+          arguments: part.args as JsonObject,
         });
       }
     }
@@ -340,9 +343,10 @@ const makeAdapter = ({
   selectedApi,
   toolMode,
   tasks,
+  sessionId,
   onRoutingPending,
   onToolCalls,
-}: PlaygroundChatProps & { tasks: string[] }): ChatModelAdapter => ({
+}: PlaygroundChatProps & { tasks: string[]; sessionId: string }): ChatModelAdapter => ({
   async *run({ messages, abortSignal }) {
     const model = createModel(selectedApi, selectedModel);
     const context = toPiContext(
@@ -352,18 +356,18 @@ const makeAdapter = ({
     const completedParts: ThreadAssistantMessagePart[] = [];
     const generatedMessages: Message[] = [];
     const requestTrace: Array<Record<string, unknown>> = [];
-    const firstRequestId = crypto.randomUUID();
+    const firstRequestId = generateUUID();
     onRoutingPending(firstRequestId);
 
     for (let round = 0; round < 8; round++) {
-      const clientRequestId = round === 0 ? firstRequestId : crypto.randomUUID();
+      const clientRequestId = round === 0 ? firstRequestId : generateUUID();
       let finalMessage: AssistantMessage | undefined;
 
-      const stream = streamsByApi[selectedApi].stream(model, context, {
+      const stream = streamsByApi[selectedApi].stream(model, normalizeContext(context), {
         apiKey: selectedKey.secret,
         signal: abortSignal,
         maxRetries: 0,
-        headers: { 'x-client-request-id': clientRequestId },
+        headers: { 'x-client-request-id': clientRequestId, 'x-opencode-session': sessionId },
         onPayload: (payload) => {
           const outgoingPayload =
             selectedApi === 'openai-responses' ? makeResponsesPayloadStateless(payload) : payload;
@@ -668,8 +672,10 @@ const PlaygroundThread = ({
 
 export const PlaygroundChat = memo((props: PlaygroundChatProps) => {
   const tasksRef = useRef<string[]>([]);
+  // One session per chat thread; the parent remounts this component for a new thread.
+  const [sessionId] = useState(generateUUID);
   const adapter = useMemo(
-    () => makeAdapter({ ...props, tasks: tasksRef.current }),
+    () => makeAdapter({ ...props, tasks: tasksRef.current, sessionId }),
     [
       props.selectedKey,
       props.selectedModel,

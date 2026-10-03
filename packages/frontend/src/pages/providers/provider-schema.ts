@@ -6,14 +6,19 @@
  *
  * Save-payload rules (extracted from useProviderForm.tsx handleSave):
  * - In OAuth mode, if oauthProvider is empty, default to first OAUTH_PROVIDERS entry.
+ *   The OAuth account is the provider ID (#913), so there is no separate account check.
+ * - The pi-ai `- auto -` sentinel is never persisted.
  * - If quotaChecker.type is empty/blank, strip the quotaChecker entirely.
  * - All other Provider fields pass through as-is (api.saveProvider handles further mapping).
+ *   The payload spreads the form values first, so a field added to Provider upstream
+ *   round-trips without a change here instead of being silently dropped on save.
  *
  * Note: this codebase uses Zod v4 (classic compat layer).
  * z.record() requires two args: z.record(keyType, valueType) — no 1-arg shorthand in types.
  */
 import * as z from 'zod';
 import type { Provider, CompactionSettings } from '../../lib/api';
+import { PI_AI_AUTO_VALUE } from '../../lib/piAiProvider';
 
 export const OAUTH_PROVIDERS_DEFAULT = 'anthropic';
 
@@ -65,7 +70,11 @@ export const providerFormSchema = z.object({
   stallWindowMs: z.number().nullable().optional(),
   stallGracePeriodMs: z.number().nullable().optional(),
   pi_ai_provider: z.string().optional(),
+  // Opaque passthroughs — shapes are owned by @plexus/shared and the backend.
+  pi_ai_quirks: z.custom<Provider['pi_ai_quirks']>().optional(),
   auto_compat: z.boolean().optional(),
+  cacheKeyInjection: z.custom<Provider['cacheKeyInjection']>().optional(),
+  responsesExtensions: z.custom<Provider['responsesExtensions']>().optional(),
   rawPassthrough: z
     .object({
       enabled: z.boolean(),
@@ -118,6 +127,7 @@ export function toProviderPayload(
   const oauthMode = options?.isOAuthMode ?? isOAuthProvider(formValues);
 
   let p: Provider = {
+    ...(formValues as unknown as Provider),
     id: formValues.id,
     name: formValues.name,
     type: formValues.type,
@@ -146,22 +156,22 @@ export function toProviderPayload(
     stallMinBps: formValues.stallMinBps,
     stallWindowMs: formValues.stallWindowMs,
     stallGracePeriodMs: formValues.stallGracePeriodMs,
-    pi_ai_provider: formValues.pi_ai_provider,
+    // `- auto -` resolves to a concrete id on select; never persist the sentinel.
+    pi_ai_provider:
+      formValues.pi_ai_provider === PI_AI_AUTO_VALUE ? undefined : formValues.pi_ai_provider,
+    pi_ai_quirks: formValues.pi_ai_quirks,
     auto_compat: formValues.auto_compat,
+    cacheKeyInjection: formValues.cacheKeyInjection,
+    responsesExtensions: formValues.responsesExtensions,
     // Passed through verbatim; api.saveProvider only emits raw_passthrough
     // when baseUrl is non-empty, so an untouched default never reaches the API.
     rawPassthrough: formValues.rawPassthrough,
     compaction: formValues.compaction,
   };
 
-  // OAuth mode: default oauthProvider, validate oauthAccount
-  if (oauthMode) {
-    if (!p.oauthProvider) {
-      p = { ...p, oauthProvider: OAUTH_PROVIDERS_DEFAULT };
-    }
-    if (!p.oauthAccount?.trim()) {
-      return { ok: false, error: 'OAuth account is required' };
-    }
+  // OAuth mode: default oauthProvider. The account is the provider ID (#913).
+  if (oauthMode && !p.oauthProvider) {
+    p = { ...p, oauthProvider: OAUTH_PROVIDERS_DEFAULT };
   }
 
   // Strip quotaChecker if type is empty/blank
@@ -214,7 +224,6 @@ export const PROVIDER_FORM_DEFAULTS: ProviderFormValues = {
   type: [],
   apiKey: '',
   oauthProvider: '',
-  oauthAccount: '',
   enabled: true,
   disableCooldown: false,
   stallCooldown: false,

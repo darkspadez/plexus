@@ -338,6 +338,7 @@ export const Models = () => {
     let apiTypes: string[] = ['chat'];
     if (alias.type === 'embeddings') apiTypes = ['embeddings'];
     else if (alias.type === 'image') apiTypes = ['images'];
+    else if (alias.type === 'decisions') apiTypes = ['decisions'];
     alias.target_groups.forEach((group, groupIdx) => {
       group.targets.forEach((t, targetIdx) => {
         if (t.enabled === false || !t.provider || !t.model) return;
@@ -604,6 +605,7 @@ export const Models = () => {
                           let apiTypes: string[] = ['chat'];
                           if (alias.type === 'embeddings') apiTypes = ['embeddings'];
                           else if (alias.type === 'image') apiTypes = ['images'];
+                          else if (alias.type === 'decisions') apiTypes = ['decisions'];
                           handleTestTarget(
                             alias.id,
                             `${alias.id}-0-${index}`,
@@ -653,7 +655,13 @@ export const Models = () => {
                 onChange={(value) =>
                   setEditingAlias({
                     ...editingAlias,
-                    type: value as 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image',
+                    type: value as
+                      | 'text'
+                      | 'embeddings'
+                      | 'transcriptions'
+                      | 'speech'
+                      | 'image'
+                      | 'decisions',
                   })
                 }
                 options={[
@@ -662,6 +670,7 @@ export const Models = () => {
                   { value: 'transcriptions', label: 'Transcriptions' },
                   { value: 'speech', label: 'Speech' },
                   { value: 'image', label: 'Image' },
+                  { value: 'decisions', label: 'Decisions' },
                 ]}
               />
 

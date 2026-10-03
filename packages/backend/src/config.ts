@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { isOAuthPlaceholderUrl, McpServerConfigSchema } from '@plexus/shared';
+import {
+  isOAuthPlaceholderUrl,
+  McpServerConfigSchema,
+  PiAiQuirksSchema,
+  ProviderCacheKeyInjectionSchema,
+  ResponsesExtensionSchema,
+} from '@plexus/shared';
 import { logger } from './utils/logger';
 import { DEFAULT_VISION_DESCRIPTION_PROMPT } from './utils/constants';
 import { isValidIpRule } from './utils/ip-match';
@@ -203,7 +209,10 @@ const ModelProviderConfigSchema = z.object({
     output: 0,
   }),
   access_via: z.array(z.union([z.string().trim().min(1), ApiFormatSchema])).optional(),
-  type: z.enum(['text', 'embeddings', 'transcriptions', 'speech', 'image']).optional(),
+  // `decisions` marks a Decisions-only target: it serves incoming `decisions`
+  // requests and is excluded from every other API type, regardless of
+  // `access_via`.
+  type: z.enum(['text', 'embeddings', 'transcriptions', 'speech', 'image', 'decisions']).optional(),
   extraBody: z.record(z.string(), z.any()).optional(),
   adapter: AdapterConfigSchema,
   auto_compat: z.boolean().optional(),
@@ -308,6 +317,19 @@ export const ProviderConfigSchema = z
     extraBody: z.record(z.string(), z.any()).optional(),
     estimateTokens: z.boolean().optional().default(false),
     useClaudeMasking: z.boolean().optional().default(false),
+    /**
+     * Inject Plexus's derived per-run cache/session key into this field on
+     * upstream requests. `undefined` leaves the client's request unchanged,
+     * except Meta OAuth routes which default to `prompt_cache_key`.
+     */
+    cache_key_injection: ProviderCacheKeyInjectionSchema.optional(),
+    /**
+     * Responses API extensions this provider accepts verbatim. Requests
+     * carrying any other extension are flattened instead of passed through.
+     * `undefined` uses the default (see resolveSupportedResponsesExtensions);
+     * `[]` flattens every extension.
+     */
+    responses_extensions: z.array(ResponsesExtensionSchema).optional(),
     quota_checker: ProviderQuotaCheckerSchema.optional(),
     model_autosync: ModelAutosyncSchema.optional(),
     geminiThinkingEnabled: z.boolean().optional(),
@@ -322,8 +344,12 @@ export const ProviderConfigSchema = z
     stallWindowMs: z.number().int().min(3000).max(30000).nullable().optional(),
     stallGracePeriodMs: z.number().int().min(0).max(120000).nullable().optional(),
     pi_ai_provider: z.string().optional(),
+    pi_ai_quirks: PiAiQuirksSchema.optional(),
     compaction: CompactionOverrideSchema.optional(),
     raw_passthrough: RawPassthroughConfigSchema.optional(),
+  })
+  .refine((data) => !data.pi_ai_provider || !data.pi_ai_quirks, {
+    message: "'pi_ai_provider' and 'pi_ai_quirks' are mutually exclusive",
   })
   .refine((data) => !!data.api_key || isOAuthProviderConfig(data), {
     message: "'api_key' must be specified for provider",
@@ -331,9 +357,9 @@ export const ProviderConfigSchema = z
   .refine((data) => !isOAuthProviderConfig(data) || !!data.oauth_provider, {
     message: "'oauth_provider' must be specified when using oauth://",
   })
-  .refine((data) => !isOAuthProviderConfig(data) || !!data.oauth_account, {
-    message: "'oauth_account' must be specified when using oauth://",
-  })
+  // The OAuth account is derived from the provider slug (1:1) at login time
+  // and never entered by users — oauth_account survives in the schema only
+  // as a grandfathered fallback for restores/imports that predate slug keying.
   .refine((data) => data.raw_passthrough?.enabled !== true || !isOAuthProviderConfig(data), {
     message: 'raw_passthrough currently supports static API-key providers only',
   });
@@ -629,7 +655,11 @@ export const ModelConfigSchema = z
     preferred_api: z
       .array(z.enum(['chat_completions', 'messages', 'gemini', 'responses']))
       .optional(),
-    type: z.enum(['text', 'embeddings', 'transcriptions', 'speech', 'image']).optional(),
+    // Alias capability type. `decisions` marks a buffered Jev-style alias
+    // (served through `systemone` targets).
+    type: z
+      .enum(['text', 'embeddings', 'transcriptions', 'speech', 'image', 'decisions'])
+      .optional(),
     advanced: z.array(ModelBehaviorSchema).optional(),
     metadata: ModelMetadataSchema.optional(),
     // pi-ai model reference: when set, pi_options (compat) will be included in GET /v1/models
@@ -642,6 +672,11 @@ export const ModelConfigSchema = z
     // Extra body fields merged into every request dispatched through this alias.
     // Merged after provider-level and model-level extraBody, so alias values win.
     extraBody: z.record(z.string(), z.any()).optional(),
+    // When true, translated (non-native Messages) responses for this alias
+    // carry synthetic `safeguard_results` (`evaluated`/`not_flagged` with an
+    // explanatory note) when the inbound Messages request asked via
+    // `safeguards`. Opt-in, default off: no real classifier runs.
+    synthetic_safeguard_approval: z.boolean().default(false).optional(),
     compaction: CompactionOverrideSchema.optional(),
   })
   .superRefine((data, context) => {
@@ -744,6 +779,123 @@ export function normalizeKeyConfig<T extends { quota?: unknown; quotas?: unknown
     return { ...data, quotas: [data.quota] };
   }
   return data;
+}
+
+/** Pre-collapse Decisions target names. Still accepted (see below), never written. */
+const LEGACY_DECISIONS_TARGET_TYPES: ReadonlySet<string> = new Set([
+  'openrouter-decisions',
+  'typesafe-decisions',
+]);
+
+/** The only base URL the old preset ever shipped for the legacy OpenRouter target. */
+const LEGACY_OPENROUTER_ALPHA_BASE = 'https://openrouter.ai/api/alpha';
+
+/** Replacement base: OpenRouter serves System One at `/api/v1/systemone`. */
+const OPENROUTER_V1_BASE = 'https://openrouter.ai/api/v1';
+
+function isLegacyDecisionsTargetType(value: unknown): boolean {
+  return typeof value === 'string' && LEGACY_DECISIONS_TARGET_TYPES.has(value.trim().toLowerCase());
+}
+
+function apiAccessEntryKey(entry: unknown): string {
+  if (typeof entry === 'string') return entry.trim().toLowerCase();
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+    const record = entry as Record<string, unknown>;
+    const type = typeof record.type === 'string' ? record.type.trim().toLowerCase() : '';
+    const subtype =
+      typeof record.subtype === 'string' && record.subtype.trim().length > 0
+        ? record.subtype.trim().toLowerCase()
+        : undefined;
+    return subtype ? `${type}:${subtype}` : type;
+  }
+  return '';
+}
+
+/** Map one `access_via` entry onto the single `systemone` target, preserving subtypes. */
+function systemOneAccessEntry(entry: unknown): unknown {
+  if (typeof entry === 'string') {
+    return isLegacyDecisionsTargetType(entry) ? 'systemone' : entry;
+  }
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+    const record = entry as Record<string, unknown>;
+    if (isLegacyDecisionsTargetType(record.type)) {
+      return { ...record, type: 'systemone' };
+    }
+  }
+  return entry;
+}
+
+/**
+ * Collapse legacy Decisions targets onto the single `systemone` target at
+ * load time. `openrouter-decisions` / `typesafe-decisions` `api_base_url`
+ * keys become `systemone` (an explicit `systemone` entry always wins); a
+ * base URL of exactly the old preset value (`/api/alpha`) is rewritten to
+ * `/api/v1`, while custom bases are kept verbatim. Model-level `access_via`
+ * entries are mapped the same way and deduped. Returns a new object unless
+ * nothing needed changing.
+ *
+ * Applied in `hydrateConfig` (file/test configs) and `ConfigService`
+ * rebuilds (database configs) so every runtime read sees the canonical
+ * form; stored rows are left untouched.
+ */
+export function normalizeSystemOneProviderConfig(data: ProviderConfig): ProviderConfig {
+  let apiBaseUrl = data.api_base_url;
+  if (apiBaseUrl && typeof apiBaseUrl === 'object' && !Array.isArray(apiBaseUrl)) {
+    const urlMap = apiBaseUrl as Record<string, string>;
+    const legacyKeys = Object.keys(urlMap).filter((key) =>
+      LEGACY_DECISIONS_TARGET_TYPES.has(key.trim().toLowerCase())
+    );
+    if (legacyKeys.length > 0) {
+      const next: Record<string, string> = { ...urlMap };
+      for (const key of legacyKeys) {
+        const base = next[key] as string;
+        delete next[key];
+        if (next['systemone'] === undefined) {
+          next['systemone'] =
+            base.replace(/\/+$/, '').toLowerCase() === LEGACY_OPENROUTER_ALPHA_BASE
+              ? OPENROUTER_V1_BASE
+              : base;
+        }
+      }
+      apiBaseUrl = next;
+    }
+  }
+
+  let models = data.models;
+  if (models && typeof models === 'object' && !Array.isArray(models)) {
+    const record = models as Record<string, unknown>;
+    const nextModels: Record<string, unknown> = {};
+    let changed = false;
+    for (const [modelId, modelCfg] of Object.entries(record)) {
+      const access = (modelCfg as { access_via?: unknown } | null)?.access_via;
+      if (!Array.isArray(access)) {
+        nextModels[modelId] = modelCfg;
+        continue;
+      }
+      // Map legacy entries, drop empties, collapse duplicates.
+      const seen = new Set<string>();
+      const mapped: unknown[] = [];
+      for (const entry of access) {
+        const next = systemOneAccessEntry(entry);
+        const key = apiAccessEntryKey(next);
+        if (key.length === 0 || seen.has(key)) continue;
+        seen.add(key);
+        mapped.push(next);
+      }
+      if (JSON.stringify(mapped) === JSON.stringify(access)) {
+        nextModels[modelId] = modelCfg;
+      } else {
+        changed = true;
+        nextModels[modelId] = { ...(modelCfg as Record<string, unknown>), access_via: mapped };
+      }
+    }
+    if (changed) {
+      models = nextModels as ProviderConfig['models'];
+    }
+  }
+
+  if (apiBaseUrl === data.api_base_url && models === data.models) return data;
+  return { ...data, api_base_url: apiBaseUrl, models };
 }
 
 const QuotaConfigSchema = z.object({
@@ -979,9 +1131,19 @@ function hydrateConfig(config: z.infer<typeof RawPlexusConfigSchema>): PlexusCon
     ])
   );
 
+  // Collapse legacy Decisions targets onto `systemone` (see
+  // normalizeSystemOneProviderConfig): stored configs keep working without
+  // a data migration.
+  const normalizedProviders = Object.fromEntries(
+    Object.entries(config.providers).map(([providerId, providerConfig]) => [
+      providerId,
+      normalizeSystemOneProviderConfig(providerConfig as ProviderConfig),
+    ])
+  );
+
   return {
     ...config,
-    providers: config.providers,
+    providers: normalizedProviders,
     keys: normalizedKeys,
     failover: FailoverPolicySchema.parse(config.failover ?? {}),
     cooldown: CooldownPolicySchema.parse(config.cooldown ?? {}),
@@ -1161,6 +1323,16 @@ export function setConfigForTesting(config: PlexusConfig) {
         }
         return [slug, modelCfg];
       })
+    );
+  }
+  // Mirror production load-time normalization so legacy Decisions targets
+  // collapse onto `systemone` in tests too (see hydrateConfig).
+  if (normalised.providers) {
+    normalised.providers = Object.fromEntries(
+      Object.entries(normalised.providers).map(([providerId, providerConfig]) => [
+        providerId,
+        normalizeSystemOneProviderConfig(providerConfig as ProviderConfig),
+      ])
     );
   }
 

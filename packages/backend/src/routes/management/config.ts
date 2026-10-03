@@ -18,6 +18,7 @@ import {
   validateCheckerOptions,
 } from '../../services/quota/checker-registry';
 import { UsageStorageService } from '../../services/observability/usage-storage';
+import { OAuthAuthManager } from '../../services/oauth/oauth-auth-manager';
 import { validateServerName } from '../../services/mcp-proxy/mcp-proxy-service';
 import { mcpProcessManager } from '../../services/mcp-local/mcp-process-manager';
 import { VisionDescriptorService } from '../../services/vision/vision-descriptor-service';
@@ -207,6 +208,10 @@ export async function registerConfigRoutes(
         return reply.code(404).send({ error: `Provider '${slug}' not found` });
       }
       const merged = { ...existing, ...body };
+      // Explicit null clears a saved setting on PATCH; omission preserves it.
+      if (body.pi_ai_provider === null) delete merged.pi_ai_provider;
+      if (body.pi_ai_quirks === null) delete merged.pi_ai_quirks;
+      if (body.responses_extensions === null) delete merged.responses_extensions;
       const result = ProviderConfigSchema.safeParse(merged);
       if (!result.success) {
         return reply.code(400).send({ error: 'Validation failed', details: result.error.issues });
@@ -238,7 +243,14 @@ export async function registerConfigRoutes(
     const cascade = query.cascade === 'true';
 
     try {
-      await configService.deleteProvider(providerId, cascade);
+      const deletedCredential = await configService.deleteProvider(providerId, cascade);
+      if (deletedCredential) {
+        // DB row is gone with the provider; evict any in-memory tokens too.
+        OAuthAuthManager.getInstance().evictCredentials(
+          deletedCredential.providerType,
+          deletedCredential.accountId
+        );
+      }
       logger.debug(`Provider '${providerId}' deleted via API${cascade ? ' (cascade)' : ''}`);
       return reply.send({ success: true, provider: providerId });
     } catch (e: any) {

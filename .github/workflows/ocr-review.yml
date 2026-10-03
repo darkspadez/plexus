@@ -1,0 +1,267 @@
+# OpenCodeReview PR Review (primary reviewer; Cora is a manual-only fallback, see cora-review.yml)
+#
+# Decisions behind this workflow (grilled and agreed):
+# - Reusable action floats on `alibaba/open-code-review@main` with `ocr_version: latest`.
+#   Pinning only the action does NOT freeze the CLI, so floating both is the
+#   accepted trade-off: zero maintenance, review behavior may drift with releases.
+# - Model is claude-opus-5 via the existing LLM_API_HOST / LLM_API_KEY secrets (same
+#   gateway Cora used, but over the Anthropic Messages API at /v1/messages).
+# - `llm_extra_body` sets `output_config.effort: high` (Anthropic thinking level).
+#   `llm_reasoning_effort` is NOT used: the action rejects it on the Anthropic
+#   protocol, since the Anthropic API drops unknown body fields.
+# - Blocking gate is custom (OCR has no `should_block`): critical/high severities fail
+#   the job in "Check for blocking OCR findings" below. Medium stays advisory.
+# - Low-severity suppression is best-effort: the project rule asks OCR to omit lows,
+#   and the detailed summary filters them again. The action's built-in publisher has
+#   no option to drop findings by severity.
+
+name: OpenCodeReview PR Review
+run-name: "OCR Review: PR #${{ github.event.pull_request.number || github.event.issue.number }}"
+
+# Same conditional group as the upstream demo: matching events share a per-PR group
+# so a new review cancels a stale one; unrelated comments land in a unique noop group
+# and never cancel a running review.
+concurrency:
+  group: >-
+    ${{
+      (
+        github.event_name == 'pull_request_target'
+        || (
+          github.event_name == 'issue_comment'
+          && github.event.issue.pull_request
+          && github.event.comment.user.type != 'Bot'
+          && (
+            github.event.comment.author_association == 'MEMBER'
+            || github.event.comment.author_association == 'OWNER'
+            || github.event.comment.author_association == 'COLLABORATOR'
+          )
+          && (
+            startsWith(github.event.comment.body, '/open-code-review')
+            || startsWith(github.event.comment.body, '@open-code-review')
+          )
+        )
+      )
+      && format('ocr-{0}', github.event.pull_request.number || github.event.issue.number)
+      || format('noop-{0}', github.run_id)
+    }}
+  cancel-in-progress: true
+
+on:
+  # pull_request_target (not pull_request) so secrets are available for fork PRs.
+  # Safe: the action checks out the trusted base and only reads the head diff.
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, ready_for_review, synchronize]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ocr-review:
+    name: OCR Review
+    runs-on: ubuntu-latest
+    # Must stay >= review_task_timeout below: the job timeout killed a review
+    # that still had task budget left. Keep the two in step.
+    timeout-minutes: 15
+    # Drafts are skipped until ready for review (Cora parity). On-demand
+    # /open-code-review comments from collaborators always run (explicit request).
+    if: |
+      (github.event_name == 'pull_request_target' && github.event.pull_request.draft == false)
+      || (
+        github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && github.event.comment.user.type != 'Bot'
+        && (
+          github.event.comment.author_association == 'MEMBER'
+          || github.event.comment.author_association == 'OWNER'
+          || github.event.comment.author_association == 'COLLABORATOR'
+        )
+        && (
+          startsWith(github.event.comment.body, '/open-code-review')
+          || startsWith(github.event.comment.body, '@open-code-review')
+        )
+      )
+    steps:
+      - name: Get PR context
+        id: pr-context
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            // For issue_comment events, resolve PR base/head so the action
+            // can review the right diff (issue_comment has no top-level
+            // pull_request payload fields).
+            const prNumber = context.issue.number;
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            core.setOutput('base_ref', pullRequest.base.ref);
+            core.setOutput('head_sha', pullRequest.head.sha);
+
+      - name: Normalize LLM endpoint URL
+        id: llm
+        env:
+          LLM_API_HOST: ${{ secrets.LLM_API_HOST }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          if [ -z "$LLM_API_HOST" ]; then
+            echo "::error::LLM_API_HOST is not configured"
+            exit 1
+          fi
+          if [ -z "$LLM_API_KEY" ]; then
+            echo "::error::LLM_API_KEY is not configured"
+            exit 1
+          fi
+          base="${LLM_API_HOST%/}"
+          case "$base" in
+            */v1) ;;
+            *) base="$base/v1" ;;
+          esac
+          # Unlike Cora (which takes a base URL), OCR wants the full
+          # endpoint URL. The Anthropic protocol speaks /v1/messages.
+          echo "url=$base/messages" >> "$GITHUB_OUTPUT"
+
+      - name: Run OpenCodeReview
+        id: ocr
+        uses: alibaba/open-code-review@main
+        with:
+          llm_url: ${{ steps.llm.outputs.url }}
+          llm_auth_token: ${{ secrets.LLM_API_KEY }}
+          llm_model: claude-opus-5
+          llm_use_anthropic: 'true'
+          llm_extra_body: '{"output_config": {"effort": "high"}}'
+          # Keep in step with the job timeout-minutes above.
+          review_task_timeout: '15'
+          # For issue_comment triggers, pass the resolved refs; for
+          # pull_request_target the action resolves them from the event.
+          base_ref: ${{ steps.pr-context.outputs.base_ref }}
+          head_sha: ${{ steps.pr-context.outputs.head_sha }}
+
+      - name: Check for blocking OCR findings
+        env:
+          REVIEW_FILE: /tmp/ocr-result.json
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          try:
+              review = json.loads(Path(os.environ['REVIEW_FILE']).read_text())
+          except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+              print(f"::error::Could not parse OCR result: {e}")
+              sys.exit(1)
+
+          if review.get('status') == 'skipped':
+              print(f"::warning::OCR skipped the review: {review.get('message', 'no message')}")
+              sys.exit(0)
+
+          comments = review.get('comments', [])
+          blocking = [c for c in comments
+                      if str(c.get('severity', '')).lower() in ('critical', 'high')]
+          print(f"OCR reported {len(comments)} finding(s), "
+                f"{len(blocking)} at critical/high severity.")
+          for c in blocking:
+              line = c.get('start_line') or c.get('end_line') or '?'
+              print(f"BLOCKING {c.get('severity')}: {c.get('path')}:{line}: "
+                    f"{(c.get('content') or '')[:200]}")
+          sys.exit(1 if blocking else 0)
+          PY
+
+      - name: Post detailed OCR summary
+        if: always()
+        uses: actions/github-script@v9
+        env:
+          REVIEW_FILE: /tmp/ocr-result.json
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- ocr-review-detail -->';
+            const prNumber = context.payload.pull_request?.number ?? context.payload.issue?.number;
+            const truncate = (value, length) => {
+              const text = String(value ?? '');
+              return text.length > length ? `${text.slice(0, length)}...` : text;
+            };
+            let review = null;
+            try {
+              review = JSON.parse(fs.readFileSync(process.env.REVIEW_FILE, 'utf8'));
+            } catch {
+              review = null;
+            }
+            let body;
+            if (!review || !Array.isArray(review.comments)) {
+              body = [
+                marker,
+                '## 🔍 OpenCodeReview — detailed findings',
+                '',
+                '⚠️ **Review output was unreadable, so the OCR Review check failed. See the run logs for details.**',
+              ].join('\n');
+            } else {
+              const findings = review.comments.filter((c) =>
+                String(c.severity ?? '').toLowerCase() !== 'low',
+              );
+              const blocking = findings.filter((c) =>
+                ['critical', 'high'].includes(String(c.severity ?? '').toLowerCase()),
+              );
+              const verdict = blocking.length > 0
+                ? `⛔ **Blocked — ${blocking.length} critical/high finding(s). Merge is not advised until these are addressed.**`
+                : '✅ **Passing — no critical/high findings.**';
+              const entries = findings.map((c) => {
+                const loc = c.start_line || c.end_line
+                  ? `${c.path}:${c.start_line ?? ''}${c.start_line !== c.end_line ? `-${c.end_line}` : ''}`
+                  : (c.path ?? 'general');
+                let entry = `- **${c.severity ?? 'unknown'}** — \`${truncate(loc, 300)}\`: ${truncate(c.content ?? 'No message', 1500)}`;
+                if (c.suggestion_code) {
+                  entry += `\n  <details><summary>Suggested change</summary>\n\n  \`\`\`suggestion\n  ${truncate(c.suggestion_code, 2000)}\n  \`\`\`\n  </details>`;
+                }
+                return entry;
+              });
+              body = [
+                marker,
+                '## 🔍 OpenCodeReview — detailed findings',
+                '',
+                verdict,
+                '',
+                `Reviewed ${review.summary?.files_reviewed ?? '?'} file(s), ${findings.length} finding(s) total.`,
+                '',
+                ...entries,
+              ].join('\n');
+            }
+            if (body.length > 60000) {
+              body = `${body.slice(0, 59500)}\n\n_Additional findings were omitted because the comment was too large._`;
+            }
+            try {
+              const prior = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+              });
+              const existing = prior.find((comment) =>
+                comment.user?.login === 'github-actions[bot]'
+                && comment.body?.includes(marker),
+              );
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body,
+                });
+              }
+            } catch (error) {
+              core.warning(`Could not post the detailed OCR summary: ${error.message}`);
+            }

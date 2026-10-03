@@ -21,6 +21,8 @@ export const providers = sqliteTable(
     estimateTokens: integer('estimate_tokens').notNull().default(0),
     useClaudeMasking: integer('use_claude_masking').notNull().default(0),
     geminiThinkingEnabled: integer('gemini_thinking_enabled').notNull().default(0),
+    cacheKeyInjection: text('cache_key_injection'), // enum: cache/session key injection destination
+    responsesExtensions: text('responses_extensions'), // JSON: string[] — Responses extensions accepted verbatim
     headers: text('headers'), // JSON: Record<string, string>
     extraBody: text('extra_body'), // JSON: Record<string, any>
     compaction: text('compaction'), // JSON: compaction config
@@ -49,6 +51,7 @@ export const providers = sqliteTable(
     stallGracePeriodMs: integer('stall_grace_period_ms'), // Grace period in ms before throughput enforcement
     maxConcurrency: integer('max_concurrency'), // Max concurrent requests for this provider (NULL = no limit)
     piAiProvider: text('pi_ai_provider'), // pi-ai provider name (e.g. 'anthropic', 'openai', 'google')
+    piAiQuirks: text('pi_ai_quirks'), // JSON: inline target API compatibility traits
     rawPassthrough: text('raw_passthrough'), // JSON: { enabled, base_url, auth }
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),

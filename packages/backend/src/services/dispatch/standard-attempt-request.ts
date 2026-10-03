@@ -64,6 +64,8 @@ export function deriveProbeStallConfig(
 export interface StandardAttemptContext {
   host: RequestManagerHost;
   providerPayload: any;
+  /** Post-adapter model actually being dispatched; derived from providerPayload.model when present. */
+  upstreamModel?: string;
   request: UnifiedChatRequest;
   requestWithTargetModel: UnifiedChatRequest;
   route: RouteResult;
@@ -113,6 +115,12 @@ export async function executeStandardAttempt(
   // rebuilds this via copy-on-write (deleteDottedPath) rather than mutating
   // in place, so a successful strip must reassign this binding.
   let providerPayload = context.providerPayload;
+  const upstreamModel =
+    typeof context.upstreamModel === 'string' && context.upstreamModel.length > 0
+      ? context.upstreamModel
+      : typeof providerPayload?.model === 'string' && providerPayload.model.length > 0
+        ? providerPayload.model
+        : route.model;
   // Pristine snapshot taken once, outside the loop. Every retry iteration
   // below resets `effectiveStallConfig` from THIS rather than carrying
   // forward whatever the previous iteration's post-fetch adjustment left it
@@ -218,7 +226,14 @@ export async function executeStandardAttempt(
               isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
               visionFallthroughModel: (currentRequest as any)._visionFallthroughModel,
             });
-            host.appendFailureAttempt(retryHistory, route, stallError, targetApiType, true);
+            host.appendFailureAttempt(
+              retryHistory,
+              route,
+              stallError,
+              targetApiType,
+              true,
+              upstreamModel
+            );
             CooldownManager.getInstance().markProviderStallFailure(
               route.provider,
               route.model,
@@ -432,7 +447,7 @@ export async function executeStandardAttempt(
         );
       } catch (e: any) {
         if (signal?.aborted) throw host.buildCancelledError(signal);
-        host.appendFailureAttempt(retryHistory, route, e, targetApiType, canRetry);
+        host.appendFailureAttempt(retryHistory, route, e, targetApiType, canRetry, upstreamModel);
 
         if (canRetry) {
           attemptTimeout.cleanup();
@@ -493,7 +508,7 @@ export async function executeStandardAttempt(
           isDescriptorRequest: (currentRequest as any)._isVisionDescriptorRequest,
           visionFallthroughModel: (currentRequest as any)._visionFallthroughModel,
         });
-        host.appendFailureAttempt(retryHistory, route, error, targetApiType, true);
+        host.appendFailureAttempt(retryHistory, route, error, targetApiType, true, upstreamModel);
         if (error.message?.includes('stalled')) {
           CooldownManager.getInstance().markProviderStallFailure(
             route.provider,
@@ -581,13 +596,14 @@ export async function executeStandardAttempt(
     });
     CooldownManager.getInstance().markProviderSuccess(route.provider, route.model);
     host.recordStickySession(sessionKey, route, currentRequest);
-    host.appendSuccessAttempt(retryHistory, route, targetApiType);
+    host.appendSuccessAttempt(retryHistory, route, targetApiType, upstreamModel);
     host.attachAttemptMetadata(
       streamResponse,
       attemptedProviders,
       retryHistory,
       route,
-      targetApiType
+      targetApiType,
+      upstreamModel
     );
     attemptTimeout.cleanup();
     return { outcome: 'success', response: streamResponse };
@@ -647,7 +663,14 @@ export async function executeStandardAttempt(
       // CooldownManager.markProviderFailure above.
       cooldownTriggered: false,
     };
-    host.appendFailureAttempt(retryHistory, route, emptyCompletionError, targetApiType, true);
+    host.appendFailureAttempt(
+      retryHistory,
+      route,
+      emptyCompletionError,
+      targetApiType,
+      true,
+      upstreamModel
+    );
     host.saveIntermediateError(
       currentRequest.requestId,
       targetApiType || 'chat',
@@ -671,13 +694,14 @@ export async function executeStandardAttempt(
 
   CooldownManager.getInstance().markProviderSuccess(route.provider, route.model);
   host.recordStickySession(sessionKey, route, currentRequest);
-  host.appendSuccessAttempt(retryHistory, route, targetApiType);
+  host.appendSuccessAttempt(retryHistory, route, targetApiType, upstreamModel);
   host.attachAttemptMetadata(
     nonStreamingResponse,
     attemptedProviders,
     retryHistory,
     route,
-    targetApiType
+    targetApiType,
+    upstreamModel
   );
   doRelease();
   attemptTimeout.cleanup();

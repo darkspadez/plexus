@@ -5,15 +5,16 @@
  * register it here. Order matters: a tool name claimed by an earlier shape
  * is removed from consideration before later shapes run. `cc-collision-shape`
  * runs first since it targets exact real-CC-name collisions specifically;
- * `mcp-shape`'s prefix clustering is a general heuristic that should not see
- * names already resolved above it.
+ * `cc-namespace-shape`'s blanket "not a real CC name" rule must not see
+ * names already resolved above it (a collision-renamed name is already
+ * namespaced and would otherwise be double-prefixed).
  */
 
 import { ccCollisionShape } from './cc-collision-shape';
-import { mcpShape } from './mcp-shape';
+import { ccNamespaceShape } from './cc-namespace-shape';
 import type { RenamePair, ToolDescriptor, ToolShape } from './types';
 
-const SHAPES: readonly ToolShape[] = [ccCollisionShape, mcpShape];
+const SHAPES: readonly ToolShape[] = [ccCollisionShape, ccNamespaceShape];
 
 /**
  * Computes the full set of rename pairs for the given outgoing tool list by

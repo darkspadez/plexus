@@ -67,6 +67,8 @@ export async function registerMessagesRoute(
       });
 
       logger.silly('Incoming Anthropic Request', body);
+      // Start debug capture before parsing so malformed payloads are still traced.
+      DebugManager.getInstance().startLog(requestId, body, sanitizeHeaders(request.headers as any));
       const transformer = new AnthropicTransformer();
       let unifiedRequest = await transformer.parseRequest(body);
       unifiedRequest.incomingApiType = 'messages';
@@ -75,6 +77,11 @@ export async function registerMessagesRoute(
       usageRecord.reasoningEffort = getReasoningLogValue(unifiedRequest, body) ?? null;
       unifiedRequest.cacheRoutingHeaders = getCacheRoutingHeaders(request.headers);
       unifiedRequest.anthropicBeta = getHeaderValue(request.headers, 'anthropic-beta');
+      unifiedRequest.userAgent = getHeaderValue(request.headers, 'user-agent');
+      unifiedRequest.claudeCodeSessionId = getHeaderValue(
+        request.headers,
+        'x-claude-code-session-id'
+      );
       unifiedRequest = attachKeyAccessPolicy(request, unifiedRequest);
       const xAppHeader = Array.isArray(request.headers['x-app'])
         ? request.headers['x-app'][0]
@@ -90,8 +97,6 @@ export async function registerMessagesRoute(
           },
         };
       }
-
-      DebugManager.getInstance().startLog(requestId, body, sanitizeHeaders(request.headers as any));
 
       // Check quota before processing
       if (quotaEnforcer) {

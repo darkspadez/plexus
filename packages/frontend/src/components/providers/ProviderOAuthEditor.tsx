@@ -1,10 +1,50 @@
+import { useState } from 'react';
 import { Info } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Badge } from '../ui/Badge';
 import { SectionCard } from '../ui/SectionCard';
+import { Select } from '../ui/Select';
 import { cn } from '../../lib/cn';
 import type { Provider, OAuthSession } from '../../lib/api';
+import type { OAuthCredentialStatus } from '../../types/settings';
+import { formatResetsIn, formatTimeAgo } from '../../lib/format';
+
+function describeAge(epochMs: number, nowMs: number): string {
+  return formatTimeAgo(Math.max(0, Math.floor((nowMs - epochMs) / 1000)));
+}
+
+/**
+ * "connected 1d ago · key refreshed 3m ago · expires in 23h 12m" — makes a
+ * stale or soon-expiring login visible without opening the database.
+ */
+function describeCredentialAge(status: OAuthCredentialStatus, nowMs: number): string | null {
+  const parts: string[] = [];
+  if (status.connectedAt) parts.push(`connected ${describeAge(status.connectedAt, nowMs)}`);
+  if (status.refreshedAt && status.refreshedAt !== status.connectedAt) {
+    parts.push(`key refreshed ${describeAge(status.refreshedAt, nowMs)}`);
+  }
+  if (status.expiresAt) {
+    parts.push(
+      status.expiresAt <= nowMs
+        ? 'key expired'
+        : `expires ${formatResetsIn(new Date(status.expiresAt).toISOString())}`
+    );
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+function describeCredentialDates(status: OAuthCredentialStatus): string {
+  const line = (label: string, epochMs?: number) =>
+    epochMs ? `${label}: ${new Date(epochMs).toLocaleString()}` : null;
+  return [
+    line('Connected', status.connectedAt),
+    line('Key refreshed', status.refreshedAt),
+    line('Expires', status.expiresAt),
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
 
 interface Props {
   editingProvider: Provider;
@@ -14,17 +54,23 @@ interface Props {
   setOauthPromptValue: (v: string) => void;
   oauthManualCode: string;
   setOauthManualCode: (v: string) => void;
+  oauthSelectValue: string;
+  setOauthSelectValue: (v: string) => void;
   oauthError: string | null;
   oauthBusy: boolean;
   oauthCredentialReady: boolean;
   oauthCredentialChecking: boolean;
+  /** Credential age for the status line; null until a ready credential is found. */
+  oauthCredentialStatus?: OAuthCredentialStatus | null;
   oauthStatus: string | undefined;
   oauthIsTerminal: boolean;
   oauthStatusLabel: string;
   onStart: () => Promise<void>;
   onSubmitPrompt: () => Promise<void>;
   onSubmitManualCode: () => Promise<void>;
+  onSubmitSelect: () => Promise<void>;
   onCancel: () => Promise<void>;
+  onDeleteCredential: () => Promise<void>;
 }
 
 export function ProviderOAuthEditor({
@@ -35,17 +81,22 @@ export function ProviderOAuthEditor({
   setOauthPromptValue,
   oauthManualCode,
   setOauthManualCode,
+  oauthSelectValue,
+  setOauthSelectValue,
   oauthError,
   oauthBusy,
   oauthCredentialReady,
   oauthCredentialChecking,
+  oauthCredentialStatus,
   oauthStatus,
   oauthIsTerminal,
   oauthStatusLabel,
   onStart,
   onSubmitPrompt,
   onSubmitManualCode,
+  onSubmitSelect,
   onCancel,
+  onDeleteCredential,
 }: Props) {
   const badgeStatus =
     oauthStatus === 'success' || (!oauthStatus && oauthCredentialReady)
@@ -53,6 +104,23 @@ export function ProviderOAuthEditor({
       : oauthStatus === 'error' || oauthStatus === 'cancelled'
         ? 'danger'
         : 'neutral';
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const hasActiveSession = !!oauthSessionId && !oauthIsTerminal;
+  const showDelete = oauthCredentialReady && !hasActiveSession;
+  const credentialAge =
+    oauthCredentialReady && !hasActiveSession && oauthCredentialStatus
+      ? describeCredentialAge(oauthCredentialStatus, Date.now())
+      : null;
+
+  const handleDeleteClick = async () => {
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    setConfirmingDelete(false);
+    await onDeleteCredential();
+  };
 
   return (
     <SectionCard
@@ -69,10 +137,43 @@ export function ProviderOAuthEditor({
     >
       <div className="flex flex-col gap-3">
         <div className="text-[11px] text-foreground-muted">
-          Tokens are saved to auth.json after login.
+          Tokens are stored securely on the server after login.
         </div>
 
+        {credentialAge && oauthCredentialStatus && (
+          <div
+            className="text-[11px] text-foreground-muted"
+            title={describeCredentialDates(oauthCredentialStatus)}
+          >
+            {credentialAge}
+          </div>
+        )}
+
         {oauthError && <div className="text-[11px] text-danger">{oauthError}</div>}
+
+        {oauthStatus === 'awaiting_select' && oauthSession?.select && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1">
+              <Select
+                label={oauthSession.select.message}
+                value={oauthSelectValue || oauthSession.select.options[0]?.id || ''}
+                onChange={setOauthSelectValue}
+                options={oauthSession.select.options.map((option) => ({
+                  value: option.id,
+                  label: option.label,
+                }))}
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={onSubmitSelect}
+              disabled={oauthBusy}
+              className="w-full sm:w-auto"
+            >
+              Continue
+            </Button>
+          </div>
+        )}
 
         {oauthSession?.authInfo && (
           <div className="flex flex-col gap-1.5">
@@ -111,10 +212,10 @@ export function ProviderOAuthEditor({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="min-w-0 flex-1">
               <Input
-                label="Paste redirect URL or code"
+                label={oauthSession?.manualCode?.message ?? 'Paste redirect URL or code'}
                 value={oauthManualCode}
                 onChange={(e) => setOauthManualCode(e.target.value)}
-                placeholder="https://..."
+                placeholder={oauthSession?.manualCode?.placeholder ?? 'https://...'}
               />
             </div>
             <Button
@@ -141,7 +242,7 @@ export function ProviderOAuthEditor({
 
         {oauthStatus === 'success' && (
           <div className="text-[11px] text-success">
-            Authentication complete. Tokens saved to auth.json.
+            Authentication complete. Tokens stored securely on the server.
           </div>
         )}
 
@@ -169,6 +270,18 @@ export function ProviderOAuthEditor({
               className="w-full sm:w-auto"
             >
               Cancel
+            </Button>
+          )}
+          {showDelete && (
+            <Button
+              size="sm"
+              variant={confirmingDelete ? 'danger' : 'ghost'}
+              onClick={handleDeleteClick}
+              disabled={oauthBusy}
+              onBlur={() => setConfirmingDelete(false)}
+              className="w-full sm:w-auto"
+            >
+              {confirmingDelete ? 'Confirm remove' : 'Remove credentials'}
             </Button>
           )}
         </div>

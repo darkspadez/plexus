@@ -172,6 +172,22 @@ export function now(): number {
   return Date.now();
 }
 
+/**
+ * Row count for an INSERT/UPDATE/DELETE result, unified across drivers: bun's
+ * SQLite exposes `changes`, postgres-js exposes `count`, pglite exposes
+ * `affectedRows` (and drizzle types may mention `rowsAffected`/`rowCount`).
+ */
+export function getAffectedRowCount(result: unknown): number {
+  const r = result as {
+    rowsAffected?: number;
+    changes?: number;
+    rowCount?: number;
+    count?: number;
+    affectedRows?: number;
+  };
+  return Number(r.rowsAffected ?? r.changes ?? r.rowCount ?? r.count ?? r.affectedRows ?? 0);
+}
+
 export function parseStringArray(value: string | null | undefined): string[] | undefined {
   if (!value) return undefined;
 

@@ -48,17 +48,22 @@ export function ProviderConnectionTab({ f }: { f: ProviderFormApi }) {
               setOauthPromptValue={f.setOauthPromptValue}
               oauthManualCode={f.oauthManualCode}
               setOauthManualCode={f.setOauthManualCode}
+              oauthSelectValue={f.oauthSelectValue}
+              setOauthSelectValue={f.setOauthSelectValue}
               oauthError={f.oauthError}
               oauthBusy={f.oauthBusy}
               oauthCredentialReady={f.oauthCredentialReady}
               oauthCredentialChecking={f.oauthCredentialChecking}
+              oauthCredentialStatus={f.oauthCredentialStatus}
               oauthStatus={f.oauthStatus}
               oauthIsTerminal={f.oauthIsTerminal}
               oauthStatusLabel={f.oauthStatusLabel}
               onStart={f.handleStartOAuth}
               onSubmitPrompt={f.handleSubmitPrompt}
               onSubmitManualCode={f.handleSubmitManualCode}
+              onSubmitSelect={f.handleSubmitSelect}
               onCancel={f.handleCancelOAuth}
+              onDeleteCredential={f.handleDeleteOAuthCredential}
             />
           )
         }

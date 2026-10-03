@@ -1,9 +1,7 @@
 import { logger } from '../../utils/logger';
 import type { OAuthAuth, OAuthCredential, OAuthCredentials } from '@earendil-works/pi-ai';
 import { ConfigService } from '../configuration/config-service';
-import { getOAuthProviderAuth, type OAuthProvider } from './oauth-providers';
-
-const LEGACY_ACCOUNT_ID = 'legacy';
+import { getOAuthProviderAuth, LEGACY_ACCOUNT_ID, type OAuthProvider } from './oauth-providers';
 const REFRESH_RETRY_BACKOFF_INITIAL_MS = 60 * 1000;
 const REFRESH_RETRY_BACKOFF_MAX_MS = 15 * 60 * 1000;
 
@@ -155,7 +153,8 @@ export class OAuthAuthManager {
   private async saveToDatabase(
     provider: OAuthProvider,
     accountId: string,
-    credentials: OAuthCredentials
+    credentials: OAuthCredentials,
+    requirePersistence = false
   ): Promise<void> {
     try {
       const configService = ConfigService.getInstance();
@@ -172,6 +171,7 @@ export class OAuthAuthManager {
       });
     } catch (error: any) {
       logger.error('OAuth: Failed to save credentials to database:', error);
+      if (requirePersistence) throw error;
     }
   }
 
@@ -207,6 +207,10 @@ export class OAuthAuthManager {
       throw new Error('OAuth: accountId is required to store credentials');
     }
 
+    // A completed login must survive a restart before the account becomes
+    // visible in memory (and before the session reports success).
+    await this.saveToDatabase(provider, accountId, credentials, true);
+
     if (!this.authData[provider]) {
       this.authData[provider] = { accounts: {} };
     }
@@ -218,8 +222,6 @@ export class OAuthAuthManager {
     const refreshKey = `${provider}/${accountId}`;
     this.lastRefreshAt.set(refreshKey, Date.now());
     this.refreshBackoffs.delete(refreshKey);
-
-    await this.saveToDatabase(provider, accountId, credentials);
   }
 
   async getApiKey(
@@ -471,8 +473,27 @@ export class OAuthAuthManager {
       }
     }
 
-    delete providerRecord.accounts[accountId];
-    const refreshKey = `${provider}/${accountId}`;
+    return this.evictCredentials(provider, accountId);
+  }
+
+  /**
+   * Memory-only eviction for credentials whose database row is already gone
+   * (e.g. provider cascade-delete). Never touches persistence, so post-commit
+   * cleanup cannot fail the request.
+   */
+  evictCredentials(provider: OAuthProvider, accountId: string): boolean {
+    const id = accountId?.trim();
+    if (!id) {
+      return false;
+    }
+
+    const providerRecord = this.authData[provider];
+    if (!providerRecord?.accounts?.[id]) {
+      return false;
+    }
+
+    delete providerRecord.accounts[id];
+    const refreshKey = `${provider}/${id}`;
     this.lastRefreshAt.delete(refreshKey);
     this.refreshPromises.delete(refreshKey);
     this.refreshBackoffs.delete(refreshKey);

@@ -1,5 +1,6 @@
 import type { RouteResult } from '../routing/router';
 import type { RetryAttemptRecord } from './dispatcher-types';
+import { logger } from '../../utils/logger';
 
 export type FailureReasonFormatter = (error: any, includeStatusCode?: boolean) => string;
 export type ErrorSummaryFormatter = (value: unknown) => string;
@@ -24,12 +25,14 @@ export function appendSkippedAttempt(
 export function appendSuccessAttempt(
   retryHistory: RetryAttemptRecord[],
   route: RouteResult,
-  apiType?: string
+  apiType?: string,
+  upstreamModel?: string
 ): void {
   retryHistory.push({
     index: retryHistory.length + 1,
     provider: route.provider,
     model: route.model,
+    upstreamModel,
     apiType,
     status: 'success',
     reason: 'Request completed successfully',
@@ -43,13 +46,15 @@ export function appendFailureAttempt(
   error: any,
   formatFailureReason: FailureReasonFormatter,
   apiType?: string,
-  retryable?: boolean
+  retryable?: boolean,
+  upstreamModel?: string
 ): void {
   const statusCode = error?.routingContext?.statusCode ?? error?.status ?? error?.statusCode;
   retryHistory.push({
     index: retryHistory.length + 1,
     provider: route.provider,
     model: route.model,
+    upstreamModel,
     apiType,
     status: 'failed',
     reason: formatFailureReason(error),
@@ -59,26 +64,89 @@ export function appendFailureAttempt(
   });
 }
 
+/**
+ * Resolves pricing for the actually-dispatched upstream model.
+ * Only uses same-provider config entries; never borrows cross-provider or alias-catalog pricing.
+ */
+export function resolveUpstreamPricing(
+  finalRoute: RouteResult,
+  upstreamModel?: string
+): { pricing: any; pricingModel: string; pricingFallback: boolean } {
+  const routeModel = finalRoute.model;
+  const normalized =
+    typeof upstreamModel === 'string' && upstreamModel.length > 0 ? upstreamModel : routeModel;
+  if (normalized === routeModel) {
+    return {
+      pricing: finalRoute.modelConfig?.pricing,
+      pricingModel: routeModel,
+      pricingFallback: false,
+    };
+  }
+  const models = (finalRoute.config as any)?.models;
+  if (models && !Array.isArray(models) && models[normalized]?.pricing) {
+    return {
+      pricing: models[normalized].pricing,
+      pricingModel: normalized,
+      pricingFallback: false,
+    };
+  }
+  return {
+    pricing: finalRoute.modelConfig?.pricing,
+    pricingModel: routeModel,
+    pricingFallback: true,
+  };
+}
+
 export function attachAttemptMetadata(
   response: any,
   attemptedProviders: string[],
   retryHistory: RetryAttemptRecord[],
   finalRoute: RouteResult,
-  apiType: string
+  apiType: string,
+  upstreamModel?: string
 ): void {
   const responseApiType = response?.plexus?.apiType;
+  const normalizedUpstream =
+    typeof upstreamModel === 'string' && upstreamModel.length > 0 ? upstreamModel : undefined;
+  const resolved = resolveUpstreamPricing(finalRoute, normalizedUpstream);
+  if (resolved.pricingFallback && normalizedUpstream) {
+    logger.warn(
+      `Upstream model '${normalizedUpstream}' has no pricing configured under provider '${finalRoute.provider}'; retaining route pricing from '${finalRoute.model}' and marking pricing_fallback`
+    );
+  }
+  // Ensure the winning success entry carries provenance when the caller
+  // threaded it through appendSuccessAttempt already; attach is the final
+  // guarantee for callers that only pass it here.
+  if (normalizedUpstream) {
+    for (let i = retryHistory.length - 1; i >= 0; i--) {
+      const entry = retryHistory[i];
+      if (
+        entry &&
+        entry.status === 'success' &&
+        entry.provider === finalRoute.provider &&
+        entry.model === finalRoute.model &&
+        !entry.upstreamModel
+      ) {
+        entry.upstreamModel = normalizedUpstream;
+        break;
+      }
+    }
+  }
   response.plexus = {
     ...(response.plexus || {}),
     attemptCount: attemptedProviders.length,
     finalAttemptProvider: finalRoute.provider,
     finalAttemptModel: finalRoute.model,
+    upstreamModel: normalizedUpstream,
     allAttemptedProviders: JSON.stringify(attemptedProviders),
     retryHistory: JSON.stringify(retryHistory),
     canonicalModel: finalRoute.canonicalModel,
     provider: finalRoute.provider,
     model: finalRoute.model,
     apiType: responseApiType || apiType,
-    pricing: finalRoute.modelConfig?.pricing,
+    pricing: resolved.pricing,
+    pricingModel: resolved.pricingModel,
+    pricingFallback: resolved.pricingFallback,
     providerDiscount: finalRoute.config.discount,
     config: { estimateTokens: finalRoute.config.estimateTokens },
   } as any;

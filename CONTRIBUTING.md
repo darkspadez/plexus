@@ -61,16 +61,15 @@ When running Drizzle Kit commands, specify the appropriate config file with `--c
 
 Plexus uses **PR Agent Review** (`.github/workflows/pr-agent-review.yml`) for automated code reviews. It is triggered when non-draft pull requests are opened, reopened, marked ready for review, or updated with comments, and is configured via `.pr_agent.toml`.
 
-### Manual Cora review
+### Manual OpenCodeReview review
 
-Cora reviews are optional and are not part of the commit hooks. If Cora is available and a review is useful, run the command matching the changes from the repository root:
+OpenCodeReview reviews are optional and are not part of the commit hooks. If `opencodereview` is available and a review is useful, run the command matching the changes from the repository root:
 
-- Staged changes: `bun run code:review:staged`
-- Unstaged changes: `bun run code:review:unstaged`
+- Workspace changes (staged, unstaged, and untracked — OCR has no separate staged/unstaged mode): `bun run code:review`
 - Branch against `origin/main`: `bun run code:review:branch`
 - Latest commit: `bun run code:review:commit`
 
-Load the `cora-cli` skill before invoking Cora. If Cora is unavailable, skip the review without installing or configuring it. Do not invoke Cora automatically during commits.
+Load the `opencodereview-cli` skill before invoking OpenCodeReview. If it is unavailable, skip the review without installing or configuring it. Do not invoke it automatically during commits.
 
 ## Code Style
 

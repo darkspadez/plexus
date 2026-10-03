@@ -217,6 +217,43 @@ describe('Dispatcher API subtypes', () => {
     );
   });
 
+  test('keeps pass-through for a base (non-lite) Responses target that only declares a bare custom tool (debug trace 755ef44a)', async () => {
+    // A `type: 'custom'` (freeform/grammar) tool declaration alone used to
+    // trip hasCodexResponsesExtensions and force the full transform
+    // pipeline even for a plain OpenAI-target request — real OpenAI
+    // understands `custom` tools natively, so this incorrectly routed every
+    // request using pi's `apply_patch` tool through
+    // transformResponsesStream/formatResponsesStream, which silently drops
+    // reasoning output items (no branch for response.reasoning_* events).
+    // Declaring the tool is not a Codex-CLI-only signal; only actual
+    // custom_tool_call history (checked separately below) is.
+    const dispatcher = new Dispatcher() as any;
+    const route = makeRoute(['responses']);
+    const originalBody = {
+      model: 'gpt-5.6-luna',
+      input: [{ type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hi' }] }],
+      tools: [
+        { type: 'function', name: 'ls' },
+        { type: 'custom', name: 'apply_patch', description: 'Apply a patch' },
+      ],
+    };
+
+    const clientTransformer = new ResponsesTransformer();
+    const unifiedRequest = await clientTransformer.parseRequest(originalBody);
+    unifiedRequest.incomingApiType = 'responses';
+    unifiedRequest.originalBody = originalBody;
+
+    const result = await dispatcher.transformRequestPayload(
+      unifiedRequest,
+      route,
+      TransformerFactory.getTransformer('responses'),
+      'responses'
+    );
+
+    expect(result.bypassTransformation).toBe(true);
+    expect(result.payload.tools).toEqual(originalBody.tools);
+  });
+
   test('end-to-end: Codex "lite" mode additional_tools pass through untouched for an exact responses:lite target (staging trace b672ebbd)', async () => {
     // Originally reproduced as "staging trace d3a2b5f6" on the (unverified)
     // assumption that the upstream provider would receive `tools: []` and
@@ -333,5 +370,69 @@ describe('Dispatcher API subtypes', () => {
     expect(result.payload.tools).toEqual(
       expect.arrayContaining([expect.objectContaining({ type: 'web_search' })])
     );
+  });
+
+  test('flattens a top-level namespace tool on a responses:lite target instead of stripping it', async () => {
+    // The lite wire contract only accepts function/custom/tool_search
+    // declarations, so a namespace tool must be flattened (and split back on
+    // the response) rather than passed through and dropped by the lite strip.
+    const dispatcher = new Dispatcher() as any;
+    const route = makeRoute([{ type: 'responses', subtype: 'lite' }]);
+    const originalBody = {
+      model: 'alias',
+      input: [
+        { type: 'additional_tools', role: 'developer', tools: [] },
+        { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hi' }] },
+      ],
+      tools: [
+        {
+          type: 'namespace',
+          name: 'crm',
+          tools: [{ type: 'function', name: 'list_open_orders', parameters: {} }],
+        },
+      ],
+    };
+
+    const clientTransformer = new ResponsesTransformer();
+    const unifiedRequest = await clientTransformer.parseRequest(originalBody);
+    unifiedRequest.incomingApiType = 'responses:lite';
+    unifiedRequest.originalBody = originalBody;
+
+    const result = await dispatcher.transformRequestPayload(
+      unifiedRequest,
+      route,
+      TransformerFactory.getTransformer('responses:lite'),
+      'responses:lite'
+    );
+
+    expect(result.bypassTransformation).toBe(false);
+    expect(result.payload.tools).toEqual([
+      expect.objectContaining({ type: 'function', name: 'crm__list_open_orders' }),
+    ]);
+  });
+
+  test('passes namespace tools through when the provider opts in via responses_extensions', async () => {
+    const dispatcher = new Dispatcher() as any;
+    const route = makeRoute(['responses']);
+    route.config.responses_extensions = ['namespace_tools', 'dotted_calls'];
+    const originalBody = {
+      model: 'alias',
+      input: [
+        { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hi' }] },
+        { type: 'function_call', call_id: 'c1', name: 'muse.bash', arguments: '{}' },
+        { type: 'function_call_output', call_id: 'c1', output: 'ok' },
+      ],
+      tools: [{ type: 'namespace', name: 'muse', tools: [{ type: 'function', name: 'bash' }] }],
+    };
+
+    const result = await dispatcher.transformRequestPayload(
+      { model: 'alias', messages: [], incomingApiType: 'responses', originalBody },
+      route,
+      TransformerFactory.getTransformer('responses'),
+      'responses'
+    );
+
+    expect(result.bypassTransformation).toBe(true);
+    expect(result.payload.tools).toEqual(originalBody.tools);
   });
 });

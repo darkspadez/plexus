@@ -1,3 +1,5 @@
+import type { PiAiQuirks, ProviderCacheKeyInjection, ResponsesExtension } from '@plexus/shared';
+
 export * from './quota';
 
 /**
@@ -62,6 +64,9 @@ export interface Provider {
   timeoutMs?: number;
   maxConcurrency?: number | null;
   auto_compat?: boolean;
+  cacheKeyInjection?: ProviderCacheKeyInjection;
+  /** Responses extensions accepted verbatim; undefined uses the default. */
+  responsesExtensions?: ResponsesExtension[];
   // Per-provider stall detection overrides
   stallTtfbMs?: number | null;
   stallTtfbBytes?: number | null;
@@ -69,6 +74,7 @@ export interface Provider {
   stallWindowMs?: number | null;
   stallGracePeriodMs?: number | null;
   pi_ai_provider?: string;
+  pi_ai_quirks?: PiAiQuirks;
   compaction?: CompactionSettings;
   rawPassthrough?: {
     enabled: boolean;
@@ -156,6 +162,22 @@ export interface OAuthPrompt {
   allowEmpty?: boolean;
 }
 
+export interface OAuthSelectOption {
+  id: string;
+  label: string;
+  description?: string;
+}
+
+export interface OAuthSelect {
+  message: string;
+  options: OAuthSelectOption[];
+}
+
+export interface OAuthManualCode {
+  message: string;
+  placeholder?: string;
+}
+
 export interface OAuthSession {
   id: string;
   providerId: string;
@@ -163,6 +185,8 @@ export interface OAuthSession {
   status: string;
   authInfo?: OAuthAuthInfo;
   prompt?: OAuthPrompt;
+  select?: OAuthSelect;
+  manualCode?: OAuthManualCode;
   progress: string[];
   error?: string;
   createdAt: number;
@@ -171,6 +195,12 @@ export interface OAuthSession {
 
 export interface OAuthCredentialStatus {
   ready: boolean;
+  /** When the credential was first stored (epoch ms). */
+  connectedAt?: number;
+  /** When the credential was last saved by login or token refresh (epoch ms). */
+  refreshedAt?: number;
+  /** When the current access token expires (epoch ms). */
+  expiresAt?: number;
 }
 
 /**

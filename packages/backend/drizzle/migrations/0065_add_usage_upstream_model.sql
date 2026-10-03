@@ -1,0 +1,1 @@
+ALTER TABLE `request_usage` ADD `upstream_model` text;

@@ -9,7 +9,6 @@ import {
 const clean = {
   id: 'my-provider',
   isOAuthMode: false,
-  oauthAccount: undefined,
   quotaValidationError: null,
   rawPassthrough: undefined,
 };
@@ -39,13 +38,11 @@ describe('computeProviderTabErrors', () => {
     expect(computeProviderTabErrors({ ...clean, id: '   ' }).connection).toMatch(/ID is required/);
   });
 
-  test('OAuth mode without an account → Connection', () => {
-    const errors = computeProviderTabErrors({ ...clean, isOAuthMode: true, oauthAccount: '' });
-    expect(errors.connection).toMatch(/OAuth account/);
-    // A non-blank account clears it.
-    expect(
-      computeProviderTabErrors({ ...clean, isOAuthMode: true, oauthAccount: 'work' }).connection
-    ).toBeNull();
+  test('OAuth mode needs only the provider ID — it doubles as the account (#913)', () => {
+    expect(computeProviderTabErrors({ ...clean, isOAuthMode: true }).connection).toBeNull();
+    expect(computeProviderTabErrors({ ...clean, isOAuthMode: true, id: '' }).connection).toMatch(
+      /ID is required/
+    );
   });
 
   test('quota validation error → Limits & Quota', () => {
@@ -70,7 +67,6 @@ describe('computeProviderTabErrors', () => {
     const errors = computeProviderTabErrors({
       ...clean,
       isOAuthMode: true,
-      oauthAccount: 'work',
       rawPassthrough: { enabled: true, baseUrl: 'https://example.com', auth: 'bearer' },
     });
     expect(errors.transformations).toMatch(/static API-key/);

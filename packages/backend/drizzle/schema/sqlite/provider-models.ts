@@ -10,7 +10,7 @@ export const providerModels = sqliteTable(
       .references(() => providers.id, { onDelete: 'cascade' }),
     modelName: text('model_name').notNull(),
     pricingConfig: text('pricing_config'), // JSON: pricing object
-    modelType: text('model_type'), // 'chat' | 'embeddings' | 'transcriptions' | 'speech' | 'image' | 'responses'
+    modelType: text('model_type'), // 'text' | 'embeddings' | 'transcriptions' | 'speech' | 'image' | 'responses' | 'decisions'
     accessVia: text('access_via'), // JSON: string[]
     extraBody: text('extra_body'), // JSON: Record<string, any>
     adapter: text('adapter'), // JSON: string[] — model-level adapter names

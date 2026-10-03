@@ -24,6 +24,7 @@ interface Props {
   updateModelKV: (modelId: string, oldKey: string, newKey: string, value: any) => void;
   removeModelKV: (modelId: string, key: string) => void;
   piAiProvider?: string;
+  inlineQuirksAvailable: boolean;
   piModels: PiAiModel[];
   piModelCustom: Record<string, boolean>;
   setPiModelCustom: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
@@ -51,6 +52,7 @@ export function ModelCard({
   updateModelKV,
   removeModelKV,
   piAiProvider,
+  inlineQuirksAvailable,
   piModels,
   piModelCustom,
   setPiModelCustom,
@@ -59,16 +61,26 @@ export function ModelCard({
 }: Props) {
   return (
     <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-3">
-      {testState?.showMessage && testState.result === 'error' && testState.message && (
+      {testState?.showMessage && testState.message && (
         <div
           onClick={(e) => {
             e.stopPropagation();
             onDismissTestMessage(testKey);
           }}
-          className="cursor-pointer rounded border border-danger/30 bg-danger/10 px-2 py-1"
+          className={`cursor-pointer rounded border px-2 py-1 ${
+            testState.result === 'error'
+              ? 'border-danger/30 bg-danger/10'
+              : 'border-success/30 bg-success/10'
+          }`}
           title="Click to dismiss"
         >
-          <span className="text-[11px] italic text-danger">{testState.message} [×]</span>
+          <span
+            className={`text-[11px] italic ${
+              testState.result === 'error' ? 'text-danger' : 'text-success'
+            }`}
+          >
+            {testState.message} [×]
+          </span>
         </div>
       )}
 
@@ -115,6 +127,8 @@ export function ModelCard({
         isOpen={modelAdvancedOpen}
         setIsOpen={setModelAdvancedOpen}
         updateModelConfig={updateModelConfig}
+        piAiProvider={piAiProvider}
+        inlineQuirksAvailable={inlineQuirksAvailable}
       />
     </div>
   );

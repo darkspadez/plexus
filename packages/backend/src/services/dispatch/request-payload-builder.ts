@@ -1,6 +1,6 @@
 import type { UnifiedChatRequest } from '../../types/unified';
 import { getConfig } from '../../config';
-import { getApiBaseType, getApiSubtype } from '../../utils/api-format';
+import { getApiBaseType } from '../../utils/api-format';
 import { logger } from '../../utils/logger';
 import { applyModelBehaviors } from '../models/model-behaviors';
 import type { RouteResult } from '../routing/router';
@@ -11,6 +11,7 @@ import {
   copilotEndpoint,
   extractChatgptAccountId,
   isCodexCliShapedBody,
+  isGenuineClaudeCodeRequest,
   isNativeOAuthProvider,
   prepareGenericOAuthDispatch,
   prepareNativeOAuthDispatch,
@@ -18,14 +19,17 @@ import {
   type PreparedOAuthRequest,
 } from '../oauth/oauth-native-request';
 import { OAuthAuthManager } from '../oauth/oauth-auth-manager';
+import { applyRegistryAutoCompat, stripLiteUnsupportedTools } from './dispatcher-auto-compat';
 import {
-  applyRegistryAutoCompat,
-  hasCodexResponsesExtensions,
-  stripLiteUnsupportedTools,
-} from './dispatcher-auto-compat';
+  detectResponsesExtensions,
+  hasUnsupportedResponsesExtensions,
+} from './responses-extensions';
 import { appendUserAfterTextOnlyModelTail } from '../../transformers/gemini/utils/model-tail';
 import { isAnthropicTargetProvider } from './adapter-resolver';
 import { clampAnthropicEffortAndThinking } from '../../transformers/anthropic/thinking-clamp';
+import { applyEagerToolInputStreaming } from './eager-tool-streaming';
+import { applyBodyCacheKeyInjection } from './cache-key-injection';
+import { applyServiceTierSelection } from './service-tier-selection';
 
 /** Symbol stash for the native OAuth prep, read by the standard dispatch seams. */
 export const NATIVE_OAUTH_STASH = Symbol('nativeOAuthPrep');
@@ -64,26 +68,9 @@ function shouldUsePassThrough(
     return false;
   }
 
-  // Only force the transform pipeline when the target fell back to the bare
-  // `responses` type (no explicit Lite support advertised) — NOT any
-  // `responses:<subtype>` match. A target that matches the `responses:lite`
-  // subtype EXACTLY has been deliberately configured as Codex-native —
-  // verified live against both providers currently marked `responses:lite`
-  // (see dispatcher-api-subtype.test.ts): both correctly parse raw
-  // `additional_tools`/`custom`/`namespace` wire extensions and invoke tools
-  // without flattening. That's the whole point of the subtype: avoid the
-  // transform pipeline where the target has opted in. Providers that only
-  // match on the base type haven't made that claim, so they still get the
-  // defensive flatten. Checked via getApiBaseType/getApiSubtype (not a naive
-  // `=== 'responses'` string compare) so this expresses the actual intent —
-  // "base type only, no subtype" — rather than "not literally 'responses'",
-  // which would silently stop flattening for any FUTURE `responses:<other>`
-  // subtype too, not just `lite`.
-  if (
-    getApiBaseType(targetApiType) === 'responses' &&
-    getApiSubtype(targetApiType) !== 'lite' &&
-    hasCodexResponsesExtensions(request.originalBody)
-  ) {
+  // Responses extensions the target doesn't accept verbatim must be flattened
+  // by the transformer (see responses-extensions.ts).
+  if (hasUnsupportedResponsesExtensions(request.originalBody, route, targetApiType)) {
     return false;
   }
 
@@ -113,30 +100,34 @@ export async function buildRequestPayload(
     !isClaudeMaskingApiKeyRoute(route, targetApiType) &&
     isPiAiRoute(route, targetApiType);
 
-  // Codex two-path decision. A genuine Codex CLI body
-  // is sent to the ChatGPT backend VERBATIM (pass-through), including its native
-  // custom/namespace tool extensions — so we override the
-  // `hasCodexResponsesExtensions` flattening that `shouldUsePassThrough` applies
-  // (that flattening is for routing to NON-Codex providers). Any other Responses
-  // request is forced through the transformer + adorned for the backend, even
-  // though incoming == target == responses.
+  // Codex two-path decision. A genuine Codex CLI body is sent to the ChatGPT
+  // backend VERBATIM (pass-through) when the backend accepts every extension
+  // it carries. Any other request is forced through the transformer + adorned
+  // for the backend, even though incoming == target == responses — so Codex
+  // doesn't use the same-format `shouldUsePassThrough` rule.
   const oauthProviderForNative = isClaudeMaskingApiKeyRoute(route, targetApiType)
     ? 'anthropic'
     : route.config.oauth_provider || route.provider;
   const codexNative = nativeOAuth && oauthProviderForNative === 'openai-codex';
   const copilotNative = nativeOAuth && oauthProviderForNative === 'github-copilot';
-  const codexCliPassthrough = codexNative && isCodexCliShapedBody(request.originalBody);
+  const museNative = nativeOAuth && oauthProviderForNative === 'meta';
+  const codexCliPassthrough =
+    codexNative &&
+    isCodexCliShapedBody(request.originalBody) &&
+    !hasUnsupportedResponsesExtensions(request.originalBody, route, targetApiType);
+  const anthropicNative = nativeOAuth && oauthProviderForNative === 'anthropic';
+  const incomingBaseType = getApiBaseType(request.incomingApiType?.toLowerCase() ?? '');
+  const incomingIsResponses = incomingBaseType === 'responses';
 
-  let bypassTransformation: boolean;
-  if (codexNative) {
-    bypassTransformation = codexCliPassthrough;
-  } else {
-    // Anthropic and Copilot: standard same-format pass-through detection. For
-    // Copilot this is authoritative (multi-API: a client may send a format the
-    // target model's wire API doesn't match, requiring response translation);
-    // Anthropic clients are always same-format in practice.
-    bypassTransformation = shouldUsePassThrough(request, targetApiType, route);
-  }
+  // Everything except Codex: standard same-format pass-through detection,
+  // which flattens any Responses extension the target doesn't accept (Meta
+  // accepts its own namespace tools — see getDefaultResponsesExtensions).
+  // For Copilot this is authoritative (multi-API: a client may send a format
+  // the target model's wire API doesn't match, requiring response
+  // translation); Anthropic clients are always same-format in practice.
+  const bypassTransformation = codexNative
+    ? codexCliPassthrough
+    : shouldUsePassThrough(request, targetApiType, route);
   let payload: any;
 
   if (bypassTransformation) {
@@ -183,6 +174,23 @@ export async function buildRequestPayload(
     payload = await transformer.transformRequest(requestWithOAuthProvider);
   }
 
+  // Claude genuine-client fast-path. Masking only exists on the native
+  // Anthropic OAuth/masking routes (`anthropicNative`), so the gate is scoped
+  // there — plain API-key providers never mask in the first place. The body
+  // actually sent must be the verbatim client body (`bypassTransformation`):
+  // the genuine-client fingerprint was checked on `originalBody`, so a
+  // transformer-rebuilt `payload` still goes through masking as usual.
+  // `isAnthropicTargetProvider` re-asserts the upstream is really Anthropic
+  // (hostname, Anthropic OAuth, or masking route). Fail-closed throughout.
+  const claudePassthrough =
+    anthropicNative &&
+    bypassTransformation &&
+    isAnthropicTargetProvider(route, targetApiType) &&
+    isGenuineClaudeCodeRequest(request);
+  if (claudePassthrough) {
+    logger.debug('Claude genuine-client passthrough active: masking skipped, key swap only');
+  }
+
   // Defense in depth: non-Gemini-transformer paths (cross-format routing to
   // a Gemini target, adapters that rewrite contents) can still produce a
   // trailing text-only model turn. Normalize unconditionally for Gemini
@@ -191,8 +199,24 @@ export async function buildRequestPayload(
     (payload as any).contents = appendUserAfterTextOnlyModelTail((payload as any).contents);
   }
 
+  // Before auto-compat so registry-aware mapping sees the tier the client asked for.
+  payload = applyServiceTierSelection(payload, request, targetApiType);
+
   payload = applyGeminiThinkingConfig(route, targetApiType, payload);
   payload = applyRegistryAutoCompat(payload, request, route, targetApiType);
+
+  payload = applyEagerToolInputStreaming(
+    payload,
+    request,
+    route,
+    targetApiType,
+    bypassTransformation
+  );
+
+  // Inject the provider's configured cache/session key before the extraBody
+  // merges so an explicit admin extraBody value still wins. Runs before the
+  // native OAuth preparation below so Meta's Responses body carries it.
+  payload = applyBodyCacheKeyInjection(payload, route, request, targetApiType);
 
   if (route.config.extraBody) payload = { ...payload, ...route.config.extraBody };
   if (route.modelConfig?.extraBody) payload = { ...payload, ...route.modelConfig.extraBody };
@@ -298,23 +322,33 @@ export async function buildRequestPayload(
       // rather than discarded, so beta-gated client features (e.g. the advisor
       // tool) survive the gateway instead of being rejected upstream.
       callerBetas: request.anthropicBeta,
+      claudePassthrough,
+      callerUserAgent: request.userAgent,
+      callerSessionId: request.claudeCodeSessionId,
     });
     (route as any)[NATIVE_OAUTH_STASH] = prepared;
     logger.debug(
-      `Native OAuth payload prepared for ${provider}/${route.model} (url=${prepared.url})`
+      `Native OAuth payload prepared for ${provider}/${route.model} (url=${prepared.url})` +
+        (claudePassthrough ? ' [claude-passthrough]' : '')
     );
     // Codex CLI and Responses clients receive the native Responses stream.
     // Cross-format Codex requests must translate the response back to the
     // incoming client format. Anthropic bypasses only for same-format
     // (Messages) clients — chat/responses clients get the response
     // translated by the standard pipeline (mirrors the identical Codex fix,
-    // commit 4f74c1c6). Copilot honors its computed same-format decision.
-    const incomingBaseType = getApiBaseType(request.incomingApiType?.toLowerCase() ?? '');
-    const incomingIsResponses = incomingBaseType === 'responses';
+    // commit 4f74c1c6). Copilot and Muse honor their computed request-side
+    // pass-through decision.
     const incomingIsMessages = incomingBaseType === 'messages';
+    // Muse mirrors the request decision rather than assuming a raw response:
+    // if the request went through the transformer (e.g. a `responses:lite`
+    // body Meta doesn't natively parse), the response must too, so the client
+    // transformer's namespaceMap can split flattened tool calls back.
+    // A transformed Codex request that carried extensions was flattened, so
+    // its response must be translated for the names to split back.
     const nativeBypass = codexNative
-      ? codexCliPassthrough || incomingIsResponses
-      : copilotNative
+      ? codexCliPassthrough ||
+        (incomingIsResponses && detectResponsesExtensions(request.originalBody).size === 0)
+      : copilotNative || museNative
         ? bypassTransformation
         : incomingIsMessages;
     return { payload: prepared.body, bypassTransformation: nativeBypass };

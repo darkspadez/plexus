@@ -476,4 +476,24 @@ describe('UsageStorageService performance metrics', () => {
     const filtered = await storage.getUsage({ apiKey: 'alpha' }, { limit: 10, offset: 0 });
     expect(filtered.data.map((row: any) => row.requestId)).toEqual(['filter-alpha']);
   });
+
+  it('persists and returns distinct route and upstream models (issue #916)', async () => {
+    const storage = new UsageStorageService();
+    await storage.saveRequest({
+      ...createUsageRecord(
+        'upstream-1',
+        'metasub',
+        'muse-spark-1.3',
+        'muse-spark-1.3',
+        'muse-spark-1.3-contributor'
+      ),
+      finalAttemptProvider: 'metasub',
+      finalAttemptModel: 'muse-spark-1.3-contributor',
+      upstreamModel: 'muse-spark-1.3',
+    } as any);
+    const result = await storage.getUsage({ requestId: 'upstream-1' }, { limit: 10, offset: 0 });
+    const row = result.data.find((item) => item.requestId === 'upstream-1');
+    expect(row?.finalAttemptModel).toBe('muse-spark-1.3-contributor');
+    expect((row as any)?.upstreamModel).toBe('muse-spark-1.3');
+  });
 });

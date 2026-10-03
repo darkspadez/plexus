@@ -5,7 +5,7 @@ import { Transformer } from '../../types/transformer';
 import { UsageRecord } from '../../types/usage';
 import { UsageStorageService } from '../observability/usage-storage';
 import { logger } from '../../utils/logger';
-import { calculateCosts } from '../../utils/calculate-costs';
+import { calculateCosts, type CostAttribution } from '../../utils/calculate-costs';
 import { TransformerFactory } from '../dispatch/transformer-factory';
 import { DebugLoggingInspector, UsageInspector } from '../inspectors/index';
 import { Readable } from 'stream';
@@ -24,6 +24,14 @@ import {
   isStreamEmpty,
   observeStreamChunk,
 } from '../dispatch/empty-completion';
+import {
+  buildSyntheticSafeguardResults,
+  collectUnifiedToolIds,
+  getRequestedSafeguardTypes,
+  resolveSyntheticSafeguardToggle,
+  shouldSynthesizeSafeguards,
+  wrapUnifiedStreamWithSyntheticSafeguards,
+} from '../../transformers/anthropic/synthetic-safeguards';
 
 function getHeaderValue(request: FastifyRequest, headerName: string): string | undefined {
   const value = request.headers?.[headerName];
@@ -132,6 +140,8 @@ export async function handleResponse(
     JSON.stringify([
       `${usageRecord.provider || 'unknown'}/${usageRecord.selectedModelName || unifiedResponse.model}`,
     ]);
+  usageRecord.upstreamModel =
+    unifiedResponse.plexus?.upstreamModel || usageRecord.finalAttemptModel || null;
 
   const outgoingApiType = unifiedResponse.plexus?.apiType?.toLowerCase();
   usageRecord.outgoingApiType = outgoingApiType?.toLocaleLowerCase();
@@ -161,6 +171,11 @@ export async function handleResponse(
 
   const pricing = unifiedResponse.plexus?.pricing;
   const providerDiscount = unifiedResponse.plexus?.providerDiscount;
+  const costAttribution: CostAttribution = {
+    upstreamModel: unifiedResponse.plexus?.upstreamModel,
+    pricingModel: (unifiedResponse.plexus as any)?.pricingModel,
+    pricingFallback: (unifiedResponse.plexus as any)?.pricingFallback,
+  };
   // Normalize the provider API type to our supported internal constants: 'chat', 'messages', 'gemini'
   const providerApiType = getApiBaseType(unifiedResponse.plexus?.apiType || 'chat');
 
@@ -190,7 +205,8 @@ export async function handleResponse(
       providerDiscount,
       quotaEnforcer,
       keyName,
-      { responseStatus: 'error', updatePerformanceMetrics: false }
+      { responseStatus: 'error', updatePerformanceMetrics: false },
+      costAttribution
     );
     usageStorage.saveError(
       usageRecord.requestId!,
@@ -409,10 +425,34 @@ export async function handleResponse(
           )
         : unifiedStream;
 
+      // Synthetic safeguard approval: for Messages clients on opted-in aliases
+      // routed to non-Messages targets, track unified tool calls and attach the
+      // synthetic verdict to the terminal chunk before Anthropic formatting.
+      let safeguardStream = observedUnifiedStream;
+      if (apiType === 'messages' && !unifiedResponse.bypassTransformation) {
+        const requestedSafeguardTypes = getRequestedSafeguardTypes(originalRequest);
+        if (
+          shouldSynthesizeSafeguards({
+            incomingApiType: apiType,
+            originalBody: originalRequest,
+            aliasToggle: resolveSyntheticSafeguardToggle(unifiedResponse.plexus?.canonicalModel),
+            outgoingApiType: unifiedResponse.plexus?.apiType,
+            bypassTransformation: unifiedResponse.bypassTransformation,
+            hasClientError: !!unifiedResponse.clientError,
+            hasExistingResults: false,
+          })
+        ) {
+          safeguardStream = wrapUnifiedStreamWithSyntheticSafeguards(
+            observedUnifiedStream,
+            requestedSafeguardTypes
+          );
+        }
+      }
+
       // Step 2: Unified internal objects -> Client SSE format
       finalClientStream = clientTransformer.formatStream
-        ? clientTransformer.formatStream(observedUnifiedStream)
-        : observedUnifiedStream;
+        ? clientTransformer.formatStream(safeguardStream)
+        : safeguardStream;
     }
 
     // TAP THE TRANSFORMED STREAM for debugging
@@ -453,7 +493,8 @@ export async function handleResponse(
       quotaEnforcer,
       keyName,
       rawDebugLogging,
-      transformedDebugLogging
+      transformedDebugLogging,
+      costAttribution
     );
 
     // Standard SSE headers to prevent buffering and timeouts
@@ -730,17 +771,59 @@ export async function handleResponse(
         }
       : undefined;
 
+    // Snapshot routing metadata before stripping internal plexus state: the
+    // synthetic-safeguard gate below needs the canonical alias and outgoing
+    // API type, both of which live on `plexus`.
+    const plexusSnapshot = unifiedResponse.plexus
+      ? {
+          canonicalModel: unifiedResponse.plexus.canonicalModel,
+          apiType: unifiedResponse.plexus.apiType,
+        }
+      : undefined;
+    const bypassSnapshot = unifiedResponse.bypassTransformation;
+    const clientErrorSnapshot = unifiedResponse.clientError;
+    const toolCallsSnapshot = unifiedResponse.tool_calls;
+
     // Remove internal plexus metadata before sending to client
     if (unifiedResponse.plexus) {
       delete (unifiedResponse as any).plexus;
     }
 
     let responseBody;
-    if (unifiedResponse.bypassTransformation && unifiedResponse.rawResponse) {
+    if (bypassSnapshot && unifiedResponse.rawResponse) {
       responseBody = unifiedResponse.rawResponse;
     } else {
       // Re-format the unified JSON body to match the client's expected API format
       responseBody = await clientTransformer.formatResponse(unifiedResponse);
+    }
+    // Synthetic safeguard approval: Messages clients on opted-in aliases
+    // routed to translated targets get `evaluated`/`not_flagged` + explanation.
+    // Native/bypass responses keep their upstream verdict verbatim.
+    if (
+      apiType === 'messages' &&
+      responseBody &&
+      typeof responseBody === 'object' &&
+      !Array.isArray(responseBody) &&
+      (responseBody as { safeguard_results?: unknown }).safeguard_results === undefined
+    ) {
+      const requestedSafeguardTypes = getRequestedSafeguardTypes(originalRequest);
+      if (
+        shouldSynthesizeSafeguards({
+          incomingApiType: apiType,
+          originalBody: originalRequest,
+          aliasToggle: resolveSyntheticSafeguardToggle(plexusSnapshot?.canonicalModel),
+          outgoingApiType: plexusSnapshot?.apiType,
+          bypassTransformation: bypassSnapshot,
+          hasClientError: !!clientErrorSnapshot,
+          hasExistingResults: false,
+        })
+      ) {
+        (responseBody as { safeguard_results?: unknown }).safeguard_results =
+          buildSyntheticSafeguardResults(
+            collectUnifiedToolIds(toolCallsSnapshot),
+            requestedSafeguardTypes
+          );
+      }
     }
     if (playgroundRouting && responseBody && typeof responseBody === 'object') {
       responseBody.plexus = playgroundRouting;
@@ -768,7 +851,9 @@ export async function handleResponse(
       pricing,
       providerDiscount,
       quotaEnforcer,
-      keyName
+      keyName,
+      undefined,
+      costAttribution
     );
 
     logger.debug(`Outgoing ${apiType} Response`, responseBody);
@@ -791,7 +876,8 @@ async function finalizeUsage(
   providerDiscount: any,
   quotaEnforcer?: QuotaEnforcer,
   keyName?: string,
-  options: { responseStatus?: 'success' | 'error'; updatePerformanceMetrics?: boolean } = {}
+  options: { responseStatus?: 'success' | 'error'; updatePerformanceMetrics?: boolean } = {},
+  costAttribution?: CostAttribution
 ) {
   // Capture token usage if available in the response
   if (unifiedResponse.usage) {
@@ -808,7 +894,7 @@ async function finalizeUsage(
     unifiedResponse.clientError?.code ?? unifiedResponse.finishReason ?? null;
 
   // Finalize costs and duration
-  calculateCosts(usageRecord, pricing, providerDiscount);
+  calculateCosts(usageRecord, pricing, providerDiscount, costAttribution);
 
   // Override with provider-reported cost if available in the raw response
   // (e.g. from SSE `: cost` comments or provider response payloads)

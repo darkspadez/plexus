@@ -2,10 +2,12 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { OAuthLoginSessionManager } from '../../services/oauth/oauth-login-session';
 import { OAuthAuthManager } from '../../services/oauth/oauth-auth-manager';
+import { ConfigService } from '../../services/configuration/config-service';
 import type { OAuthProvider, OAuthProviderId } from '../../services/oauth/oauth-providers';
 import {
   getOAuthProviderModels,
   listCodexOAuthModels,
+  listMuseOAuthModels,
 } from '../../services/providers/provider-model-discovery';
 
 const startSessionSchema = z.object({
@@ -29,8 +31,8 @@ const credentialStatusQuerySchema = z.object({
 
 const getModelsQuerySchema = z.object({
   providerId: z.string().min(1),
-  // Which OAuth account to ask. Only Codex live discovery uses it; a blank
-  // value means "the provider's default account".
+  // Which OAuth account to ask. Only Codex and Muse Code live discovery use
+  // it; a blank value means "the provider's default account".
   accountId: z.string().optional(),
 });
 
@@ -107,12 +109,28 @@ export async function registerOAuthRoutes(
     }
 
     const authManager = OAuthAuthManager.getInstance();
-    const ready = authManager.hasProvider(
-      parsed.data.providerId as OAuthProvider,
-      parsed.data.accountId
-    );
+    const providerId = parsed.data.providerId as OAuthProvider;
+    const accountId = parsed.data.accountId.trim();
+    const ready = authManager.hasProvider(providerId, accountId);
+    if (!ready) {
+      return reply.send({ data: { ready } });
+    }
 
-    return reply.send({ data: { ready } });
+    // Credential age, so a stale login is visible on the provider form. The
+    // in-memory expiry is authoritative; the row may still be mid-write right
+    // after a login, in which case only the expiry is known.
+    const timestamps = await ConfigService.getInstance()
+      .getOAuthCredentialTimestamps(providerId, accountId)
+      .catch(() => null);
+    const expiresAt = authManager.getCredentials(providerId, accountId)?.expires;
+    return reply.send({
+      data: {
+        ready,
+        ...(timestamps?.createdAt ? { connectedAt: timestamps.createdAt } : {}),
+        ...(timestamps?.updatedAt ? { refreshedAt: timestamps.updatedAt } : {}),
+        ...(typeof expiresAt === 'number' && expiresAt > 0 ? { expiresAt } : {}),
+      },
+    });
   });
 
   fastify.get('/v0/management/oauth/sessions/:id', async (request, reply) => {
@@ -158,6 +176,23 @@ export async function registerOAuthRoutes(
     }
   });
 
+  fastify.post('/v0/management/oauth/sessions/:id/select', async (request, reply) => {
+    const sessionId = (request.params as { id: string }).id;
+    const parsed = inputSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'Invalid request body', details: parsed.error.issues });
+    }
+
+    try {
+      const session = await sessionManager.submitSelect(sessionId, parsed.data.value);
+      return reply.send({ data: session });
+    } catch (error) {
+      return reply
+        .code(400)
+        .send({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   fastify.post('/v0/management/oauth/sessions/:id/cancel', async (request, reply) => {
     const sessionId = (request.params as { id: string }).id;
     try {
@@ -179,10 +214,20 @@ export async function registerOAuthRoutes(
     }
 
     try {
-      // Codex is the one OAuth provider whose real model list is account-
-      // scoped, so it is fetched live (with a catalog fallback + warning).
+      // Codex and Muse Code are the OAuth providers whose real model lists
+      // are account-scoped, so they are fetched live (with a catalog
+      // fallback + warning).
       if (parsed.data.providerId === 'openai-codex') {
         const discovery = await listCodexOAuthModels(parsed.data.accountId || undefined);
+        return reply.send({
+          data: discovery.models,
+          source: discovery.source,
+          ...(discovery.warning ? { warning: discovery.warning } : {}),
+        });
+      }
+
+      if (parsed.data.providerId === 'meta') {
+        const discovery = await listMuseOAuthModels(parsed.data.accountId || undefined);
         return reply.send({
           data: discovery.models,
           source: discovery.source,

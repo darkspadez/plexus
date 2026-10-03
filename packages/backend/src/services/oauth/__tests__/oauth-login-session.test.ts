@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { OAuthLoginSessionManager } from '../oauth-login-session';
+import { OAuthAuthManager } from '../oauth-auth-manager';
 import type { OAuthProviderDescriptor } from '../oauth-providers';
+import { registerSpy } from '../../../../test/test-utils';
 
 // A provider whose login mimics pi-ai's Anthropic flow: it waits on a
 // manual-code prompt and only releases its (fake) callback resource when that
@@ -122,5 +124,152 @@ describe('OAuthLoginSessionManager — concurrent login guard', () => {
     expect(second.accountId).toBe('acct-2');
 
     manager.dispose();
+  });
+});
+
+describe('OAuthLoginSessionManager — completed login', () => {
+  const provider = {
+    id: 'anthropic',
+    name: 'Anthropic',
+    usesCallbackServer: false,
+    oauth: {
+      name: 'Anthropic',
+      login: async () => ({
+        type: 'oauth',
+        access: 'a',
+        refresh: 'r',
+        expires: Date.now() + 60_000,
+      }),
+      refresh: async (credentials) => credentials,
+      toAuth: async (credentials) => ({ apiKey: credentials.access }),
+    },
+  } as OAuthProviderDescriptor;
+
+  it('does not finish or cancel a login while its credential save is pending', async () => {
+    OAuthAuthManager.resetForTesting();
+    const authManager = OAuthAuthManager.getInstance();
+    let releaseSave!: () => void;
+    let saveStarted!: () => void;
+    const saving = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      saveStarted = resolve;
+    });
+    registerSpy(authManager, 'setCredentials').mockImplementation(async () => {
+      saveStarted();
+      await saving;
+    });
+
+    const manager = new OAuthLoginSessionManager(() => provider);
+
+    try {
+      const session = await manager.createSession('anthropic', 'acct');
+      await started;
+      expect(manager.getSession(session.id)?.status).toBe('in_progress');
+
+      const cancellation = manager.cancel(session.id);
+      expect(manager.getSession(session.id)?.status).toBe('in_progress');
+
+      releaseSave();
+      await vi.waitFor(() => expect(manager.getSession(session.id)?.status).toBe('success'));
+      await expect(cancellation).resolves.toMatchObject({ status: 'success' });
+    } finally {
+      releaseSave();
+      manager.dispose();
+      OAuthAuthManager.resetForTesting();
+    }
+  });
+
+  it('reports an error when credential persistence fails', async () => {
+    OAuthAuthManager.resetForTesting();
+    const authManager = OAuthAuthManager.getInstance();
+    registerSpy(authManager, 'setCredentials').mockRejectedValue(new Error('database unavailable'));
+    const manager = new OAuthLoginSessionManager(() => provider);
+
+    try {
+      const session = await manager.createSession('anthropic', 'acct');
+      await vi.waitFor(() => expect(manager.getSession(session.id)?.status).toBe('error'));
+      expect(manager.getSession(session.id)?.error).toBe('database unavailable');
+    } finally {
+      manager.dispose();
+      OAuthAuthManager.resetForTesting();
+    }
+  });
+});
+
+describe('OAuthLoginSessionManager — select prompts', () => {
+  const selectProvider = {
+    id: 'openai-codex',
+    name: 'Codex',
+    usesCallbackServer: false,
+    oauth: {
+      name: 'Codex',
+      login: async (interaction: any) => {
+        const method = await interaction.prompt({
+          type: 'select',
+          message: 'Select OpenAI Codex login method:',
+          options: [
+            { id: 'browser', label: 'Browser login (default)' },
+            { id: 'device_code', label: 'Device code login (headless)' },
+          ],
+        });
+        return { type: 'oauth', access: method, refresh: 'r', expires: Date.now() + 60_000 };
+      },
+      refresh: async (credential: any) => credential,
+      toAuth: async (credential: any) => ({ apiKey: credential.access }),
+    },
+  } as unknown as OAuthProviderDescriptor;
+
+  it('surfaces a select prompt and continues with the chosen option', async () => {
+    OAuthAuthManager.resetForTesting();
+    const authManager = OAuthAuthManager.getInstance();
+    const save = registerSpy(authManager, 'setCredentials').mockResolvedValue();
+    const manager = new OAuthLoginSessionManager(() => selectProvider);
+
+    try {
+      const session = await manager.createSession('openai-codex', 'acct');
+      await vi.waitFor(() =>
+        expect(manager.getSession(session.id)?.status).toBe('awaiting_select')
+      );
+
+      expect(manager.getSession(session.id)?.select).toEqual({
+        message: 'Select OpenAI Codex login method:',
+        options: [
+          { id: 'browser', label: 'Browser login (default)' },
+          { id: 'device_code', label: 'Device code login (headless)' },
+        ],
+      });
+
+      await manager.submitSelect(session.id, 'device_code');
+      await vi.waitFor(() => expect(manager.getSession(session.id)?.status).toBe('success'));
+      expect(save).toHaveBeenCalledWith(
+        'openai-codex',
+        'acct',
+        expect.objectContaining({ access: 'device_code' })
+      );
+      expect(manager.getSession(session.id)?.select).toBeUndefined();
+    } finally {
+      manager.dispose();
+      OAuthAuthManager.resetForTesting();
+    }
+  });
+
+  it('rejects an option that was not offered', async () => {
+    OAuthAuthManager.resetForTesting();
+    const manager = new OAuthLoginSessionManager(() => selectProvider);
+
+    try {
+      const session = await manager.createSession('openai-codex', 'acct');
+      await vi.waitFor(() =>
+        expect(manager.getSession(session.id)?.status).toBe('awaiting_select')
+      );
+      await expect(manager.submitSelect(session.id, 'nope')).rejects.toThrow(
+        'Unknown option: nope'
+      );
+    } finally {
+      manager.dispose();
+      OAuthAuthManager.resetForTesting();
+    }
   });
 });

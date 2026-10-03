@@ -9,13 +9,15 @@ import {
 } from './checker-registry';
 import type { MeterCheckResult, Meter } from '../../types/meter';
 import { toDbTimestampMs } from '../../utils/normalize';
-import { eq, desc, gte, and } from 'drizzle-orm';
+import { eq, desc, gte, and, lt, sql } from 'drizzle-orm';
 import { CooldownManager } from '../runtime/cooldown-manager';
+import { getUsageRetentionDays } from '../observability/usage-storage';
 import { INDEFINITE_COOLDOWN_MS } from '@plexus/shared';
 
 const DEFAULT_EXHAUSTION_THRESHOLD = 99;
 const MAX_STALE_QUOTA_CHECK_INTERVALS = 2;
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
+const QUOTA_DB_QUERY_TIMEOUT_MS = 15_000;
 const CHECKER_RUN_MIN_INTERVAL_MS: Readonly<Record<string, number>> = {
   // Pooled Claude providers otherwise poll the same Anthropic endpoint on the
   // same interval phase, creating a burst on every scheduler tick.
@@ -33,12 +35,38 @@ function toIso(val: unknown): string {
   return new Date(toMs(val)).toISOString();
 }
 
+// Snapshot rows from one check come back in index (meter-key) order, so apply
+// the checker's declared order. The sort is stable for unlisted keys.
+function orderMeters(meters: Meter[], order: readonly string[]): Meter[] {
+  const rank = (key: string) => {
+    const index = order.indexOf(key);
+    return index < 0 ? order.length : index;
+  };
+  return [...meters].sort((a, b) => rank(a.key) - rank(b.key));
+}
+
+function withQuotaDbQueryTimeout<T>(query: PromiseLike<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    Promise.resolve(query),
+    new Promise<never>((_, reject) => {
+      timeout = setTimeout(
+        () => reject(new Error('Database query timeout')),
+        QUOTA_DB_QUERY_TIMEOUT_MS
+      );
+    }),
+  ]).finally(() => {
+    if (timeout !== undefined) clearTimeout(timeout);
+  });
+}
+
 export class QuotaScheduler {
   private static instance: QuotaScheduler;
   private configs: Map<string, QuotaConfig> = new Map();
   private intervals: Map<string, ReturnType<typeof setInterval>> = new Map();
   private checkerRunTails: Map<string, Promise<void>> = new Map();
   private lastCheckerRunAt: Map<string, number> = new Map();
+  private retentionInterval: ReturnType<typeof setInterval> | null = null;
   private checkersLoaded = false;
   private db: ReturnType<typeof getDatabase> | null = null;
   private schema: ReturnType<typeof getSchema> | null = null;
@@ -92,6 +120,13 @@ export class QuotaScheduler {
       this.runCheckNow(id).catch((error) => {
         logger.error(`Initial quota check failed for '${id}': ${error}`);
       });
+    }
+
+    // Prune meter snapshots older than PLEXUS_USAGE_RETENTION_DAYS (default
+    // 365 days) once a day. Guarded so repeated initialize() calls reuse the
+    // existing timer.
+    if (!this.retentionInterval) {
+      this.startRetentionJob();
     }
   }
 
@@ -382,10 +417,6 @@ export class QuotaScheduler {
       const { db, schema } = this.ensureDb();
       const config = this.configs.get(checkerId);
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Database query timeout')), 15000);
-      });
-
       const queryPromise = db
         .select()
         .from(schema.meterSnapshots)
@@ -393,61 +424,90 @@ export class QuotaScheduler {
         .orderBy(desc(schema.meterSnapshots.checkedAt))
         .limit(200);
 
-      const rows = (await Promise.race([queryPromise, timeoutPromise])) as any[];
+      const rows = (await withQuotaDbQueryTimeout(queryPromise)) as any[];
       if (rows.length === 0) return null;
 
       const latestMs = toMs(rows[0].checkedAt);
       const latestRows = rows.filter((r: any) => toMs(r.checkedAt) === latestMs);
-
       const errorRow = latestRows.find((r: any) => !r.success);
+      let resultRows = latestRows;
+
       if (errorRow) {
-        return {
-          checkerId,
-          checkerType: config?.type ?? errorRow.checkerType,
-          provider: config?.provider ?? errorRow.provider,
-          checkedAt: toIso(errorRow.checkedAt),
-          success: false,
-          error: errorRow.errorMessage ?? 'Unknown error',
-          meters: [],
-        };
+        const successfulRows = (await withQuotaDbQueryTimeout(
+          db
+            .select()
+            .from(schema.meterSnapshots)
+            .where(
+              and(
+                eq(schema.meterSnapshots.checkerId, checkerId),
+                eq(schema.meterSnapshots.success, true)
+              )
+            )
+            .orderBy(desc(schema.meterSnapshots.checkedAt))
+            .limit(200)
+        )) as any[];
+
+        if (successfulRows.length === 0) {
+          return {
+            checkerId,
+            checkerType: config?.type ?? errorRow.checkerType,
+            provider: config?.provider ?? errorRow.provider,
+            checkedAt: toIso(errorRow.checkedAt),
+            success: false,
+            error: errorRow.errorMessage ?? 'Unknown error',
+            meters: [],
+          };
+        }
+
+        const priorSuccessMs = toMs(successfulRows[0].checkedAt);
+        resultRows = successfulRows.filter((row) => toMs(row.checkedAt) === priorSuccessMs);
       }
 
-      const meters: Meter[] = latestRows
-        .filter((r: any) => r.meterKey !== '_empty' && r.meterKey !== '_error')
-        .map((row: any) => {
-          const util: Meter['utilizationPercent'] =
-            row.utilizationState === 'unknown'
-              ? 'unknown'
-              : row.utilizationState === 'not_applicable'
-                ? 'not_applicable'
-                : (row.utilizationPercent ?? 0);
-          return {
-            key: row.meterKey,
-            label: row.label,
-            kind: row.kind,
-            unit: row.unit,
-            group: row.group ?? undefined,
-            scope: row.scope ?? undefined,
-            limit: row.limit ?? undefined,
-            used: row.used ?? undefined,
-            remaining: row.remaining ?? undefined,
-            utilizationPercent: util,
-            status: row.status,
-            periodValue: row.periodValue ?? undefined,
-            periodUnit: row.periodUnit ?? undefined,
-            periodCycle: row.periodCycle ?? undefined,
-            resetsAt: row.resetsAt ? toIso(row.resetsAt) : undefined,
-          };
-        });
+      const meterRows = resultRows.filter(
+        (row: any) => row.meterKey !== '_empty' && row.meterKey !== '_error'
+      );
+      const meters: Meter[] = meterRows.map((row: any) => {
+        const util: Meter['utilizationPercent'] =
+          row.utilizationState === 'unknown'
+            ? 'unknown'
+            : row.utilizationState === 'not_applicable'
+              ? 'not_applicable'
+              : (row.utilizationPercent ?? 0);
+        return {
+          key: row.meterKey,
+          label: row.label,
+          kind: row.kind,
+          unit: row.unit,
+          group: row.group ?? undefined,
+          scope: row.scope ?? undefined,
+          limit: row.limit ?? undefined,
+          used: row.used ?? undefined,
+          remaining: row.remaining ?? undefined,
+          utilizationPercent: util,
+          status: row.status,
+          periodValue: row.periodValue ?? undefined,
+          periodUnit: row.periodUnit ?? undefined,
+          periodCycle: row.periodCycle ?? undefined,
+          resetsAt: row.resetsAt ? toIso(row.resetsAt) : undefined,
+        };
+      });
 
-      const firstRow = latestRows[0];
+      const firstRow = resultRows[0];
+      const checkerType = config?.type ?? firstRow.checkerType;
+      const meterOrder = getCheckerDefinition(checkerType)?.meterOrder;
       return {
         checkerId,
-        checkerType: config?.type ?? firstRow.checkerType,
+        checkerType,
         provider: config?.provider ?? firstRow.provider,
         checkedAt: toIso(firstRow.checkedAt),
         success: true,
-        meters,
+        ...(errorRow
+          ? {
+              stale: true,
+              error: errorRow.errorMessage ?? 'Unknown error',
+            }
+          : {}),
+        meters: meterOrder ? orderMeters(meters, meterOrder) : meters,
       };
     } catch (error) {
       logger.error(`Failed to get latest quota for '${checkerId}': ${error}`);
@@ -463,6 +523,8 @@ export class QuotaScheduler {
 
     const latest = await this.getLatestQuota(config.id);
     if (!latest) return null;
+    // Stale snapshots remain visible in management, but must not influence routing.
+    if (latest.stale) return null;
 
     const checkedAtMs = Date.parse(latest.checkedAt);
     const maxAgeMs =
@@ -507,7 +569,90 @@ export class QuotaScheduler {
     }
   }
 
+  /**
+   * Delete `meter_snapshots` rows older than `ttlDays`. Returns the deletion
+   * count. Latest-snapshot reads (`getLatestQuota`) are unaffected; history
+   * queries beyond the TTL return fewer rows.
+   */
+  async cleanupOldSnapshots(
+    ttlDays: number = getUsageRetentionDays()
+  ): Promise<{ deletedSnapshots: number }> {
+    try {
+      const { db, schema } = this.ensureDb();
+      const dialect = getCurrentDialect();
+      const cutoffMs = Date.now() - ttlDays * 24 * 60 * 60 * 1000;
+      const cutoff = toDbTimestampMs(cutoffMs, dialect) as any;
+      const condition = lt(schema.meterSnapshots.checkedAt, cutoff);
+
+      const rows = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(schema.meterSnapshots)
+        .where(condition);
+      const deletedSnapshots = Number(rows[0]?.count ?? 0);
+
+      if (deletedSnapshots > 0) {
+        await db.delete(schema.meterSnapshots).where(condition);
+        logger.debug(
+          `Quota retention cleanup: deleted ${deletedSnapshots} meter snapshots older than ${ttlDays} days`
+        );
+      }
+
+      return { deletedSnapshots };
+    } catch (error) {
+      logger.error('Failed to clean up old meter snapshots', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Start the scheduled retention job that prunes meter snapshots older than
+   * `ttlDays`. Runs an initial sweep immediately, then repeats every
+   * `intervalHours`.
+   */
+  startRetentionJob(intervalHours: number = 24, ttlDays: number = getUsageRetentionDays()): void {
+    if (this.retentionInterval) {
+      logger.warn('Quota retention job already running');
+      return;
+    }
+
+    // Run initial cleanup
+    this.cleanupOldSnapshots(ttlDays).catch((err) =>
+      logger.error('Initial quota retention cleanup failed:', err)
+    );
+
+    // Schedule periodic cleanup
+    this.retentionInterval = setInterval(
+      async () => {
+        try {
+          const result = await this.cleanupOldSnapshots(ttlDays);
+          if (result.deletedSnapshots > 0) {
+            logger.debug(
+              `Scheduled quota retention cleanup: deleted ${result.deletedSnapshots} meter snapshots`
+            );
+          }
+        } catch (err) {
+          logger.error('Scheduled quota retention cleanup failed:', err);
+        }
+      },
+      intervalHours * 60 * 60 * 1000
+    );
+
+    logger.debug(`Quota retention job started (every ${intervalHours}h, TTL ${ttlDays} days)`);
+  }
+
+  /**
+   * Stop the retention job.
+   */
+  stopRetentionJob(): void {
+    if (this.retentionInterval) {
+      clearInterval(this.retentionInterval);
+      this.retentionInterval = null;
+      logger.debug('Quota retention job stopped');
+    }
+  }
+
   stop(): void {
+    this.stopRetentionJob();
     for (const [id, intervalId] of this.intervals) {
       clearInterval(intervalId);
       logger.info(`Stopped quota checker '${id}'`);

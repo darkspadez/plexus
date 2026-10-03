@@ -17,10 +17,25 @@ describe('oauth-providers facade', () => {
       'xai',
       'kimi-coding',
       'openrouter',
+      'meta',
     ]) {
       expect(isKnownOAuthProviderId(id)).toBe(true);
       expect(getOAuthProviderAuth(id)).toBeDefined();
     }
+  });
+
+  it('uses the Plexus copy-code login for anthropic (no callback server)', () => {
+    const descriptor = getOAuthProviderAuth('anthropic');
+    expect(descriptor?.usesCallbackServer).toBe(false);
+    expect(descriptor?.oauth.login).toBeTypeOf('function');
+  });
+
+  it('recognizes pi-ai\u2019s native meta (Muse subscription) provider', () => {
+    expect(isKnownOAuthProviderId('meta')).toBe(true);
+    const descriptor = getOAuthProviderAuth('meta');
+    expect(descriptor?.id).toBe('meta');
+    expect(descriptor?.usesCallbackServer).toBe(false);
+    expect(listOAuthProviders().some((p) => p.id === 'meta')).toBe(true);
   });
 
   it('blocks radius', () => {
@@ -35,5 +50,11 @@ describe('oauth-providers facade', () => {
 
   it('never lists radius', () => {
     expect(listOAuthProviders().some((p) => p.id === 'radius')).toBe(false);
+  });
+
+  it('lists each provider id once even when overridden', () => {
+    const ids = listOAuthProviders().map((p) => p.id);
+    expect(ids.length).toBe(new Set(ids).size);
+    expect(ids.filter((id) => id === 'anthropic')).toHaveLength(1);
   });
 });

@@ -133,6 +133,14 @@ properties:
       When enabled, multi-turn conversations prefer the same provider/model
       from the previous turn (when still healthy) for better prompt-cache
       hit rates.
+  synthetic_safeguard_approval:
+    type: boolean
+    default: false
+    description: >
+      When enabled, translated (non-native Messages) responses for this alias
+      carry synthetic safeguard_results (evaluated/not_flagged with an
+      explanatory note) when the inbound Messages request asked via
+      safeguards. Opt-in: no real classifier runs.
   metadata:
     description: >
       Model metadata strategy. When omitted or set to `auto`, Plexus derives a

@@ -1,5 +1,12 @@
+import { useState } from 'react';
 import { CheckCircle, Download, Loader2, Play, Plus, X, XCircle } from 'lucide-react';
 import type { Provider } from '../../../lib/api';
+import { api } from '../../../lib/api';
+import {
+  collectProviderEndpointUrls,
+  isOAuthProviderDraft,
+  PI_AI_AUTO_VALUE,
+} from '../../../lib/piAiProvider';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { CopyButton } from '../../ui/CopyButton';
@@ -42,6 +49,48 @@ export function ModelList({
 }: Props) {
   const models = (editingProvider.models || {}) as Record<string, ModelConfig>;
   const modelCount = Object.keys(models).length;
+  const [piProviderResolving, setPiProviderResolving] = useState(false);
+  const piProviderLabel = editingProvider.pi_ai_quirks
+    ? 'pi-ai Provider (inline quirks active)'
+    : 'pi-ai Provider';
+
+  // Apply a manual pi-ai provider choice: picking a provider clears inline
+  // quirks; clearing it (with no quirks left) turns Auto Compat off.
+  const applyPiProvider = (raw: string) => {
+    setEditingProvider({
+      ...editingProvider,
+      pi_ai_provider: raw || undefined,
+      pi_ai_quirks: raw ? undefined : editingProvider.pi_ai_quirks,
+      auto_compat: raw || editingProvider.pi_ai_quirks ? editingProvider.auto_compat : false,
+    });
+  };
+
+  // Resolve `- auto -` to the concrete pi-ai provider matching the current
+  // endpoint URLs / OAuth provider. `- auto -` is never a stored selection:
+  // it becomes the resolved entry, or leaves the selection unchanged when
+  // nothing matches.
+  const resolvePiAiAuto = async () => {
+    const urls = collectProviderEndpointUrls(editingProvider.apiBaseUrl);
+    const oauthProvider = isOAuthProviderDraft(editingProvider.apiBaseUrl)
+      ? editingProvider.oauthProvider?.trim() || undefined
+      : undefined;
+    setPiProviderResolving(true);
+    try {
+      const resolved = await api.resolvePiAiProvider({ urls, oauthProvider });
+      if (resolved) {
+        setEditingProvider((prev) => ({
+          ...prev,
+          pi_ai_provider: resolved,
+          pi_ai_quirks: undefined,
+          auto_compat: true,
+        }));
+      }
+    } catch {
+      // non-fatal — leave the previous selection in place
+    } finally {
+      setPiProviderResolving(false);
+    }
+  };
 
   return (
     <SectionCard
@@ -67,36 +116,40 @@ export function ModelList({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
           {!piProviderCustom ? (
             <Select
-              label="pi-ai Provider"
+              label={piProviderLabel}
               value={editingProvider.pi_ai_provider ?? ''}
+              disabled={piProviderResolving}
+              title={
+                piProviderResolving
+                  ? 'Resolving pi-ai provider…'
+                  : 'Pick - auto - to detect from the endpoint URLs or OAuth provider'
+              }
               onChange={(raw) => {
                 if (raw === '__custom__') {
                   setPiProviderCustom(true);
                   return;
                 }
-                setEditingProvider({
-                  ...editingProvider,
-                  pi_ai_provider: raw || undefined,
-                });
+                if (raw === PI_AI_AUTO_VALUE) {
+                  void resolvePiAiAuto();
+                  return;
+                }
+                applyPiProvider(raw);
               }}
               options={[
                 { value: '', label: '— none —' },
+                { value: PI_AI_AUTO_VALUE, label: '- auto -' },
                 ...piProviders.map((p) => ({ value: p, label: p })),
                 { value: '__custom__', label: 'custom...' },
               ]}
             />
           ) : (
             <Input
-              label="pi-ai Provider"
+              label={piProviderLabel}
               type="text"
               placeholder="e.g. anthropic, openai"
               value={editingProvider.pi_ai_provider ?? ''}
               onChange={(e) => {
-                const raw = e.target.value;
-                setEditingProvider({
-                  ...editingProvider,
-                  pi_ai_provider: raw || undefined,
-                });
+                applyPiProvider(e.target.value);
               }}
               autoFocus
               trailingAction={

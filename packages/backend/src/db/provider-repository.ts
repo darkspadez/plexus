@@ -1,11 +1,14 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
+import type { ResponsesExtension } from '@plexus/shared';
 import { getDatabase, getSchema } from './client';
 import { decryptField, encryptField } from '../utils/encryption';
 import type { ModelProviderConfig, ProviderConfig } from '../config';
+import { LEGACY_ACCOUNT_ID } from '../services/oauth/oauth-providers';
 import {
   decryptJsonField,
   encryptJsonField,
   fromBool,
+  getAffectedRowCount,
   normalizeAdapterEntries,
   now,
   parseJson,
@@ -29,6 +32,8 @@ type ProviderRow = {
   estimateTokens: unknown;
   useClaudeMasking: unknown;
   geminiThinkingEnabled: unknown;
+  cacheKeyInjection: string | null;
+  responsesExtensions: unknown;
   headers: unknown;
   extraBody: unknown;
   compaction: unknown;
@@ -44,6 +49,7 @@ type ProviderRow = {
   timeoutMs: number | null;
   maxConcurrency: number | null;
   piAiProvider: string | null;
+  piAiQuirks: unknown;
   rawPassthrough: unknown;
   stallTtfbMs: number | null;
   stallTtfbBytes: number | null;
@@ -78,6 +84,28 @@ export class ProviderRepository {
     return getSchema();
   }
 
+  /**
+   * One-time startup migration: rewrite legacy provider-model model_type
+   * values to the canonical capability types, mirroring the alias migration.
+   *
+   * - 'chat'      → 'text'  (was overloaded to mean both wire protocol and capability)
+   * - 'responses' → 'text'  (was incorrectly stored as a capability type)
+   * - null / other values are left untouched.
+   *
+   * Without this, a legacy 'chat' provider model skips the router's
+   * `modelType === 'text'` guards (and, on Postgres before migration 0088,
+   * writing 'text' failed outright because the enum lacked the value).
+   * Idempotent.
+   */
+  async migrateModelTypes(): Promise<number> {
+    const schema = this.schema();
+    const updateResult = await this.db()
+      .update(schema.providerModels)
+      .set({ modelType: 'text' })
+      .where(sql`${schema.providerModels.modelType} IN ('chat', 'responses')`);
+    return getAffectedRowCount(updateResult);
+  }
+
   async getAllProviders(): Promise<Record<string, ProviderConfig>> {
     const schema = this.schema();
     const rows = (await this.db().select().from(schema.providers)) as ProviderRow[];
@@ -90,15 +118,7 @@ export class ProviderRepository {
         .where(eq(schema.providerModels.providerId, row.id))
         .orderBy(schema.providerModels.sortOrder)) as ProviderModelRow[];
 
-      let oauthAccountId: string | undefined;
-      if (row.oauthCredentialId) {
-        const creds = (await this.db()
-          .select({ accountId: schema.oauthCredentials.accountId })
-          .from(schema.oauthCredentials)
-          .where(eq(schema.oauthCredentials.id, row.oauthCredentialId))
-          .limit(1)) as Array<{ accountId: string }>;
-        if (creds.length > 0) oauthAccountId = creds[0]!.accountId;
-      }
+      const oauthAccountId = await this.resolveOAuthAccountId(row);
       result[row.slug] = this.rowToProviderConfig(row, models, oauthAccountId);
     }
 
@@ -122,37 +142,84 @@ export class ProviderRepository {
       .where(eq(schema.providerModels.providerId, row.id))
       .orderBy(schema.providerModels.sortOrder)) as ProviderModelRow[];
 
-    let oauthAccountId: string | undefined;
+    const oauthAccountId = await this.resolveOAuthAccountId(row);
+    return this.rowToProviderConfig(row, models, oauthAccountId);
+  }
+
+  /**
+   * Resolve the OAuth account name for a provider row.
+   *
+   * The account name is persisted only via the credential link, so a provider
+   * saved before its OAuth login (or with a name that missed the credential
+   * lookup) keeps a null link. When exactly one credential exists for the
+   * provider type — the same single account the dispatcher resolves at
+   * runtime — hydrate it so the edit form round-trips; the next save
+   * re-links the FK. Multiple credentials stay ambiguous and resolve to
+   * undefined so the user picks explicitly.
+   */
+  private async resolveOAuthAccountId(row: ProviderRow): Promise<string | undefined> {
+    const schema = this.schema();
     if (row.oauthCredentialId) {
       const creds = (await this.db()
         .select({ accountId: schema.oauthCredentials.accountId })
         .from(schema.oauthCredentials)
         .where(eq(schema.oauthCredentials.id, row.oauthCredentialId))
         .limit(1)) as Array<{ accountId: string }>;
-      if (creds.length > 0) oauthAccountId = creds[0]!.accountId;
+      if (creds.length > 0) return creds[0]!.accountId;
     }
-    return this.rowToProviderConfig(row, models, oauthAccountId);
+    if (row.oauthProviderType) {
+      // Mirror the runtime resolver: the well-known legacy account wins
+      // deterministically regardless of how many accounts exist.
+      const legacy = (await this.db()
+        .select({ accountId: schema.oauthCredentials.accountId })
+        .from(schema.oauthCredentials)
+        .where(
+          and(
+            eq(schema.oauthCredentials.oauthProviderType, row.oauthProviderType),
+            eq(schema.oauthCredentials.accountId, LEGACY_ACCOUNT_ID)
+          )
+        )
+        .limit(1)) as Array<{ accountId: string }>;
+      if (legacy.length > 0) return legacy[0]!.accountId;
+      const creds = (await this.db()
+        .select({ accountId: schema.oauthCredentials.accountId })
+        .from(schema.oauthCredentials)
+        .where(eq(schema.oauthCredentials.oauthProviderType, row.oauthProviderType))) as Array<{
+        accountId: string;
+      }>;
+      if (creds.length === 1) return creds[0]!.accountId;
+    }
+    return undefined;
   }
 
   async saveProvider(slug: string, config: ProviderConfig): Promise<void> {
     const schema = this.schema();
     const timestamp = now();
 
-    // Resolve oauth_credential_id if this is an OAuth provider
+    // Single read of the existing row, reused for OAuth link resolution below
+    // and the upsert after it.
+    const existing = await this.db()
+      .select()
+      .from(schema.providers)
+      .where(eq(schema.providers.slug, slug))
+      .limit(1);
+
+    // Resolve oauth_credential_id if this is an OAuth provider. The OAuth
+    // account is derived from the provider slug (1:1, set at login from the
+    // provider form) — an incoming oauth_account is only honored as a
+    // grandfathered fallback for restores/imports that predate slug keying.
     let oauthCredentialId: number | null = null;
-    if (config.oauth_provider && config.oauth_account) {
-      const creds = await this.db()
-        .select()
-        .from(schema.oauthCredentials)
-        .where(
-          and(
-            eq(schema.oauthCredentials.oauthProviderType, config.oauth_provider),
-            eq(schema.oauthCredentials.accountId, config.oauth_account)
-          )
-        )
-        .limit(1);
-      if (creds.length > 0) {
-        oauthCredentialId = creds[0]!.id;
+    if (config.oauth_provider) {
+      oauthCredentialId = await this.findOAuthCredentialId(config.oauth_provider, slug);
+      const legacyAccount = config.oauth_account?.trim();
+      if (!oauthCredentialId && legacyAccount && legacyAccount !== slug) {
+        oauthCredentialId = await this.findOAuthCredentialId(config.oauth_provider, legacyAccount);
+      }
+      if (!oauthCredentialId && !legacyAccount) {
+        oauthCredentialId = await this.findExistingCompatibleCredentialId(
+          existing.length > 0 ? existing[0]!.oauthCredentialId : null,
+          config.oauth_provider
+        );
       }
     }
 
@@ -171,6 +238,10 @@ export class ProviderRepository {
       estimateTokens: fromBool(config.estimateTokens === true),
       useClaudeMasking: fromBool(config.useClaudeMasking === true),
       geminiThinkingEnabled: fromBool(config.geminiThinkingEnabled === true),
+      cacheKeyInjection: config.cache_key_injection ?? null,
+      responsesExtensions: Array.isArray(config.responses_extensions)
+        ? toJson(config.responses_extensions)
+        : null,
       headers: config.headers ? encryptJsonField(config.headers) : null,
       extraBody: config.extraBody ? toJson(config.extraBody) : null,
       compaction: config.compaction ? toJson(config.compaction) : null,
@@ -196,6 +267,7 @@ export class ProviderRepository {
       timeoutMs: config.timeoutMs ?? null,
       maxConcurrency: config.maxConcurrency ?? null,
       piAiProvider: config.pi_ai_provider ?? null,
+      piAiQuirks: config.pi_ai_quirks ? toJson(config.pi_ai_quirks) : null,
       rawPassthrough: config.raw_passthrough ? toJson(config.raw_passthrough) : null,
       // Per-provider stall detection overrides
       stallTtfbMs: config.stallTtfbMs ?? null,
@@ -207,12 +279,6 @@ export class ProviderRepository {
     };
 
     // Upsert provider
-    const existing = await this.db()
-      .select()
-      .from(schema.providers)
-      .where(eq(schema.providers.slug, slug))
-      .limit(1);
-
     let providerId: number;
 
     if (existing.length > 0) {
@@ -271,8 +337,61 @@ export class ProviderRepository {
     }
   }
 
-  async deleteProvider(slug: string, cascade: boolean = true): Promise<void> {
+  /** Find the credential id for a (provider type, account) pair, if any. */
+  private async findOAuthCredentialId(
+    providerType: string,
+    accountId: string
+  ): Promise<number | null> {
     const schema = this.schema();
+    const creds = await this.db()
+      .select()
+      .from(schema.oauthCredentials)
+      .where(
+        and(
+          eq(schema.oauthCredentials.oauthProviderType, providerType),
+          eq(schema.oauthCredentials.accountId, accountId)
+        )
+      )
+      .limit(1);
+    return creds.length > 0 ? creds[0]!.id : null;
+  }
+
+  /**
+   * Grandfathered-link preservation, used only when a write carries no usable
+   * account at all (an explicit but unresolvable account must not silently
+   * retain the old link). Keeps the row's current link when its credential
+   * has the same provider type; switching types still drops it.
+   */
+  private async findExistingCompatibleCredentialId(
+    existingCredentialId: number | null,
+    providerType: string
+  ): Promise<number | null> {
+    const schema = this.schema();
+    if (!existingCredentialId) return null;
+    const creds = (await this.db()
+      .select({ providerType: schema.oauthCredentials.oauthProviderType })
+      .from(schema.oauthCredentials)
+      .where(eq(schema.oauthCredentials.id, existingCredentialId))
+      .limit(1)) as Array<{ providerType: string }>;
+    if (creds.length === 0 || creds[0]!.providerType !== providerType) return null;
+    return existingCredentialId;
+  }
+
+  async deleteProvider(
+    slug: string,
+    cascade: boolean = true
+  ): Promise<{ providerType: string; accountId: string } | null> {
+    const schema = this.schema();
+
+    // Capture the linked credential before deleting: a credential no other
+    // provider references is removed with its provider (1:1); shared
+    // grandfathered credentials survive via the refcount below.
+    const existing = (await this.db()
+      .select({ credentialId: schema.providers.oauthCredentialId })
+      .from(schema.providers)
+      .where(eq(schema.providers.slug, slug))
+      .limit(1)) as Array<{ credentialId: number | null }>;
+    const credentialId = existing[0]?.credentialId ?? null;
 
     if (cascade) {
       // Explicitly delete model_alias_targets referencing this provider (keyed by slug, not FK)
@@ -285,6 +404,52 @@ export class ProviderRepository {
       // Delete provider and its provider_models, but retain model_alias_targets
       await this.db().delete(schema.providers).where(eq(schema.providers.slug, slug));
     }
+
+    if (!credentialId) return null;
+    const cred = (await this.db()
+      .select({
+        providerType: schema.oauthCredentials.oauthProviderType,
+        accountId: schema.oauthCredentials.accountId,
+      })
+      .from(schema.oauthCredentials)
+      .where(eq(schema.oauthCredentials.id, credentialId))
+      .limit(1)) as Array<{ providerType: string; accountId: string }>;
+    if (cred.length === 0) return null;
+    const holders = (await this.db()
+      .select({ id: schema.providers.id })
+      .from(schema.providers)
+      .where(eq(schema.providers.oauthCredentialId, credentialId))
+      .limit(1)) as Array<{ id: number }>;
+    // A null-link same-type provider resolves this credential via the
+    // single-account fallback, or deterministically when it is the well-known
+    // legacy account — but only while it is effectively the sole option.
+    // With several non-legacy credentials those providers are already
+    // ambiguous and this row is safe to remove.
+    let fallbackHolders: Array<{ id: number }> = [];
+    if (holders.length === 0) {
+      const typeCreds = (await this.db()
+        .select({ id: schema.oauthCredentials.id })
+        .from(schema.oauthCredentials)
+        .where(eq(schema.oauthCredentials.oauthProviderType, cred[0]!.providerType))
+        .limit(2)) as Array<{ id: number }>;
+      if (typeCreds.length === 1 || cred[0]!.accountId === LEGACY_ACCOUNT_ID) {
+        fallbackHolders = (await this.db()
+          .select({ id: schema.providers.id })
+          .from(schema.providers)
+          .where(
+            and(
+              isNull(schema.providers.oauthCredentialId),
+              eq(schema.providers.oauthProviderType, cred[0]!.providerType)
+            )
+          )
+          .limit(1)) as Array<{ id: number }>;
+      }
+    }
+    if (holders.length > 0 || fallbackHolders.length > 0) return null;
+    await this.db()
+      .delete(schema.oauthCredentials)
+      .where(eq(schema.oauthCredentials.id, credentialId));
+    return cred[0]!;
   }
 
   async getProviderModels(providerSlug: string): Promise<
@@ -427,6 +592,11 @@ export class ProviderRepository {
       estimateTokens: toBool(row.estimateTokens),
       useClaudeMasking: toBool(row.useClaudeMasking),
       gemini_thinking_enabled: toBool(row.geminiThinkingEnabled),
+      ...(row.cacheKeyInjection ? { cache_key_injection: row.cacheKeyInjection } : {}),
+      ...(() => {
+        const extensions = parseJson<ResponsesExtension[]>(row.responsesExtensions);
+        return Array.isArray(extensions) ? { responses_extensions: extensions } : {};
+      })(),
       auto_compat: toBool(row.autoCompat),
       ...(models ? { models } : {}),
       ...(row.headers ? { headers: decryptJsonField(row.headers) } : {}),
@@ -453,6 +623,7 @@ export class ProviderRepository {
       ...(row.stallGracePeriodMs != null ? { stallGracePeriodMs: row.stallGracePeriodMs } : {}),
       ...(row.maxConcurrency != null ? { maxConcurrency: row.maxConcurrency } : {}),
       ...(row.piAiProvider != null ? { pi_ai_provider: row.piAiProvider } : {}),
+      ...(row.piAiQuirks != null ? { pi_ai_quirks: parseJson(row.piAiQuirks) } : {}),
       ...(row.rawPassthrough ? { raw_passthrough: parseJson(row.rawPassthrough) } : {}),
     };
 

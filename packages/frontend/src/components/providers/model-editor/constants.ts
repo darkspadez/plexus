@@ -59,6 +59,12 @@ export function getApiBadgeClass(apiType: string): string {
       return 'bg-[#7c3aed] text-white border-none';
     case 'codex-images':
       return 'bg-[#10a37f] text-white border-none';
+    case 'systemone':
+      return 'bg-[#0284c7] text-white border-none';
+    case 'openrouter-decisions':
+      return 'bg-[#0ea5e9] text-white border-none';
+    case 'typesafe-decisions':
+      return 'bg-[#0284c7] text-white border-none';
     case 'ollama':
       return 'bg-[#1a5f7a] text-white border-none';
     default:

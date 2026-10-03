@@ -15,6 +15,7 @@ const typeToTone: Record<string, PillTone> = {
   transcriptions: 'info',
   speech: 'warning',
   image: 'accent',
+  decisions: 'info',
 };
 
 export const ModelTypeBadge: React.FC<ModelTypeBadgeProps> = ({ type, className }) => {

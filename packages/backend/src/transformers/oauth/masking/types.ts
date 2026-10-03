@@ -27,8 +27,15 @@
  *     isn't actually compatible, which would otherwise mislead the model
  *     or collide outright as a duplicate name. A same-name/same-shape tool
  *     (the caller genuinely has that CC tool) is left alone.
- *   - `mcp-shape.ts`: clusters MCP-server tools by shared name prefix into
- *     the `mcp__<server>__<tool>` convention real Claude Code uses.
+ *   - `cc-namespace-shape.ts`: inverts the old "detect MCP-shaped names"
+ *     heuristic. After the collision shape has had its pick, every remaining
+ *     caller tool whose name is NOT a current real CC tool name and does not
+ *     already carry the `mcp__<server>__<tool>` namespace is moved under that
+ *     namespace. This is the allow-list direction: only real CC names reach
+ *     Anthropic bare, so a name Anthropic fingerprints (e.g. the bare Exa
+ *     tool `web_search_exa`) can never leak, and a false rename of a
+ *     genuinely-current CC tool we haven't recorded is harmless (it just
+ *     looks like an MCP tool).
  *
  * This is a deliberate departure from an earlier per-client design (a
  * hardcoded opencode-specific allowlist that proactively renamed opencode's
@@ -60,11 +67,14 @@ export type RenamePair = readonly [string, string, string?];
  * argument-safe. Only `name` is required; `parameters` is the tool's
  * `input_schema` (JSON Schema), which lets a shape compare
  * `parameters.required` against a reference tool's required parameters
- * before proposing a rename.
+ * before proposing a rename. `type` is the raw wire `type` field when
+ * present, so a shape can leave server-side tools (`web_search_20250305`, …)
+ * untouched.
  */
 export interface ToolDescriptor {
   name: string;
   parameters?: Record<string, unknown> | undefined;
+  type?: string | undefined;
 }
 
 /**
