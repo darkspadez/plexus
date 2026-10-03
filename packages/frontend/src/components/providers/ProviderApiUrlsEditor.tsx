@@ -7,24 +7,6 @@ import { SectionCard } from '../ui/SectionCard';
 import { KV_REMOVE_BUTTON_CLASS, NotConfigured } from './KVSection';
 import type { Provider } from '../../lib/api';
 
-const KNOWN_APIS = [
-  'chat',
-  'completions',
-  'messages',
-  'gemini',
-  'embeddings',
-  'transcriptions',
-  'speech',
-  'openai-images',
-  'openrouter-images',
-  'codex-images',
-  'systemone',
-  'responses',
-  'ollama',
-];
-
-const API_TYPE_OPTIONS = KNOWN_APIS.map((t) => ({ value: t, label: t }));
-
 const CONNECTION_TYPE_OPTIONS = [
   { value: 'url', label: 'Custom API URL' },
   { value: 'oauth', label: 'OAuth (pi-ai)' },
@@ -91,6 +73,8 @@ function OllamaUrlWarnings({ apiType, url }: { apiType: string; url: string }) {
 }
 
 interface Props {
+  /** API types the provider form supports (hub's list). */
+  knownApis: readonly string[];
   isOAuthMode: boolean;
   getPrimaryEntry: () => { type: string; url: string };
   setPrimaryEntry: (newType: string, newUrl: string) => void;
@@ -109,6 +93,7 @@ interface Props {
 }
 
 export function ProviderApiUrlsEditor({
+  knownApis,
   isOAuthMode,
   getPrimaryEntry,
   setPrimaryEntry,
@@ -134,10 +119,10 @@ export function ProviderApiUrlsEditor({
       ? (editingProvider.apiBaseUrl as Record<string, string>)
       : {};
   const otherApiTypes = new Set(Object.keys(apiBaseUrlMap).slice(1));
-  const primaryTypeOptions = API_TYPE_OPTIONS.filter(
-    (opt) => opt.value === primaryType || !otherApiTypes.has(opt.value)
-  );
-  if (primaryType && !KNOWN_APIS.includes(primaryType)) {
+  const primaryTypeOptions = knownApis
+    .map((t) => ({ value: t, label: t }))
+    .filter((opt) => opt.value === primaryType || !otherApiTypes.has(opt.value));
+  if (primaryType && !knownApis.includes(primaryType)) {
     primaryTypeOptions.push({ value: primaryType, label: `${primaryType} (legacy)` });
   }
   const additionalBaseUrlEntries = Object.entries(apiBaseUrlMap).slice(1);
@@ -236,7 +221,7 @@ export function ProviderApiUrlsEditor({
                       e.stopPropagation();
                       addAdditionalBaseUrlEntry();
                     }}
-                    disabled={KNOWN_APIS.every((t) =>
+                    disabled={knownApis.every((t) =>
                       Object.prototype.hasOwnProperty.call(getApiBaseUrlMap(), t)
                     )}
                   >
@@ -265,13 +250,13 @@ export function ProviderApiUrlsEditor({
                             )
                           }
                           options={[
-                            ...KNOWN_APIS.filter((t) => t === apiType || !(t in apiBaseUrlMap)).map(
-                              (t) => ({ value: t, label: t })
-                            ),
+                            ...knownApis
+                              .filter((t) => t === apiType || !(t in apiBaseUrlMap))
+                              .map((t) => ({ value: t, label: t })),
                             // Stored configs can carry types no longer offered (e.g.
                             // pre-collapse Decisions names): show the current value so
                             // the select never misrepresents the config.
-                            ...(KNOWN_APIS.includes(apiType)
+                            ...(knownApis.includes(apiType)
                               ? []
                               : [{ value: apiType, label: `${apiType} (legacy)` }]),
                           ]}

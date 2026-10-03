@@ -2,11 +2,20 @@ import { Input } from '../ui/Input';
 import { SectionCard } from '../ui/SectionCard';
 import { ProviderApiUrlsEditor } from './ProviderApiUrlsEditor';
 import { ProviderOAuthEditor } from './ProviderOAuthEditor';
+import { ProviderPresetPicker } from './ProviderPresetPicker';
 import type { ProviderFormApi } from '../../hooks/useProviderForm';
 
 export function ProviderConnectionTab({ f }: { f: ProviderFormApi }) {
   return (
     <div className="flex flex-col gap-3">
+      {!f.originalId && (
+        <ProviderPresetPicker
+          editingProvider={f.editingProvider}
+          setEditingProvider={f.setEditingProvider}
+          onSelectionChange={f.setPresetSelected}
+        />
+      )}
+
       <SectionCard title="Provider details">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input
@@ -26,6 +35,7 @@ export function ProviderConnectionTab({ f }: { f: ProviderFormApi }) {
       </SectionCard>
 
       <ProviderApiUrlsEditor
+        knownApis={f.KNOWN_APIS}
         isOAuthMode={f.isOAuthMode}
         getPrimaryEntry={f.getPrimaryEntry}
         setPrimaryEntry={f.setPrimaryEntry}

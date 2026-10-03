@@ -1,5 +1,6 @@
 import React from 'react';
 import { getApiBaseType } from '../../lib/apiFormats';
+import { ApiTypeIcon } from '../logs/ApiTypeIcon';
 import { Pill } from './Pill';
 
 export type ApiFormat = 'OpenAI' | 'Anthropic' | 'Gemini' | 'Responses';
@@ -65,14 +66,25 @@ export const ApiFormatChip: React.FC<ApiFormatChipProps> = ({ format, className 
   if (!resolved) {
     return (
       <Pill size="sm" className={className}>
-        <span aria-hidden className="inline-block size-1.5 rounded-full bg-current" />
+        <ApiTypeIcon
+          apiType={format}
+          size={10}
+          logos={false}
+          decorative
+          fallback={<span aria-hidden className="inline-block size-1.5 rounded-full bg-current" />}
+        />
         {format}
       </Pill>
     );
   }
   const { hex, subtle } = FORMAT_HUES[resolved];
   return (
-    <Pill size="sm" className={className} style={{ color: hex, backgroundColor: subtle }}>
+    <Pill
+      size="sm"
+      className={className}
+      title={format}
+      style={{ color: hex, backgroundColor: subtle }}
+    >
       <span
         aria-hidden
         className="inline-block size-1.5 rounded-full"

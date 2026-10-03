@@ -11,6 +11,8 @@ Tracks pages migrated to the post-refresh design system (semantic background/sur
 | Providers | 2026-08-16 | `198ba788` | Edit drawer reworked into four `SectionCard` tabs inside a `Modal size="lg"`, with the page itself reduced to a thin composition shell. |
 | Dashboard | 2026-08-16 | `5513e383` | Collapsed the 4-tab Live/Usage/Performance/Overall surface into a single slim admin page (KPI tiles, timeline, service alerts, errors-by-provider) plus an optional Grafana link, pushing granular per-provider/model breakdowns to Grafana. Limited/scoped API keys keep a separate `OverallTab` view. |
 | Config | 2026-09-17 | `cc6f4760` | Upstream's `components/config/*` split adopted as the skeleton and restyled onto `SectionCard`; each settings group owns its own react-hook-form + zod schema. |
+| Models | 2026-09-17 | `4be56e1a` | Hand-rolled table replaced by `DataTable` with column meta and controlled row expansion; `AliasMobileCard` kept as the mobile surface so per-target enable/test stay one tap away. |
+| Playground | 2026-10-02 | post-`1d4f9d9c` | Last legacy page: classes remapped onto semantic tokens with nesting fixed (code/tool/reasoning blocks on `surface` inside the `surface-sunken` assistant bubble), composer gains a focus border. Behavior unchanged. |
 | Custom Quota Checkers | 2026-09-17 | `cc6f4760` | New upstream page given design treatment — raw inputs replaced with `Input`/`Select`/`Switch`/`FormField`, empty list on `EmptyState`. |
 
 ## Notes on the upstream merge (`32e83240`, `cc6f4760`)
@@ -31,9 +33,37 @@ Two corrections to earlier entries, recorded because the merge changed them:
   The other 11 cards, 6 modals and `pages/detailed-usage/` were dropped, since per-entity
   breakdowns belong in Grafana per the Dashboard entry above.
 
+## Notes on the upstream merge (`1d4f9d9c`, through upstream `a498b479`)
+
+A thin merge: conflicts were resolved to a compiling tree, then upstream features that
+landed in files this branch had replaced were placed in a follow-up commit.
+
+- **Providers** — the preset catalog (`#941`) is a "Start from a preset" `SectionCard` at
+  the top of the Connection tab, shown only when adding. A new **Request shaping** card on
+  the Transformations tab holds cache-key injection (`#949`) and Responses extensions
+  (`#963`). Compatibility gained the inline-quirks badge and upstream's Auto Compat gating
+  (`#912`); `ToggleRow` has an opt-in `wrap` so that explanation is never truncated. The
+  OAuth account field is gone (`#913`) — the provider ID is the account — and the pi-ai
+  provider select (with `- auto -` resolution) lives in `model-editor/ModelList`.
+- **Requests** — `ApiFormatChip` prefixes unbranded API types with `ApiTypeIcon`
+  (`#946`, decisions `#952`). Adapter rewrites show `route → upstream` on the model cell
+  and an *Upstream model* field in the dossier (`#918`); the `N×` attempts pill still means
+  retries only (`#926`).
+- **Quotas** — stale readings (`#936`) render a warning notice on every meter row of the
+  checker without changing its severity.
+- **Shell** — `VersionReloader` (`#951`/`#954`) is upstream's component restyled in place.
+  Tailwind v4 `z-*` utilities read `--z-index-*`, so token z-indexes are written
+  `z-(--z-toast)`; a bare `z-toast` generates no CSS.
+
 ## Outstanding
 
-- `pages/Playground.tsx` and `components/playground/PlaygroundChat.tsx` still carry ~83
-  dead legacy class references. Pre-existing — unchanged by the upstream merge.
+- `--accent-foreground` on the default amber accent is about 3.2:1, below AA for body-size
+  text (primary buttons, the Playground user bubble). A token-level fix, not per-component.
+- `components/config/DisplayPreferencesCard.tsx` — the currency `Select` renders narrower
+  than its chevron wrapper, so the chevron floats at the card's far edge.
+- `components/chips/ApiFormatChip.tsx` imports `ApiTypeIcon` from `components/logs/`; the
+  icon, its logo map and `isDecisionsApiType` belong in `chips/` or `lib/`.
+- `components/models/AliasTableRow.tsx` has no importers on this branch but is still
+  modified upstream; delete it in a dedicated change so future merges stop conflicting on it.
 - `components/config/types.ts` is now largely unused; the self-contained settings panels
   carry their own schemas. Kept as the documented shared contract pending a cleanup pass.

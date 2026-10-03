@@ -12,6 +12,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
 import { RequestDetailPanel } from '../components/logs/RequestDetailPanel';
 import { apiFormatsDiffer, getRoutePath } from '../components/logs/route';
+import { getAttemptIndicatorLabel, hasUpstreamRewrite } from '../components/logs/helpers';
 import { ApiFormatChip, Pill } from '../components/chips';
 import type { PillTone } from '../components/chips';
 import { SECTION_NAMES } from '../lib/nav';
@@ -221,51 +222,60 @@ const LogKeyCell = React.memo(({ log }: { log: UsageRecord }) => (
   </div>
 ));
 
-const LogRouteCell = React.memo(({ log }: { log: UsageRecord }) => (
-  <div className="flex min-w-0 max-w-[170px] flex-col gap-0.5 whitespace-nowrap 2xl:max-w-none">
-    <div className="group/alias flex items-center gap-1.5">
-      <span className="min-w-0 truncate font-mono text-sm font-medium">
-        {log.incomingModelAlias || '-'}
-      </span>
-      {log.incomingModelAlias && log.incomingModelAlias !== '-' && (
-        <button
-          type="button"
-          onClick={async () => {
-            if (!isClipboardAvailable()) return;
-            await copyToClipboard(log.incomingModelAlias || '');
-          }}
-          className="flex shrink-0 items-center border-0 bg-transparent p-0 opacity-0 transition-opacity group-hover/alias:opacity-100 disabled:opacity-0"
-          title={isClipboardAvailable() ? 'Copy incoming model alias' : 'Copy requires HTTPS'}
-          disabled={!isClipboardAvailable()}
+const LogRouteCell = React.memo(({ log }: { log: UsageRecord }) => {
+  const routeModel = log.finalAttemptModel ?? log.selectedModelName ?? '-';
+  const hasRewrite = hasUpstreamRewrite(log);
+  const selectedLabel = hasRewrite
+    ? `${log.provider || '-'}:${routeModel} → ${log.upstreamModel}`
+    : `${log.provider || '-'}:${routeModel}`;
+  return (
+    <div className="flex min-w-0 max-w-[170px] flex-col gap-0.5 whitespace-nowrap 2xl:max-w-none">
+      <div className="group/alias flex items-center gap-1.5">
+        <span className="min-w-0 truncate font-mono text-sm font-medium">
+          {log.incomingModelAlias || '-'}
+        </span>
+        {log.incomingModelAlias && log.incomingModelAlias !== '-' && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!isClipboardAvailable()) return;
+              await copyToClipboard(log.incomingModelAlias || '');
+            }}
+            className="flex shrink-0 items-center border-0 bg-transparent p-0 opacity-0 transition-opacity group-hover/alias:opacity-100 disabled:opacity-0"
+            title={isClipboardAvailable() ? 'Copy incoming model alias' : 'Copy requires HTTPS'}
+            disabled={!isClipboardAvailable()}
+          >
+            <Copy size={12} className="text-foreground-muted hover:text-foreground" />
+          </button>
+        )}
+      </div>
+      <div className="group/selected flex items-center gap-1.5 text-xs text-foreground-muted">
+        <span
+          className="min-w-0 truncate font-mono"
+          title={
+            hasRewrite ? `${selectedLabel} (route → upstream; quota uses route)` : selectedLabel
+          }
         >
-          <Copy size={12} className="text-foreground-muted hover:text-foreground" />
-        </button>
-      )}
+          {selectedLabel}
+        </span>
+        {log.selectedModelName && log.selectedModelName !== '-' && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!isClipboardAvailable()) return;
+              await copyToClipboard(log.selectedModelName || '');
+            }}
+            className="flex shrink-0 items-center border-0 bg-transparent p-0 opacity-0 transition-opacity group-hover/selected:opacity-100 disabled:opacity-0"
+            title={isClipboardAvailable() ? 'Copy selected model name' : 'Copy requires HTTPS'}
+            disabled={!isClipboardAvailable()}
+          >
+            <Copy size={10} className="text-foreground-muted hover:text-foreground" />
+          </button>
+        )}
+      </div>
     </div>
-    <div className="group/selected flex items-center gap-1.5 text-xs text-foreground-muted">
-      <span
-        className="min-w-0 truncate font-mono"
-        title={`${log.provider || '-'}:${log.selectedModelName || '-'}`}
-      >
-        {log.provider || '-'}:{log.selectedModelName || '-'}
-      </span>
-      {log.selectedModelName && log.selectedModelName !== '-' && (
-        <button
-          type="button"
-          onClick={async () => {
-            if (!isClipboardAvailable()) return;
-            await copyToClipboard(log.selectedModelName || '');
-          }}
-          className="flex shrink-0 items-center border-0 bg-transparent p-0 opacity-0 transition-opacity group-hover/selected:opacity-100 disabled:opacity-0"
-          title={isClipboardAvailable() ? 'Copy selected model name' : 'Copy requires HTTPS'}
-          disabled={!isClipboardAvailable()}
-        >
-          <Copy size={10} className="text-foreground-muted hover:text-foreground" />
-        </button>
-      )}
-    </div>
-  </div>
-));
+  );
+});
 
 // Cross-format rows say it with the pair itself (OpenAI → Anthropic);
 // passthrough says "direct"; same-format rows show the wire format.
@@ -509,6 +519,7 @@ const LogStatusCell = React.memo(({ log }: { log: UsageRecord }) => {
   // lives in the dossier's View error / View trace buttons (and the
   // actions column's trace button); clicks anywhere in this cell
   // bubble to the row and toggle expansion.
+  const hasRewrite = hasUpstreamRewrite(log);
   const statusPill: { tone: PillTone; label: string } = log.hasError
     ? { tone: 'danger', label: 'err' }
     : (RESPONSE_STATUS_PILLS[log.responseStatus] ?? RESPONSE_STATUS_PILL_FALLBACK);
@@ -518,13 +529,16 @@ const LogStatusCell = React.memo(({ log }: { log: UsageRecord }) => {
       <Pill tone={statusPill.tone} size="sm">
         {statusPill.label}
       </Pill>
-      {log.attemptCount && log.attemptCount > 1 && (
+      {getAttemptIndicatorLabel(log.attemptCount) && (
         <Pill
           tone="warning"
           size="sm"
-          title={`${log.attemptCount} attempts — expand the row for details`}
+          title={`${log.attemptCount} attempts${hasRewrite ? ' (model rewritten upstream)' : ''} — expand the row for details`}
         >
-          {log.attemptCount}×
+          <span aria-hidden>{log.attemptCount}×</span>
+          <span className="sr-only">
+            {log.attemptCount} attempts{hasRewrite ? ', model rewritten upstream' : ''}
+          </span>
         </Pill>
       )}
     </div>

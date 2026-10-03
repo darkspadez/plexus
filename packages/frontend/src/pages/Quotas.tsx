@@ -12,6 +12,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
 import { formatMeterValue } from '../components/quota/MeterValue';
 import { MeterHistoryModal } from '../components/quota/MeterHistoryModal';
+import { StaleReadingNotice } from '../components/quota/StaleReadingNotice';
 import type { Meter, QuotaCheckerInfo } from '../types/quota';
 import {
   buildQuotaTableRows,
@@ -198,7 +199,18 @@ export const Quotas = () => {
               return <span className="text-xs text-foreground-subtle">Pending first check...</span>;
             }
             if (r.checkerSuccess) {
-              return <span className="text-xs text-foreground-subtle">No meters reported</span>;
+              return (
+                <div>
+                  <span className="text-xs text-foreground-subtle">No meters reported</span>
+                  {r.checkerStale && (
+                    <StaleReadingNotice
+                      error={r.checkerError}
+                      hasReading={false}
+                      className="mt-0.5"
+                    />
+                  )}
+                </div>
+              );
             }
             return (
               <span className="line-clamp-1 text-xs text-foreground-subtle" title={r.checkerError}>
@@ -220,6 +232,9 @@ export const Quotas = () => {
                 </span>
               </div>
               {subtext && <div className="text-xs text-foreground-subtle">{subtext}</div>}
+              {r.checkerStale && (
+                <StaleReadingNotice error={r.checkerError} hasReading className="mt-0.5" />
+              )}
             </div>
           );
         },

@@ -27,6 +27,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Switch } from '../ui/Switch';
+import { targetTestKey } from '../../pages/models/test-state';
 import type { AliasTargetGroup, Provider, Model } from '../../lib/api';
 
 type Target = AliasTargetGroup['targets'][number];
@@ -35,6 +36,8 @@ interface TestState {
   loading?: boolean;
   result?: 'success' | 'error';
   showResult?: boolean;
+  showMessage?: boolean;
+  message?: string;
 }
 
 interface ProviderMappingsEditorProps {
@@ -45,6 +48,7 @@ interface ProviderMappingsEditorProps {
   testStates: Record<string, TestState | undefined>;
   onChange: (targets: Target[]) => void;
   onTest: (index: number, provider: string, model: string) => void;
+  onDismissTestMessage?: (testKey: string) => void;
 }
 
 const SELECT_CLS =
@@ -60,6 +64,7 @@ const MappingRow: React.FC<{
   onChange: (patch: Partial<Target>) => void;
   onTest: () => void;
   onDelete: () => void;
+  onDismissMessage?: () => void;
 }> = ({
   rowId,
   index,
@@ -70,6 +75,7 @@ const MappingRow: React.FC<{
   onChange,
   onTest,
   onDelete,
+  onDismissMessage,
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: rowId,
@@ -83,77 +89,100 @@ const MappingRow: React.FC<{
   const canTest = target.enabled !== false && !!target.provider && !!target.model;
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-2 rounded-md py-1">
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="cursor-grab text-foreground-muted active:cursor-grabbing"
-        aria-label="Drag to reorder"
-      >
-        <GripVertical size={14} />
-      </button>
-      <span className="w-4 shrink-0 text-center font-mono text-[11px] text-foreground-muted">
-        {index + 1}
-      </span>
-      <Switch
-        checked={target.enabled !== false}
-        onChange={(val) => onChange({ enabled: val })}
-        size="sm"
-      />
-      <select
-        className={`${SELECT_CLS} w-40 shrink-0`}
-        value={target.provider}
-        onChange={(e) => onChange({ provider: e.target.value, model: '' })}
-      >
-        <option value="">Provider…</option>
-        {providers.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-      <span className="shrink-0 text-foreground-muted">→</span>
-      <select
-        className={`${SELECT_CLS} min-w-0 flex-1`}
-        value={target.model}
-        onChange={(e) => onChange({ model: e.target.value })}
-        disabled={!target.provider}
-      >
-        <option value="">Select model…</option>
-        {filteredModels.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.name}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        onClick={onTest}
-        disabled={!canTest}
-        title="Test mapping"
-        aria-label="Test mapping"
-        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success disabled:opacity-40"
-      >
-        {testState?.loading ? (
-          <Loader2 size={14} className="animate-spin" />
-        ) : testState?.showResult && testState.result === 'success' ? (
-          <CheckCircle size={14} className="text-success" />
-        ) : testState?.showResult && testState.result === 'error' ? (
-          <XCircle size={14} className="text-danger" />
-        ) : (
-          <Play size={14} />
-        )}
-      </button>
-      <button
-        type="button"
-        onClick={onDelete}
-        title="Delete mapping"
-        aria-label="Delete mapping"
-        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger"
-      >
-        <Trash2 size={14} />
-      </button>
+    <div ref={setNodeRef} style={style} className="flex flex-col gap-1 rounded-md py-1">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="cursor-grab text-foreground-muted active:cursor-grabbing"
+          aria-label="Drag to reorder"
+        >
+          <GripVertical size={14} />
+        </button>
+        <span className="w-4 shrink-0 text-center font-mono text-[11px] text-foreground-muted">
+          {index + 1}
+        </span>
+        <Switch
+          checked={target.enabled !== false}
+          onChange={(val) => onChange({ enabled: val })}
+          size="sm"
+        />
+        <select
+          className={`${SELECT_CLS} w-40 shrink-0`}
+          value={target.provider}
+          onChange={(e) => onChange({ provider: e.target.value, model: '' })}
+        >
+          <option value="">Provider…</option>
+          {providers.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <span className="shrink-0 text-foreground-muted">→</span>
+        <select
+          className={`${SELECT_CLS} min-w-0 flex-1`}
+          value={target.model}
+          onChange={(e) => onChange({ model: e.target.value })}
+          disabled={!target.provider}
+        >
+          <option value="">Select model…</option>
+          {filteredModels.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={onTest}
+          disabled={!canTest}
+          title="Test mapping"
+          aria-label="Test mapping"
+          className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success disabled:opacity-40"
+        >
+          {testState?.loading ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : testState?.showResult && testState.result === 'success' ? (
+            <CheckCircle size={14} className="text-success" />
+          ) : testState?.showResult && testState.result === 'error' ? (
+            <XCircle size={14} className="text-danger" />
+          ) : (
+            <Play size={14} />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          title="Delete mapping"
+          aria-label="Delete mapping"
+          className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+      {testState?.showMessage && testState.message && (
+        <button
+          type="button"
+          aria-label="Dismiss test message"
+          onClick={onDismissMessage}
+          className={`ml-6 w-fit max-w-full cursor-pointer rounded border px-2 py-1 text-left ${
+            testState.result === 'error'
+              ? 'border-danger/30 bg-danger/10'
+              : 'border-success/30 bg-success/10'
+          }`}
+          title="Click to dismiss"
+        >
+          <span
+            className={`break-words text-[11px] italic ${
+              testState.result === 'error' ? 'text-danger' : 'text-success'
+            }`}
+          >
+            {testState.message} [×]
+          </span>
+        </button>
+      )}
     </div>
   );
 };
@@ -166,6 +195,7 @@ export const ProviderMappingsEditor: React.FC<ProviderMappingsEditorProps> = ({
   testStates,
   onChange,
   onTest,
+  onDismissTestMessage,
 }) => {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -201,13 +231,14 @@ export const ProviderMappingsEditor: React.FC<ProviderMappingsEditorProps> = ({
                 target={target}
                 providers={providers}
                 availableModels={availableModels}
-                testState={testStates[`${aliasId}-0-${i}`]}
+                testState={testStates[targetTestKey(aliasId, 0, i)]}
                 onChange={(patch) => update(i, patch)}
                 onTest={() => {
                   if (!target.provider || !target.model) return;
                   onTest(i, target.provider, target.model);
                 }}
                 onDelete={() => remove(i)}
+                onDismissMessage={() => onDismissTestMessage?.(targetTestKey(aliasId, 0, i))}
               />
             ))}
           </div>

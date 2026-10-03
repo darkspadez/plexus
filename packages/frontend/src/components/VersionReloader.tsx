@@ -132,15 +132,12 @@ export const VersionReloader: React.FC = () => {
   if (!update) return null;
 
   return createPortal(
-    <div className="fixed bottom-4 left-1/2 z-[500] w-max max-w-[92vw] -translate-x-1/2">
-      <div className="flex items-center gap-3 rounded-lg border border-info/40 bg-bg-surface px-4 py-3 shadow-modal backdrop-blur-md">
-        <RefreshCw size={16} className="flex-shrink-0 text-info" />
-        <div className="font-body text-xs text-text-secondary">
-          A new version (<span className="text-text">{update.label}</span>) is available.
+    <div className="fixed bottom-4 left-1/2 z-(--z-toast) w-max max-w-[92vw] -translate-x-1/2">
+      <div className="flex items-center gap-3 rounded-lg border border-info/40 bg-surface-elevated px-4 py-3 shadow-modal">
+        <RefreshCw size={16} className="shrink-0 text-info" />
+        <div className="text-xs text-foreground-muted">
+          A new version (<span className="text-foreground">{update.label}</span>) is available.
         </div>
-        <Button size="sm" onClick={() => window.location.reload()}>
-          Refresh
-        </Button>
         <Button
           size="sm"
           variant="ghost"
@@ -150,6 +147,9 @@ export const VersionReloader: React.FC = () => {
           }}
         >
           Later
+        </Button>
+        <Button size="sm" onClick={() => window.location.reload()}>
+          Reload now
         </Button>
       </div>
     </div>,

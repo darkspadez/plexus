@@ -237,4 +237,29 @@ describe('buildQuotaTableRows', () => {
     const row = rows.find((r) => r.checkerId === 'openrouter-1')!;
     expect(row.checkedAt).toBeUndefined();
   });
+
+  test('checkerStale: copied to every row; defaults to false; severity unchanged', () => {
+    const stale: QuotaCheckerInfo = {
+      checkerId: 'muse-1',
+      checkerType: 'muse',
+      success: true,
+      stale: true,
+      error: 'upstream 503',
+      meters: [meter({ key: 'a', status: 'ok' }), meter({ key: 'b', status: 'warning' })],
+    };
+    const rows = buildQuotaTableRows([stale, CHECKERS[0]]);
+    const museRows = rows.filter((r) => r.checkerId === 'muse-1');
+    expect(museRows.map((r) => r.checkerStale)).toEqual([true, true]);
+    expect(museRows.map((r) => r.severity).sort()).toEqual(['ok', 'warning']);
+    expect(museRows[0].checkerError).toBe('upstream 503');
+    expect(rows.find((r) => r.checkerId === 'openrouter-1')!.checkerStale).toBe(false);
+    const failed: QuotaCheckerInfo = {
+      checkerId: 'bad-1',
+      checkerType: 'bad',
+      success: false,
+      error: 'boom',
+      meters: [],
+    };
+    expect(buildQuotaTableRows([failed])[0].checkerStale).toBe(false);
+  });
 });

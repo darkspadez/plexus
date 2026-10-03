@@ -62,12 +62,14 @@ export function ModelCard({
   return (
     <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-3">
       {testState?.showMessage && testState.message && (
-        <div
+        <button
+          type="button"
+          aria-label="Dismiss test message"
           onClick={(e) => {
             e.stopPropagation();
             onDismissTestMessage(testKey);
           }}
-          className={`cursor-pointer rounded border px-2 py-1 ${
+          className={`w-fit max-w-full cursor-pointer rounded border px-2 py-1 text-left ${
             testState.result === 'error'
               ? 'border-danger/30 bg-danger/10'
               : 'border-success/30 bg-success/10'
@@ -75,13 +77,13 @@ export function ModelCard({
           title="Click to dismiss"
         >
           <span
-            className={`text-[11px] italic ${
+            className={`break-words text-[11px] italic ${
               testState.result === 'error' ? 'text-danger' : 'text-success'
             }`}
           >
             {testState.message} [×]
           </span>
-        </div>
+        </button>
       )}
 
       {/* 2-column primary layout: left = identity, right = pricing */}

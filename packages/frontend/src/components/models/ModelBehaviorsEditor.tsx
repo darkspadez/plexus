@@ -125,10 +125,10 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
 
             <div className="flex items-center justify-between py-1">
               <div>
-                <span className="font-body text-[13px] text-text">
+                <span className="font-sans text-[13px] text-foreground">
                   Synthetic Auto Mode Approval
                 </span>
-                <p className="font-body text-[11px] text-text-muted mt-0.5">
+                <p className="font-sans text-[11px] text-foreground-subtle mt-0.5">
                   For translated (non-Anthropic) targets, answer Claude Code safeguards requests
                   with a synthetic not_flagged verdict that states no real classifier ran. Opt-in
                   only; off by default.

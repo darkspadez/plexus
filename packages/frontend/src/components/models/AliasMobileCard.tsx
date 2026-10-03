@@ -9,6 +9,7 @@ import type { Alias, Provider, Cooldown } from '../../lib/api';
 import { getAliasProviderLabels, getAliasTargetCount } from '../../lib/modelList';
 import { dedupeStrings } from '../../lib/modelOptions';
 import { formatMsToMinSec } from '@plexus/shared';
+import { targetTestKey } from '../../pages/models/test-state';
 
 interface Props {
   alias: Alias;
@@ -189,7 +190,7 @@ export const AliasMobileCard: React.FC<Props> = ({
               const isProviderDisabled = provider?.enabled === false;
               const isTargetDisabled = t.enabled === false;
               const isDisabled = isProviderDisabled || isTargetDisabled;
-              const testKey = `${alias.id}-${i}`;
+              const testKey = targetTestKey(alias.id, 0, i);
               const testState = testStates[testKey];
               const cooldown = cooldowns.find(
                 (c) => c.provider === t.provider && c.model === t.model && !c.accountId
@@ -267,18 +268,20 @@ export const AliasMobileCard: React.FC<Props> = ({
                     </div>
                   </div>
                   {testState?.showMessage && testState.result === 'error' && testState.message && (
-                    <div
+                    <button
+                      type="button"
+                      aria-label="Dismiss test message"
                       onClick={(e) => {
                         e.stopPropagation();
                         onDismissTestMessage(testKey);
                       }}
-                      className="mt-2 cursor-pointer rounded border border-danger/30 bg-danger/10 px-2 py-1"
+                      className="mt-2 block w-fit max-w-full cursor-pointer rounded border border-danger/30 bg-danger/10 px-2 py-1 text-left"
                       title="Click to dismiss"
                     >
-                      <span className="text-[11px] italic text-danger">
+                      <span className="break-words text-[11px] italic text-danger">
                         {testState.message} [×]
                       </span>
-                    </div>
+                    </button>
                   )}
                 </div>
               );

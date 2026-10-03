@@ -1,7 +1,17 @@
 import { useState } from 'react';
+import {
+  getDefaultCacheKeyInjection,
+  getDefaultResponsesExtensions,
+  PROVIDER_CACHE_KEY_INJECTION_OPTIONS,
+  RESPONSES_EXTENSION_OPTIONS,
+  type ProviderCacheKeyInjection,
+  type ResponsesExtension,
+} from '@plexus/shared';
+import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Input } from '../ui/Input';
 import { DebouncedInput } from '../ui/DebouncedInput';
+import { FormField } from '../ui/FormField';
 import { Select } from '../ui/Select';
 import { Switch } from '../ui/Switch';
 import { SectionCard } from '../ui/SectionCard';
@@ -115,17 +125,38 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
             isAnthropicUrl(value)
           );
         }));
+  const effectiveResponsesExtensions: ResponsesExtension[] =
+    editingProvider.responsesExtensions ??
+    getDefaultResponsesExtensions({
+      oauthProvider: editingProvider.oauthProvider,
+      apiBaseUrl: editingProvider.apiBaseUrl,
+    });
   const hasCustomCompaction =
     editingProvider.compaction && Object.values(editingProvider.compaction).some((v) => v != null);
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionCard title="Compatibility">
+      <SectionCard
+        title="Compatibility"
+        extra={
+          editingProvider.pi_ai_quirks ? (
+            <Badge status="info" noDot title="This provider declares inline pi-ai-style quirks">
+              inline quirks active
+            </Badge>
+          ) : undefined
+        }
+      >
         <div className="flex flex-col divide-y divide-border">
           <ToggleRow
             label="Auto Compat"
-            description="Use pi-ai registry reasoning and generation compatibility."
+            description="Translates reasoning and generation options using a mapped pi-ai model or declared inline quirks. A pi-ai provider also needs per-model pi-ai Model IDs; inline quirks do not."
             checked={editingProvider.auto_compat || false}
+            wrap
+            disabled={
+              !editingProvider.pi_ai_provider &&
+              !editingProvider.pi_ai_quirks &&
+              !editingProvider.auto_compat
+            }
             onChange={(checked) => setEditingProvider({ ...editingProvider, auto_compat: checked })}
           />
           <ToggleRow
@@ -187,6 +218,95 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
                   { value: 'off', label: 'Disabled' },
                 ]}
               />
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Request shaping">
+        <div className="flex flex-col gap-4">
+          <FormField
+            label="Cache Key Injection"
+            htmlFor="provider-cache-key-injection"
+            hint="Inject Plexus's derived per-run cache/session key into this field so upstream prompt-cache routing doesn't depend on the client. Meta OAuth defaults to prompt_cache_key."
+          >
+            <Select<ProviderCacheKeyInjection>
+              id="provider-cache-key-injection"
+              value={
+                editingProvider.cacheKeyInjection ??
+                getDefaultCacheKeyInjection(editingProvider.oauthProvider) ??
+                'off'
+              }
+              onChange={(value) =>
+                setEditingProvider({ ...editingProvider, cacheKeyInjection: value })
+              }
+              options={PROVIDER_CACHE_KEY_INJECTION_OPTIONS.map((option) => ({
+                value: option.value,
+                label: option.label,
+              }))}
+            />
+          </FormField>
+
+          <div
+            className="flex flex-col gap-1.5"
+            role="group"
+            aria-labelledby="provider-responses-extensions-label"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span
+                id="provider-responses-extensions-label"
+                className="font-sans text-xs font-medium text-foreground-muted"
+              >
+                Native Responses Extensions
+              </span>
+              {editingProvider.responsesExtensions !== undefined && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    setEditingProvider({ ...editingProvider, responsesExtensions: undefined })
+                  }
+                >
+                  Use default
+                </Button>
+              )}
+            </div>
+            {RESPONSES_EXTENSION_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-start gap-2"
+                title={option.description}
+              >
+                <input
+                  type="checkbox"
+                  checked={effectiveResponsesExtensions.includes(option.value)}
+                  className="mt-0.5 shrink-0 accent-accent"
+                  onChange={(e) => {
+                    const next = new Set(effectiveResponsesExtensions);
+                    if (e.target.checked) next.add(option.value);
+                    else next.delete(option.value);
+                    setEditingProvider({
+                      ...editingProvider,
+                      responsesExtensions: RESPONSES_EXTENSION_OPTIONS.map((o) => o.value).filter(
+                        (value) => next.has(value)
+                      ),
+                    });
+                  }}
+                />
+                <div>
+                  <div className="font-sans text-[12px] text-foreground">{option.label}</div>
+                  <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                    {option.description}
+                  </div>
+                </div>
+              </label>
+            ))}
+            <div className="font-sans text-[11px] leading-snug text-foreground-subtle">
+              Responses API extensions this provider&apos;s Responses endpoint accepts verbatim.
+              Requests using any other extension are flattened to plain function tools and split
+              back on the response. The default follows the OAuth provider or Responses endpoint
+              (Codex, api.openai.com, api.meta.ai); other endpoints accept custom tools only. Models
+              routed via the responses:lite subtype always use the fixed lite contract instead.
             </div>
           </div>
         </div>
@@ -255,7 +375,7 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
                   <input
                     type="checkbox"
                     checked={active}
-                    className="mt-0.5 shrink-0"
+                    className="mt-0.5 shrink-0 accent-accent"
                     onChange={() => {
                       const current: any[] = editingProvider.adapter ?? [];
                       const next = active
@@ -332,7 +452,7 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
                     <input
                       type="checkbox"
                       checked={active}
-                      className="mt-0.5 shrink-0"
+                      className="mt-0.5 shrink-0 accent-accent"
                       onChange={toggleActive}
                     />
                     <div>

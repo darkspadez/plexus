@@ -23,6 +23,8 @@ export interface QuotaTableRow {
   severity: QuotaRowSeverity;
   checkerSuccess: boolean;
   checkerError?: string;
+  /** Last refresh failed; meters are the previous good reading (#936). */
+  checkerStale: boolean;
   checkedAt?: string;
   pending: boolean;
 }
@@ -75,6 +77,7 @@ export function buildQuotaTableRows(
       severity: entry.severity,
       checkerSuccess: checker.success,
       checkerError: checker.error,
+      checkerStale: checker.stale ?? false,
       checkedAt: checker.checkedAt,
       pending: checker.pending ?? false,
     }));

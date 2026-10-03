@@ -4,6 +4,7 @@ import { CloudUpload, CloudDownload, BrainCog, PackageOpen, PencilLine } from 'l
 import { useCurrency } from '../../lib/CurrencyContext';
 import type { UsageRecord } from '../../lib/api';
 import { apiFormatsDiffer, getRoutePath } from './route';
+import { hasUpstreamRewrite } from './helpers';
 import {
   KWH_PER_SLICE,
   formatCostIn,
@@ -177,6 +178,13 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
             <Field label="Route">
               <ApiRoute incoming={log.incomingApiType} outgoing={log.outgoingApiType} />
             </Field>
+            {hasUpstreamRewrite(log) && (
+              <Field label="Upstream model">
+                <span className="break-all font-mono" title="route → upstream; quota uses route">
+                  {log.upstreamModel}
+                </span>
+              </Field>
+            )}
             <Field label="Mode">{modeWords}</Field>
             {log.visionFallthroughModel && (
               <Field label="Vision fallthrough">
@@ -448,9 +456,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
                         ? ` → ${attempt.upstreamModel}`
                         : null}
                     </span>
-                    {attempt.apiType && (
-                      <span className="font-mono text-foreground-muted">{attempt.apiType}</span>
-                    )}
+                    {attempt.apiType && <ApiFormatChip format={attempt.apiType} />}
                     <Pill
                       size="sm"
                       tone={

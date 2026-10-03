@@ -11,11 +11,9 @@ import {
   type ResponsesExtension,
 } from '@plexus/shared';
 import { api, type Provider } from '../../lib/api';
-
-const SELECT_CLASS =
-  'w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary';
-const INPUT_CLASS =
-  'w-full h-[27px] py-0 px-2 font-body text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary';
+import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
+import { SectionCard } from '../ui/SectionCard';
 
 interface Props {
   editingProvider: Provider;
@@ -235,112 +233,102 @@ export function ProviderPresetPicker({
   const unresolvedVars = findUnresolvedPresetVars(draftMap);
 
   return (
-    <div className="flex flex-col gap-2 border border-border-glass rounded-md p-3 bg-bg-subtle">
-      <div className="flex flex-col gap-1">
-        <label className="font-body text-[13px] font-medium text-text-secondary">
-          Start from a preset
-        </label>
-        <select
-          className={SELECT_CLASS}
-          value={selectedPresetId}
-          onChange={(e) => handleSelect(e.target.value)}
-          disabled={isLoading}
-        >
-          <option value="">{isLoading ? 'Loading presets…' : 'Custom (blank)'}</option>
-          {presets.map((preset) => (
-            <option key={preset.id} value={preset.id}>
-              {preset.name}
-            </option>
-          ))}
-        </select>
-        {loadError && (
-          <div className="text-[11px] text-text-secondary" style={{ fontStyle: 'italic' }}>
-            Couldn&apos;t load provider presets ({loadError}). You can still configure a provider
-            manually below.
-          </div>
-        )}
-      </div>
-
-      {selectedPreset && (
-        <div className="flex flex-col gap-2 text-[11px] text-text-secondary leading-relaxed">
-          {selectedPreset.description && <div>{selectedPreset.description}</div>}
-
-          {selectedPreset.experimentalApis.length > 0 && (
-            <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
-              <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
-              <span className="text-warning">
-                Unverified endpoints, confirm before relying on them:{' '}
-                <span style={{ fontWeight: 600 }}>
-                  {selectedPreset.experimentalApis.join(', ')}
-                </span>
-              </span>
+    <SectionCard title="Start from a preset">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <Select
+            aria-label="Start from a preset"
+            value={selectedPresetId}
+            onChange={handleSelect}
+            disabled={isLoading}
+            options={[
+              { value: '', label: isLoading ? 'Loading presets…' : 'Custom (blank)' },
+              ...presets.map((preset) => ({ value: preset.id, label: preset.name })),
+            ]}
+          />
+          {loadError && (
+            <div className="text-[11px] italic text-foreground-muted">
+              Couldn&apos;t load provider presets ({loadError}). You can still configure a provider
+              manually below.
             </div>
           )}
+        </div>
 
-          {selectedPreset.templateVars.length > 0 && (
-            <div className="flex flex-col gap-1">
-              {selectedPreset.templateVars.map((variable) => (
-                <div key={variable.key} className="flex flex-col gap-1">
-                  <label className="font-body text-[12px] font-medium text-text-secondary">
-                    {variable.label}
-                  </label>
-                  <input
-                    className={INPUT_CLASS}
+        {selectedPreset && (
+          <div className="flex flex-col gap-2 text-[11px] leading-relaxed text-foreground-muted">
+            {selectedPreset.description && <div>{selectedPreset.description}</div>}
+
+            {selectedPreset.experimentalApis.length > 0 && (
+              <div className="flex items-start gap-2 rounded-sm border border-warning/30 bg-warning/10 px-2 py-1.5">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
+                <span className="text-warning">
+                  Unverified endpoints, confirm before relying on them:{' '}
+                  <span className="font-semibold">
+                    {selectedPreset.experimentalApis.join(', ')}
+                  </span>
+                </span>
+              </div>
+            )}
+
+            {selectedPreset.templateVars.length > 0 && (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {selectedPreset.templateVars.map((variable) => (
+                  <Input
+                    key={variable.key}
+                    label={variable.label}
                     placeholder={variable.placeholder ?? variable.key}
                     value={varValues[variable.key] ?? ''}
                     onChange={(e) => handleVarChange(selectedPreset, variable.key, e.target.value)}
                   />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {unresolvedVars.length > 0 && (
-            <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
-              <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
-              <span className="text-warning">
-                Unfilled template values ({unresolvedVars.join(', ')}) — fill them in above or edit
-                the URLs directly. Saving is blocked until they are resolved.
-              </span>
-            </div>
-          )}
-
-          {selectedPreset.notes && (
-            <div style={{ fontStyle: 'italic' }}>{selectedPreset.notes}</div>
-          )}
-
-          <div className="text-[11px] text-text-secondary">
-            Pre-fills {Object.keys(selectedPreset.apiBaseUrl).join(', ')} endpoints.{' '}
-            {selectedPreset.piAiProvider ? (
-              <>
-                Uses the pi-ai <code className="text-primary">{selectedPreset.piAiProvider}</code>{' '}
-                catalog; auto-compat requires a matching model ID.
-              </>
-            ) : selectedPreset.piAiQuirks ? (
-              <>
-                Uses inline pi-ai-style quirks
-                {selectedPreset.autoCompat ? '.' : ' (auto-compat is off).'}
-              </>
-            ) : (
-              <>No automatic quirk handling.</>
-            )}{' '}
-            Add your API key.
-            {selectedPreset.docsUrl && (
-              <>
-                {' '}
-                <a
-                  href={selectedPreset.docsUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary inline-flex items-center gap-1"
-                >
-                  Provider docs <ExternalLink size={12} />
-                </a>
-              </>
+                ))}
+              </div>
             )}
+
+            {unresolvedVars.length > 0 && (
+              <div className="flex items-start gap-2 rounded-sm border border-warning/30 bg-warning/10 px-2 py-1.5">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
+                <span className="text-warning">
+                  Unfilled template values ({unresolvedVars.join(', ')}) — fill them in above or
+                  edit the URLs directly. Saving is blocked until they are resolved.
+                </span>
+              </div>
+            )}
+
+            {selectedPreset.notes && <div className="italic">{selectedPreset.notes}</div>}
+
+            <div>
+              Pre-fills {Object.keys(selectedPreset.apiBaseUrl).join(', ')} endpoints.{' '}
+              {selectedPreset.piAiProvider ? (
+                <>
+                  Uses the pi-ai <code className="text-accent">{selectedPreset.piAiProvider}</code>{' '}
+                  catalog; auto-compat requires a matching model ID.
+                </>
+              ) : selectedPreset.piAiQuirks ? (
+                <>
+                  Uses inline pi-ai-style quirks
+                  {selectedPreset.autoCompat ? '.' : ' (auto-compat is off).'}
+                </>
+              ) : (
+                <>No automatic quirk handling.</>
+              )}{' '}
+              Add your API key.
+              {selectedPreset.docsUrl && (
+                <>
+                  {' '}
+                  <a
+                    href={selectedPreset.docsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-accent hover:underline"
+                  >
+                    Provider docs <ExternalLink size={12} />
+                  </a>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </SectionCard>
   );
 }

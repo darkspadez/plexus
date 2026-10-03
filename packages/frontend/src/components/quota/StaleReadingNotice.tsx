@@ -21,8 +21,13 @@ export const StaleReadingNotice: React.FC<StaleReadingNoticeProps> = ({
   hasReading,
   className,
 }) => (
-  <div className={clsx('flex items-center gap-1.5 text-xs text-warning', className)} title={error}>
-    <AlertTriangle size={13} aria-hidden="true" />
-    <span className="truncate">{getStaleReadingMessage(error, hasReading)}</span>
+  <div
+    className={clsx('flex min-w-0 items-start gap-1.5 text-xs text-warning', className)}
+    title={error}
+  >
+    <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+    <span className="line-clamp-2 [overflow-wrap:anywhere]">
+      {getStaleReadingMessage(error, hasReading)}
+    </span>
   </div>
 );

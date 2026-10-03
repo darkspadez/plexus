@@ -195,6 +195,7 @@ export function ModelIdentity({
                   <label className="flex cursor-pointer items-center gap-[3px]">
                     <input
                       type="checkbox"
+                      className="accent-accent"
                       checked={selected}
                       onChange={() => {
                         if (mCfg.type === 'image') {

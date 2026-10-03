@@ -301,7 +301,7 @@ export const Playground = () => {
         />
         <PageContainer>
           <Card className="min-h-[16rem]">
-            <div className="flex h-64 items-center justify-center gap-2 text-sm text-text-secondary">
+            <div className="flex h-64 items-center justify-center gap-2 text-sm text-foreground-muted">
               <RefreshCw className="h-4 w-4 animate-spin" />
               Loading playground data...
             </div>
@@ -343,7 +343,7 @@ export const Playground = () => {
               <div className="space-y-1">
                 <label
                   htmlFor="playground-key"
-                  className="font-mono text-[9px] uppercase tracking-wider text-text-muted"
+                  className="font-mono text-[9px] uppercase tracking-wider text-foreground-subtle"
                 >
                   Key
                 </label>
@@ -361,7 +361,7 @@ export const Playground = () => {
               <div className="space-y-1">
                 <label
                   htmlFor="playground-model"
-                  className="font-mono text-[9px] uppercase tracking-wider text-text-muted"
+                  className="font-mono text-[9px] uppercase tracking-wider text-foreground-subtle"
                 >
                   Model
                 </label>
@@ -379,7 +379,7 @@ export const Playground = () => {
               <div className="space-y-1">
                 <label
                   htmlFor="playground-api"
-                  className="font-mono text-[9px] uppercase tracking-wider text-text-muted"
+                  className="font-mono text-[9px] uppercase tracking-wider text-foreground-subtle"
                 >
                   API
                 </label>
@@ -393,15 +393,15 @@ export const Playground = () => {
               </div>
 
               <div className="space-y-1">
-                <div className="font-mono text-[9px] uppercase tracking-wider text-text-muted">
+                <div className="font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
                   Tool Mode
                 </div>
-                <label className="flex h-8 cursor-pointer items-center gap-2 text-xs text-text-secondary">
+                <label className="flex h-8 cursor-pointer items-center gap-2 text-xs text-foreground-muted">
                   <input
                     type="checkbox"
                     checked={toolMode === 'sample-tools'}
                     onChange={(event) => setToolMode(event.target.checked ? 'sample-tools' : 'off')}
-                    className="h-3.5 w-3.5 accent-primary"
+                    className="h-3.5 w-3.5 accent-accent"
                   />
                   Sample browser tools
                 </label>
@@ -409,15 +409,15 @@ export const Playground = () => {
             </div>
 
             {selectedKey ? (
-              <dl className="grid content-start gap-1.5 border-t border-border pt-3 text-[11px] text-text-secondary sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+              <dl className="grid content-start gap-1.5 border-t border-border pt-3 text-[11px] text-foreground-muted sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
                 <div className="grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2">
-                  <dt className="font-mono text-[9px] uppercase tracking-wider text-text-muted">
+                  <dt className="font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
                     Policy
                   </dt>
                   <dd
                     className={
                       selectedModel && (!keyAllowsSelectedModel || keyExcludesSelectedModel)
-                        ? 'inline-flex items-center gap-1 font-medium text-amber-200'
+                        ? 'inline-flex items-center gap-1 font-medium text-warning'
                         : 'inline-flex items-center gap-1 font-medium text-success'
                     }
                   >
@@ -433,16 +433,16 @@ export const Playground = () => {
                 </div>
 
                 <div className="grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2">
-                  <dt className="font-mono text-[9px] uppercase tracking-wider text-text-muted">
+                  <dt className="font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
                     Comment
                   </dt>
-                  <dd className="truncate text-text" title={selectedKey.comment || 'None'}>
+                  <dd className="truncate text-foreground" title={selectedKey.comment || 'None'}>
                     {selectedKey.comment || 'None'}
                   </dd>
                 </div>
 
                 <div className="grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2">
-                  <dt className="font-mono text-[9px] uppercase tracking-wider text-text-muted">
+                  <dt className="font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
                     Models
                   </dt>
                   <dd
@@ -455,7 +455,7 @@ export const Playground = () => {
                 </div>
 
                 <div className="grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2">
-                  <dt className="font-mono text-[9px] uppercase tracking-wider text-text-muted">
+                  <dt className="font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
                     Providers
                   </dt>
                   <dd
@@ -468,7 +468,7 @@ export const Playground = () => {
                 </div>
 
                 <div className="grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2">
-                  <dt className="font-mono text-[9px] uppercase tracking-wider text-text-muted">
+                  <dt className="font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
                     Access
                   </dt>
                   <dd className="truncate">
@@ -478,8 +478,8 @@ export const Playground = () => {
                 </div>
               </dl>
             ) : (
-              <div className="flex items-center gap-2 border-t border-border pt-3 text-[11px] text-text-secondary sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-                <ShieldAlert className="h-3.5 w-3.5 text-text-muted" />
+              <div className="flex items-center gap-2 border-t border-border pt-3 text-[11px] text-foreground-muted sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+                <ShieldAlert className="h-3.5 w-3.5 text-foreground-subtle" />
                 Create a client key before using the playground.
               </div>
             )}
@@ -491,7 +491,7 @@ export const Playground = () => {
             className="min-h-0"
             title="Chat Simulation"
             extra={
-              <div className="flex items-center gap-2 text-xs text-text-muted">
+              <div className="flex items-center gap-2 text-xs text-foreground-subtle">
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 {selectedModel
                   ? `${playgroundApiLabel(selectedApi)} · ${toolMode === 'sample-tools' ? 'tools on · ' : ''}${selectedModel}`
@@ -513,8 +513,8 @@ export const Playground = () => {
                 />
               </div>
             ) : (
-              <div className="flex min-h-[28rem] flex-col items-center justify-center gap-2 p-6 text-center text-sm text-text-secondary xl:min-h-[42.5rem]">
-                <ShieldAlert className="h-8 w-8 text-text-muted" />
+              <div className="flex min-h-[28rem] flex-col items-center justify-center gap-2 p-6 text-center text-sm text-foreground-muted xl:min-h-[42.5rem]">
+                <ShieldAlert className="h-8 w-8 text-foreground-subtle" />
                 <span>
                   Create a client key and configure at least one model alias to begin testing.
                 </span>
@@ -526,7 +526,7 @@ export const Playground = () => {
             className="min-h-0"
             title="Routing Decision"
             extra={
-              <div className="flex items-center gap-2 text-xs text-text-muted">
+              <div className="flex items-center gap-2 text-xs text-foreground-subtle">
                 {routingInfo.status === 'pending' ? (
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                 ) : routingInfo.status === 'complete' ? (
@@ -547,72 +547,76 @@ export const Playground = () => {
             }
             dense
           >
-            <div className="space-y-3 text-xs text-text-secondary">
-              <div className="rounded-md border border-border bg-bg-subtle/60 p-3">
-                <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-text-muted">
+            <div className="space-y-3 text-xs text-foreground-muted">
+              <div className="rounded-md border border-border bg-surface-sunken p-3">
+                <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-foreground-subtle">
                   Final route
                 </div>
-                <div className="break-words text-sm font-medium text-text">{finalRoute}</div>
-                <div className="mt-1 break-all font-mono text-[10px] text-text-muted">
+                <div className="break-words text-sm font-medium text-foreground">{finalRoute}</div>
+                <div className="mt-1 break-all font-mono text-[10px] text-foreground-subtle">
                   {routingInfo.routing?.requestId || 'Send a prompt to inspect routing.'}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-md bg-slate-950/30 p-2">
-                  <div className="mb-0.5 font-mono text-[9px] uppercase tracking-wider text-text-muted">
+                <div className="rounded-md bg-surface-sunken p-2">
+                  <div className="mb-0.5 font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
                     Alias
                   </div>
-                  <div className="truncate text-text" title={selectedModel}>
+                  <div className="truncate text-foreground" title={selectedModel}>
                     {selectedModel || '-'}
                   </div>
                 </div>
-                <div className="rounded-md bg-slate-950/30 p-2">
-                  <div className="mb-0.5 font-mono text-[9px] uppercase tracking-wider text-text-muted">
+                <div className="rounded-md bg-surface-sunken p-2">
+                  <div className="mb-0.5 font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
                     Canonical
                   </div>
                   <div
-                    className="truncate text-text"
+                    className="truncate text-foreground"
                     title={routingInfo.routing?.canonicalModel || undefined}
                   >
                     {routingInfo.routing?.canonicalModel || '-'}
                   </div>
                 </div>
-                <div className="rounded-md bg-slate-950/30 p-2">
-                  <div className="mb-0.5 font-mono text-[9px] uppercase tracking-wider text-text-muted">
+                <div className="rounded-md bg-surface-sunken p-2">
+                  <div className="mb-0.5 font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
                     Attempts
                   </div>
-                  <div className="text-text">{routingInfo.routing?.attemptCount ?? '-'}</div>
+                  <div className="text-foreground">{routingInfo.routing?.attemptCount ?? '-'}</div>
                 </div>
-                <div className="rounded-md bg-slate-950/30 p-2">
-                  <div className="mb-0.5 flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-text-muted">
+                <div className="rounded-md bg-surface-sunken p-2">
+                  <div className="mb-0.5 flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
                     <Clock className="h-3 w-3" />
                     API
                   </div>
-                  <div className="text-text">{routingInfo.routing?.apiType || '-'}</div>
+                  <div className="text-foreground">{routingInfo.routing?.apiType || '-'}</div>
                 </div>
               </div>
 
               {toolCalls.length > 0 && (
-                <div className="rounded-md border border-border bg-bg-subtle/40 p-3">
-                  <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                <div className="rounded-md border border-border bg-surface-sunken p-3">
+                  <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-foreground-subtle">
                     Browser tool calls
                   </div>
                   <ol className="space-y-2">
                     {toolCalls.map((toolCall, index) => (
                       <li
                         key={`${toolCall.name}:${toolCall.arguments}:${index}`}
-                        className="rounded border border-border/70 bg-slate-950/30 p-2"
+                        className="rounded border border-border/70 bg-surface p-2"
                       >
-                        <div className="mb-1 font-medium text-text">
+                        <div className="mb-1 font-medium text-foreground">
                           {index + 1}. {toolCall.name}
                         </div>
-                        <div className="font-mono text-[10px] text-text-muted">Arguments</div>
-                        <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-950/60 p-1.5 font-mono text-[10px] text-text-secondary">
+                        <div className="font-mono text-[10px] text-foreground-subtle">
+                          Arguments
+                        </div>
+                        <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-1.5 font-mono text-[10px] text-foreground-muted">
                           {toolCall.arguments}
                         </pre>
-                        <div className="mt-2 font-mono text-[10px] text-text-muted">Result</div>
-                        <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-950/60 p-1.5 font-mono text-[10px] text-text-secondary">
+                        <div className="mt-2 font-mono text-[10px] text-foreground-subtle">
+                          Result
+                        </div>
+                        <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-1.5 font-mono text-[10px] text-foreground-muted">
                           {toolCall.result}
                         </pre>
                       </li>
@@ -622,8 +626,8 @@ export const Playground = () => {
               )}
 
               {attemptedProviders.length > 0 && (
-                <div className="rounded-md border border-border bg-bg-subtle/40 p-3">
-                  <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                <div className="rounded-md border border-border bg-surface-sunken p-3">
+                  <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-foreground-subtle">
                     Candidate path
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -636,8 +640,8 @@ export const Playground = () => {
                 </div>
               )}
 
-              <div className="rounded-md border border-border bg-bg-subtle/40 p-3">
-                <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-text-muted">
+              <div className="rounded-md border border-border bg-surface-sunken p-3">
+                <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-foreground-subtle">
                   Decision trail
                 </div>
                 {retryHistory.length > 0 ? (
@@ -645,11 +649,11 @@ export const Playground = () => {
                     {retryHistory.map((attempt, index) => (
                       <li
                         key={`${attempt.provider}:${attempt.model}:${index}`}
-                        className="rounded-md bg-slate-950/40 p-2"
+                        className="rounded-md bg-surface p-2"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span
-                            className="min-w-0 truncate font-medium text-text"
+                            className="min-w-0 truncate font-medium text-foreground"
                             title={
                               attempt.upstreamModel &&
                               attempt.model &&
@@ -677,14 +681,14 @@ export const Playground = () => {
                             {attempt.status || 'attempt'}
                           </Badge>
                         </div>
-                        <div className="mt-1 line-clamp-3 text-[11px] text-text-muted">
+                        <div className="mt-1 line-clamp-3 text-[11px] text-foreground-subtle">
                           {attempt.reason || 'No decision reason recorded'}
                         </div>
                       </li>
                     ))}
                   </ol>
                 ) : (
-                  <div className="text-[11px] text-text-muted">
+                  <div className="text-[11px] text-foreground-subtle">
                     Routing details appear once the next playground request is routed.
                   </div>
                 )}

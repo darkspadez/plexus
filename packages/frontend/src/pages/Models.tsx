@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Alias } from '../lib/api';
 import { getModelOptionKey } from '../lib/modelOptions';
+import { getRowTestState, targetTestKey } from './models/test-state';
 import { useModels } from '../hooks/useModels';
 import { AliasMobileCard } from '../components/models/AliasMobileCard';
 import { TargetGroupEditor } from '../components/models/TargetGroupEditor';
@@ -322,16 +323,8 @@ export const Models = () => {
     return 'Mixed';
   };
 
-  // Row-level test indicator derived from per-target testStates (keys `${id}-…`).
-  const rowTestState = (aliasId: string) => {
-    const keys = Object.keys(testStates).filter((k) => k.startsWith(`${aliasId}-`));
-    const loading = keys.some((k) => testStates[k]?.loading);
-    const error = keys.some((k) => testStates[k]?.showResult && testStates[k]?.result === 'error');
-    const success = keys.some(
-      (k) => testStates[k]?.showResult && testStates[k]?.result === 'success'
-    );
-    return { loading, error, success };
-  };
+  // Row-level test indicator derived from this alias's own per-target keys.
+  const rowTestState = (alias: Alias) => getRowTestState(alias, testStates);
 
   // Play (▷) action — test every enabled target of the alias.
   const handleTestAll = (alias: Alias) => {
@@ -344,7 +337,7 @@ export const Models = () => {
         if (t.enabled === false || !t.provider || !t.model) return;
         handleTestTarget(
           alias.id,
-          `${alias.id}-${groupIdx}-${targetIdx}`,
+          targetTestKey(alias.id, groupIdx, targetIdx),
           t.provider,
           t.model,
           apiTypes
@@ -409,7 +402,7 @@ export const Models = () => {
         cell: ({ row }) => (
           <ModelRowActions
             alias={row.original}
-            testState={rowTestState(row.original.id)}
+            testState={rowTestState(row.original)}
             onTest={handleTestAll}
             onEdit={handleEdit}
             onDelete={handleDeleteClick}
@@ -594,6 +587,7 @@ export const Models = () => {
                         providers={providers}
                         availableModels={availableModels}
                         testStates={testStates}
+                        onDismissTestMessage={dismissTestMessage}
                         onChange={(targets) => {
                           const groups =
                             alias.target_groups.length > 0
@@ -608,7 +602,7 @@ export const Models = () => {
                           else if (alias.type === 'decisions') apiTypes = ['decisions'];
                           handleTestTarget(
                             alias.id,
-                            `${alias.id}-0-${index}`,
+                            targetTestKey(alias.id, 0, index),
                             provider,
                             model,
                             apiTypes

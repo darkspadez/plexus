@@ -1,4 +1,5 @@
 import { Switch } from '../ui/Switch';
+import { cn } from '../../lib/cn';
 
 interface ToggleRowProps {
   label: string;
@@ -7,6 +8,8 @@ interface ToggleRowProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  /** Let the description wrap instead of truncating (for long, meaningful copy). */
+  wrap?: boolean;
 }
 
 /** Settings-style row: label + description on the left, switch on the right. */
@@ -17,13 +20,23 @@ export function ToggleRow({
   checked,
   onChange,
   disabled,
+  wrap,
 }: ToggleRowProps) {
   return (
-    <div className="h-10 flex items-center justify-between gap-3">
+    <div
+      className={cn(
+        'flex justify-between gap-3',
+        wrap ? 'min-h-10 items-start py-2' : 'h-10 items-center'
+      )}
+    >
       <div className="min-w-0 flex-1">
-        <div className="font-sans text-[12px] font-medium text-foreground truncate">{label}</div>
         <div
-          className="font-sans text-[11px] text-foreground-subtle truncate"
+          className={cn('font-sans text-[12px] font-medium text-foreground', !wrap && 'truncate')}
+        >
+          {label}
+        </div>
+        <div
+          className={cn('font-sans text-[11px] text-foreground-subtle', !wrap && 'truncate')}
           title={warning ? `${description} ${warning}` : description}
         >
           {description}

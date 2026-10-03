@@ -132,7 +132,7 @@ export function FetchModelsModal({
                         type="checkbox"
                         checked={selectedModelIds.has(model.id)}
                         onChange={() => onToggleSelection(model.id)}
-                        className="mt-0.5 cursor-pointer"
+                        className="mt-0.5 cursor-pointer accent-accent"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <div className="flex-1">
