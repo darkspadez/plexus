@@ -486,3 +486,27 @@ describe('toAliasPayload — embeddings type', () => {
     expect(result.alias.id).toBe('text-embedding-3-large');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Passthrough: synthetic_safeguard_approval + unknown future fields
+// ---------------------------------------------------------------------------
+
+describe('toAliasPayload — passthrough fields', () => {
+  test('round-trips synthetic_safeguard_approval: true', () => {
+    const parsed = aliasFormSchema.parse(base({ synthetic_safeguard_approval: true }));
+    const result = toAliasPayload(parsed);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected ok');
+    expect(result.alias.synthetic_safeguard_approval).toBe(true);
+  });
+
+  test('passes unknown future fields through verbatim', () => {
+    const input = { ...base(), future_flag: { nested: [1, 2] } } as unknown as AliasFormValues;
+    const result = toAliasPayload(input);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected ok');
+    expect((result.alias as unknown as Record<string, unknown>).future_flag).toEqual({
+      nested: [1, 2],
+    });
+  });
+});

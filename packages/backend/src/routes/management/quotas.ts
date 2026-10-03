@@ -53,6 +53,7 @@ export async function registerQuotaRoutes(
             success: latest?.success ?? true,
             ...(latest?.error ? { error: latest.error } : {}),
             ...(latest?.checkedAt ? { checkedAt: latest.checkedAt } : {}),
+            ...(latest?.stale ? { stale: true } : {}),
           });
         } catch (error) {
           configured.push({

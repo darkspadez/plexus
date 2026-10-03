@@ -88,6 +88,7 @@ export const aliasFormSchema = z.object({
   metadata: aliasMetadataSchema.optional(),
   use_image_fallthrough: z.boolean().optional(),
   enforce_limits: z.boolean().optional(),
+  synthetic_safeguard_approval: z.boolean().optional(),
   sticky_session: z.boolean().optional(),
   preferred_api: z
     .array(z.enum(['chat_completions', 'messages', 'gemini', 'responses']))
@@ -146,7 +147,11 @@ export function toAliasPayload(
   }
 
   // Pass through as Alias — the shape is identical
+  // Spread form values first so fields the form schema doesn't know about
+  // (e.g. newly added upstream flags) pass through verbatim, then apply the
+  // explicit/conditional fields below.
   const alias: Alias = {
+    ...(formValues as unknown as Alias),
     id: formValues.id,
     ...(formValues.aliases !== undefined && { aliases: formValues.aliases }),
     ...(formValues.priority !== undefined && { priority: formValues.priority }),

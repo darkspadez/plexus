@@ -41,7 +41,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
     <div
       style={{
         gridColumn: '1 / -1',
-        borderTop: '1px solid var(--color-border-glass)',
+        borderTop: '1px solid var(--color-border)',
         marginTop: '4px',
         paddingTop: '6px',
       }}
@@ -57,11 +57,11 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
         <div
           key={rIdx}
           style={{
-            border: '1px solid var(--color-border-glass)',
+            border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-sm)',
             padding: '6px',
             marginBottom: '4px',
-            background: 'var(--color-bg-subtle)',
+            background: 'var(--color-surface-sunken)',
           }}
         >
           {/* Source + When condition */}
@@ -430,7 +430,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
           {/* Strip paths */}
           <div
             style={{
-              borderTop: '1px solid var(--color-border-glass)',
+              borderTop: '1px solid var(--color-border)',
               margin: '6px 0 4px 0',
             }}
           />
@@ -451,8 +451,8 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
                   className="font-sans text-[11px] text-foreground"
                   style={{
                     padding: '2px 8px',
-                    background: 'var(--color-bg-glass)',
-                    border: '1px solid var(--color-border-glass)',
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
                     borderRadius: 'var(--radius-sm)',
                   }}
                 >
