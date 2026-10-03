@@ -12,7 +12,7 @@
       "discount": 0.3,
       "estimateTokens": false,
       "useClaudeMasking": false,
-      "gemini_thinking_enabled": false,
+      "geminiThinkingEnabled": false,
       "auto_compat": false,
       "models": {
         "moonshotai/kimi-k2.7-code": {
@@ -378,7 +378,7 @@
       "discount": 0.25,
       "estimateTokens": false,
       "useClaudeMasking": false,
-      "gemini_thinking_enabled": false,
+      "geminiThinkingEnabled": false,
       "auto_compat": false,
       "models": {
         "gpt-5.4": {
@@ -481,7 +481,7 @@
       "stall_cooldown": false,
       "estimateTokens": false,
       "useClaudeMasking": false,
-      "gemini_thinking_enabled": false,
+      "geminiThinkingEnabled": false,
       "auto_compat": false,
       "models": {
         "moonshotai/Kimi-K2.7-Code": {
@@ -537,7 +537,7 @@
       "stall_cooldown": false,
       "estimateTokens": false,
       "useClaudeMasking": false,
-      "gemini_thinking_enabled": false,
+      "geminiThinkingEnabled": false,
       "auto_compat": false,
       "models": {
         "deepseek/deepseek-v4-pro:nitro": {
@@ -814,7 +814,7 @@
       "stall_cooldown": false,
       "estimateTokens": false,
       "useClaudeMasking": false,
-      "gemini_thinking_enabled": false,
+      "geminiThinkingEnabled": false,
       "auto_compat": false,
       "models": {
         "gemini-3.5-flash": {
@@ -948,7 +948,7 @@
       "stall_cooldown": false,
       "estimateTokens": false,
       "useClaudeMasking": false,
-      "gemini_thinking_enabled": false,
+      "geminiThinkingEnabled": false,
       "auto_compat": false,
       "models": {
         "gpt-4o-mini-transcribe": {
@@ -1190,7 +1190,7 @@
       "stall_cooldown": false,
       "estimateTokens": false,
       "useClaudeMasking": false,
-      "gemini_thinking_enabled": false,
+      "geminiThinkingEnabled": false,
       "auto_compat": false,
       "models": {
         "claude-opus-4-8": {
@@ -1251,7 +1251,7 @@
       "stall_cooldown": false,
       "estimateTokens": false,
       "useClaudeMasking": false,
-      "gemini_thinking_enabled": false,
+      "geminiThinkingEnabled": false,
       "auto_compat": false,
       "models": {
         "claude-haiku-4-5": {
@@ -1313,7 +1313,7 @@
       "stall_cooldown": false,
       "estimateTokens": false,
       "useClaudeMasking": false,
-      "gemini_thinking_enabled": false,
+      "geminiThinkingEnabled": false,
       "auto_compat": false,
       "models": {
         "claude-fable-5": {
@@ -1393,7 +1393,7 @@
       "stall_cooldown": false,
       "estimateTokens": false,
       "useClaudeMasking": false,
-      "gemini_thinking_enabled": false,
+      "geminiThinkingEnabled": false,
       "auto_compat": false,
       "models": {
         "anthropic/claude-haiku-4.5": {
@@ -1635,7 +1635,7 @@
       "stall_cooldown": false,
       "estimateTokens": false,
       "useClaudeMasking": false,
-      "gemini_thinking_enabled": false,
+      "geminiThinkingEnabled": false,
       "auto_compat": false,
       "models": {
         "ozore/claude-fable-5": {

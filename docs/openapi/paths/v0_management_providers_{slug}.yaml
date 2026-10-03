@@ -133,7 +133,12 @@ patch:
     Unlike PUT (which replaces), PATCH performs a shallow merge:
     - New fields are added
     - Existing fields are overwritten
-    - Fields not in the request are preserved
+    - Fields not in the request are preserved (omission preserves)
+    - An explicit top-level `null` clears a saved field (fields with defaults,
+      such as `enabled`, reset to their default); required fields cannot be
+      cleared and fail validation
+    - The legacy `gemini_thinking_enabled` key is not accepted on PATCH bodies;
+      use `geminiThinkingEnabled`
 
     **Admin only** — limited principals receive 403.
   security:

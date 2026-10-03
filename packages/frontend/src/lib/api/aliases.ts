@@ -221,6 +221,7 @@ export const getAliases = async (): Promise<Alias[]> => {
       metadata?: Alias['metadata'];
       preferred_api?: Alias['preferred_api'];
       pi_model?: Alias['pi_model'];
+      compaction?: Alias['compaction'];
       extraBody?: Record<string, unknown>;
     }
 
@@ -281,6 +282,7 @@ export const getAliases = async (): Promise<Alias[]> => {
         metadata: val.metadata,
         preferred_api: val.preferred_api || [],
         pi_model: val.pi_model,
+        compaction: val.compaction,
         extraBody:
           val.extraBody && typeof val.extraBody === 'object' && !Array.isArray(val.extraBody)
             ? val.extraBody

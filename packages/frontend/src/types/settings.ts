@@ -51,6 +51,7 @@ export interface Provider {
   extraBody?: Record<string, any>;
   models?: string[] | Record<string, any>;
   quotaChecker?: {
+    id?: string;
     type?: string;
     enabled: boolean;
     intervalMinutes: number;

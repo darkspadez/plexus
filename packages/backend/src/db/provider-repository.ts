@@ -237,7 +237,10 @@ export class ProviderRepository {
       discount: config.discount ?? null,
       estimateTokens: fromBool(config.estimateTokens === true),
       useClaudeMasking: fromBool(config.useClaudeMasking === true),
-      geminiThinkingEnabled: fromBool(config.geminiThinkingEnabled === true),
+      geminiThinkingEnabled: fromBool(
+        (config.geminiThinkingEnabled ??
+          (config as Record<string, unknown>).gemini_thinking_enabled) === true
+      ),
       cacheKeyInjection: config.cache_key_injection ?? null,
       responsesExtensions: Array.isArray(config.responses_extensions)
         ? toJson(config.responses_extensions)
@@ -591,7 +594,7 @@ export class ProviderRepository {
       ...(row.discount !== null ? { discount: row.discount } : {}),
       estimateTokens: toBool(row.estimateTokens),
       useClaudeMasking: toBool(row.useClaudeMasking),
-      gemini_thinking_enabled: toBool(row.geminiThinkingEnabled),
+      geminiThinkingEnabled: toBool(row.geminiThinkingEnabled),
       ...(row.cacheKeyInjection ? { cache_key_injection: row.cacheKeyInjection } : {}),
       ...(() => {
         const extensions = parseJson<ResponsesExtension[]>(row.responsesExtensions);

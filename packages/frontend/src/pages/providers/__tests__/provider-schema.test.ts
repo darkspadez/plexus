@@ -489,34 +489,16 @@ describe('toProviderPayload — advanced fields', () => {
     expect(result.provider.rawPassthrough).toEqual({ enabled: false, baseUrl: '', auth: 'bearer' });
   });
 
-  test('re-attaches the snapshot URL when raw passthrough is disabled with a cleared URL', () => {
-    // Clearing the URL then disabling would otherwise emit nothing (empty
-    // baseUrl is omitted by api.saveProvider), and the backend PATCH-merge
-    // would keep the OLD enabled config — the disable would silently revert.
+  test('a cleared raw passthrough serializes as-is so saveProvider can send null', () => {
     const input = base({
       id: 'raw-cleared',
       rawPassthrough: { enabled: false, baseUrl: '', auth: 'bearer' },
     });
-    const snapshot = base({
-      id: 'raw-cleared',
-      rawPassthrough: { enabled: true, baseUrl: 'https://openrouter.ai/api', auth: 'bearer' },
-    });
-
-    const result = toProviderPayload(input, { openSnapshot: snapshot });
+    const result = toProviderPayload(input);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('Expected ok');
-    expect(result.provider.rawPassthrough).toEqual({
-      enabled: false,
-      baseUrl: 'https://openrouter.ai/api',
-      auth: 'bearer',
-    });
-  });
-
-  test('leaves a disabled-and-empty rawPassthrough alone when the snapshot had no URL either', () => {
-    const input = base({ id: 'raw-never' });
-    const result = toProviderPayload(input, { openSnapshot: base({ id: 'raw-never' }) });
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('Expected ok');
+    // No snapshot URL is re-attached; the empty baseUrl reaches the api layer,
+    // which sends `raw_passthrough: null` for an existing provider.
     expect(result.provider.rawPassthrough).toEqual({ enabled: false, baseUrl: '', auth: 'bearer' });
   });
 });

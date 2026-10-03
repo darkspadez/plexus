@@ -287,82 +287,104 @@ const RawPassthroughConfigSchema = z.object({
   auth: z.enum(['bearer', 'x-api-key', 'x-goog-api-key']).default('bearer'),
 });
 
-export const ProviderConfigSchema = z
-  .object({
-    display_name: z.string().optional(),
-    api_base_url: z.union([
-      z.string().refine((value) => isValidUrlOrOAuth(value), {
-        message: 'api_base_url must be a valid URL or oauth://',
-      }),
-      // The map form is dispatched verbatim (see resolveProviderBaseUrl), so an
-      // `oauth://` entry here would be handed straight to fetch. OAuth providers
-      // must declare the placeholder through the string form instead.
-      z.record(z.string(), z.string()).refine((urlMap) => !hasOAuthPlaceholder(urlMap), {
-        message:
-          "api_base_url map entries must be real URLs; use the string form api_base_url: 'oauth://' for OAuth providers",
-      }),
-    ]),
-    api_key: z.string().optional(),
-    oauth_provider: OAuthProviderSchema.optional(),
-    oauth_account: z.string().min(1).optional(),
-    enabled: z.boolean().default(true).optional(),
-    disable_cooldown: z.boolean().optional().default(false),
-    stall_cooldown: z.boolean().optional().default(false),
-    allow_100_percent_utilization: z.boolean().optional().default(false),
-    discount: z.number().min(0).max(1).optional(),
-    models: z
-      .union([z.array(z.string()), z.record(z.string(), ModelProviderConfigSchema)])
-      .optional(),
-    headers: z.record(z.string(), z.string()).optional(),
-    extraBody: z.record(z.string(), z.any()).optional(),
-    estimateTokens: z.boolean().optional().default(false),
-    useClaudeMasking: z.boolean().optional().default(false),
-    /**
-     * Inject Plexus's derived per-run cache/session key into this field on
-     * upstream requests. `undefined` leaves the client's request unchanged,
-     * except Meta OAuth routes which default to `prompt_cache_key`.
-     */
-    cache_key_injection: ProviderCacheKeyInjectionSchema.optional(),
-    /**
-     * Responses API extensions this provider accepts verbatim. Requests
-     * carrying any other extension are flattened instead of passed through.
-     * `undefined` uses the default (see resolveSupportedResponsesExtensions);
-     * `[]` flattens every extension.
-     */
-    responses_extensions: z.array(ResponsesExtensionSchema).optional(),
-    quota_checker: ProviderQuotaCheckerSchema.optional(),
-    model_autosync: ModelAutosyncSchema.optional(),
-    geminiThinkingEnabled: z.boolean().optional(),
-    adapter: AdapterConfigSchema,
-    auto_compat: z.boolean().optional(),
-    timeoutMs: z.number().int().positive().optional(),
-    maxConcurrency: z.number().int().positive().nullable().optional(),
-    // Per-provider stall detection overrides (null = use global setting)
-    stallTtfbMs: z.number().int().min(5000).max(120000).nullable().optional(),
-    stallTtfbBytes: z.number().int().min(50).max(10000).nullable().optional(),
-    stallMinBps: z.number().int().min(50).max(5000).nullable().optional(),
-    stallWindowMs: z.number().int().min(3000).max(30000).nullable().optional(),
-    stallGracePeriodMs: z.number().int().min(0).max(120000).nullable().optional(),
-    pi_ai_provider: z.string().optional(),
-    pi_ai_quirks: PiAiQuirksSchema.optional(),
-    compaction: CompactionOverrideSchema.optional(),
-    raw_passthrough: RawPassthroughConfigSchema.optional(),
-  })
-  .refine((data) => !data.pi_ai_provider || !data.pi_ai_quirks, {
-    message: "'pi_ai_provider' and 'pi_ai_quirks' are mutually exclusive",
-  })
-  .refine((data) => !!data.api_key || isOAuthProviderConfig(data), {
-    message: "'api_key' must be specified for provider",
-  })
-  .refine((data) => !isOAuthProviderConfig(data) || !!data.oauth_provider, {
-    message: "'oauth_provider' must be specified when using oauth://",
-  })
-  // The OAuth account is derived from the provider slug (1:1) at login time
-  // and never entered by users — oauth_account survives in the schema only
-  // as a grandfathered fallback for restores/imports that predate slug keying.
-  .refine((data) => data.raw_passthrough?.enabled !== true || !isOAuthProviderConfig(data), {
-    message: 'raw_passthrough currently supports static API-key providers only',
-  });
+/**
+ * Config backups made before the camelCase fix carry `gemini_thinking_enabled`.
+ * Map it onto `geminiThinkingEnabled` when the camelCase key is absent.
+ */
+function mapLegacyProviderKeys(input: unknown): unknown {
+  if (
+    input &&
+    typeof input === 'object' &&
+    !Array.isArray(input) &&
+    'gemini_thinking_enabled' in input
+  ) {
+    const { gemini_thinking_enabled, ...rest } = input as Record<string, unknown>;
+    return 'geminiThinkingEnabled' in rest
+      ? rest
+      : { ...rest, geminiThinkingEnabled: gemini_thinking_enabled };
+  }
+  return input;
+}
+
+export const ProviderConfigSchema = z.preprocess(
+  mapLegacyProviderKeys,
+  z
+    .object({
+      display_name: z.string().optional(),
+      api_base_url: z.union([
+        z.string().refine((value) => isValidUrlOrOAuth(value), {
+          message: 'api_base_url must be a valid URL or oauth://',
+        }),
+        // The map form is dispatched verbatim (see resolveProviderBaseUrl), so an
+        // `oauth://` entry here would be handed straight to fetch. OAuth providers
+        // must declare the placeholder through the string form instead.
+        z.record(z.string(), z.string()).refine((urlMap) => !hasOAuthPlaceholder(urlMap), {
+          message:
+            "api_base_url map entries must be real URLs; use the string form api_base_url: 'oauth://' for OAuth providers",
+        }),
+      ]),
+      api_key: z.string().optional(),
+      oauth_provider: OAuthProviderSchema.optional(),
+      oauth_account: z.string().min(1).optional(),
+      enabled: z.boolean().default(true).optional(),
+      disable_cooldown: z.boolean().optional().default(false),
+      stall_cooldown: z.boolean().optional().default(false),
+      allow_100_percent_utilization: z.boolean().optional().default(false),
+      discount: z.number().min(0).max(1).optional(),
+      models: z
+        .union([z.array(z.string()), z.record(z.string(), ModelProviderConfigSchema)])
+        .optional(),
+      headers: z.record(z.string(), z.string()).optional(),
+      extraBody: z.record(z.string(), z.any()).optional(),
+      estimateTokens: z.boolean().optional().default(false),
+      useClaudeMasking: z.boolean().optional().default(false),
+      /**
+       * Inject Plexus's derived per-run cache/session key into this field on
+       * upstream requests. `undefined` leaves the client's request unchanged,
+       * except Meta OAuth routes which default to `prompt_cache_key`.
+       */
+      cache_key_injection: ProviderCacheKeyInjectionSchema.optional(),
+      /**
+       * Responses API extensions this provider accepts verbatim. Requests
+       * carrying any other extension are flattened instead of passed through.
+       * `undefined` uses the default (see resolveSupportedResponsesExtensions);
+       * `[]` flattens every extension.
+       */
+      responses_extensions: z.array(ResponsesExtensionSchema).optional(),
+      quota_checker: ProviderQuotaCheckerSchema.optional(),
+      model_autosync: ModelAutosyncSchema.optional(),
+      geminiThinkingEnabled: z.boolean().optional(),
+      adapter: AdapterConfigSchema,
+      auto_compat: z.boolean().optional(),
+      timeoutMs: z.number().int().positive().optional(),
+      maxConcurrency: z.number().int().positive().nullable().optional(),
+      // Per-provider stall detection overrides (null = use global setting)
+      stallTtfbMs: z.number().int().min(5000).max(120000).nullable().optional(),
+      stallTtfbBytes: z.number().int().min(50).max(10000).nullable().optional(),
+      stallMinBps: z.number().int().min(50).max(5000).nullable().optional(),
+      stallWindowMs: z.number().int().min(3000).max(30000).nullable().optional(),
+      stallGracePeriodMs: z.number().int().min(0).max(120000).nullable().optional(),
+      pi_ai_provider: z.string().optional(),
+      pi_ai_quirks: PiAiQuirksSchema.optional(),
+      compaction: CompactionOverrideSchema.optional(),
+      raw_passthrough: RawPassthroughConfigSchema.optional(),
+    })
+    .refine((data) => !data.pi_ai_provider || !data.pi_ai_quirks, {
+      message: "'pi_ai_provider' and 'pi_ai_quirks' are mutually exclusive",
+    })
+    .refine((data) => !!data.api_key || isOAuthProviderConfig(data), {
+      message: "'api_key' must be specified for provider",
+    })
+    .refine((data) => !isOAuthProviderConfig(data) || !!data.oauth_provider, {
+      message: "'oauth_provider' must be specified when using oauth://",
+    })
+    // The OAuth account is derived from the provider slug (1:1) at login time
+    // and never entered by users — oauth_account survives in the schema only
+    // as a grandfathered fallback for restores/imports that predate slug keying.
+    .refine((data) => data.raw_passthrough?.enabled !== true || !isOAuthProviderConfig(data), {
+      message: 'raw_passthrough currently supports static API-key providers only',
+    })
+);
 
 const ModelTargetSchema = z
   .object({

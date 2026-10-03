@@ -121,7 +121,7 @@ export interface ToProviderPayloadError {
 
 export function toProviderPayload(
   formValues: ProviderFormValues,
-  options?: { isOAuthMode?: boolean; openSnapshot?: ProviderFormValues }
+  options?: { isOAuthMode?: boolean }
 ): ToProviderPayloadResult | ToProviderPayloadError {
   // Detect OAuth mode from the values themselves if not passed explicitly
   const oauthMode = options?.isOAuthMode ?? isOAuthProvider(formValues);
@@ -196,18 +196,6 @@ export function toProviderPayload(
         options: kept.length > 0 ? Object.fromEntries(kept) : undefined,
       },
     };
-  }
-
-  // PATCH can't remove raw_passthrough: api.saveProvider omits it when baseUrl
-  // is empty, and the backend keeps omitted keys on merge. If the user cleared
-  // the URL and disabled the feature, re-attach the URL the drawer opened with
-  // so the enabled:false state actually reaches the backend instead of the
-  // whole block silently reverting to its previous (enabled) config.
-  if (p.rawPassthrough && p.rawPassthrough.enabled === false && !p.rawPassthrough.baseUrl?.trim()) {
-    const snapshotUrl = options?.openSnapshot?.rawPassthrough?.baseUrl?.trim();
-    if (snapshotUrl) {
-      p = { ...p, rawPassthrough: { ...p.rawPassthrough, baseUrl: snapshotUrl } };
-    }
   }
 
   return { ok: true, provider: p };

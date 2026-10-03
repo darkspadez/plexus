@@ -108,6 +108,7 @@ export async function fetchQuotaCheckers(): Promise<QuotaCheckersResponse> {
 }
 
 export const normalizeProviderQuotaChecker = (checker?: {
+  id?: string;
   type?: string;
   enabled?: boolean;
   intervalMinutes?: number;
@@ -119,6 +120,7 @@ export const normalizeProviderQuotaChecker = (checker?: {
   if (!type) return undefined;
 
   return {
+    ...(checker.id ? { id: checker.id } : {}),
     type,
     enabled: checker.enabled !== false,
     intervalMinutes: Math.max(1, Number(checker.intervalMinutes || 30)),
@@ -359,6 +361,7 @@ interface RawBackendProvider {
   extraBody?: Record<string, unknown>;
   models?: string[] | Record<string, unknown>;
   quota_checker?: {
+    id?: string;
     type?: string;
     enabled?: boolean;
     intervalMinutes?: number;
@@ -383,6 +386,7 @@ interface RawBackendProvider {
     base_url?: string;
     auth?: 'bearer' | 'x-api-key' | 'x-goog-api-key';
   };
+  compaction?: CompactionSettings;
 }
 
 export const getProviders = async (): Promise<Provider[]> => {
@@ -448,6 +452,7 @@ export const getProviders = async (): Promise<Provider[]> => {
         pi_ai_provider: typeof val.pi_ai_provider === 'string' ? val.pi_ai_provider : undefined,
         auto_compat: typeof val.auto_compat === 'boolean' ? val.auto_compat : undefined,
         pi_ai_quirks: val.pi_ai_quirks,
+        compaction: val.compaction,
         rawPassthrough: val.raw_passthrough
           ? {
               enabled: val.raw_passthrough.enabled === true,
@@ -477,11 +482,15 @@ export const getProviderPresets = async (): Promise<ProviderPreset[]> => {
 
 export const saveProvider = async (provider: Provider, oldId?: string): Promise<void> => {
   const isExistingProvider = oldId === provider.id;
+  const clearOnPatch = isExistingProvider ? null : undefined;
+  const hasCompactionOverride =
+    !!provider.compaction && Object.values(provider.compaction).some((v) => v != null);
   const body: Record<string, unknown> = {
     api_base_url: provider.apiBaseUrl,
     display_name: provider.name,
     api_key: provider.apiKey,
-    ...(provider.oauthProvider && { oauth_provider: provider.oauthProvider }),
+    // Existing providers: null clears a stale OAuth binding when switched off.
+    oauth_provider: provider.oauthProvider || clearOnPatch,
     enabled: provider.enabled,
     estimateTokens: provider.estimateTokens,
     useClaudeMasking: provider.useClaudeMasking,
@@ -489,49 +498,49 @@ export const saveProvider = async (provider: Provider, oldId?: string): Promise<
     disable_cooldown: provider.disableCooldown === true,
     stall_cooldown: provider.stallCooldown === true,
     allow_100_percent_utilization: provider.allow100PercentUtilization === true,
-    cache_key_injection: provider.cacheKeyInjection,
-    discount: provider.discount,
+    // Existing providers go through PATCH, where explicit null clears a saved
+    // field and omission preserves it. New providers (PUT) just omit.
+    cache_key_injection: provider.cacheKeyInjection ?? clearOnPatch,
+    discount: provider.discount ?? clearOnPatch,
     headers: provider.headers,
     extraBody: provider.extraBody,
     models: provider.models,
     quota_checker: provider.quotaChecker?.type
       ? {
+          ...(provider.quotaChecker.id ? { id: provider.quotaChecker.id } : {}),
           type: provider.quotaChecker.type,
           enabled: provider.quotaChecker.enabled,
           intervalMinutes: Math.max(1, provider.quotaChecker.intervalMinutes || 30),
           options: provider.quotaChecker.options,
         }
-      : undefined,
+      : clearOnPatch,
     model_autosync: {
       enabled: provider.modelAutosync?.enabled === true,
       intervalMinutes: Math.max(1, provider.modelAutosync?.intervalMinutes || 60),
     },
-    ...(provider.compaction && { compaction: provider.compaction }),
+    // The "Inherit" UI state is `{}` (or all-null); treat it as cleared.
+    compaction: hasCompactionOverride ? provider.compaction : clearOnPatch,
     adapter: provider.adapter ?? [],
-    ...(provider.timeoutMs != null ? { timeoutMs: provider.timeoutMs } : {}),
-    ...(provider.maxConcurrency != null ? { maxConcurrency: provider.maxConcurrency } : {}),
-    ...(provider.stallTtfbMs != null ? { stallTtfbMs: provider.stallTtfbMs } : {}),
-    ...(provider.stallTtfbBytes != null ? { stallTtfbBytes: provider.stallTtfbBytes } : {}),
-    ...(provider.stallMinBps != null ? { stallMinBps: provider.stallMinBps } : {}),
-    ...(provider.stallWindowMs != null ? { stallWindowMs: provider.stallWindowMs } : {}),
-    ...(provider.stallGracePeriodMs != null
-      ? { stallGracePeriodMs: provider.stallGracePeriodMs }
-      : {}),
-    ...(provider.rawPassthrough?.baseUrl
+    timeoutMs: provider.timeoutMs ?? clearOnPatch,
+    maxConcurrency: provider.maxConcurrency ?? clearOnPatch,
+    stallTtfbMs: provider.stallTtfbMs ?? clearOnPatch,
+    stallTtfbBytes: provider.stallTtfbBytes ?? clearOnPatch,
+    stallMinBps: provider.stallMinBps ?? clearOnPatch,
+    stallWindowMs: provider.stallWindowMs ?? clearOnPatch,
+    stallGracePeriodMs: provider.stallGracePeriodMs ?? clearOnPatch,
+    raw_passthrough: provider.rawPassthrough?.baseUrl
       ? {
-          raw_passthrough: {
-            enabled: provider.rawPassthrough.enabled,
-            base_url: provider.rawPassthrough.baseUrl,
-            auth: provider.rawPassthrough.auth,
-          },
+          enabled: provider.rawPassthrough.enabled,
+          base_url: provider.rawPassthrough.baseUrl,
+          auth: provider.rawPassthrough.auth,
         }
-      : {}),
+      : clearOnPatch,
     // PATCH merges with the saved provider. Explicit null clears a previous source;
     // omitted fields would leave its old pi-ai provider/inline quirks in place.
-    pi_ai_provider: provider.pi_ai_provider ?? (isExistingProvider ? null : undefined),
-    pi_ai_quirks: provider.pi_ai_quirks ?? (isExistingProvider ? null : undefined),
+    pi_ai_provider: provider.pi_ai_provider ?? clearOnPatch,
+    pi_ai_quirks: provider.pi_ai_quirks ?? clearOnPatch,
     // undefined = use the default; null clears a saved list on PATCH.
-    responses_extensions: provider.responsesExtensions ?? (isExistingProvider ? null : undefined),
+    responses_extensions: provider.responsesExtensions ?? clearOnPatch,
     // Tri-state: only send auto_compat when explicitly set, so an unset value
     // never overwrites the backend default with false (#853).
     ...(provider.auto_compat != null ? { auto_compat: provider.auto_compat } : {}),

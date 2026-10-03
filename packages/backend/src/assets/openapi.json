@@ -3839,7 +3839,7 @@
           "Management — Config"
         ],
         "summary": "Merge updates into an existing provider (admin only)",
-        "description": "Merges the request body into the existing provider configuration,\nthen validates the result.\n\n## Merge behavior\n\nUnlike PUT (which replaces), PATCH performs a shallow merge:\n- New fields are added\n- Existing fields are overwritten\n- Fields not in the request are preserved\n\n**Admin only** — limited principals receive 403.\n",
+        "description": "Merges the request body into the existing provider configuration,\nthen validates the result.\n\n## Merge behavior\n\nUnlike PUT (which replaces), PATCH performs a shallow merge:\n- New fields are added\n- Existing fields are overwritten\n- Fields not in the request are preserved (omission preserves)\n- An explicit top-level `null` clears a saved field (fields with defaults,\n  such as `enabled`, reset to their default); required fields cannot be\n  cleared and fail validation\n- The legacy `gemini_thinking_enabled` key is not accepted on PATCH bodies;\n  use `geminiThinkingEnabled`\n\n**Admin only** — limited principals receive 403.\n",
         "security": [
           {
             "AdminKey": []

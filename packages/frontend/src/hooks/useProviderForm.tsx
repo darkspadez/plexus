@@ -669,13 +669,7 @@ export function useProviderForm() {
       return;
     }
 
-    let snapshotValues: ProviderFormValues | undefined;
-    try {
-      snapshotValues = openSnapshot ? (JSON.parse(openSnapshot) as ProviderFormValues) : undefined;
-    } catch {
-      snapshotValues = undefined;
-    }
-    const result = toProviderPayload(formValues, { isOAuthMode, openSnapshot: snapshotValues });
+    const result = toProviderPayload(formValues, { isOAuthMode });
     if (!result.ok) {
       toast.error(result.error);
       return;
