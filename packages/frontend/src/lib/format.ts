@@ -290,11 +290,18 @@ export function formatPercent(value: number, decimals: number = 1): string {
 
 /**
  * Format a timestamp string into a readable time label for chart axes.
- * Handles ISO strings and epoch-millisecond numeric strings.
+ * Handles ISO strings and epoch-millisecond numeric strings. Pass
+ * `seconds: true` for sub-minute buckets, which share an hour:minute label.
  */
-export function formatTimeLabel(timestamp: string): string {
+export function formatTimeLabel(timestamp: string, options?: { seconds?: boolean }): string {
   const date = parseTimestamp(timestamp);
-  if (date) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (date) {
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: options?.seconds ? '2-digit' : undefined,
+    });
+  }
   return timestamp;
 }
 

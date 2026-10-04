@@ -178,7 +178,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
       headerMeta={[quota.oauthAccountId, checkedLabel].filter(Boolean).join(' · ') || undefined}
       size="md"
       footer={
-        <Button variant="secondary" size="sm" className="border-border-strong" onClick={onClose}>
+        <Button variant="secondary" size="sm" onClick={onClose}>
           Close
         </Button>
       }
@@ -190,7 +190,6 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
             key={r.key}
             size="sm"
             variant={range === r.key ? 'primary' : 'secondary'}
-            className={range === r.key ? undefined : 'border-border-strong'}
             onClick={() => setRange(r.key)}
           >
             {r.label}
@@ -222,7 +221,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
               className="rounded-lg border border-border-strong bg-surface-elevated px-3 py-2.5"
               title={title}
             >
-              <div className="text-[10px] font-semibold text-foreground-subtle uppercase tracking-wider">
+              <div className="text-label font-semibold text-foreground-subtle uppercase tracking-wider">
                 {label}
               </div>
               <div className="text-base font-semibold text-foreground tabular-nums mt-0.5">
@@ -236,7 +235,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
       {/* Chart — recessed, titled panel so the plot reads as its own layer,
           distinct from the raised stat tiles and the modal surface. */}
       <div className="w-full rounded-lg border border-border-strong bg-surface-elevated p-3">
-        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-foreground-subtle">
+        <div className="mb-2 text-label font-semibold uppercase tracking-wider text-foreground-subtle">
           {isBalance ? 'Balance history' : 'Utilization history'}
         </div>
         <div className="h-52 w-full">

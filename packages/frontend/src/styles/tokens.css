@@ -70,6 +70,8 @@
   --background:        #F6F4EE;
   --surface:           #FFFFFF;
   --surface-elevated:  #FAF8F2;
+  /* Hover fill for controls on any surface: a clear step darker than elevated */
+  --surface-hover:     #ECE8DD;
   --surface-sunken:    #EFEDE5;
   --border:            #E5E1D6;
   --border-strong:     #C9C2B0;
@@ -109,6 +111,8 @@
   --background:        #0A0B0E;
   --surface:           #16181D;
   --surface-elevated:  #1F2127;
+  /* Hover fill for controls on any surface: a clear step lighter than elevated */
+  --surface-hover:     #2C2F37;
   --surface-sunken:    #06070A;
   --border:            #22252C;
   --border-strong:     #3A3E47;
@@ -182,6 +186,17 @@
   --accent:            var(--hue-amber-500);
   --accent-foreground: var(--neutral-950);
   --accent-subtle:     rgba(217, 119, 6, 0.12);
+}
+
+/* Accent as text on a faint accent tint. The mid-step accent alone falls
+   short of 4.5:1 for small text in both themes, so derive a darker (light)
+   or lighter (dark) step from whichever accent is live. */
+[data-theme="light"] {
+  --accent-text: color-mix(in oklab, var(--accent) 70%, black);
+}
+
+[data-theme="dark"] {
+  --accent-text: color-mix(in oklab, var(--accent) 60%, white);
 }
 
 /* -------------------------------------------------------------------------- */

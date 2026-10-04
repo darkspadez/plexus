@@ -326,6 +326,177 @@ describe('Usage summary route', () => {
     }
   });
 
+  // Clock sits mid-minute so step anchoring (sub-hour ranges) and minute
+  // anchoring (hour and longer) resolve to different window ends.
+  const ANCHOR_CLOCK = '2026-07-07T12:00:47.300Z';
+  const ANCHOR_CASES = [
+    {
+      range: '1m',
+      start: '2026-07-07T11:59:45.000Z',
+      end: '2026-07-07T12:00:45.000Z',
+      stepMs: 5_000,
+    },
+    {
+      range: '5m',
+      start: '2026-07-07T11:55:45.000Z',
+      end: '2026-07-07T12:00:45.000Z',
+      stepMs: 15_000,
+    },
+    {
+      range: '15m',
+      start: '2026-07-07T11:45:30.000Z',
+      end: '2026-07-07T12:00:30.000Z',
+      stepMs: 30_000,
+    },
+    {
+      range: 'hour',
+      start: '2026-07-07T11:00:00.000Z',
+      end: '2026-07-07T12:00:00.000Z',
+      stepMs: 60_000,
+    },
+  ] as const;
+
+  const insertAnchorRows = async (startMs: number, endMs: number, stepMs: number) => {
+    const rows = [
+      { requestId: 'anchor-before-start', startTime: startMs - 1 },
+      { requestId: 'anchor-at-start', startTime: startMs },
+      { requestId: 'anchor-first-bucket-end', startTime: startMs + stepMs - 1 },
+      { requestId: 'anchor-second-bucket', startTime: startMs + stepMs },
+      { requestId: 'anchor-at-end', startTime: endMs },
+      { requestId: 'anchor-after-end', startTime: endMs + 1 },
+    ];
+    await db.insert(schema.requestUsage).values(
+      rows.map((row) => ({
+        ...row,
+        date: new Date(row.startTime).toISOString(),
+        provider: 'anchor-provider',
+        responseStatus: 'success',
+        durationMs: 100,
+        isStreamed: 0,
+        isPassthrough: 0,
+        tokensEstimated: 0,
+        createdAt: row.startTime,
+      }))
+    );
+  };
+
+  it.each(ANCHOR_CASES)(
+    'summary range=$range spans $start to $end in $stepMs ms buckets',
+    async ({ range, start, end, stepMs }) => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(ANCHOR_CLOCK));
+      const startMs = Date.parse(start);
+      const endMs = Date.parse(end);
+      await insertAnchorRows(startMs, endMs, stepMs);
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: `/v0/management/usage/summary?range=${range}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json() as {
+        range: string;
+        series: Array<{ bucketStartMs: number; requests: number }>;
+        stats: { totalRequests: number };
+        prevStats: { totalRequests: number } | null;
+      };
+      expect(body.range).toBe(range);
+      // Both bounds are inclusive; the row 1ms before the start falls in the
+      // preceding window and the row 1ms after the anchor in neither.
+      expect(body.stats.totalRequests).toBe(4);
+      expect(body.prevStats?.totalRequests).toBe(1);
+      expect(body.series.map(({ bucketStartMs, requests }) => [bucketStartMs, requests])).toEqual([
+        [startMs, 2],
+        [startMs + stepMs, 1],
+        [endMs, 1],
+      ]);
+    }
+  );
+
+  it.each(ANCHOR_CASES)(
+    'errors-by-provider range=$range spans $start to $end',
+    async ({ range, start, end, stepMs }) => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(ANCHOR_CLOCK));
+      await insertAnchorRows(Date.parse(start), Date.parse(end), stepMs);
+
+      const response = await fastify.inject({
+        method: 'GET',
+        url: `/v0/management/usage/errors-by-provider?range=${range}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual([
+        {
+          provider: 'anchor-provider',
+          requests: 4,
+          errors: 0,
+          errorRate: 0,
+          lastErrorMessage: null,
+        },
+      ]);
+    }
+  );
+
+  it('rejects unknown ranges on summary and errors-by-provider', async () => {
+    for (const endpoint of ['summary', 'errors-by-provider']) {
+      for (const range of ['2m', '1h', 'year', 'constructor']) {
+        const response = await fastify.inject({
+          method: 'GET',
+          url: `/v0/management/usage/${endpoint}?range=${range}`,
+        });
+        expect(response.statusCode, `${endpoint} range=${range}`).toBe(400);
+        expect(response.json().error).toBe('Invalid range');
+      }
+    }
+  });
+
+  it('returns a basic summary at the maximum bucket count', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-07T12:00:00.000Z'));
+
+    // A 24h custom range would need 288 five-minute buckets, so the step
+    // widens to 864s (100 spans); aligning the start to that step and seeding
+    // the inclusive end bound fills the 101-bucket maximum.
+    const stepMs = 864_000;
+    const startMs = Math.ceil(Date.parse('2026-07-06T00:00:00.000Z') / stepMs) * stepMs;
+    const endMs = startMs + 100 * stepMs;
+    const rows = Array.from({ length: 101 }, (_, bucket) => {
+      const startTime = startMs + bucket * stepMs;
+      return [100, 200, 401].map((durationMs, index) => ({
+        requestId: `usage-summary-max-buckets-${bucket}-${index}`,
+        date: new Date(startTime).toISOString(),
+        startTime,
+        createdAt: startTime,
+        responseStatus: index === 2 ? 'error' : 'success',
+        durationMs,
+        ttftMs: 411.2 + index * 37.9,
+        tokensPerSec: 24.263046301165026 + bucket,
+        costTotal: 0.00106585 * (bucket + index + 1),
+        tokensInput: 940 + bucket,
+        tokensOutput: 1003,
+        tokensReasoning: 120,
+        tokensCached: 801,
+        tokensCacheWrite: 64,
+        isStreamed: 0,
+        isPassthrough: 0,
+        tokensEstimated: 0,
+      }));
+    }).flat();
+    await db.insert(schema.requestUsage).values(rows);
+
+    const response = await fastify.inject({
+      method: 'GET',
+      url: `/v0/management/usage/summary?range=custom&startDate=${new Date(startMs).toISOString()}&endDate=${new Date(endMs).toISOString()}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().series).toHaveLength(101);
+    // Larger than the former 16 KiB basic-summary cap, which answered 413.
+    expect(response.payload.length).toBeGreaterThan(16 * 1024);
+  });
+
   it('rejects malformed, reversed, and future custom ranges', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-07-07T12:00:00.000Z'));

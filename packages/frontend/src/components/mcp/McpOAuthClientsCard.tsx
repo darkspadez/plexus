@@ -159,7 +159,7 @@ export function McpOAuthClientsCard({
                     </div>
                   </div>
                   <div className="min-w-0 lg:max-w-[45%]">
-                    <div className="text-[10px] uppercase tracking-wider text-foreground-subtle">
+                    <div className="text-label uppercase tracking-wider text-foreground-subtle">
                       Redirect URIs
                     </div>
                     <div className="mt-1 flex flex-col gap-1">
@@ -178,7 +178,7 @@ export function McpOAuthClientsCard({
                 <div className="mt-3 border-t border-border pt-3">
                   <DataTable<McpOAuthTokenRecord>
                     title={
-                      <span className="text-[10px] uppercase tracking-wider text-foreground-subtle">
+                      <span className="text-label uppercase tracking-wider text-foreground-subtle">
                         Active tokens
                       </span>
                     }

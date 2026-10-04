@@ -14,6 +14,9 @@ get:
     ## Range and bucket algorithm
 
     The endpoint uses adaptive bucketing to ensure meaningful visualizations:
+    - `1m` — the last minute, in five-second buckets
+    - `5m` — the last five minutes, in fifteen-second buckets
+    - `15m` — the last fifteen minutes, in thirty-second buckets
     - `hour` — the last hour, in one-minute buckets
     - `day` — the last 24 hours, in one-hour buckets
     - `week` — the last 7 days, in one-day buckets
@@ -21,6 +24,9 @@ get:
     - `custom` — requires `startDate` and `endDate`; buckets are auto-sized
       based on the range duration and the range may not exceed 12 months.
     - `all` — everything since the epoch; buckets are auto-sized like `custom`
+
+    `1m`, `5m`, and `15m` windows end at the latest bucket boundary; other
+    named windows end at the start of the current minute.
 
     ## Response structure
 
@@ -43,6 +49,9 @@ get:
       schema:
         type: string
         enum:
+          - 1m
+          - 5m
+          - 15m
           - hour
           - day
           - week

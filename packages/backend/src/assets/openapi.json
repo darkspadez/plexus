@@ -6617,7 +6617,7 @@
           "Management — Usage"
         ],
         "summary": "Aggregated usage time-series and totals",
-        "description": "Returns range-scoped bucketed series and totals, a prior-window\ncomparison, and a since-midnight rollup. Optional grouped breakdowns are\ncomputed server-side over the complete requested range.\n\n## Scoping\n\nLimited principals see only their own key's data; admins see global data.\n\n## Range and bucket algorithm\n\nThe endpoint uses adaptive bucketing to ensure meaningful visualizations:\n- `hour` — the last hour, in one-minute buckets\n- `day` — the last 24 hours, in one-hour buckets\n- `week` — the last 7 days, in one-day buckets\n- `month` — the last 30 days, in one-day buckets\n- `custom` — requires `startDate` and `endDate`; buckets are auto-sized\n  based on the range duration and the range may not exceed 12 months.\n- `all` — everything since the epoch; buckets are auto-sized like `custom`\n\n## Response structure\n\n- **series** — Time-bucketed data, where each bucket contains aggregated\n  counts and token sums\n- **stats** — Aggregation over the requested range, including rich usage\n  and performance metrics\n- **prevStats** — Aggregation over the equal-length window immediately\n  preceding the selected range (`null` for `range=all`)\n- **today** — Aggregation since local midnight (not UTC), giving a\n  \"day-so-far\" view\n- **grouped** — Optional top-N grouped aggregates. Request dimensions with\n  the comma-separated `breakdowns` parameter. At most three dimensions are\n  allowed, and omitted groups are represented by an `Other` item.\n",
+        "description": "Returns range-scoped bucketed series and totals, a prior-window\ncomparison, and a since-midnight rollup. Optional grouped breakdowns are\ncomputed server-side over the complete requested range.\n\n## Scoping\n\nLimited principals see only their own key's data; admins see global data.\n\n## Range and bucket algorithm\n\nThe endpoint uses adaptive bucketing to ensure meaningful visualizations:\n- `1m` — the last minute, in five-second buckets\n- `5m` — the last five minutes, in fifteen-second buckets\n- `15m` — the last fifteen minutes, in thirty-second buckets\n- `hour` — the last hour, in one-minute buckets\n- `day` — the last 24 hours, in one-hour buckets\n- `week` — the last 7 days, in one-day buckets\n- `month` — the last 30 days, in one-day buckets\n- `custom` — requires `startDate` and `endDate`; buckets are auto-sized\n  based on the range duration and the range may not exceed 12 months.\n- `all` — everything since the epoch; buckets are auto-sized like `custom`\n\n`1m`, `5m`, and `15m` windows end at the latest bucket boundary; other\nnamed windows end at the start of the current minute.\n\n## Response structure\n\n- **series** — Time-bucketed data, where each bucket contains aggregated\n  counts and token sums\n- **stats** — Aggregation over the requested range, including rich usage\n  and performance metrics\n- **prevStats** — Aggregation over the equal-length window immediately\n  preceding the selected range (`null` for `range=all`)\n- **today** — Aggregation since local midnight (not UTC), giving a\n  \"day-so-far\" view\n- **grouped** — Optional top-N grouped aggregates. Request dimensions with\n  the comma-separated `breakdowns` parameter. At most three dimensions are\n  allowed, and omitted groups are represented by an `Other` item.\n",
         "security": [
           {
             "AdminKey": []
@@ -6630,6 +6630,9 @@
             "schema": {
               "type": "string",
               "enum": [
+                "1m",
+                "5m",
+                "15m",
                 "hour",
                 "day",
                 "week",

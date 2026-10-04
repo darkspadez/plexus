@@ -148,7 +148,7 @@ export function FetchModelsModal({
                           )}
                           {isHidden && (
                             <span
-                              className="font-sans text-[10px] tracking-wider text-foreground-muted uppercase"
+                              className="font-sans text-label tracking-wider text-foreground-muted uppercase"
                               title="Served by the provider but not advertised in its own model picker"
                             >
                               hidden

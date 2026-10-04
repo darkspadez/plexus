@@ -107,7 +107,7 @@ export const Login: React.FC = () => {
             <span className="text-3xl font-bold accent-grad-text font-sans tracking-tight">
               Plexus
             </span>
-            <span className="text-[10px] uppercase tracking-[0.18em] text-foreground-subtle font-mono">
+            <span className="text-label uppercase tracking-[0.18em] text-foreground-subtle font-mono">
               {appVersion}
             </span>
           </div>

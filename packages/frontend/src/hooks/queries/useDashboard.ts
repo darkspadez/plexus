@@ -1,28 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type DashboardData, type ConcurrencyData, type UsageRecord } from '../../lib/api';
+import { api, type ConcurrencyData, type UsageRecord } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
+import { COOLDOWNS_KEY } from './useAliases';
 
-// Dashboard live data (stats + cooldowns + todayMetrics)
-export const DASHBOARD_DATA_KEY = ['dashboard-data'] as const;
 // Live logs for LiveTab
 export const LIVE_LOGS_KEY = ['live-logs'] as const;
 // Concurrency data
 export const CONCURRENCY_KEY = ['concurrency'] as const;
-
-// Fetches dashboard data for a given range (used by LiveTab with 'day')
-export const useDashboardData = (options?: {
-  range?: 'hour' | 'day' | 'week' | 'month';
-  enabled?: boolean;
-  refetchInterval?: number | false;
-}) => {
-  const range = options?.range ?? 'day';
-  return useQuery<DashboardData>({
-    queryKey: [...DASHBOARD_DATA_KEY, range],
-    queryFn: () => api.getDashboardData(range, false),
-    refetchInterval: options?.refetchInterval,
-    enabled: options?.enabled !== false,
-  });
-};
 
 // Fetches logs list for live tab
 export const useLiveLogs = (options: {
@@ -61,7 +45,7 @@ export const useClearCooldowns = () => {
   return useMutation({
     mutationFn: () => api.clearCooldown(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: DASHBOARD_DATA_KEY });
+      qc.invalidateQueries({ queryKey: COOLDOWNS_KEY });
       success('All cooldowns cleared');
     },
     onError: (err: Error) => toastError(`Failed to clear cooldowns: ${err.message}`),
@@ -76,7 +60,7 @@ export const useClearSingleCooldown = () => {
     mutationFn: ({ provider, model }: { provider: string; model?: string }) =>
       api.clearCooldown(provider, model),
     onSuccess: (_, variables) => {
-      qc.invalidateQueries({ queryKey: DASHBOARD_DATA_KEY });
+      qc.invalidateQueries({ queryKey: COOLDOWNS_KEY });
       success(`Cooldown cleared for ${variables.provider}`);
     },
     onError: (err: Error) => toastError(`Failed to clear cooldown: ${err.message}`),

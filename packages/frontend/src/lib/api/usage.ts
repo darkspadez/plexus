@@ -7,18 +7,16 @@ import {
   getAuthCacheKey,
   STAT_LABELS,
 } from './core';
-import { getCooldowns } from './settings';
 import type {
   BackendResponse,
   ConcurrencyData,
-  DashboardData,
   ErrorsByProviderPoint,
   PieChartDataPoint,
   ProviderPerformanceData,
   Stat,
   TodayMetrics,
-  UsageData,
   UsageQueryParams,
+  UsageRange,
   UsageRecord,
   UsageRecordField,
   UsageSortDirection,
@@ -55,10 +53,7 @@ export const normalizeNow = (): Date => {
   return now;
 };
 
-export const getUsageRangeConfig = (
-  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all',
-  now: Date
-) => {
+export const getUsageRangeConfig = (range: 'hour' | 'day' | 'week' | 'month', now: Date) => {
   const startDate = new Date(now);
   let bucketFormat: (d: Date) => string;
   let buckets = 0;
@@ -84,7 +79,6 @@ export const getUsageRangeConfig = (
       step = 24 * 60 * 60 * 1000;
       break;
     case 'week':
-    default:
       startDate.setDate(startDate.getDate() - 7);
       bucketFormat = (d) => d.toLocaleDateString();
       buckets = 7;
@@ -93,49 +87,6 @@ export const getUsageRangeConfig = (
   }
 
   return { startDate, bucketFormat, buckets, step };
-};
-
-export const formatBucketLabel = (
-  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all',
-  date: Date
-) => {
-  if (range === 'hour' || range === 'day') {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-  return date.toLocaleDateString();
-};
-
-export const buildSummarySeries = (summary: UsageSummaryResponse, now: Date): UsageData[] => {
-  const { buckets, step } = getUsageRangeConfig(summary.range, now);
-  const grouped: Record<string, UsageData> = {};
-  const stepMs = step;
-  const alignedNowMs = Math.floor(now.getTime() / stepMs) * stepMs;
-  const startMs = alignedNowMs - buckets * stepMs;
-  const byBucket = new Map(summary.series.map((point) => [point.bucketStartMs, point]));
-
-  for (let i = 0; i <= buckets; i++) {
-    const bucketStartMs = startMs + i * stepMs;
-    const bucketDate = new Date(bucketStartMs);
-    const label = formatBucketLabel(summary.range, bucketDate);
-    const point = byBucket.get(bucketStartMs);
-    const inputTokens = point?.inputTokens || 0;
-    const outputTokens = point?.outputTokens || 0;
-    const cachedTokens = point?.cachedTokens || 0;
-    const cacheWriteTokens = point?.cacheWriteTokens || 0;
-
-    grouped[label] = {
-      timestamp: label,
-      requests: point?.requests || 0,
-      tokens: point?.tokens || inputTokens + outputTokens + cachedTokens + cacheWriteTokens,
-      inputTokens,
-      outputTokens,
-      cachedTokens,
-      cacheWriteTokens,
-      errors: point?.errors || 0,
-    };
-  }
-
-  return Object.values(grouped);
 };
 
 export const buildUsageQuery = <T extends UsageRecordField>(params: UsageQueryParams<T>) => {
@@ -198,8 +149,15 @@ export const fetchUsageRecords = async <T extends UsageRecordField>(
   return (await res.json()) as BackendResponse<Pick<UsageRecord, T>[]>;
 };
 
+/**
+ * Deduped, sorted breakdowns: the order `fetchUsageSummary` sends them in, so
+ * the same set always makes the same request (and query key).
+ */
+export const normalizeSummaryBreakdowns = (breakdowns: UsageSummaryBreakdown[]) =>
+  Array.from(new Set(breakdowns)).sort();
+
 export const fetchUsageSummary = async (
-  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all',
+  range: UsageRange,
   cache = true,
   startDate?: string,
   endDate?: string,
@@ -215,7 +173,7 @@ export const fetchUsageSummary = async (
     searchParams.set('endDate', endDate);
   }
 
-  const normalizedBreakdowns = Array.from(new Set(breakdowns)).sort();
+  const normalizedBreakdowns = normalizeSummaryBreakdowns(breakdowns);
   if (normalizedBreakdowns.length > 0) {
     searchParams.set('breakdowns', normalizedBreakdowns.join(','));
     searchParams.set('breakdownLimit', String(breakdownLimit));
@@ -257,7 +215,7 @@ export const errorsByProviderRequestCache = new Map<
 >();
 
 export const fetchErrorsByProvider = async (
-  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all',
+  range: UsageRange,
   cache = true,
   startDate?: string,
   endDate?: string
@@ -328,64 +286,6 @@ export const getStats = async (): Promise<Stat[]> => {
   }
 };
 
-export const getDashboardData = async (
-  range: 'hour' | 'day' | 'week' | 'month' | 'custom' = 'day',
-  cache = true,
-  startDate?: string,
-  endDate?: string
-): Promise<DashboardData> => {
-  try {
-    const now = normalizeNow();
-    const [summary, cooldowns, config] = await Promise.all([
-      fetchUsageSummary(range, cache, startDate, endDate),
-      getCooldowns(),
-      fetchConfigCached(),
-    ]);
-
-    const usageData = buildSummarySeries(summary, now);
-    const totalRequests = summary.stats.totalRequests || 0;
-    const totalTokens = summary.stats.totalTokens || 0;
-    const avgLatency = Math.round(summary.stats.avgDurationMs || 0);
-    const configObj = config as { providers?: Record<string, unknown> } | null;
-    const activeProviders = configObj ? Object.keys(configObj.providers || {}).length : '-';
-
-    const stats: Stat[] = [
-      { label: STAT_LABELS.REQUESTS, value: formatNumber(totalRequests, 0) },
-      { label: STAT_LABELS.PROVIDERS, value: activeProviders },
-      { label: STAT_LABELS.TOKENS, value: formatLargeNumber(totalTokens) },
-      { label: STAT_LABELS.DURATION, value: avgLatency + 'ms' },
-    ];
-
-    return {
-      stats,
-      usageData,
-      cooldowns,
-      todayMetrics: summary.today,
-    };
-  } catch (e) {
-    console.error('API Error getDashboardData', e);
-    return {
-      stats: [
-        { label: STAT_LABELS.REQUESTS, value: '-' },
-        { label: STAT_LABELS.PROVIDERS, value: '-' },
-        { label: STAT_LABELS.TOKENS, value: '-' },
-        { label: STAT_LABELS.DURATION, value: '-' },
-      ],
-      usageData: [],
-      cooldowns: [],
-      todayMetrics: {
-        requests: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        reasoningTokens: 0,
-        cachedTokens: 0,
-        cacheWriteTokens: 0,
-        totalCost: 0,
-      },
-    };
-  }
-};
-
 /**
  * Fetch the raw usage-summary response for the current principal.
  *
@@ -398,7 +298,7 @@ export const getDashboardData = async (
  * their own.
  */
 export const getUsageSummary = async (
-  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all' = 'day',
+  range: UsageRange = 'day',
   cache = true,
   startDate?: string,
   endDate?: string,
@@ -432,7 +332,7 @@ export const getUsageSummary = async (
  * provider; callers must handle that case.
  */
 export const getErrorsByProvider = async (
-  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all' = 'day',
+  range: UsageRange = 'day',
   cache = true,
   startDate?: string,
   endDate?: string
@@ -461,8 +361,9 @@ export const getUsageByModel = async (
       queryStartDate = new Date(startDate);
       queryEndDate = new Date(endDate);
     } else {
+      // A custom range missing its bounds falls back to the last week.
       const { startDate: configStart } = getUsageRangeConfig(
-        range as 'hour' | 'day' | 'week' | 'month',
+        range === 'custom' ? 'week' : range,
         now
       );
       queryStartDate = configStart;
@@ -518,8 +419,9 @@ export const getUsageByProvider = async (
       queryStartDate = new Date(startDate);
       queryEndDate = new Date(endDate);
     } else {
+      // A custom range missing its bounds falls back to the last week.
       const { startDate: configStart } = getUsageRangeConfig(
-        range as 'hour' | 'day' | 'week' | 'month',
+        range === 'custom' ? 'week' : range,
         now
       );
       queryStartDate = configStart;

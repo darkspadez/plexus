@@ -45,7 +45,7 @@ After implementation, a 20-request direct HTTP run against the dev proxy measure
 These measurements are endpoint-level results and are not substitutes for a
 database benchmark on 100k- or 1m-row synthetic datasets.
 
-The production-path checks now also enforce the 16 KiB basic-response and 128 KiB
+The production-path checks now also enforce the 64 KiB basic-response and 128 KiB
 grouped-response limits before a result enters the cache. Summary telemetry records
 range, dialect, query duration, result cardinality, response bytes, and cache state.
 Detailed Usage List mode requests only the displayed fields for its 100-row preview.
@@ -89,7 +89,7 @@ Return the following in `stats`, each series bucket, and each grouped entry wher
 - Sort deterministically by request count, then name.
 - Return an exact `Other` rollup plus `totalDimensions` and `truncated` metadata.
 - Reject unsupported dimensions or excessive limits before executing queries.
-- Keep basic responses under 16 KiB and grouped responses under approximately 128 KiB.
+- Keep basic responses under 64 KiB and grouped responses under approximately 128 KiB.
 
 ## Workstreams and Dependencies
 

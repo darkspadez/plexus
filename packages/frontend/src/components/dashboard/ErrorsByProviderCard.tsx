@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 import { Card } from '../ui/Card';
-import { Badge } from '../ui/Badge';
 import { EmptyState } from '../ui/EmptyState';
-import { Tooltip } from '../ui/Tooltip';
 import { AlertOctagon } from 'lucide-react';
-import { type TimeRange } from './TimeRangeSelector';
+import { rangeRefetchMs, type TimeRange } from './TimeRangeSelector';
 import { useErrorsByProvider } from '../../hooks/queries/useUsage';
-import { formatNumber, formatPercent } from '../../lib/format';
+import { formatPercent } from '../../lib/format';
+import { AlertRow } from './AlertRow';
+import { errorRowMeta } from './alert-rows';
 
 interface ErrorsByProviderCardProps {
   timeRange: TimeRange;
@@ -16,16 +16,20 @@ interface ErrorsByProviderCardProps {
 
 /**
  * Error-rate breakdown by provider, visually paired with `ServiceAlertsCard`
- * (same alert-styled row treatment). Always renders — falls back to an
- * `EmptyState` when every provider shows zero errors, since the 3-up row
- * layout it feeds expects all three cards to always be present.
+ * (same `AlertRow` treatment). Always renders — falls back to an
+ * `EmptyState` when every provider shows zero errors, since the row layout it
+ * feeds expects both cards to always be present.
  */
 export const ErrorsByProviderCard: React.FC<ErrorsByProviderCardProps> = ({
   timeRange,
   startDate,
   endDate,
 }) => {
-  const { data } = useErrorsByProvider(timeRange, { startDate, endDate });
+  const { data } = useErrorsByProvider(timeRange, {
+    startDate,
+    endDate,
+    refetchInterval: rangeRefetchMs(timeRange),
+  });
 
   const errorRows = useMemo(() => (data ?? []).filter((row) => row.errors > 0), [data]);
   const hasErrors = errorRows.length > 0;
@@ -39,28 +43,18 @@ export const ErrorsByProviderCard: React.FC<ErrorsByProviderCardProps> = ({
           {errorRows.map((row) => {
             const label = row.provider ?? 'Unattributed';
             return (
-              <div
+              <AlertRow
                 key={label}
-                className="flex items-center gap-2 rounded-md bg-danger-subtle px-3 py-2"
-              >
-                {row.lastErrorMessage ? (
-                  <Tooltip content={row.lastErrorMessage}>
-                    <span
-                      className="flex shrink-0 cursor-help"
-                      aria-label={`Last error: ${row.lastErrorMessage}`}
-                    >
-                      <AlertOctagon size={14} className="text-danger" />
-                    </span>
-                  </Tooltip>
-                ) : (
-                  <AlertOctagon size={14} className="text-danger shrink-0" />
-                )}
-                <span className="text-xs font-medium text-foreground truncate">{label}</span>
-                <Badge status="danger" noDot className="ml-auto shrink-0">
-                  {formatNumber(row.errors, 0)} / {formatNumber(row.requests, 0)} req &middot;{' '}
-                  {formatPercent(row.errorRate * 100)}
-                </Badge>
-              </div>
+                tone="danger"
+                icon={<AlertOctagon size={14} />}
+                title={label}
+                right={
+                  <span className="font-mono text-xs tabular-nums text-danger">
+                    {formatPercent(row.errorRate * 100)}
+                  </span>
+                }
+                meta={errorRowMeta(row)}
+              />
             );
           })}
         </div>

@@ -199,10 +199,8 @@ export const OverallTab: React.FC = () => {
         <TimeRangeSelector
           value={timeRange}
           onChange={(r) => {
-            if (r !== 'all') {
-              setTimeRange(r);
-              if (r !== 'custom') setCustomDateRange(null);
-            }
+            setTimeRange(r);
+            if (r !== 'custom') setCustomDateRange(null);
           }}
           customRange={customDateRange}
           onCustomRangeChange={setCustomDateRange}

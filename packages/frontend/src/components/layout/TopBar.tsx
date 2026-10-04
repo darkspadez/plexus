@@ -164,7 +164,7 @@ const AccentPicker: React.FC = () => {
             'bg-surface p-1 shadow-[var(--shadow-md)]'
           )}
         >
-          <div className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wider text-foreground-subtle">
+          <div className="px-2 pb-1 pt-0.5 text-label font-medium uppercase tracking-wider text-foreground-subtle">
             Accent
           </div>
           {ACCENTS.map((a) => (
@@ -247,12 +247,12 @@ const UserMenu: React.FC = () => {
           )}
         >
           <div className="px-2 pb-1.5 pt-0.5">
-            <div className="text-[10px] font-medium uppercase tracking-wider text-foreground-subtle">
+            <div className="text-label font-medium uppercase tracking-wider text-foreground-subtle">
               Signed in
             </div>
             <div className="mt-0.5 text-xs text-foreground-muted">
               {label}
-              <span className="ml-2 text-[10px] uppercase tracking-wide text-foreground-subtle">
+              <span className="ml-2 text-label uppercase tracking-wide text-foreground-subtle">
                 {roleTag}
               </span>
             </div>

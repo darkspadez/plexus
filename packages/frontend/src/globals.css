@@ -7,6 +7,7 @@
   --color-background:        var(--background);
   --color-surface:           var(--surface);
   --color-surface-elevated:  var(--surface-elevated);
+  --color-surface-hover:     var(--surface-hover);
   --color-surface-sunken:    var(--surface-sunken);
   --color-border:            var(--border);
   --color-border-strong:     var(--border-strong);
@@ -17,6 +18,7 @@
   --color-accent:            var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-subtle:     var(--accent-subtle);
+  --color-accent-text:       var(--accent-text);
 
   --color-success:            var(--success);
   --color-success-foreground: var(--success-foreground);
@@ -56,6 +58,8 @@
   --radius-xl: 16px;
 
   /* Typography scale — branch values */
+  --text-label: 0.6875rem;
+  --text-label--line-height: 1rem;
   --text-xs:   0.75rem;
   --text-xs--line-height: 1rem;
   --text-sm:   0.8125rem;

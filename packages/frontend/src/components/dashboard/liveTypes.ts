@@ -46,9 +46,6 @@ export type ModelTimelineBucket = Record<string, string | number> & {
   tpsCount: number;
 };
 
-/** Card IDs that support an expanded modal view (the surviving salvage set). */
-export type ModalCardId = 'modelstack' | 'concurrency';
-
 /** Maximum number of distinct models shown in the model-stack chart */
 export const MODEL_TIMELINE_MAX_SERIES = 5;
 

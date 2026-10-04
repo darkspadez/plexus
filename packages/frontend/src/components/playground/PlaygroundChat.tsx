@@ -500,7 +500,7 @@ const ToolCard = ({
   <div className="my-2 overflow-hidden rounded-md border border-accent/40 bg-surface">
     <div className="flex items-center gap-2 border-b border-accent/20 bg-accent/10 px-3 py-2">
       <Wrench className="h-3.5 w-3.5 text-accent" />
-      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-accent">
+      <span className="font-mono text-label font-bold uppercase tracking-wider text-accent">
         Tool
       </span>
       <span className="font-mono text-xs font-semibold text-foreground">{part.toolName}</span>
@@ -540,7 +540,7 @@ const AssistantParts = () => (
       if (part.type === 'reasoning') {
         return (
           <details className="my-2 rounded-md border border-border bg-surface px-3 py-2 text-foreground-muted">
-            <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-wider text-foreground-subtle">
+            <summary className="cursor-pointer font-mono text-label uppercase tracking-wider text-foreground-subtle">
               Reasoning
             </summary>
             <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-[11px]">

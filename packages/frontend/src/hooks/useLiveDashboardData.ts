@@ -1,10 +1,10 @@
 /**
  * @file useLiveDashboardData.ts
  *
- * Data hook for the two Live Metrics cards salvaged onto AdminDashboard as
- * drill-in cards: Concurrency and Model Stack. This is a deliberate trim of
- * upstream's 835-line `useLiveDashboardData` (which powered the full 10-card
- * Live Metrics tab) down to just the concurrency-history accumulation and
+ * Data hook for the two Live Metrics cards salvaged onto AdminDashboard:
+ * Concurrency and Model Stack. This is a deliberate trim of upstream's
+ * 835-line `useLiveDashboardData` (which powered the full 10-card Live
+ * Metrics tab) down to just the concurrency-history accumulation and
  * model-stack bucketing those two cards need — see docs/DESIGN_MIGRATION.md
  * for the product decision to drop the rest (per-provider/per-model
  * breakdowns, request stream, aggregate stats) in favour of Grafana + the
@@ -64,7 +64,7 @@ export function useLiveDashboardData(): LiveDashboardData {
 
   // ---------------------------------------------------------------------------
   // Concurrency history -- a client-side rolling buffer of per-poll snapshots,
-  // keyed by provider, for the AreaChart in ConcurrencyCard/ConcurrencyModal.
+  // keyed by provider, for the AreaChart in ConcurrencyCard.
   // ---------------------------------------------------------------------------
   const [concurrencyHistory, setConcurrencyHistory] = useState<Record<string, unknown>[]>([]);
 

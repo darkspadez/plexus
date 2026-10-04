@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ChangeEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../contexts/ToastContext';
 import { SECTION_NAMES } from '../lib/nav';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageContainer } from '../components/layout/PageContainer';
-import type { CardLayout } from '../types/card';
-import { DEFAULT_CARD_ORDER, LAYOUT_STORAGE_KEY } from '../types/card';
 import { DisplayPreferencesCard } from '../components/config/DisplayPreferencesCard';
 import { FailoverSettings } from '../components/config/FailoverSettings';
 import { TraceCaptureSettings } from '../components/config/TraceCaptureSettings';
@@ -20,7 +18,6 @@ import { NetworkSettings } from '../components/config/NetworkSettings';
 import { GrafanaSettings } from '../components/config/GrafanaSettings';
 import { ModelMetadataCard } from '../components/config/ModelMetadataCard';
 import { BackupRestoreCard } from '../components/config/BackupRestoreCard';
-import { CardLayoutCard } from '../components/config/CardLayoutCard';
 import { ConfigurationSnapshot } from '../components/config/ConfigurationSnapshot';
 import {
   useConfigExport,
@@ -41,8 +38,6 @@ export const Config = () => {
   const config = configData ? JSON.stringify(configData, null, 2) : '';
 
   const restoreInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [cardLayout, setCardLayout] = useState<CardLayout>([]);
 
   // Action mutations
   const refreshMetadata = useRefreshModelMetadata();
@@ -59,18 +54,6 @@ export const Config = () => {
     }
   }, [isConfigError]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setCardLayout(parsed);
-      } catch {
-        console.error('Failed to parse card layout');
-      }
-    }
-  }, []);
-
   const triggerDownload = (content: string, filename: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
@@ -83,53 +66,8 @@ export const Config = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportLayout = () =>
-    triggerDownload(
-      JSON.stringify(cardLayout, null, 2),
-      'plexus-card-layout.json',
-      'application/json'
-    );
-
   const handleExportConfig = () =>
     triggerDownload(config, 'plexus-config-export.json', 'application/json');
-
-  const handleImportLayout = () => fileInputRef.current?.click();
-
-  const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const parsed = JSON.parse(content) as CardLayout;
-
-        if (
-          Array.isArray(parsed) &&
-          parsed.every((item) => typeof item.id === 'string' && typeof item.order === 'number')
-        ) {
-          const validIds = new Set<string>(DEFAULT_CARD_ORDER);
-          const allIdsValid = parsed.every((item: { id: string }) => validIds.has(item.id));
-          if (!allIdsValid) {
-            toast.error('Invalid card layout: contains unknown card IDs');
-            return;
-          }
-
-          localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(parsed));
-          setCardLayout(parsed);
-          toast.success('Card layout imported');
-        } else {
-          toast.error('Invalid card layout format');
-        }
-      } catch {
-        toast.error('Failed to import: Invalid JSON file');
-      }
-    };
-    reader.readAsText(file);
-
-    event.target.value = '';
-  };
 
   const handleRestoreClick = () => restoreInputRef.current?.click();
 
@@ -227,14 +165,6 @@ export const Config = () => {
             onFullBackupDownload={() => fullBackupDownload.mutate()}
             onBackupDownload={() => backupDownload.mutate()}
             onResetLogs={handleResetLogs}
-          />
-
-          <CardLayoutCard
-            cardLayout={cardLayout}
-            fileInputRef={fileInputRef}
-            onExport={handleExportLayout}
-            onImport={handleImportLayout}
-            onFileSelect={handleFileSelect}
           />
 
           <ConfigurationSnapshot

@@ -36,9 +36,9 @@ export const MetricsOverviewCard: React.FC<MetricsOverviewCardProps> = ({
         {metrics.map((metric, index) => (
           <div
             key={index}
-            className="glass-bg rounded-lg p-4 flex flex-col gap-1 transition-all duration-300"
+            className="glass-bg rounded-lg p-4 h-full flex flex-col gap-1 transition-all duration-300"
           >
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-center">
               <span className="font-sans text-xs font-semibold text-foreground-subtle uppercase tracking-wider">
                 {metric.label}
               </span>
@@ -46,7 +46,7 @@ export const MetricsOverviewCard: React.FC<MetricsOverviewCardProps> = ({
                 {metric.icon}
               </div>
             </div>
-            <div className="flex items-baseline gap-2 my-1">
+            <div className="flex items-center gap-2 my-1">
               <span className="font-sans text-3xl font-bold text-foreground">{metric.value}</span>
               {metric.delta && (
                 <DeltaChip
@@ -56,9 +56,9 @@ export const MetricsOverviewCard: React.FC<MetricsOverviewCardProps> = ({
                 />
               )}
             </div>
-            {metric.subtitle && (
-              <div className="text-xs text-foreground-subtle">{metric.subtitle}</div>
-            )}
+            {/* Always rendered so every tile shares one height and the values
+                line up across rows, whether or not a tile has a subtitle. */}
+            <div className="min-h-4 text-xs text-foreground-subtle">{metric.subtitle}</div>
           </div>
         ))}
       </div>

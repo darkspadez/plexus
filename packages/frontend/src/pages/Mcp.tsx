@@ -452,7 +452,7 @@ export const McpPage: React.FC = () => {
               </Button>
               {isCliInstallOpen && (
                 <div className="absolute right-0 top-full z-[100] mt-1 w-80 rounded-lg border border-border bg-surface p-3 shadow-[var(--shadow-md)]">
-                  <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-foreground-subtle">
+                  <p className="mb-2 text-label font-medium uppercase tracking-wider text-foreground-subtle">
                     Install Plexus CLI
                   </p>
                   <div className="mb-2 flex items-center gap-1 rounded-md bg-surface-sunken px-2 py-1 font-mono text-xs text-foreground-muted">

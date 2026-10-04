@@ -1,21 +1,8 @@
-import type { Cooldown } from './settings';
-
 export interface Stat {
   label: string;
   value: string | number;
   change?: number;
   icon?: string;
-}
-
-export interface UsageData {
-  timestamp: string;
-  requests: number;
-  tokens: number;
-  inputTokens: number;
-  outputTokens: number;
-  cachedTokens: number;
-  cacheWriteTokens: number;
-  errors: number;
 }
 
 export interface TodayMetrics {
@@ -46,13 +33,6 @@ export interface ConcurrencyData {
   count: number;
   /** Start of the 1-minute bucket as epoch milliseconds (floored to nearest 60000ms) */
   timestamp: number;
-}
-
-export interface DashboardData {
-  stats: Stat[];
-  usageData: UsageData[];
-  cooldowns: Cooldown[];
-  todayMetrics: TodayMetrics;
 }
 
 export interface PieChartDataPoint {
@@ -186,6 +166,13 @@ export interface UsageSummaryWindowStats {
   successRate: number;
 }
 
+/**
+ * `range` ids accepted by the usage-summary and errors-by-provider endpoints.
+ * Named ranges are resolved against the server's clock on every request;
+ * `'custom'` also needs `startDate`/`endDate`.
+ */
+export type UsageRange = '1m' | '5m' | '15m' | 'hour' | 'day' | 'week' | 'month' | 'all' | 'custom';
+
 export type UsageSummaryBreakdown = 'provider' | 'modelAlias' | 'apiKey' | 'status';
 export type UsageSummaryExclusion = 'directModels' | 'probe';
 
@@ -214,7 +201,7 @@ export interface UsageSummaryBreakdownResult {
 }
 
 export interface UsageSummaryResponse {
-  range: 'hour' | 'day' | 'week' | 'month' | 'custom' | 'all';
+  range: UsageRange;
   series: UsageSummarySeriesPoint[];
   stats: UsageSummaryWindowStats;
   /** `null` when `range` is `all` — there is no prior window to compare against. */

@@ -11,9 +11,67 @@ import { isLimited, scopedKeyName } from './_principal';
 import { logger } from '../../utils/logger';
 
 /**
- * Shared range-window resolution for the usage-summary and
- * errors-by-provider endpoints, which otherwise duplicated an identical
- * allow-list check plus a `rangeStart`/`rangeEnd` computation.
+ * How far back a named range reaches from its anchor. Second spans are plain
+ * durations; hour and day spans use local calendar arithmetic
+ * (`setHours`/`setDate`), so DST transitions shift those windows as they
+ * always have.
+ */
+type UsageRangeSpan = { seconds: number } | { hours: number } | { days: number };
+
+/**
+ * Named ranges shared by the usage-summary and errors-by-provider endpoints:
+ * each window's span and the summary's series bucket step. `'all'` and
+ * `'custom'` are resolved separately.
+ */
+const NAMED_USAGE_RANGES = {
+  '1m': { span: { seconds: 60 }, stepSeconds: 5 },
+  '5m': { span: { seconds: 5 * 60 }, stepSeconds: 15 },
+  '15m': { span: { seconds: 15 * 60 }, stepSeconds: 30 },
+  hour: { span: { hours: 1 }, stepSeconds: 60 },
+  day: { span: { hours: 24 }, stepSeconds: 60 * 60 },
+  week: { span: { days: 7 }, stepSeconds: 60 * 60 * 24 },
+  month: { span: { days: 30 }, stepSeconds: 60 * 60 * 24 },
+} as const satisfies Record<string, { span: UsageRangeSpan; stepSeconds: number }>;
+
+type NamedUsageRange = keyof typeof NAMED_USAGE_RANGES;
+
+const isNamedUsageRange = (range: string): range is NamedUsageRange =>
+  Object.hasOwn(NAMED_USAGE_RANGES, range);
+
+/**
+ * Sub-hour ranges (second spans) anchor to their bucket step, so the window
+ * advances every bucket instead of once a minute; longer ranges anchor to the
+ * minute.
+ */
+function anchorNamedUsageRange(range: NamedUsageRange, currentTime: Date): Date {
+  const { span, stepSeconds } = NAMED_USAGE_RANGES[range];
+  const anchor = new Date(currentTime);
+  if ('seconds' in span) {
+    const stepMs = stepSeconds * 1000;
+    anchor.setTime(Math.floor(anchor.getTime() / stepMs) * stepMs);
+  } else {
+    anchor.setSeconds(0, 0);
+  }
+  return anchor;
+}
+
+function namedUsageRangeStart(range: NamedUsageRange, rangeEnd: Date): Date {
+  const { span } = NAMED_USAGE_RANGES[range];
+  const rangeStart = new Date(rangeEnd);
+  if ('seconds' in span) {
+    rangeStart.setTime(rangeStart.getTime() - span.seconds * 1000);
+  } else if ('hours' in span) {
+    rangeStart.setHours(rangeStart.getHours() - span.hours);
+  } else {
+    rangeStart.setDate(rangeStart.getDate() - span.days);
+  }
+  return rangeStart;
+}
+
+/**
+ * Shared range validation and window resolution for the usage-summary and
+ * errors-by-provider endpoints. Named ranges end at their anchor (see
+ * `anchorNamedUsageRange`); `'all'` ends at the current minute.
  *
  * `'all'` resolves to an epoch `rangeStart`, relying on the existing
  * `gte(startTime, rangeStartMs)` filter in each handler's query to act as a
@@ -24,7 +82,7 @@ function computeUsageRangeWindow(
   range: string,
   startDateStr: string | undefined,
   endDateStr: string | undefined,
-  now: Date
+  currentTime: Date
 ): { rangeStart: Date; rangeEnd: Date } | { error: string } {
   if (range === 'custom') {
     if (!startDateStr || !endDateStr) {
@@ -41,30 +99,18 @@ function computeUsageRangeWindow(
     return { rangeStart: startDate, rangeEnd: endDate };
   }
 
-  if (!['hour', 'day', 'week', 'month', 'all'].includes(range)) {
+  if (range === 'all') {
+    const rangeEnd = new Date(currentTime);
+    rangeEnd.setSeconds(0, 0);
+    return { rangeStart: new Date(0), rangeEnd };
+  }
+
+  if (!isNamedUsageRange(range)) {
     return { error: 'Invalid range' };
   }
 
-  const rangeStart = new Date(now);
-  const rangeEnd = new Date(now);
-  switch (range) {
-    case 'hour':
-      rangeStart.setHours(rangeStart.getHours() - 1);
-      break;
-    case 'day':
-      rangeStart.setHours(rangeStart.getHours() - 24);
-      break;
-    case 'week':
-      rangeStart.setDate(rangeStart.getDate() - 7);
-      break;
-    case 'month':
-      rangeStart.setDate(rangeStart.getDate() - 30);
-      break;
-    case 'all':
-      rangeStart.setTime(0);
-      break;
-  }
-  return { rangeStart, rangeEnd };
+  const rangeEnd = anchorNamedUsageRange(range, currentTime);
+  return { rangeStart: namedUsageRangeStart(range, rangeEnd), rangeEnd };
 }
 
 const USAGE_FIELDS = new Set([
@@ -131,7 +177,8 @@ const MAX_BREAKDOWN_DIMENSIONS = 3;
 const DEFAULT_BREAKDOWN_LIMIT = 10;
 const MAX_BREAKDOWN_LIMIT = 50;
 const MAX_SUMMARY_RESPONSE_BYTES = 128 * 1024;
-const MAX_BASIC_SUMMARY_RESPONSE_BYTES = 16 * 1024;
+// Worst case ~38 KB: <=101 buckets (steps cap at 100 spans, +1 inclusive end) x ~365 B + ~1 KB totals.
+const MAX_BASIC_SUMMARY_RESPONSE_BYTES = 64 * 1024;
 const MAX_SUMMARY_CACHE_ENTRIES = 100;
 
 const BREAKDOWN_DIMENSIONS = ['provider', 'modelAlias', 'apiKey', 'status'] as const;
@@ -461,23 +508,12 @@ export async function registerUsageRoutes(
     const startDateStr = query.startDate;
     const endDateStr = query.endDate;
 
-    if (range === 'custom') {
-      if (!startDateStr || !endDateStr) {
-        return reply
-          .code(400)
-          .send({ error: 'startDate and endDate are required for custom range' });
-      }
-      const startDate = new Date(startDateStr);
-      const endDate = new Date(endDateStr);
-      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-        return reply.code(400).send({ error: 'Invalid date format' });
-      }
-      if (endDate < startDate) {
-        return reply.code(400).send({ error: 'endDate must be after startDate' });
-      }
-    } else if (!['hour', 'day', 'week', 'month', 'all'].includes(range)) {
-      return reply.code(400).send({ error: 'Invalid range' });
+    const currentTime = new Date();
+    const window = computeUsageRangeWindow(range, startDateStr, endDateStr, currentTime);
+    if ('error' in window) {
+      return reply.code(400).send({ error: window.error });
     }
+    const { rangeStart, rangeEnd } = window;
 
     const requestedBreakdowns = String(query.breakdowns || '')
       .split(',')
@@ -512,42 +548,19 @@ export async function registerUsageRoutes(
       });
     }
 
-    const currentTime = new Date();
-    const now = new Date(currentTime);
-    now.setSeconds(0, 0);
-    let rangeStart = new Date(now);
-    let rangeEnd = new Date(now);
-
+    // `now` bounds the since-midnight rollup and dates the cache TTL. Named
+    // and 'all' windows already end at their anchor; a custom window can end
+    // in the past, so it measures from the current minute instead.
+    let now = new Date(rangeEnd);
     if (range === 'custom') {
-      rangeStart = new Date(startDateStr);
-      rangeEnd = new Date(endDateStr);
       if (rangeEnd > currentTime) {
         return reply.code(400).send({ error: 'endDate cannot be in the future' });
       }
       if (rangeEnd.getTime() - rangeStart.getTime() > MAX_CUSTOM_RANGE_MS) {
         return reply.code(400).send({ error: 'custom range cannot exceed 12 months' });
       }
-    } else {
-      switch (range as 'hour' | 'day' | 'week' | 'month' | 'all') {
-        case 'hour':
-          rangeStart.setHours(rangeStart.getHours() - 1);
-          break;
-        case 'day':
-          rangeStart.setHours(rangeStart.getHours() - 24);
-          break;
-        case 'week':
-          rangeStart.setDate(rangeStart.getDate() - 7);
-          break;
-        case 'month':
-          rangeStart.setDate(rangeStart.getDate() - 30);
-          break;
-        case 'all':
-          // 'all' resolves to an epoch rangeStart, relying on the existing
-          // gte(startTime, rangeStartMs) filter below to act as a no-op
-          // lower bound. There is no prior window for delta comparisons.
-          rangeStart.setTime(0);
-          break;
-      }
+      now = new Date(currentTime);
+      now.setSeconds(0, 0);
     }
 
     const normalizedBreakdowns = BREAKDOWN_DIMENSIONS.filter((value) => breakdowns.includes(value));
@@ -584,9 +597,12 @@ export async function registerUsageRoutes(
       const todayStart = new Date(now);
       todayStart.setHours(0, 0, 0, 0);
       let stepSeconds = 60;
-      if (range === 'custom' || range === 'all') {
-        // 'all' shares this branch since its true duration is unbounded
-        // (epoch rangeStart), same as a long custom range.
+      if (isNamedUsageRange(range)) {
+        stepSeconds = NAMED_USAGE_RANGES[range].stepSeconds;
+      } else {
+        // 'custom' and 'all' size buckets to the window; 'all' shares this
+        // branch since its true duration is unbounded (epoch rangeStart),
+        // same as a long custom range.
         const durationMs = rangeEnd.getTime() - rangeStart.getTime();
         const durationMinutes = durationMs / (1000 * 60);
         const durationSeconds = durationMs / 1000;
@@ -596,19 +612,6 @@ export async function registerUsageRoutes(
         else stepSeconds = 21600;
         if (Math.ceil(durationSeconds / stepSeconds) > 100) {
           stepSeconds = Math.ceil(durationSeconds / 100);
-        }
-      } else {
-        switch (range) {
-          case 'hour':
-            stepSeconds = 60;
-            break;
-          case 'day':
-            stepSeconds = 60 * 60;
-            break;
-          case 'week':
-          case 'month':
-            stepSeconds = 60 * 60 * 24;
-            break;
         }
       }
 
@@ -901,10 +904,7 @@ export async function registerUsageRoutes(
     const startDateStr = query.startDate;
     const endDateStr = query.endDate;
 
-    const now = new Date();
-    now.setSeconds(0, 0);
-
-    const window = computeUsageRangeWindow(range, startDateStr, endDateStr, now);
+    const window = computeUsageRangeWindow(range, startDateStr, endDateStr, new Date());
     if ('error' in window) {
       return reply.code(400).send({ error: window.error });
     }

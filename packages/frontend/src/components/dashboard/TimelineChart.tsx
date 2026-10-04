@@ -9,12 +9,14 @@ import {
   YAxis,
 } from 'recharts';
 import { Card } from '../ui/Card';
-import { type TimeRange } from './TimeRangeSelector';
-import { useUsageSummary } from '../../hooks/queries/useUsage';
+import type { UsageSummarySeriesPoint } from '../../lib/api';
 import { formatDateLabel, formatNumber, formatTimeLabel, formatTokens } from '../../lib/format';
 
 interface TimelineChartProps {
-  timeRange: TimeRange;
+  /** The usage-summary series for the selected range (fetched by `AdminDashboard`). */
+  series?: UsageSummarySeriesPoint[];
+  loading: boolean;
+  /** Requested window bounds; the axis-label fallback when the series is too short. */
   startDate?: string;
   endDate?: string;
 }
@@ -25,10 +27,19 @@ interface TimelineChartProps {
 // minutes) still clear the bar, while hourly/5-minute/1-minute buckets don't.
 const DAY_GRANULARITY_THRESHOLD_MS = 20 * 60 * 60 * 1000;
 
+// Buckets closer together than this (the 1m/5m/15m ranges' 5-30s steps) would
+// repeat the same hour:minute label, so they get seconds too.
+const SECOND_GRANULARITY_THRESHOLD_MS = 60 * 1000;
+
+type AxisLabelFormatter = (timestamp: string) => string;
+
+const formatSecondsLabel: AxisLabelFormatter = (timestamp) =>
+  formatTimeLabel(timestamp, { seconds: true });
+
 /**
- * Determine whether X-axis tick labels need a date component or just a
- * clock time, based on the *actual* gap between fetched bucket timestamps
- * rather than the selected range's name.
+ * Determine whether X-axis tick labels need a date, a clock time, or a clock
+ * time with seconds, based on the *actual* gap between fetched bucket
+ * timestamps rather than the selected range's name.
  *
  * This matters because backend bucketing for 'custom' ranges is duration-
  * adaptive (packages/backend/src/routes/management/usage.ts): a short
@@ -36,25 +47,33 @@ const DAY_GRANULARITY_THRESHOLD_MS = 20 * 60 * 60 * 1000;
  * 'hour'/'day'), while a long multi-week custom range buckets daily or
  * coarser (needs a date label, like 'week'/'month'). Branching on the range
  * name alone can't distinguish these two custom-range shapes.
+ *
+ * The series is sparse (buckets without traffic are omitted), so the step is
+ * read from the closest pair of buckets; with fewer than two buckets the
+ * requested window's span stands in for it.
  */
-function pickAxisLabelFormatter(
+export function pickAxisLabelFormatter(
   series: { bucketStartMs: number }[],
   startDate?: string,
   endDate?: string
-): typeof formatTimeLabel {
+): AxisLabelFormatter {
   let gapMs: number | null = null;
 
   if (series.length >= 2) {
-    gapMs = series[1].bucketStartMs - series[0].bucketStartMs;
+    gapMs = Infinity;
+    for (let i = 1; i < series.length; i++) {
+      gapMs = Math.min(gapMs, series[i].bucketStartMs - series[i - 1].bucketStartMs);
+    }
   } else if (startDate && endDate) {
     const start = new Date(startDate).getTime();
     const end = new Date(endDate).getTime();
     if (!isNaN(start) && !isNaN(end)) gapMs = end - start;
   }
 
-  return gapMs !== null && gapMs >= DAY_GRANULARITY_THRESHOLD_MS
-    ? formatDateLabel
-    : formatTimeLabel;
+  if (gapMs === null) return formatTimeLabel;
+  if (gapMs >= DAY_GRANULARITY_THRESHOLD_MS) return formatDateLabel;
+  if (gapMs < SECOND_GRANULARITY_THRESHOLD_MS) return formatSecondsLabel;
+  return formatTimeLabel;
 }
 
 /**
@@ -64,24 +83,27 @@ function pickAxisLabelFormatter(
  * `useLiveLogs` data (a deliberate trade of live-tailing resolution for one
  * consistent range-driven data source across the dashboard).
  */
-export const TimelineChart: React.FC<TimelineChartProps> = ({ timeRange, startDate, endDate }) => {
-  const summaryQuery = useUsageSummary(timeRange, { startDate, endDate });
-
+export const TimelineChart: React.FC<TimelineChartProps> = ({
+  series,
+  loading,
+  startDate,
+  endDate,
+}) => {
   const chartData = useMemo(() => {
-    const series = summaryQuery.data?.series ?? [];
-    const formatAxisLabel = pickAxisLabelFormatter(series, startDate, endDate);
+    const points = series ?? [];
+    const formatAxisLabel = pickAxisLabelFormatter(points, startDate, endDate);
 
-    return series.map((point) => ({
+    return points.map((point) => ({
       time: formatAxisLabel(String(point.bucketStartMs)),
       requests: point.requests,
       errors: point.errors,
       tokens: point.tokens,
     }));
-  }, [summaryQuery.data, startDate, endDate]);
+  }, [series, startDate, endDate]);
 
   return (
     <Card title="Timeline">
-      {summaryQuery.isLoading ? (
+      {loading ? (
         <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted">
           Loading...
         </div>

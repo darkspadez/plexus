@@ -549,7 +549,7 @@ export const Playground = () => {
           >
             <div className="space-y-3 text-xs text-foreground-muted">
               <div className="rounded-md border border-border bg-surface-sunken p-3">
-                <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-foreground-subtle">
+                <div className="mb-1 font-mono text-label uppercase tracking-wider text-foreground-subtle">
                   Final route
                 </div>
                 <div className="break-words text-sm font-medium text-foreground">{finalRoute}</div>
@@ -595,7 +595,7 @@ export const Playground = () => {
 
               {toolCalls.length > 0 && (
                 <div className="rounded-md border border-border bg-surface-sunken p-3">
-                  <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-foreground-subtle">
+                  <div className="mb-2 font-mono text-label uppercase tracking-wider text-foreground-subtle">
                     Browser tool calls
                   </div>
                   <ol className="space-y-2">
@@ -627,7 +627,7 @@ export const Playground = () => {
 
               {attemptedProviders.length > 0 && (
                 <div className="rounded-md border border-border bg-surface-sunken p-3">
-                  <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-foreground-subtle">
+                  <div className="mb-2 font-mono text-label uppercase tracking-wider text-foreground-subtle">
                     Candidate path
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -641,7 +641,7 @@ export const Playground = () => {
               )}
 
               <div className="rounded-md border border-border bg-surface-sunken p-3">
-                <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-foreground-subtle">
+                <div className="mb-2 font-mono text-label uppercase tracking-wider text-foreground-subtle">
                   Decision trail
                 </div>
                 {retryHistory.length > 0 ? (

@@ -133,6 +133,12 @@ export interface DataTableProps<TData> {
   /** Additional class on the root wrapper */
   className?: string;
   /**
+   * Drop the table's own frame (border, radius, surface) and inset the
+   * skeleton/mobile-card lists instead, for a parent that already frames it —
+   * e.g. a `flush` Card, whose header then sits directly on the table.
+   */
+  frameless?: boolean;
+  /**
    * Slot rendered inside the mobile card header alongside the mobileTitle.
    * Receives the row; return null/undefined to render nothing.
    */
@@ -282,6 +288,7 @@ export function DataTable<TData>({
   pagination,
   getRowKey,
   className,
+  frameless,
   mobileActions,
   breakpoint = 'md',
   rowClassName,
@@ -362,6 +369,12 @@ export function DataTable<TData>({
       {titleExtra && <div className="flex items-center gap-2 flex-shrink-0">{titleExtra}</div>}
     </>
   );
+  // The desktop frame around chrome + body; a `frameless` table leaves the
+  // framing to its parent.
+  const desktopFrameClass = cn(
+    'overflow-hidden',
+    !frameless && 'rounded-lg border border-border bg-surface'
+  );
   // Framed variants — used inside the desktop frame, and inside the
   // loading/empty frames (which are not breakpoint-split).
   const titleStripFramed = showTitleStrip && (
@@ -396,7 +409,7 @@ export function DataTable<TData>({
   if (!hasChrome) {
     if (isLoadingEmpty) {
       return (
-        <div className={cn('flex flex-col gap-2', className)}>
+        <div className={cn('flex flex-col gap-2', frameless && 'p-3', className)}>
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} height={48} />
           ))}
@@ -419,7 +432,7 @@ export function DataTable<TData>({
 
     if (isEmpty) {
       return (
-        <div className={cn('rounded-lg border border-border bg-surface', className)}>
+        <div className={cn(!frameless && 'rounded-lg border border-border bg-surface', className)}>
           <EmptyState
             icon={emptyIcon}
             title={emptyTitle}
@@ -486,7 +499,7 @@ export function DataTable<TData>({
 
     return isDesktopLayout ? (
       <div className={cn('flex flex-col gap-4', className)}>
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <div className={desktopFrameClass}>
           {titleStripFramed}
           {headerSlotFramed}
           {bodyDesktop}
@@ -544,7 +557,7 @@ export function DataTable<TData>({
   if (isDesktopLayout) {
     return (
       <div className={cn('flex flex-col gap-4', className)}>
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <div className={desktopFrameClass}>
           {titleStripFramed}
           {headerSlotFramed}
           {/* Horizontal-scroll fallback: when columns exceed the container the
@@ -568,7 +581,7 @@ export function DataTable<TData>({
                         <th
                           key={h.id}
                           className={cn(
-                            'h-11 text-[10px] font-medium uppercase tracking-wider text-foreground-muted',
+                            'h-11 text-label font-medium uppercase tracking-wider text-foreground-muted',
                             isExpanderCol ? 'w-6 px-2' : 'px-4',
                             align === 'right'
                               ? 'text-right'
@@ -688,7 +701,7 @@ export function DataTable<TData>({
       {/* Mobile card layout — always a single column: card lists are usually
           sequences (e.g. chronological logs), and a multi-column grid makes
           the reading order ambiguous. */}
-      <div className="flex flex-col gap-3">
+      <div className={cn('flex flex-col gap-3', frameless && 'p-3')}>
         {/* Hoist column derivations outside the row map — they depend only on
             `columns` (stable), not on per-row data.  Logs fires setLiveTick
             every 100 ms while SSE is connected; recomputing these per-row per-
@@ -757,7 +770,7 @@ export function DataTable<TData>({
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                     {detailEntries.map(({ col }, colIdx) => (
                       <React.Fragment key={col.id ?? String(colIdx)}>
-                        <dt className="self-center text-[10px] font-medium uppercase tracking-wide text-foreground-muted">
+                        <dt className="self-center text-label font-medium uppercase tracking-wide text-foreground-muted">
                           {getHeader(col)}
                         </dt>
                         <dd className="break-words text-foreground">{renderCell(col)}</dd>

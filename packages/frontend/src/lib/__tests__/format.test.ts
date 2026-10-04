@@ -1,5 +1,11 @@
 import { describe, expect, it, test } from 'vitest';
-import { countdownTickMs, formatResetCountdown, formatResetsIn, formatTimeAgo } from '../format';
+import {
+  countdownTickMs,
+  formatResetCountdown,
+  formatResetsIn,
+  formatTimeAgo,
+  formatTimeLabel,
+} from '../format';
 
 const NOW = Date.parse('2026-08-06T12:00:00.000Z');
 const at = (ms: number) => new Date(NOW + ms).toISOString();
@@ -150,5 +156,28 @@ describe('formatTimeAgo', () => {
 
   test('crosses into days at 24 hours', () => {
     expect(formatTimeAgo(24 * 60 * 60)).toBe('1d ago');
+  });
+});
+
+describe('formatTimeLabel', () => {
+  // An epoch-ms string, as the timeline passes bucket starts. The :07 seconds
+  // survive any whole-minute UTC offset, so the assertion holds in every zone.
+  const BUCKET = String(Date.parse('2026-08-06T12:34:07.000Z'));
+  // Computed the way the implementation computes it, so no locale is hardcoded.
+  const localTime = (options: Intl.DateTimeFormatOptions) =>
+    new Date(Number(BUCKET)).toLocaleTimeString([], options);
+
+  test('labels to the minute by default', () => {
+    expect(formatTimeLabel(BUCKET)).toBe(localTime({ hour: '2-digit', minute: '2-digit' }));
+  });
+
+  test('adds seconds when asked', () => {
+    const label = formatTimeLabel(BUCKET, { seconds: true });
+    expect(label).toBe(localTime({ hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    expect(label).toContain(':07');
+  });
+
+  test('passes an unparseable timestamp through unchanged', () => {
+    expect(formatTimeLabel('not-a-time', { seconds: true })).toBe('not-a-time');
   });
 });

@@ -73,7 +73,7 @@ const NavItem: React.FC<{ item: NavItemDef; collapsed: boolean }> = ({ item, col
 const GroupLabel: React.FC<{ label: string; collapsed: boolean }> = ({ label, collapsed }) => {
   if (collapsed) return null;
   return (
-    <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-foreground-muted">
+    <div className="mb-1 px-2 text-label font-medium uppercase tracking-wider text-foreground-muted">
       {label}
     </div>
   );

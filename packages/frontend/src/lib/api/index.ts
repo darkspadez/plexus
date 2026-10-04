@@ -24,6 +24,8 @@ export {
 
 export { aliasToConfigPayload } from './aliases';
 
+export { normalizeSummaryBreakdowns } from './usage';
+
 export const api = {
   // Cooldowns
   getCooldowns: settingsApi.getCooldowns,
@@ -31,7 +33,6 @@ export const api = {
 
   // Stats & Dashboard
   getStats: usageApi.getStats,
-  getDashboardData: usageApi.getDashboardData,
   getUsageSummary: usageApi.getUsageSummary,
   getErrorsByProvider: usageApi.getErrorsByProvider,
   getUsageByModel: usageApi.getUsageByModel,

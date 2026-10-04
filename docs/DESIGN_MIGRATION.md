@@ -28,10 +28,15 @@ Two corrections to earlier entries, recorded because the merge changed them:
   Upstream removed synthetic GPU/power estimation in `#822`; the tile is now **Throughput**
   (`stats.avgTokensPerSec`). Provider-*measured* kWh survives only in the request detail
   panel, where `log.kwhUsed` is still rendered.
-- The Dashboard gained two salvaged drill-in cards from upstream's decomposed Live tab —
-  `ConcurrencyCard` and `ModelTimelineCard` — as a draggable grid via `useCardPositions`.
-  The other 11 cards, 6 modals and `pages/detailed-usage/` were dropped, since per-entity
-  breakdowns belong in Grafana per the Dashboard entry above.
+- The Dashboard gained two salvaged cards from upstream's decomposed Live tab —
+  `ConcurrencyCard` and `ModelTimelineCard` — now static `Card`s in a fixed two-up grid,
+  with no drag reordering or click-to-open modals. Their drag stack (`SortableCard`,
+  `useCardPositions`, `types/card.ts`, Config's `CardLayoutCard`) and modals were later
+  deleted as dead code; keep them deleted when they return as modify/delete conflicts.
+  The other 11 cards, 6 modals and `pages/detailed-usage/` were dropped. Deeper per-entity
+  breakdowns stay in Grafana per the Dashboard entry above, but range-scoped **Top
+  Providers** / **Top Models** tables (`TopUsageCard`, the top 5 of the usage summary's
+  `provider` / `modelAlias` breakdowns) now sit on the Dashboard itself.
 
 ## Notes on the upstream merge (`1d4f9d9c`, through upstream `a498b479`)
 

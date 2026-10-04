@@ -79,7 +79,7 @@ export const AliasMobileCard: React.FC<Props> = ({
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <ModelTypeBadge type={alias.type} />
             {alias.metadata && (
-              <span className="inline-flex rounded border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-accent">
+              <span className="inline-flex rounded border border-border px-2 py-0.5 text-label font-medium uppercase tracking-wider text-accent">
                 {alias.metadata.source}
               </span>
             )}
@@ -98,16 +98,14 @@ export const AliasMobileCard: React.FC<Props> = ({
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <div className="min-w-0 rounded border border-border bg-surface px-2 py-1.5">
-          <div className="text-[10px] uppercase tracking-wider text-foreground-subtle">
-            Selector
-          </div>
+          <div className="text-label uppercase tracking-wider text-foreground-subtle">Selector</div>
           <div className="truncate font-medium capitalize text-foreground-muted">
             {alias.target_groups.map((g) => `${g.name}: ${g.selector}`).join(', ')} /{' '}
             {alias.priority || 'selector'}
           </div>
         </div>
         <div className="min-w-0 rounded border border-border bg-surface px-2 py-1.5">
-          <div className="text-[10px] uppercase tracking-wider text-foreground-subtle">
+          <div className="text-label uppercase tracking-wider text-foreground-subtle">
             Providers
           </div>
           <div className="mt-1 flex flex-wrap gap-1">
@@ -126,7 +124,7 @@ export const AliasMobileCard: React.FC<Props> = ({
           </div>
         </div>
         <div className="col-span-2 min-w-0 rounded border border-border bg-surface px-2 py-1.5">
-          <div className="text-[10px] uppercase tracking-wider text-foreground-subtle">Aliases</div>
+          <div className="text-label uppercase tracking-wider text-foreground-subtle">Aliases</div>
           <div className="flex flex-wrap gap-1 font-medium text-foreground-muted">
             {alias.aliases?.length
               ? dedupeStrings(alias.aliases).map((a) => (
@@ -141,7 +139,7 @@ export const AliasMobileCard: React.FC<Props> = ({
       </div>
 
       <div className="mt-3">
-        <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-foreground-subtle">
+        <div className="mb-2 flex items-center gap-2 text-label font-semibold uppercase tracking-wider text-foreground-subtle">
           <span>Targets</span>
           {firstTargetGroup && (
             <>

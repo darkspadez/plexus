@@ -1,36 +1,33 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card } from '../ui/Card';
-import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
-import { Tooltip } from '../ui/Tooltip';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Timer } from 'lucide-react';
 import type { Cooldown } from '../../lib/api';
-import { formatMsToMinSec, INDEFINITE_COOLDOWN_THRESHOLD_MS } from '@plexus/shared';
+import { AlertRow } from './AlertRow';
+import {
+  cooldownAlertMeta,
+  cooldownModelNames,
+  cooldownTickMs,
+  formatCooldownCountdown,
+  groupCooldownsByProvider,
+  joinAlertMeta,
+} from './alert-rows';
 
-const LiveCountdown: React.FC<{ expiry: number; lastError?: string }> = ({ expiry, lastError }) => {
-  const [remainingMs, setRemainingMs] = useState(() => Math.max(0, expiry - Date.now()));
+const LiveCountdown: React.FC<{ expiry: number; lastError?: string; multipleModels: boolean }> = ({
+  expiry,
+  lastError,
+  multipleModels,
+}) => {
+  const [now, setNow] = useState(Date.now);
+  const remainingMs = expiry - now;
+  // Re-arms when the cadence changes, i.e. once the wait drops under an hour.
+  const tickMs = cooldownTickMs(remainingMs);
   useEffect(() => {
-    const id = setInterval(() => setRemainingMs(Math.max(0, expiry - Date.now())), 1000);
+    const id = setInterval(() => setNow(Date.now()), tickMs);
     return () => clearInterval(id);
-  }, [expiry]);
-  return <>{formatMsToMinSec(remainingMs, lastError)}</>;
-};
-
-/** "1st"/"2nd"/"3rd"/"4th"... */
-const ordinal = (n: number): string => {
-  const v = n % 100;
-  if (v >= 11 && v <= 13) return `${n}th`;
-  switch (n % 10) {
-    case 1:
-      return `${n}st`;
-    case 2:
-      return `${n}nd`;
-    case 3:
-      return `${n}rd`;
-    default:
-      return `${n}th`;
-  }
+  }, [tickMs]);
+  return <>{formatCooldownCountdown(remainingMs, { multipleModels, lastError })}</>;
 };
 
 interface ServiceAlertsCardProps {
@@ -41,29 +38,16 @@ interface ServiceAlertsCardProps {
 
 /**
  * Provider-level cooldown alert list. Cooldowns are grouped by provider only
- * (no per-model detail/expansion — that granularity is intentionally dropped).
+ * (no per-model detail/expansion — the model names are only in hover text).
  * Always renders (via `EmptyState` when there are no active cooldowns) so it
- * behaves as a stable sibling alongside `ErrorsByProviderCard` in a 3-up row.
+ * behaves as a stable sibling alongside `ErrorsByProviderCard`.
  */
 export const ServiceAlertsCard: React.FC<ServiceAlertsCardProps> = ({
   cooldowns,
   onClearAll,
   onClearSingle,
 }) => {
-  // Group cooldowns by provider only (model-level detail intentionally dropped)
-  const groupedCooldowns = useMemo(() => {
-    return cooldowns.reduce(
-      (acc, c) => {
-        if (!acc[c.provider]) {
-          acc[c.provider] = [];
-        }
-        acc[c.provider].push(c);
-        return acc;
-      },
-      {} as Record<string, Cooldown[]>
-    );
-  }, [cooldowns]);
-
+  const groups = useMemo(() => groupCooldownsByProvider(cooldowns), [cooldowns]);
   const hasCooldowns = cooldowns.length > 0;
 
   return (
@@ -71,8 +55,8 @@ export const ServiceAlertsCard: React.FC<ServiceAlertsCardProps> = ({
       title="Service Alerts"
       extra={
         hasCooldowns && (
-          <Button variant="primary" size="sm" onClick={onClearAll} className="w-[70px]">
-            Clear All
+          <Button variant="accent-soft" size="sm" onClick={onClearAll}>
+            Clear all
           </Button>
         )
       }
@@ -86,53 +70,37 @@ export const ServiceAlertsCard: React.FC<ServiceAlertsCardProps> = ({
         />
       ) : (
         <div className="flex flex-col gap-2">
-          {Object.entries(groupedCooldowns).map(([provider, providerCooldowns]) => {
-            // The single longest-remaining cooldown in the group drives the
-            // displayed countdown, failure count, and last-error tooltip —
-            // i.e. the most severe entry, not an arbitrary/first one.
-            const primary = providerCooldowns.reduce((worst, c) =>
-              c.expiry > worst.expiry ? c : worst
-            );
-            const count = providerCooldowns.length;
-            // An indefinite cooldown renders as "until reset"/"until positive balance",
-            // so the "up to" preposition would read wrong in front of it.
-            const isIndefinite = primary.expiry - Date.now() >= INDEFINITE_COOLDOWN_THRESHOLD_MS;
-
+          {groups.map((group) => {
+            const meta = cooldownAlertMeta(group);
             return (
-              <div key={provider} className="flex items-stretch gap-2">
-                <div className="flex items-center gap-2 rounded-md bg-warning-subtle px-3 py-2 min-w-0 flex-1">
-                  {primary.lastError ? (
-                    <Tooltip content={primary.lastError}>
-                      <span
-                        className="flex shrink-0 cursor-help"
-                        aria-label={`Last error: ${primary.lastError}`}
-                      >
-                        <AlertTriangle size={14} className="text-warning" />
-                      </span>
-                    </Tooltip>
-                  ) : (
-                    <AlertTriangle size={14} className="text-warning shrink-0" />
-                  )}
-                  <span className="text-xs font-medium text-foreground truncate">{provider}</span>
-                  <Badge status="warning" noDot className="ml-auto shrink-0">
-                    {count} on cooldown
-                    {primary.consecutiveFailures ? (
-                      <>&middot; {ordinal(primary.consecutiveFailures)} failure</>
-                    ) : null}
-                    &middot; {isIndefinite ? null : 'up to '}
-                    <LiveCountdown expiry={primary.expiry} lastError={primary.lastError} />
-                  </Badge>
-                </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => onClearSingle(provider)}
-                  aria-label={`Clear cooldown for ${provider}`}
-                  className="w-[70px] shrink-0 self-center"
-                >
-                  Clear
-                </Button>
-              </div>
+              <AlertRow
+                key={group.provider}
+                tone="warning"
+                icon={<AlertTriangle size={14} />}
+                title={group.provider}
+                right={
+                  <span className="inline-flex items-center gap-1 font-mono text-xs tabular-nums text-warning">
+                    <Timer size={12} />
+                    <LiveCountdown
+                      expiry={group.primary.expiry}
+                      lastError={group.primary.lastError}
+                      multipleModels={group.entries.length > 1}
+                    />
+                  </span>
+                }
+                action={
+                  <Button
+                    variant="accent-soft"
+                    size="sm"
+                    onClick={() => onClearSingle(group.provider)}
+                    aria-label={`Clear cooldown for ${group.provider}`}
+                  >
+                    Clear
+                  </Button>
+                }
+                meta={meta}
+                metaTitle={`${joinAlertMeta(meta)}\nModels: ${cooldownModelNames(group.entries)}`}
+              />
             );
           })}
         </div>
