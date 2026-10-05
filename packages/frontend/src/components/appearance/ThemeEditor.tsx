@@ -210,15 +210,21 @@ export const ThemeEditor: React.FC<ThemeEditorProps> = ({ state, note }) => {
           ) : (
             <ul className="m-0 flex list-none flex-col gap-1 p-0">
               {diagnostics.map((d) => (
-                <li key={d.token} className="flex items-start gap-1.5 text-xs text-warning-text">
+                <li
+                  key={d.token}
+                  className={`flex items-start gap-1.5 text-xs ${
+                    d.outputRatio < d.min ? 'text-danger-text' : 'text-warning-text'
+                  }`}
+                >
                   <AlertTriangle
                     size="0.8125rem"
                     className="mt-px flex-shrink-0"
                     aria-hidden="true"
                   />
                   <span>
-                    {d.token} auto-adjusted for readability (was {d.ratio.toFixed(2)}:1, needs{' '}
-                    {d.min}:1)
+                    {d.outputRatio < d.min
+                      ? `${d.token} can't reach ${d.min}:1 with these colors (best ${d.outputRatio.toFixed(2)}:1)`
+                      : `${d.token} auto-adjusted for readability (was ${d.ratio.toFixed(2)}:1, needs ${d.min}:1)`}
                   </span>
                 </li>
               ))}

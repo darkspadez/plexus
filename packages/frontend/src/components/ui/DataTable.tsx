@@ -219,7 +219,7 @@ function ExpanderCell<TData>({ row, table }: CellContext<TData, unknown>) {
       }}
       aria-expanded={isRowExpanded}
       aria-label="Toggle details"
-      className="flex h-6 w-6 items-center justify-center rounded text-foreground-muted transition-colors duration-150 hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
+      className="flex h-6 w-6 items-center justify-center rounded-sm text-foreground-muted transition-colors duration-150 hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
     >
       <ChevronRight
         size="0.875rem"

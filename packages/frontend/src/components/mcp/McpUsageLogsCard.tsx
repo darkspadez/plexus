@@ -192,7 +192,7 @@ export function McpUsageLogsCard({
               e.stopPropagation();
               onDeleteLog(row.original.request_id);
             }}
-            className="cursor-pointer rounded p-1 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
+            className="cursor-pointer rounded-sm p-1 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
             title="Delete log"
             aria-label="Delete MCP log"
           >
@@ -262,7 +262,7 @@ export function McpUsageLogsCard({
         <button
           type="button"
           onClick={() => onDeleteLog(row.request_id)}
-          className="cursor-pointer rounded p-1 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
+          className="cursor-pointer rounded-sm p-1 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
           aria-label="Delete MCP log"
         >
           <Trash2 size="0.875rem" />

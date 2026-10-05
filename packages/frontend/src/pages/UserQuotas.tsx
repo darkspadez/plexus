@@ -224,7 +224,7 @@ export const UserQuotas: React.FC = () => {
         {pendingDelete && (
           <p className="text-sm text-foreground-muted">
             Delete{' '}
-            <code className="rounded bg-surface-elevated px-1 py-0.5 font-mono text-foreground text-xs">
+            <code className="rounded-sm bg-surface-elevated px-1 py-0.5 font-mono text-foreground text-xs">
               {pendingDelete.name}
             </code>
             ? Any API keys still pointing at it will fall back to unrestricted usage.

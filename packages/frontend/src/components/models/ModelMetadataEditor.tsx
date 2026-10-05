@@ -214,7 +214,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
             <BookOpen size="0.8125rem" className="text-foreground-subtle" />
             <span className="font-sans text-sm font-medium text-foreground-muted">Metadata</span>
-            <span className="inline-flex items-center rounded px-2 py-0.5 text-2xs font-medium border border-border text-primary-text bg-surface-elevated">
+            <span className="inline-flex items-center rounded-sm px-2 py-0.5 text-2xs font-medium border border-border text-primary-text bg-surface-elevated">
               {metadataSource === 'auto' ? 'automatic' : metadataSource}
             </span>
           </div>

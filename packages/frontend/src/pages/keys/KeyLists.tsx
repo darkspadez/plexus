@@ -154,7 +154,7 @@ export const KeyLists = ({
         meta: { priority: 'high' },
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs bg-surface-elevated px-1.5 py-0.5 rounded text-foreground-muted">
+            <span className="font-mono text-xs bg-surface-elevated px-1.5 py-0.5 rounded-sm text-foreground-muted">
               {row.original.secret.substring(0, 5)}...
             </span>
             <button
@@ -270,7 +270,7 @@ export const KeyLists = ({
                   )}
                   <button
                     type="button"
-                    className="text-foreground-muted hover:text-primary-text p-0.5 rounded"
+                    className="text-foreground-muted hover:text-primary-text p-0.5 rounded-sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       onViewQuotaStatus(row.original.key);

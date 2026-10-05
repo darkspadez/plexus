@@ -26,7 +26,7 @@ export const TargetTestMessage: React.FC<TargetTestMessageProps> = ({
         onDismiss?.();
       }}
       className={clsx(
-        'w-fit max-w-full cursor-pointer rounded border px-2 py-1 text-left',
+        'w-fit max-w-full cursor-pointer rounded-sm border px-2 py-1 text-left',
         isError ? 'border-danger/30 bg-danger/10' : 'border-success/30 bg-success/10',
         className
       )}

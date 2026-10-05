@@ -65,7 +65,7 @@ export const RoutingAliasesEditor: React.FC<RoutingAliasesEditorProps> = ({
               }
             }}
             placeholder="alias name"
-            className="h-6 w-32 rounded border border-border bg-surface px-2 font-mono text-xs text-foreground outline-none focus:border-focus"
+            className="h-6 w-32 rounded-sm border border-border bg-surface px-2 font-mono text-xs text-foreground outline-none focus:border-focus"
           />
         ) : (
           <button

@@ -133,7 +133,7 @@ const MappingRow: React.FC<{
           disabled={!canTest}
           title="Test mapping"
           aria-label="Test mapping"
-          className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success-text disabled:opacity-40"
+          className="rounded-sm p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success-text disabled:opacity-40"
         >
           {testState?.loading ? (
             <Loader2 size="0.875rem" className="animate-spin" />
@@ -150,7 +150,7 @@ const MappingRow: React.FC<{
           onClick={onDelete}
           title="Delete mapping"
           aria-label="Delete mapping"
-          className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
+          className="rounded-sm p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
         >
           <Trash2 size="0.875rem" />
         </button>

@@ -14,7 +14,7 @@ Tracks pages migrated to the post-refresh design system (semantic background/sur
 | Models | 2026-09-17 | `4be56e1a` | Hand-rolled table replaced by `DataTable` with column meta and controlled row expansion; `AliasMobileCard` kept as the mobile surface so per-target enable/test stay one tap away. |
 | Playground | 2026-10-02 | post-`1d4f9d9c` | Last legacy page: classes remapped onto semantic tokens with nesting fixed (code/tool/reasoning blocks on `surface` inside the `surface-sunken` assistant bubble), composer gains a focus border. Behavior unchanged. |
 | Custom Quota Checkers | 2026-09-17 | `cc6f4760` | New upstream page given design treatment — raw inputs replaced with `Input`/`Select`/`Switch`/`FormField`, empty list on `EmptyState`. |
-| Theme system | 2026-10-04 | (this commit) | The single accent picker is replaced by 37 themes (35 daisyUI + Plexus Light/Dark), compiled from data by `src/theme/compile.ts` into `src/styles/themes.generated.css` (regenerate with `bun run gen:themes`); `accent` is renamed `primary`, and themes also supply secondary / accent / neutral roles with compiled `-text` and `focus` tokens whose contrast is guaranteed (4.5:1 for text, 3:1 for focus) on surface, background, sunken and the role's own subtle tint. Radius tiers (`rounded-box`/`field`/`selector`), border width and depth are theme-driven, and the Appearance modal offers a match-system light/dark pair. Custom themes are stored on the server (`ui.themes`, `/v0/management/ui-themes`; admin write, any-key read), have an editor with live preview plus daisyUI CSS/JSON import and export, and are cached for a flash-free boot. A per-browser UI scale (87.5-125%, set from the Appearance modal) drives the root font size, and sizing is rem-based throughout (no hard-coded px text or icons). |
+| Theme system | 2026-10-04 | `3ab13f5f` · `8d5329eb` · `5dc07972` | The single accent picker is replaced by 37 themes (35 daisyUI + Plexus Light/Dark), compiled from data by `src/theme/compile.ts` into `src/styles/themes.generated.css` (regenerate with `bun run gen:themes`); `accent` is renamed `primary`, and themes also supply secondary / accent / neutral roles with compiled `-text` and `focus` tokens whose contrast is guaranteed (4.5:1 for text, 3:1 for focus) on surface, background, sunken, elevated and hover surfaces, and on the role's own subtle tint over each of those except sunken (tints over sunken are not guaranteed). Radius tiers (`rounded-box`/`field`/`selector`), border width and depth are theme-driven, and the Appearance modal offers a match-system light/dark pair. Custom themes are stored on the server (`ui.themes`, `/v0/management/ui-themes`; admin write, any-key read), have an editor with live preview plus daisyUI CSS/JSON import and export, and are cached for a flash-free boot. A per-browser UI scale (87.5-125%, set from the Appearance modal) drives the root font size, and sizing is rem-based throughout (no hard-coded px text or icons). |
 
 ## Notes on the upstream merge (`32e83240`, `cc6f4760`)
 
@@ -60,6 +60,14 @@ landed in files this branch had replaced were placed in a follow-up commit.
 - **Shell** — `VersionReloader` (`#951`/`#954`) is upstream's component restyled in place.
   Tailwind v4 `z-*` utilities read `--z-index-*`, so token z-indexes are written
   `z-(--z-toast)`; a bare `z-toast` generates no CSS.
+
+## Upstream merges
+
+Upstream (`mcowger/main`) still uses the old conventions, and such code auto-merges and typechecks but renders wrong.
+- `variant="secondary"` (the grey outline button) is `variant="outline"` here; `secondary` is now the filled secondary-color button.
+- Raw role text (`text-primary`, `text-danger`) becomes the contrast-safe `text-<role>-text`; old `accent` is the new `primary`.
+- px becomes rem: `text-[11px]` is `text-label`/`xs`/`sm`/`2xs`/`3xs`, and lucide `size={14}` is `size="0.875rem"`.
+- `src/__tests__/conventions.test.ts` enforces the secondary-to-outline variant (including ternaries and defaults), raw role text becoming `-text`, and px sizes becoming rem. The `accent` to `primary` rename is documented above but not enforced.
 
 ## Outstanding
 

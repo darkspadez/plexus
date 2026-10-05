@@ -604,17 +604,17 @@ export const Playground = () => {
                     {toolCalls.map((toolCall, index) => (
                       <li
                         key={`${toolCall.name}:${toolCall.arguments}:${index}`}
-                        className="rounded border border-border/70 bg-surface p-2"
+                        className="rounded-sm border border-border/70 bg-surface p-2"
                       >
                         <div className="mb-1 font-medium text-foreground">
                           {index + 1}. {toolCall.name}
                         </div>
                         <div className="font-mono text-2xs text-foreground-subtle">Arguments</div>
-                        <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-1.5 font-mono text-2xs text-foreground-muted">
+                        <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-surface-sunken p-1.5 font-mono text-2xs text-foreground-muted">
                           {toolCall.arguments}
                         </pre>
                         <div className="mt-2 font-mono text-2xs text-foreground-subtle">Result</div>
-                        <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-1.5 font-mono text-2xs text-foreground-muted">
+                        <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-surface-sunken p-1.5 font-mono text-2xs text-foreground-muted">
                           {toolCall.result}
                         </pre>
                       </li>

@@ -102,7 +102,7 @@ function ModelRowActions({ alias, testState, onTest, onEdit, onDelete }: ModelRo
         }}
         title="Test all targets"
         aria-label={`Test ${alias.id}`}
-        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success-text"
+        className="rounded-sm p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success-text"
       >
         {testState.loading ? (
           <Loader2 size="0.875rem" className="animate-spin" />
@@ -122,7 +122,7 @@ function ModelRowActions({ alias, testState, onTest, onEdit, onDelete }: ModelRo
         }}
         title="Edit"
         aria-label={`Edit ${alias.id}`}
-        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
+        className="rounded-sm p-1.5 text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
       >
         <Edit2 size="0.875rem" />
       </button>
@@ -134,7 +134,7 @@ function ModelRowActions({ alias, testState, onTest, onEdit, onDelete }: ModelRo
         }}
         title="Delete"
         aria-label={`Delete ${alias.id}`}
-        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
+        className="rounded-sm p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
       >
         <Trash2 size="0.875rem" />
       </button>

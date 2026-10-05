@@ -107,7 +107,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
               <button
                 type="button"
                 aria-label="More information"
-                className="flex items-center justify-center rounded p-1 text-foreground-muted transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                className="flex items-center justify-center rounded-sm p-1 text-foreground-muted transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               >
                 <Info size="0.875rem" aria-hidden="true" />
               </button>

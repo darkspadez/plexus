@@ -188,7 +188,7 @@ export const Errors: React.FC = () => {
                     </div>
                     <button
                       onClick={(e) => handleDelete(e, err.requestId)}
-                      className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-danger-subtle hover:text-danger-text opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                      className="bg-transparent border-0 text-foreground-subtle p-1 rounded-sm cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-danger-subtle hover:text-danger-text opacity-100 md:opacity-0 md:group-hover:opacity-100"
                       title="Delete error log"
                     >
                       <Trash2 size="0.75rem" />
@@ -463,7 +463,7 @@ const AccordionPanel: React.FC<{
           </span>
         </div>
         <button
-          className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-surface-hover hover:text-foreground"
+          className="bg-transparent border-0 text-foreground-subtle p-1 rounded-sm cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-surface-hover hover:text-foreground"
           onClick={handleCopy}
           title="Copy to clipboard"
         >

@@ -17,6 +17,8 @@ export interface ContrastIssue {
   /** Worst-case ratio the input color achieved before adjustment. */
   ratio: number;
   min: number;
+  /** Ratio of the color actually emitted; below `min` when the floor is unreachable. */
+  outputRatio: number;
 }
 
 export interface CompiledTheme {
@@ -112,7 +114,7 @@ export function compileTheme(def: ThemeDef, opts: { selector?: string } = {}): C
   const fit = (token: string, input: Oklch, bgs: Oklch[], min: number): Oklch => {
     const res = ensureContrast(input, bgs, min);
     if (res.adjusted) {
-      diagnostics.push({ token, ratio: res.inputRatio, min });
+      diagnostics.push({ token, ratio: res.inputRatio, min, outputRatio: res.ratio });
     }
     return res.color;
   };
@@ -172,6 +174,15 @@ export function compileTheme(def: ThemeDef, opts: { selector?: string } = {}): C
     };
   }
 
+  // Pinned surfaces win over derived ones, and text must fit the FINAL values.
+  const pinned = (token: 'surface-elevated' | 'surface-hover'): Oklch => {
+    const o = def.overrides?.[token];
+    return o !== undefined ? get(token, o) : parseColor(vars[token] as string);
+  };
+  const elevated = pinned('surface-elevated');
+  const hover = pinned('surface-hover');
+  const fitBgs = [...textBgs, elevated, hover];
+
   const subtleAlpha = scheme === 'light' ? 0.12 : 0.18;
   for (const role of ROLES) {
     const { color: c, content } = inputs[role];
@@ -190,17 +201,22 @@ export function compileTheme(def: ThemeDef, opts: { selector?: string } = {}): C
         ? ensureContrast(c, [surface], SUBTLE_BASE_FIT).color
         : c;
     vars[`${role}-subtle`] = toCssWithAlpha(subtleBase, subtleAlpha);
-    // Text lands on the plain backgrounds and on the role's own tint over them.
-    const tinted = [surface, background].map((bg) => composite(subtleBase, subtleAlpha, bg));
-    vars[`${role}-text`] = toHex(fit(`${role}-text`, c, [...textBgs, ...tinted], TEXT_MIN));
+    // Text lands on every surface (including elevated and hovered rows) and on the
+    // role's own tint over surface, background, elevated and hover.
+    const tinted = [surface, background, elevated, hover].map((bg) =>
+      composite(subtleBase, subtleAlpha, bg)
+    );
+    vars[`${role}-text`] = toHex(fit(`${role}-text`, c, [...fitBgs, ...tinted], TEXT_MIN));
   }
 
   // Focus indicators are not text: 3:1 (WCAG 1.4.11) on every surface.
   vars['focus'] = toHex(fit('focus', inputs.accent.color, textBgs, FOCUS_MIN));
 
-  vars['theme-radius-box'] = def.radius.box;
-  vars['theme-radius-field'] = def.radius.field;
-  vars['theme-radius-selector'] = def.radius.selector;
+  // A unitless 0 is invalid inside min()/calc(); emit a length instead.
+  const radiusValue = (v: string) => (v === '0' ? '0rem' : v);
+  vars['theme-radius-box'] = radiusValue(def.radius.box);
+  vars['theme-radius-field'] = radiusValue(def.radius.field);
+  vars['theme-radius-selector'] = radiusValue(def.radius.selector);
   vars['theme-border-width'] = def.border;
 
   const elevation = ELEVATION[scheme];

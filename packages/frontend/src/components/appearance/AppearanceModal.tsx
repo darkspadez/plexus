@@ -4,6 +4,7 @@ import type { CustomThemeDef, ThemeDef } from '@plexus/shared';
 import { useAppearance, type AppearanceContextValue } from '../../contexts/AppearanceContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDeleteUiTheme } from '../../hooks/queries/useUiThemes';
+import { SCALE_PRESETS } from '../../theme/appearance';
 import { normalizeRadius, seedFromTheme, seedNoteFor } from '../../theme/editor';
 import { ConfirmDeleteModal } from '../models/ConfirmDeleteModal';
 import { Button } from '../ui/Button';
@@ -17,13 +18,12 @@ import { ThemeTile, type ThemeTileMenuItem } from './ThemeTile';
 import { useGridKeyboardNav } from './useGridKeyboardNav';
 import { useThemeDraft } from './useThemeDraft';
 
-const SIZE_ITEMS: readonly SegmentedItem<number>[] = [
-  { value: 0.875, label: 'XS', title: '87.5%' },
-  { value: 0.9375, label: 'S', title: '93.75%' },
-  { value: 1, label: 'M', title: '100%' },
-  { value: 1.125, label: 'L', title: '112.5%' },
-  { value: 1.25, label: 'XL', title: '125%' },
-];
+const SIZE_LABELS = ['XS', 'S', 'M', 'L', 'XL'] as const;
+const SIZE_ITEMS: readonly SegmentedItem<number>[] = SCALE_PRESETS.map((value, i) => ({
+  value,
+  label: SIZE_LABELS[i],
+  title: `${parseFloat((value * 100).toFixed(2))}%`,
+}));
 
 type View = { kind: 'grid' } | { kind: 'editor'; mode: 'create' | 'edit'; note?: string };
 

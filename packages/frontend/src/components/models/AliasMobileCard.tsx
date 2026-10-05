@@ -79,7 +79,7 @@ export const AliasMobileCard: React.FC<Props> = ({
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <ModelTypeBadge type={alias.type} />
             {alias.metadata && (
-              <span className="inline-flex rounded border border-border px-2 py-0.5 text-label font-medium uppercase tracking-wider text-primary-text">
+              <span className="inline-flex rounded-sm border border-border px-2 py-0.5 text-label font-medium uppercase tracking-wider text-primary-text">
                 {alias.metadata.source}
               </span>
             )}
@@ -97,14 +97,14 @@ export const AliasMobileCard: React.FC<Props> = ({
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <div className="min-w-0 rounded border border-border bg-surface px-2 py-1.5">
+        <div className="min-w-0 rounded-sm border border-border bg-surface px-2 py-1.5">
           <div className="text-label uppercase tracking-wider text-foreground-subtle">Selector</div>
           <div className="truncate font-medium capitalize text-foreground-muted">
             {alias.target_groups.map((g) => `${g.name}: ${g.selector}`).join(', ')} /{' '}
             {alias.priority || 'selector'}
           </div>
         </div>
-        <div className="min-w-0 rounded border border-border bg-surface px-2 py-1.5">
+        <div className="min-w-0 rounded-sm border border-border bg-surface px-2 py-1.5">
           <div className="text-label uppercase tracking-wider text-foreground-subtle">
             Providers
           </div>
@@ -123,7 +123,7 @@ export const AliasMobileCard: React.FC<Props> = ({
             {targetCount} target{targetCount === 1 ? '' : 's'}
           </div>
         </div>
-        <div className="col-span-2 min-w-0 rounded border border-border bg-surface px-2 py-1.5">
+        <div className="col-span-2 min-w-0 rounded-sm border border-border bg-surface px-2 py-1.5">
           <div className="text-label uppercase tracking-wider text-foreground-subtle">Aliases</div>
           <div className="flex flex-wrap gap-1 font-medium text-foreground-muted">
             {alias.aliases?.length
@@ -153,7 +153,7 @@ export const AliasMobileCard: React.FC<Props> = ({
         {alias.target_groups.length === 0 ||
         !firstTargetGroup ||
         firstTargetGroup.targets.length === 0 ? (
-          <div className="rounded border border-border bg-surface px-2 py-2 text-xs italic text-foreground-subtle">
+          <div className="rounded-sm border border-border bg-surface px-2 py-2 text-xs italic text-foreground-subtle">
             No targets configured
           </div>
         ) : (
@@ -164,7 +164,7 @@ export const AliasMobileCard: React.FC<Props> = ({
                 return (
                   <div
                     key={`alias-${t.alias}-${i}`}
-                    className={`rounded border border-border bg-surface px-2 py-2 ${
+                    className={`rounded-sm border border-border bg-surface px-2 py-2 ${
                       isTargetDisabled ? 'opacity-70' : ''
                     }`}
                   >
@@ -207,7 +207,7 @@ export const AliasMobileCard: React.FC<Props> = ({
               return (
                 <div
                   key={`${t.provider}-${t.model}-${i}`}
-                  className={`rounded border border-border bg-surface px-2 py-2 ${
+                  className={`rounded-sm border border-border bg-surface px-2 py-2 ${
                     isDisabled ? 'opacity-70' : ''
                   }`}
                 >
@@ -245,7 +245,7 @@ export const AliasMobileCard: React.FC<Props> = ({
                           );
                         }}
                         disabled={isDisabled}
-                        className="flex h-7 w-7 items-center justify-center rounded text-primary-text transition-colors hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex h-7 w-7 items-center justify-center rounded-sm text-primary-text transition-colors hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-40"
                         aria-label={`Test ${alias.id} target ${i + 1}`}
                       >
                         {testState?.loading ? (

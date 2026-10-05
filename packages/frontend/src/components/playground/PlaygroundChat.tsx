@@ -510,7 +510,7 @@ const ToolCard = ({
         <div className="mb-1 font-mono text-3xs uppercase tracking-wider text-foreground-subtle">
           Arguments
         </div>
-        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-2 font-mono text-2xs text-foreground-muted">
+        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-surface-sunken p-2 font-mono text-2xs text-foreground-muted">
           {JSON.stringify(part.args, null, 2)}
         </pre>
       </div>
@@ -518,7 +518,7 @@ const ToolCard = ({
         <div className="mb-1 font-mono text-3xs uppercase tracking-wider text-foreground-subtle">
           Result
         </div>
-        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-2 font-mono text-2xs text-foreground-muted">
+        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-surface-sunken p-2 font-mono text-2xs text-foreground-muted">
           {part.result === undefined ? 'Running…' : String(part.result)}
         </pre>
       </div>
@@ -534,7 +534,7 @@ const AssistantParts = () => (
           return <div className="py-1 text-foreground-subtle">Thinking…</div>;
         }
         return (
-          <MarkdownTextPrimitive className="space-y-2 break-words [&_a]:text-accent-text [&_code]:rounded [&_code]:bg-surface [&_code]:px-1 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-surface [&_pre]:p-3" />
+          <MarkdownTextPrimitive className="space-y-2 break-words [&_a]:text-accent-text [&_code]:rounded-sm [&_code]:bg-surface [&_code]:px-1 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-surface [&_pre]:p-3" />
         );
       }
       if (part.type === 'reasoning') {
@@ -588,7 +588,7 @@ const AssistantMessageView = () => (
       </AuiIf>
     </div>
     <ActionBarPrimitive.Root className="mt-1 flex h-7 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-      <ActionBarPrimitive.Copy className="rounded p-1 text-foreground-subtle hover:bg-surface-sunken hover:text-foreground">
+      <ActionBarPrimitive.Copy className="rounded-sm p-1 text-foreground-subtle hover:bg-surface-sunken hover:text-foreground">
         <Copy className="h-3.5 w-3.5" />
       </ActionBarPrimitive.Copy>
     </ActionBarPrimitive.Root>
@@ -600,12 +600,15 @@ const Composer = () => (
     <ComposerPrimitive.Root className="mx-auto max-w-3xl rounded-lg border border-border focus-within:border-focus bg-surface-sunken p-2">
       <ComposerPrimitive.Attachments>
         {({ attachment }) => (
-          <AttachmentPrimitive.Root className="mb-2 inline-flex items-center gap-2 rounded border border-border bg-surface p-1.5 text-xs text-foreground-muted">
+          <AttachmentPrimitive.Root className="mb-2 inline-flex items-center gap-2 rounded-sm border border-border bg-surface p-1.5 text-xs text-foreground-muted">
             {attachment.content?.[0]?.type === 'image' && (
-              <img src={attachment.content[0].image} className="h-10 w-10 rounded object-cover" />
+              <img
+                src={attachment.content[0].image}
+                className="h-10 w-10 rounded-sm object-cover"
+              />
             )}
             <AttachmentPrimitive.Name />
-            <AttachmentPrimitive.Remove className="rounded p-1 hover:bg-surface-sunken">
+            <AttachmentPrimitive.Remove className="rounded-sm p-1 hover:bg-surface-sunken">
               <X className="h-3 w-3" />
             </AttachmentPrimitive.Remove>
           </AttachmentPrimitive.Root>

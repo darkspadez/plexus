@@ -49,7 +49,7 @@ export function McpKeyManagementModal({
             These keys are load-balanced (round robin) and rotated automatically when a rate limit
             or quota is exceeded. They are injected using the server&apos;s configured{' '}
             <strong>Auth Scheme</strong>:{' '}
-            <span className="rounded bg-surface-sunken px-1 py-0.5 font-mono text-foreground">
+            <span className="rounded-sm bg-surface-sunken px-1 py-0.5 font-mono text-foreground">
               {serverName && authScheme ? authScheme : 'None (keys will not be sent)'}
             </span>
           </p>

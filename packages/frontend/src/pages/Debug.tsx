@@ -422,13 +422,13 @@ export const Debug: React.FC = () => {
                               keys.map((key) => (
                                 <label
                                   key={key.key}
-                                  className="flex items-center gap-2 rounded p-2 hover:bg-surface-elevated cursor-pointer"
+                                  className="flex items-center gap-2 rounded-sm p-2 hover:bg-surface-elevated cursor-pointer"
                                 >
                                   <input
                                     type="checkbox"
                                     checked={selectedKeys.includes(key.key)}
                                     onChange={() => toggleSelection(key.key, setSelectedKeys)}
-                                    className="rounded border-border text-primary-text focus:ring-focus"
+                                    className="rounded-sm border-border focus:ring-focus"
                                   />
                                   <span className="min-w-0 truncate text-sm text-foreground">
                                     {key.key}
@@ -449,13 +449,13 @@ export const Debug: React.FC = () => {
                               aliases.map((alias) => (
                                 <label
                                   key={alias.id}
-                                  className="flex items-center gap-2 rounded p-2 hover:bg-surface-elevated cursor-pointer"
+                                  className="flex items-center gap-2 rounded-sm p-2 hover:bg-surface-elevated cursor-pointer"
                                 >
                                   <input
                                     type="checkbox"
                                     checked={selectedAliases.includes(alias.id)}
                                     onChange={() => toggleSelection(alias.id, setSelectedAliases)}
-                                    className="rounded border-border text-primary-text focus:ring-focus"
+                                    className="rounded-sm border-border focus:ring-focus"
                                   />
                                   <span className="min-w-0 truncate text-sm text-foreground">
                                     {alias.id}
@@ -476,7 +476,7 @@ export const Debug: React.FC = () => {
                               providers.map((provider) => (
                                 <label
                                   key={provider.id}
-                                  className="flex items-center gap-2 rounded p-2 hover:bg-surface-elevated cursor-pointer"
+                                  className="flex items-center gap-2 rounded-sm p-2 hover:bg-surface-elevated cursor-pointer"
                                 >
                                   <input
                                     type="checkbox"
@@ -484,7 +484,7 @@ export const Debug: React.FC = () => {
                                     onChange={() =>
                                       toggleSelection(provider.id, setSelectedProviders)
                                     }
-                                    className="rounded border-border text-primary-text focus:ring-focus"
+                                    className="rounded-sm border-border focus:ring-focus"
                                   />
                                   <span className="min-w-0 truncate text-sm text-foreground">
                                     {provider.name || provider.id}
@@ -593,7 +593,7 @@ export const Debug: React.FC = () => {
                     </div>
                     <button
                       onClick={(e) => handleDelete(e, log.requestId)}
-                      className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-danger/10 hover:text-danger-text opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                      className="bg-transparent border-0 text-foreground-subtle p-1 rounded-sm cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-danger/10 hover:text-danger-text opacity-100 md:opacity-0 md:group-hover:opacity-100"
                       title="Delete log"
                     >
                       <Trash2 size="0.75rem" />
@@ -820,7 +820,7 @@ const AccordionPanel: React.FC<{
             {title}
           </span>
           <button
-            className="bg-transparent border-0 text-foreground-subtle p-0.5 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-surface-hover hover:text-foreground"
+            className="bg-transparent border-0 text-foreground-subtle p-0.5 rounded-sm cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-surface-hover hover:text-foreground"
             onClick={handleToggleFold}
             title={folded ? 'Unfold all' : 'Fold all'}
           >
@@ -828,7 +828,7 @@ const AccordionPanel: React.FC<{
           </button>
         </div>
         <button
-          className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-surface-hover hover:text-foreground"
+          className="bg-transparent border-0 text-foreground-subtle p-1 rounded-sm cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-surface-hover hover:text-foreground"
           onClick={handleCopy}
           title="Copy to clipboard"
         >

@@ -92,7 +92,7 @@ export function McpServerTable({
             <button
               type="button"
               onClick={() => onCopyMcpPath(path)}
-              className="rounded p-1 text-foreground-muted hover:bg-surface-elevated hover:text-foreground"
+              className="rounded-sm p-1 text-foreground-muted hover:bg-surface-elevated hover:text-foreground"
               title="Copy path"
               aria-label={`Copy ${path}`}
             >

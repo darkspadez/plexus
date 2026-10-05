@@ -29,7 +29,7 @@ export const Switch: React.FC<SwitchProps> = ({
         if (!disabled) onChange(!checked);
       }}
       className={clsx(
-        'group relative inline-block flex-shrink-0 rounded-selector border-2 border-transparent transition-colors duration-150 outline-none',
+        'group relative inline-block flex-shrink-0 rounded-selector border-[0.125rem] border-transparent transition-colors duration-150 outline-none',
         'bg-border-strong',
         'data-[checked=true]:bg-secondary data-[checked=true]:border-transparent',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background',

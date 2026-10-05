@@ -20,7 +20,7 @@ export interface PillProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const toneStyles: Record<PillTone, string> = {
-  neutral: 'bg-surface-elevated text-foreground-muted',
+  neutral: 'bg-neutral-subtle text-neutral-text',
   primary: 'bg-primary-subtle text-primary-text',
   secondary: 'bg-secondary-subtle text-secondary-text',
   accent: 'bg-accent-subtle text-accent-text',

@@ -430,7 +430,7 @@ export const McpServerSheet: React.FC<Props> = ({
                         type="button"
                         onClick={() => removeEnv(key)}
                         aria-label={`Remove env var ${key}`}
-                        className="p-1 hover:bg-surface rounded"
+                        className="p-1 hover:bg-surface rounded-sm"
                       >
                         <MinusCircle size="0.875rem" className="text-danger-text" />
                       </button>
@@ -523,7 +523,7 @@ export const McpServerSheet: React.FC<Props> = ({
                   type="button"
                   onClick={() => removeHeader(key)}
                   aria-label={`Remove header ${key}`}
-                  className="p-1 hover:bg-surface rounded"
+                  className="p-1 hover:bg-surface rounded-sm"
                 >
                   <MinusCircle size="0.875rem" className="text-danger-text" />
                 </button>

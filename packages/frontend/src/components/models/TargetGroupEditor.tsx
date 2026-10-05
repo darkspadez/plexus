@@ -235,7 +235,7 @@ export const TargetGroupEditor: React.FC<TargetGroupEditorProps> = ({
             onDragOver={(e) => handleDragOver(e, 'group', groupIdx)}
             onDrop={(e) => handleDrop(e, 'group', groupIdx)}
             onDragEnd={handleDragEnd}
-            className="rounded border transition-all duration-200"
+            className="rounded-sm border transition-all duration-200"
             style={{
               borderColor: isGroupDragOver ? 'var(--primary)' : 'var(--border)',
               borderWidth: isGroupDragOver ? '2px' : '1px',
@@ -354,7 +354,7 @@ export const TargetGroupEditor: React.FC<TargetGroupEditorProps> = ({
                       handleDrop(e, 'target', groupIdx, targetIdx);
                     }}
                     onDragEnd={handleDragEnd}
-                    className="flex items-center gap-2 rounded px-2 py-1.5 transition-all duration-150"
+                    className="flex items-center gap-2 rounded-sm px-2 py-1.5 transition-all duration-150"
                     style={{
                       backgroundColor: isTargetDrag
                         ? 'transparent'

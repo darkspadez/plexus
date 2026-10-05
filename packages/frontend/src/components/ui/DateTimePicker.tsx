@@ -164,7 +164,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
               type="button"
               onClick={() => selectDay(day)}
               className={clsx(
-                'aspect-square flex items-center justify-center rounded text-sm transition-colors',
+                'aspect-square flex items-center justify-center rounded-sm text-sm transition-colors',
                 isSelected
                   ? 'bg-primary text-primary-foreground font-medium'
                   : 'text-foreground hover:bg-surface-elevated'

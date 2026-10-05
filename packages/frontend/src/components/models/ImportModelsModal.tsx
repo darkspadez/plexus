@@ -144,7 +144,7 @@ export function ImportModelsModal({
                         <div className="font-medium">{group.modelId}</div>
                         {group.aliasMatches.length > 0 ? (
                           <>
-                            <span className="inline-flex rounded border border-border px-2 py-0.5 text-label font-medium uppercase tracking-wider text-primary-text">
+                            <span className="inline-flex rounded-sm border border-border px-2 py-0.5 text-label font-medium uppercase tracking-wider text-primary-text">
                               Existing Alias Match
                             </span>
                             {group.aliasMatches.length === 1 ? (
@@ -175,7 +175,7 @@ export function ImportModelsModal({
                             )}
                           </>
                         ) : (
-                          <span className="inline-flex rounded border border-border px-2 py-0.5 text-label font-medium uppercase tracking-wider text-foreground-subtle">
+                          <span className="inline-flex rounded-sm border border-border px-2 py-0.5 text-label font-medium uppercase tracking-wider text-foreground-subtle">
                             New Alias
                           </span>
                         )}

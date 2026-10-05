@@ -119,6 +119,47 @@ describe('compileTheme contrast guarantees', () => {
   });
 });
 
+describe('compileTheme elevated and hover surfaces', () => {
+  const plexusDarkLike = () =>
+    makeDef({
+      id: 'plexus-dark-like',
+      colorScheme: 'dark',
+      colors: {
+        'base-100': '#16181D',
+        'base-200': '#0A0B0E',
+        'base-300': '#06070A',
+        'base-content': '#E8EAED',
+        neutral: '#8B8C8F',
+      },
+      overrides: { 'surface-elevated': '#1F2127', 'surface-hover': '#2C2F37' },
+    });
+
+  it('keeps neutral-text readable on a pinned hover surface and its tint', () => {
+    const def = plexusDarkLike();
+    const { vars } = compileTheme(def);
+    const text = c(vars['neutral-text']);
+    for (const bg of ['#1F2127', '#2C2F37']) {
+      expect(contrast(text, c(bg)), bg).toBeGreaterThanOrEqual(4.5);
+      const tinted = composite(c(vars['neutral']), 0.18, c(bg));
+      expect(contrast(text, tinted), `tint over ${bg}`).toBeGreaterThanOrEqual(4.5);
+    }
+    // Without the extended fit the raw neutral sits well under 4.5 on hover.
+    expect(contrast(c('#8B8C8F'), c('#2C2F37'))).toBeLessThan(4.5);
+  });
+
+  it('fits derived elevated and hover surfaces when they are not pinned', () => {
+    const { vars } = compileTheme({ ...plexusDarkLike(), overrides: {} });
+    for (const role of ROLES) {
+      for (const bg of ['surface-elevated', 'surface-hover']) {
+        expect(
+          contrast(c(vars[`${role}-text`]), c(vars[bg])),
+          `${role} on ${bg}`
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+});
+
 describe('compileTheme diagnostics basis', () => {
   it('never reports a ratio at or above min, even when hex quantization causes the adjustment', () => {
     // Find an input whose unquantized ratio passes but whose hex-quantized ratio fails.
@@ -379,5 +420,38 @@ describe('theme definitions used by the compiler', () => {
   it('synthetic defs satisfy the shared schema', () => {
     expect(ThemeDefSchema.safeParse(makeDef()).success).toBe(true);
     expect(ThemeDefSchema.safeParse(darkDef()).success).toBe(true);
+  });
+});
+
+describe('compileTheme square radius', () => {
+  it("emits a length for a unitless '0' so min()/calc() stay valid", () => {
+    const { vars } = compileTheme(makeDef({ radius: { box: '0', field: '0', selector: '0' } }));
+    expect(vars['theme-radius-box']).toBe('0rem');
+    expect(vars['theme-radius-field']).toBe('0rem');
+    expect(vars['theme-radius-selector']).toBe('0rem');
+  });
+
+  it('leaves other radius values untouched', () => {
+    const { vars } = compileTheme(makeDef());
+    expect(vars['theme-radius-box']).toBe('0.5rem');
+  });
+});
+
+describe('compileTheme unreachable contrast', () => {
+  it('reports outputRatio below min when even black/white cannot reach the floor', () => {
+    const grey = '#777777';
+    const out = compileTheme(
+      makeDef({
+        colors: { 'base-100': grey, 'base-200': grey, 'base-300': grey, 'base-content': grey },
+      })
+    );
+    const unreachable = out.diagnostics.filter((d) => d.outputRatio < d.min);
+    expect(unreachable.length).toBeGreaterThan(0);
+  });
+
+  it('reports outputRatio at or above min when the adjustment succeeds', () => {
+    const out = compileTheme(lowContrastDef());
+    const reached = out.diagnostics.filter((d) => d.outputRatio >= d.min);
+    expect(reached.length).toBeGreaterThan(0);
   });
 });

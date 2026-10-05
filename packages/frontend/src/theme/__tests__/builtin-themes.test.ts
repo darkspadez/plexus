@@ -57,10 +57,12 @@ describe('built-in themes', () => {
       const alpha = SUBTLE_ALPHA[def.colorScheme];
       for (const role of ROLES) {
         const text = c(`${role}-text`);
-        for (const bg of plain) check(`${role}-text on ${bg}`, text, c(bg), 4.5);
+        for (const bg of [...plain, 'surface-elevated', 'surface-hover']) {
+          check(`${role}-text on ${bg}`, text, c(bg), 4.5);
+        }
         // -subtle is emitted as `rgb(r g b / a)`: composite it over the opaque bgs.
         const tint = parseColor(vars[`${role}-subtle`] as string);
-        for (const bg of ['surface', 'background']) {
+        for (const bg of ['surface', 'background', 'surface-elevated', 'surface-hover']) {
           check(
             `${role}-text on ${role}-subtle over ${bg}`,
             text,
