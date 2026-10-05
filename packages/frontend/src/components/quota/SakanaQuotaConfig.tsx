@@ -18,7 +18,7 @@ export const SakanaQuotaConfig: React.FC<SakanaQuotaConfigProps> = ({ options, o
           htmlFor="sakana-session-cookie"
           className="font-sans text-[13px] font-medium text-foreground-muted"
         >
-          Session Cookie <span className="text-danger">*</span>
+          Session Cookie <span className="text-danger-text">*</span>
         </label>
         <Input
           id="sakana-session-cookie"

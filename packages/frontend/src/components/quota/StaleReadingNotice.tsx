@@ -22,7 +22,7 @@ export const StaleReadingNotice: React.FC<StaleReadingNoticeProps> = ({
   className,
 }) => (
   <div
-    className={clsx('flex min-w-0 items-start gap-1.5 text-xs text-warning', className)}
+    className={clsx('flex min-w-0 items-start gap-1.5 text-xs text-warning-text', className)}
     title={error}
   >
     <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />

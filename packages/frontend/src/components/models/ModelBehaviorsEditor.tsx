@@ -62,10 +62,10 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
                   Strip Adaptive Thinking
                 </span>
                 <p className="font-sans text-[11px] text-foreground-subtle mt-0.5">
-                  On the <code className="text-accent">/v1/messages</code> path, remove{' '}
-                  <code className="text-accent">thinking</code> when set to{' '}
-                  <code className="text-accent">adaptive</code> so the provider uses its default
-                  behaviour.
+                  On the <code className="text-primary-text">/v1/messages</code> path, remove{' '}
+                  <code className="text-primary-text">thinking</code> when set to{' '}
+                  <code className="text-primary-text">adaptive</code> so the provider uses its
+                  default behaviour.
                 </p>
               </div>
               <Switch
@@ -201,7 +201,7 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
                     </span>
                   </label>
                   <select
-                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
+                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-focus"
                     value={
                       editingAlias.compaction?.enabled == null
                         ? ''
@@ -235,7 +235,7 @@ export function ModelBehaviorsEditor({ editingAlias, setEditingAlias }: Props) {
                     </span>
                   </label>
                   <select
-                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
+                    className="w-full py-1 pl-2 pr-2 font-sans text-[12px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-focus"
                     value={editingAlias.compaction?.strategy ?? ''}
                     onChange={(e) => {
                       const raw = e.target.value;

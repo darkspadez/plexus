@@ -16,7 +16,7 @@ export const NagaQuotaConfig: React.FC<NagaQuotaConfigProps> = ({ options, onCha
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
         <label className="font-sans text-[13px] font-medium text-foreground-muted">
-          Provisioning API Key <span className="text-danger">*</span>
+          Provisioning API Key <span className="text-danger-text">*</span>
         </label>
         <Input
           type="password"
@@ -30,7 +30,7 @@ export const NagaQuotaConfig: React.FC<NagaQuotaConfigProps> = ({ options, onCha
             href="https://naga.ac/dashboard/provisioning-keys"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent hover:underline inline-flex items-center gap-1"
+            className="text-accent-text hover:underline inline-flex items-center gap-1"
           >
             Naga Dashboard <ExternalLink size={10} />
           </a>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import Editor from '@monaco-editor/react';
+import { useMonacoTheme } from '../hooks/useMonacoTheme';
 import {
   RefreshCw,
   Clock,
@@ -294,15 +295,15 @@ export const Debug: React.FC = () => {
       return 'border-border bg-surface text-foreground-subtle';
     }
     if (status >= 200 && status < 300) {
-      return 'border-success/30 bg-emerald-500/15 text-success';
+      return 'border-success/30 bg-success/15 text-success-text';
     }
     if (status >= 300 && status < 400) {
-      return 'border-blue-400/30 bg-blue-500/15 text-blue-400';
+      return 'border-info/30 bg-info/15 text-info-text';
     }
     if (status >= 400 && status < 500) {
-      return 'border-warning/30 bg-yellow-500/15 text-warning';
+      return 'border-warning/30 bg-warning/15 text-warning-text';
     }
-    return 'border-danger/30 bg-red-500/15 text-danger';
+    return 'border-danger/30 bg-danger/15 text-danger-text';
   };
 
   const exportContent = useMemo(() => {
@@ -372,17 +373,17 @@ export const Debug: React.FC = () => {
               {isAdmin && (
                 <div className="relative provider-filter-dropdown">
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     className={clsx(
                       'flex items-center gap-2',
-                      selectedCaptureTargetCount > 0 && 'border-accent'
+                      selectedCaptureTargetCount > 0 && 'border-primary'
                     )}
                     onClick={() => setIsFilterOpen(!isFilterOpen)}
                     leftIcon={<Filter size={14} />}
                   >
                     Targets
                     {selectedCaptureTargetCount > 0 && (
-                      <span className="ml-1 px-1.5 py-0.5 text-xs bg-accent text-accent-foreground rounded-full">
+                      <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
                         {selectedCaptureTargetCount}
                       </span>
                     )}
@@ -426,7 +427,7 @@ export const Debug: React.FC = () => {
                                     type="checkbox"
                                     checked={selectedKeys.includes(key.key)}
                                     onChange={() => toggleSelection(key.key, setSelectedKeys)}
-                                    className="rounded border-border text-accent focus:ring-accent"
+                                    className="rounded border-border text-primary-text focus:ring-focus"
                                   />
                                   <span className="min-w-0 truncate text-sm text-foreground">
                                     {key.key}
@@ -453,7 +454,7 @@ export const Debug: React.FC = () => {
                                     type="checkbox"
                                     checked={selectedAliases.includes(alias.id)}
                                     onChange={() => toggleSelection(alias.id, setSelectedAliases)}
-                                    className="rounded border-border text-accent focus:ring-accent"
+                                    className="rounded border-border text-primary-text focus:ring-focus"
                                   />
                                   <span className="min-w-0 truncate text-sm text-foreground">
                                     {alias.id}
@@ -482,7 +483,7 @@ export const Debug: React.FC = () => {
                                     onChange={() =>
                                       toggleSelection(provider.id, setSelectedProviders)
                                     }
-                                    className="rounded border-border text-accent focus:ring-accent"
+                                    className="rounded border-border text-primary-text focus:ring-focus"
                                   />
                                   <span className="min-w-0 truncate text-sm text-foreground">
                                     {provider.name || provider.id}
@@ -495,7 +496,7 @@ export const Debug: React.FC = () => {
                       </div>
                       <div className="flex gap-2 mt-4 pt-3 border-t border-border">
                         <Button
-                          variant="secondary"
+                          variant="outline"
                           className="flex-1 text-xs"
                           onClick={() => setIsFilterOpen(false)}
                         >
@@ -517,12 +518,12 @@ export const Debug: React.FC = () => {
               {detail && (
                 <>
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     className="flex items-center gap-2"
                     onClick={handleCopyAll}
                     leftIcon={
                       copiedAll ? (
-                        <Check size={14} className="text-green-500" />
+                        <Check size={14} className="text-success-text" />
                       ) : (
                         <Copy size={14} />
                       )
@@ -531,7 +532,7 @@ export const Debug: React.FC = () => {
                     {copiedAll ? 'Copied' : 'Copy All'}
                   </Button>
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     className="flex items-center gap-2"
                     onClick={handleDownloadAll}
                     leftIcon={<Download size={14} />}
@@ -553,7 +554,7 @@ export const Debug: React.FC = () => {
               )}
               <Button
                 onClick={fetchLogs}
-                variant="secondary"
+                variant="outline"
                 leftIcon={<RefreshCw size={16} className={clsx(loading && 'animate-spin')} />}
               >
                 Refresh
@@ -591,13 +592,13 @@ export const Debug: React.FC = () => {
                     </div>
                     <button
                       onClick={(e) => handleDelete(e, log.requestId)}
-                      className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-red-600/10 hover:text-danger opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                      className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-danger/10 hover:text-danger-text opacity-100 md:opacity-0 md:group-hover:opacity-100"
                       title="Delete log"
                     >
                       <Trash2 size={12} />
                     </button>
                   </div>
-                  <div className="text-[13px] font-mono text-accent whitespace-nowrap overflow-hidden text-ellipsis mt-1">
+                  <div className="text-[13px] font-mono text-primary-text whitespace-nowrap overflow-hidden text-ellipsis mt-1">
                     {log.requestId?.substring(0, 8) ?? '-'}...
                   </div>
                   <div className="mt-2">
@@ -630,11 +631,11 @@ export const Debug: React.FC = () => {
                   <span className="text-xs font-bold uppercase tracking-wider text-foreground-subtle">
                     Selected Trace
                   </span>
-                  <span className="break-all text-xs font-mono text-foreground-secondary">
+                  <span className="break-all text-xs font-mono text-foreground-muted">
                     {detail.requestId}
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-foreground-secondary">
+                <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-foreground-muted">
                   <div className="min-w-0">
                     <span className="text-foreground-subtle">Captured:</span>
                     <span className="ml-2 font-mono">
@@ -657,51 +658,51 @@ export const Debug: React.FC = () => {
               <AccordionPanel
                 title="Raw Request"
                 content={formatContent(detail.rawRequest)}
-                color="text-blue-400"
+                color="text-info-text"
                 defaultOpen={true}
               />
               {detail.requestHeaders && (
                 <AccordionPanel
                   title="Request Headers"
                   content={formatContent(detail.requestHeaders)}
-                  color="text-blue-400"
+                  color="text-info-text"
                 />
               )}
               <AccordionPanel
                 title="Transformed Request"
                 content={formatContent(detail.transformedRequest)}
-                color="text-purple-400"
+                color="text-secondary-text"
               />
               <AccordionPanel
                 title="Raw Response"
                 content={formatContent(detail.rawResponse)}
-                color="text-orange-400"
+                color="text-critical-text"
               />
               {detail.rawResponseSnapshot && (
                 <AccordionPanel
                   title="Raw Response (Reconstructed)"
                   content={formatContent(detail.rawResponseSnapshot)}
-                  color="text-orange-400"
+                  color="text-critical-text"
                 />
               )}
               {detail.responseHeaders && (
                 <AccordionPanel
                   title="Response Headers"
                   content={formatContent(detail.responseHeaders)}
-                  color="text-yellow-400"
+                  color="text-warning-text"
                 />
               )}
               <AccordionPanel
                 title="Transformed Response"
                 content={formatContent(detail.transformedResponse)}
-                color="text-green-400"
+                color="text-success-text"
                 defaultOpen={true}
               />
               {detail.transformedResponseSnapshot && (
                 <AccordionPanel
                   title="Transformed Response (Reconstructed)"
                   content={formatContent(detail.transformedResponseSnapshot)}
-                  color="text-green-400"
+                  color="text-success-text"
                 />
               )}
             </div>
@@ -713,8 +714,8 @@ export const Debug: React.FC = () => {
           )}
 
           {loadingDetail && (
-            <div className="absolute inset-0 bg-[rgba(15,23,42,0.5)] backdrop-blur-sm flex items-center justify-center z-10">
-              <RefreshCw className="animate-spin text-accent" size={32} />
+            <div className="absolute inset-0 bg-surface-sunken/50 backdrop-blur-sm flex items-center justify-center z-10">
+              <RefreshCw className="animate-spin text-primary-text" size={32} />
             </div>
           )}
         </div>
@@ -726,7 +727,7 @@ export const Debug: React.FC = () => {
         title="Confirm Deletion"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setIsDeleteAllModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsDeleteAllModalOpen(false)}>
               Cancel
             </Button>
             <Button variant="danger" onClick={confirmDeleteAll} disabled={isDeleting}>
@@ -744,7 +745,7 @@ export const Debug: React.FC = () => {
         title="Confirm Deletion"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setIsSingleDeleteModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsSingleDeleteModalOpen(false)}>
               Cancel
             </Button>
             <Button variant="danger" onClick={confirmDeleteSingle} disabled={isDeleting}>
@@ -774,6 +775,7 @@ const AccordionPanel: React.FC<{
   const [copied, setCopied] = useState(false);
   const [folded, setFolded] = useState(false);
   const editorRef = useRef<any>(null);
+  const monacoTheme = useMonacoTheme();
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -816,7 +818,7 @@ const AccordionPanel: React.FC<{
             {title}
           </span>
           <button
-            className="bg-transparent border-0 text-foreground-subtle p-0.5 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-white/10 hover:text-foreground"
+            className="bg-transparent border-0 text-foreground-subtle p-0.5 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-surface-hover hover:text-foreground"
             onClick={handleToggleFold}
             title={folded ? 'Unfold all' : 'Fold all'}
           >
@@ -824,11 +826,11 @@ const AccordionPanel: React.FC<{
           </button>
         </div>
         <button
-          className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-white/10 hover:text-foreground"
+          className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-surface-hover hover:text-foreground"
           onClick={handleCopy}
           title="Copy to clipboard"
         >
-          {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+          {copied ? <Check size={14} className="text-success-text" /> : <Copy size={14} />}
         </button>
       </div>
       <div
@@ -837,11 +839,11 @@ const AccordionPanel: React.FC<{
           isOpen ? 'max-h-[500px]' : 'max-h-0'
         )}
       >
-        <div className="h-[280px] bg-[#1e1e1e] sm:h-[400px]">
+        <div className="h-[280px] bg-surface-sunken sm:h-[400px]">
           <Editor
             height="100%"
             defaultLanguage="json"
-            theme="vs-dark"
+            theme={monacoTheme}
             value={content}
             onMount={(editor) => {
               editorRef.current = editor;
@@ -851,7 +853,7 @@ const AccordionPanel: React.FC<{
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               fontSize: 12,
-              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+              fontFamily: "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
               lineNumbers: 'on',
               folding: true,
               wordWrap: hasVeryLongLine ? 'off' : 'on',

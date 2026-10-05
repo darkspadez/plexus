@@ -57,7 +57,7 @@ export function AliasExtraBodyEditor({ editingAlias, setEditingAlias }: Props) {
           </Pill>
           <Button
             size="sm"
-            variant="secondary"
+            variant="outline"
             style={{ padding: '2px 6px', lineHeight: 1 }}
             onClick={addKV}
           >
@@ -104,7 +104,7 @@ export function AliasExtraBodyEditor({ editingAlias, setEditingAlias }: Props) {
               onClick={() => removeKV(key)}
               style={{ padding: '4px' }}
             >
-              <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
+              <Trash2 size={14} style={{ color: 'var(--danger-text)' }} />
             </Button>
           </div>
         ))}

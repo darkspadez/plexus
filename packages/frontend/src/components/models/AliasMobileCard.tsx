@@ -79,7 +79,7 @@ export const AliasMobileCard: React.FC<Props> = ({
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <ModelTypeBadge type={alias.type} />
             {alias.metadata && (
-              <span className="inline-flex rounded border border-border px-2 py-0.5 text-label font-medium uppercase tracking-wider text-accent">
+              <span className="inline-flex rounded border border-border px-2 py-0.5 text-label font-medium uppercase tracking-wider text-primary-text">
                 {alias.metadata.source}
               </span>
             )}
@@ -89,7 +89,7 @@ export const AliasMobileCard: React.FC<Props> = ({
           variant="ghost"
           size="icon"
           onClick={() => onDelete(alias)}
-          className="text-danger"
+          className="text-danger-text"
           aria-label={`Delete ${alias.id}`}
         >
           <Trash2 size={14} />
@@ -172,10 +172,12 @@ export const AliasMobileCard: React.FC<Props> = ({
                       <div className="min-w-0 flex-1">
                         <div
                           className={`flex items-center gap-1 truncate text-xs font-medium ${
-                            isTargetDisabled ? 'text-danger line-through' : 'text-foreground-muted'
+                            isTargetDisabled
+                              ? 'text-danger-text line-through'
+                              : 'text-foreground-muted'
                           }`}
                         >
-                          <Link2 size={12} className="text-accent opacity-70" />
+                          <Link2 size={12} className="text-primary-text opacity-70" />
                           alias: {t.alias}
                         </div>
                       </div>
@@ -213,7 +215,7 @@ export const AliasMobileCard: React.FC<Props> = ({
                     <div className="min-w-0 flex-1">
                       <div
                         className={`truncate text-xs font-medium ${
-                          isDisabled ? 'text-danger line-through' : 'text-foreground-muted'
+                          isDisabled ? 'text-danger-text line-through' : 'text-foreground-muted'
                         }`}
                       >
                         {t.provider || 'No provider'}{' '}
@@ -221,10 +223,10 @@ export const AliasMobileCard: React.FC<Props> = ({
                         {t.model || 'No model'}
                       </div>
                       {isProviderDisabled && (
-                        <div className="mt-1 text-[11px] text-danger">Provider disabled</div>
+                        <div className="mt-1 text-[11px] text-danger-text">Provider disabled</div>
                       )}
                       {cooldown && (
-                        <div className="mt-1 text-[11px] font-medium text-warning">
+                        <div className="mt-1 text-[11px] font-medium text-warning-text">
                           Cooldown ({cooldownText})
                         </div>
                       )}
@@ -243,15 +245,15 @@ export const AliasMobileCard: React.FC<Props> = ({
                           );
                         }}
                         disabled={isDisabled}
-                        className="flex h-7 w-7 items-center justify-center rounded text-accent transition-colors hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex h-7 w-7 items-center justify-center rounded text-primary-text transition-colors hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-40"
                         aria-label={`Test ${alias.id} target ${i + 1}`}
                       >
                         {testState?.loading ? (
                           <Loader2 size={14} className="animate-spin" />
                         ) : testState?.showResult && testState.result === 'success' ? (
-                          <CheckCircle size={14} className="text-success" />
+                          <CheckCircle size={14} className="text-success-text" />
                         ) : testState?.showResult && testState.result === 'error' ? (
-                          <AlertTriangle size={14} className="text-danger" />
+                          <AlertTriangle size={14} className="text-danger-text" />
                         ) : (
                           <Play size={14} />
                         )}

@@ -8,6 +8,7 @@ const twMerge = extendTailwindMerge({
   extend: {
     theme: {
       text: ['label'],
+      radius: ['box', 'field', 'selector'],
     },
   },
 });

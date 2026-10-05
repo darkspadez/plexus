@@ -94,7 +94,7 @@ export function CustomQuotaConfig({ checkerId, provider, options, onChange }: Pr
 
       <FormField label="Additional request headers (JSON)">
         <textarea
-          className="min-h-20 w-full rounded-md border border-border bg-background p-2 font-mono text-[11px] text-foreground outline-none focus:border-accent"
+          className="min-h-20 w-full rounded-md border border-border bg-background p-2 font-mono text-[11px] text-foreground outline-none focus:border-focus"
           value={configuredHeaders}
           onChange={(event) => {
             try {
@@ -112,7 +112,7 @@ export function CustomQuotaConfig({ checkerId, provider, options, onChange }: Pr
 
       <FormField label="Other options (JSON)">
         <textarea
-          className="min-h-28 w-full rounded-md border border-border bg-background p-2 font-mono text-[11px] text-foreground outline-none focus:border-accent"
+          className="min-h-28 w-full rounded-md border border-border bg-background p-2 font-mono text-[11px] text-foreground outline-none focus:border-focus"
           value={optionsText}
           onChange={(event) => updateOptions(event.target.value)}
           spellCheck={false}
@@ -123,7 +123,7 @@ export function CustomQuotaConfig({ checkerId, provider, options, onChange }: Pr
         <Button
           type="button"
           size="sm"
-          variant="secondary"
+          variant="outline"
           isLoading={testing}
           onClick={testChecker}
           leftIcon={<Play size={13} />}

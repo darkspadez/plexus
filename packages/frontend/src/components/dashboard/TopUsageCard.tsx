@@ -15,9 +15,9 @@ import {
 } from './top-usage';
 
 const SUCCESS_TONE_CLASS: Record<SuccessTone, string> = {
-  success: 'text-success',
-  warning: 'text-warning',
-  danger: 'text-danger',
+  success: 'text-success-text',
+  warning: 'text-warning-text',
+  danger: 'text-danger-text',
 };
 
 const NUMERIC_CELL = 'font-mono tabular-nums';

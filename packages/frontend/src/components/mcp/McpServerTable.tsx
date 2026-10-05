@@ -159,7 +159,7 @@ export function McpServerTable({
                 e.stopPropagation();
                 onDelete(r.name);
               }}
-              className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+              className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
               aria-label={`Delete ${r.name}`}
             >
               <Trash2 size={14} />
@@ -181,7 +181,7 @@ export function McpServerTable({
         }}
         rowClassName={(r) =>
           r.kind === 'management'
-            ? 'bg-accent/5 border-accent/20 cursor-default hover:bg-accent/5 hover:border-accent/20'
+            ? 'bg-primary/5 border-primary/20 cursor-default hover:bg-primary/5 hover:border-primary/20'
             : ''
         }
         emptyIcon={<PlugZap />}
@@ -211,7 +211,7 @@ export function McpServerTable({
                   e.stopPropagation();
                   onDelete(r.name);
                 }}
-                className="text-danger"
+                className="text-danger-text"
                 aria-label={`Delete ${r.name}`}
               >
                 <Trash2 size={14} />

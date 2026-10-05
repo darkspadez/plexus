@@ -318,7 +318,7 @@ export const Playground = () => {
         subtitle="Simulate client keys to test quotas, IP filters, routing, and model access policies."
         actions={
           <Button
-            variant="secondary"
+            variant="outline"
             size="sm"
             leftIcon={<RefreshCw size={14} className={refreshing ? 'animate-spin' : undefined} />}
             onClick={handleRefresh}
@@ -331,7 +331,7 @@ export const Playground = () => {
 
       <PageContainer className="space-y-4 sm:space-y-6">
         {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
+          <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger-text">
             <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -401,7 +401,7 @@ export const Playground = () => {
                     type="checkbox"
                     checked={toolMode === 'sample-tools'}
                     onChange={(event) => setToolMode(event.target.checked ? 'sample-tools' : 'off')}
-                    className="h-3.5 w-3.5 accent-accent"
+                    className="h-3.5 w-3.5"
                   />
                   Sample browser tools
                 </label>
@@ -417,8 +417,8 @@ export const Playground = () => {
                   <dd
                     className={
                       selectedModel && (!keyAllowsSelectedModel || keyExcludesSelectedModel)
-                        ? 'inline-flex items-center gap-1 font-medium text-warning'
-                        : 'inline-flex items-center gap-1 font-medium text-success'
+                        ? 'inline-flex items-center gap-1 font-medium text-warning-text'
+                        : 'inline-flex items-center gap-1 font-medium text-success-text'
                     }
                   >
                     {selectedModel && (!keyAllowsSelectedModel || keyExcludesSelectedModel) ? (
@@ -530,9 +530,9 @@ export const Playground = () => {
                 {routingInfo.status === 'pending' ? (
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                 ) : routingInfo.status === 'complete' ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success-text" />
                 ) : routingInfo.status === 'error' ? (
-                  <XCircle className="h-3.5 w-3.5 text-danger" />
+                  <XCircle className="h-3.5 w-3.5 text-danger-text" />
                 ) : (
                   <Route className="h-3.5 w-3.5" />
                 )}
@@ -695,7 +695,7 @@ export const Playground = () => {
               </div>
 
               {routingInfo.error && (
-                <div className="rounded-md border border-danger/30 bg-danger/10 p-3 text-danger">
+                <div className="rounded-md border border-danger/30 bg-danger/10 p-3 text-danger-text">
                   {routingInfo.error}
                 </div>
               )}

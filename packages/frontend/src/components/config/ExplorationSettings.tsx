@@ -111,7 +111,7 @@ export function ExplorationSettings() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Radar size={16} className="text-accent" />
+              <Radar size={16} className="text-primary-text" />
               <div>
                 <p className="font-sans text-[12px] font-medium text-foreground">
                   Background Exploration
@@ -145,10 +145,10 @@ export function ExplorationSettings() {
                   min={1}
                   step={1}
                   {...register('stalenessThresholdSeconds', { valueAsNumber: true })}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                 />
                 {errors.stalenessThresholdSeconds && (
-                  <span className="text-[11px] text-warning">
+                  <span className="text-[11px] text-warning-text">
                     {errors.stalenessThresholdSeconds.message}
                   </span>
                 )}
@@ -168,10 +168,10 @@ export function ExplorationSettings() {
                   max={16}
                   step={1}
                   {...register('workerConcurrency', { valueAsNumber: true })}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                 />
                 {errors.workerConcurrency && (
-                  <span className="text-[11px] text-warning">
+                  <span className="text-[11px] text-warning-text">
                     {errors.workerConcurrency.message}
                   </span>
                 )}
@@ -196,10 +196,10 @@ export function ExplorationSettings() {
                   max={1}
                   step={0.01}
                   {...register('performanceExplorationRate', { valueAsNumber: true })}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                 />
                 {errors.performanceExplorationRate && (
-                  <span className="text-[11px] text-warning">
+                  <span className="text-[11px] text-warning-text">
                     {errors.performanceExplorationRate.message}
                   </span>
                 )}
@@ -219,10 +219,10 @@ export function ExplorationSettings() {
                   max={1}
                   step={0.01}
                   {...register('latencyExplorationRate', { valueAsNumber: true })}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                 />
                 {errors.latencyExplorationRate && (
-                  <span className="text-[11px] text-warning">
+                  <span className="text-[11px] text-warning-text">
                     {errors.latencyExplorationRate.message}
                   </span>
                 )}
@@ -242,10 +242,10 @@ export function ExplorationSettings() {
                   max={1}
                   step={0.01}
                   {...register('e2ePerformanceExplorationRate', { valueAsNumber: true })}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                 />
                 {errors.e2ePerformanceExplorationRate && (
-                  <span className="text-[11px] text-warning">
+                  <span className="text-[11px] text-warning-text">
                     {errors.e2ePerformanceExplorationRate.message}
                   </span>
                 )}

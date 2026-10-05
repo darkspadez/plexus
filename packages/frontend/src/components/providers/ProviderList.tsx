@@ -100,7 +100,7 @@ export function ProviderList({
           <Button
             size="sm"
             variant="ghost"
-            className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+            className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
             aria-label={`Delete ${row.original.id}`}
             onClick={(e) => {
               e.stopPropagation();
@@ -141,7 +141,7 @@ export function ProviderList({
           <Button
             size="sm"
             variant="ghost"
-            className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+            className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
             aria-label={`Delete ${p.id}`}
             onClick={(e) => {
               e.stopPropagation();

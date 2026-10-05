@@ -93,7 +93,7 @@ export const UserQuotas: React.FC = () => {
         actions={
           <>
             <Button
-              variant="secondary"
+              variant="outline"
               size="md"
               onClick={() => refetch()}
               disabled={isFetching}
@@ -119,7 +119,7 @@ export const UserQuotas: React.FC = () => {
         {/* Error banner */}
         {isError && (
           <div className="rounded-lg border border-danger/40 bg-danger-subtle px-4 py-3">
-            <p className="text-sm font-medium text-danger">Failed to load user quotas</p>
+            <p className="text-sm font-medium text-danger-text">Failed to load user quotas</p>
             <Button variant="ghost" size="sm" className="mt-2" onClick={() => refetch()}>
               Retry
             </Button>
@@ -170,7 +170,7 @@ export const UserQuotas: React.FC = () => {
         {/* Default quotas — moved here from the Keys page */}
         <Card
           title="Default quotas"
-          className="!overflow-visible [&>div:first-child]:rounded-t-[11px]"
+          className="!overflow-visible [&>div:first-child]:rounded-t-[calc(var(--theme-radius-box)-var(--theme-border-width))]"
         >
           <p className="text-xs text-foreground-muted mb-3">
             Applied to any key with no quotas of its own (non-stacking — a key&apos;s own{' '}
@@ -210,7 +210,7 @@ export const UserQuotas: React.FC = () => {
         size="sm"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setPendingDelete(null)}>
+            <Button variant="outline" onClick={() => setPendingDelete(null)}>
               Cancel
             </Button>
             <Button variant="danger" onClick={handleConfirmDelete} isLoading={remove.isPending}>

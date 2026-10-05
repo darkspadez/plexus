@@ -54,13 +54,13 @@ export function ConfirmDeleteModal({
             width: '48px',
             height: '48px',
             borderRadius: '50%',
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            backgroundColor: 'var(--danger-subtle)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Trash2 size={24} style={{ color: 'var(--color-danger)' }} />
+          <Trash2 size={24} style={{ color: 'var(--danger-text)' }} />
         </div>
         <div>
           <p className="text-foreground" style={{ marginBottom: '8px', fontWeight: 500 }}>

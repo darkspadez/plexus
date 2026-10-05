@@ -100,13 +100,13 @@ export function ModelList({
           {modelCount > 0 ? <Badge status="success">{modelCount} Models</Badge> : <NotConfigured />}
           <Button
             size="sm"
-            variant="secondary"
+            variant="outline"
             onClick={onOpenFetchModels}
             leftIcon={<Download size={14} />}
           >
             Fetch Models
           </Button>
-          <Button size="sm" variant="secondary" leftIcon={<Plus size={14} />} onClick={addModel}>
+          <Button size="sm" variant="outline" leftIcon={<Plus size={14} />} onClick={addModel}>
             Add Model
           </Button>
         </>
@@ -229,7 +229,7 @@ export function ModelList({
               >
                 <button
                   type="button"
-                  className="min-w-0 flex-1 flex items-center gap-2 rounded-md px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+                  className="min-w-0 flex-1 flex items-center gap-2 rounded-md px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
                   onClick={() => onSelectModel(modelId)}
                 >
                   <span className="min-w-0 flex-1 truncate font-sans text-[12px] font-medium text-foreground">
@@ -263,11 +263,11 @@ export function ModelList({
                     {testState?.loading ? (
                       <Loader2 size={14} className="animate-spin text-foreground-muted" />
                     ) : testState?.showResult && testState.result === 'success' ? (
-                      <CheckCircle size={14} className="text-success" />
+                      <CheckCircle size={14} className="text-success-text" />
                     ) : testState?.showResult && testState.result === 'error' ? (
-                      <XCircle size={14} className="text-danger" />
+                      <XCircle size={14} className="text-danger-text" />
                     ) : (
-                      <Play size={14} className="text-accent opacity-60" />
+                      <Play size={14} className="text-primary-text opacity-60" />
                     )}
                   </div>
                   <CopyButton value={`direct/${editingProvider.id}/${modelId}`} size="sm" />
@@ -279,7 +279,7 @@ export function ModelList({
                       onRemoveModel(modelId);
                     }}
                     aria-label={`Remove model ${modelId}`}
-                    className="text-danger p-0.5"
+                    className="text-danger-text p-0.5"
                   >
                     <X size={12} />
                   </Button>

@@ -93,7 +93,7 @@ export const MyKey: React.FC = () => {
         <PageHeader title="My Key" />
         <PageContainer width="standard">
           <Card>
-            <p className="text-danger">Unable to load key info.</p>
+            <p className="text-danger-text">Unable to load key info.</p>
           </Card>
         </PageContainer>
       </div>
@@ -188,7 +188,7 @@ export const MyKey: React.FC = () => {
 
           <Card title="Quota">
             {quotaError ? (
-              <div className="flex items-start gap-2 text-sm text-warning">
+              <div className="flex items-start gap-2 text-sm text-warning-text">
                 <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
                 <span>Could not load quota status — try refreshing.</span>
               </div>
@@ -212,7 +212,7 @@ export const MyKey: React.FC = () => {
                           </Pill>
                         )}
                         {q.shared && (
-                          <Pill tone="accent" size="sm" className="uppercase tracking-wider">
+                          <Pill tone="primary" size="sm" className="uppercase tracking-wider">
                             <Users size={10} /> shared
                           </Pill>
                         )}
@@ -247,7 +247,7 @@ export const MyKey: React.FC = () => {
                         <span>Resets {new Date(q.resetsAt).toLocaleString()}</span>
                       </div>
                       {!q.allowed && (
-                        <div className="flex items-center gap-2 text-xs text-danger">
+                        <div className="flex items-center gap-2 text-xs text-danger-text">
                           <AlertTriangle size={14} />
                           <span>
                             Quota exhausted — new requests will be rejected until it resets.
@@ -346,11 +346,7 @@ export const MyKey: React.FC = () => {
               </Button>
             ) : (
               <>
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowRotate(false)}
-                  disabled={rotating}
-                >
+                <Button variant="outline" onClick={() => setShowRotate(false)} disabled={rotating}>
                   Cancel
                 </Button>
                 <Button

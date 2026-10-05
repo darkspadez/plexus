@@ -48,7 +48,7 @@ export const QuotaStatusModal = ({
           Close
         </Button>
         {selectedQuotaStatus && selectedQuotaStatus.quotas.length > 0 && (
-          <Button onClick={() => onClearQuota(selectedQuotaStatus.key)} variant="secondary">
+          <Button onClick={() => onClearQuota(selectedQuotaStatus.key)} variant="outline">
             Reset All
           </Button>
         )}
@@ -78,9 +78,9 @@ export const QuotaStatusModal = ({
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                     {entry.allowed ? (
-                      <Check className="text-success shrink-0" size={16} />
+                      <Check className="text-success-text shrink-0" size={16} />
                     ) : (
-                      <AlertCircle className="text-danger shrink-0" size={16} />
+                      <AlertCircle className="text-danger-text shrink-0" size={16} />
                     )}
                     <span className="font-medium text-foreground truncate">{entry.name}</span>
                     {entry.source === 'default' && (
@@ -89,7 +89,7 @@ export const QuotaStatusModal = ({
                       </Pill>
                     )}
                     {entry.shared && (
-                      <Pill tone="accent" size="sm">
+                      <Pill tone="primary" size="sm">
                         <Users size={10} /> shared
                       </Pill>
                     )}
@@ -159,7 +159,7 @@ export const QuotaStatusModal = ({
                 )}
 
                 {!entry.allowed && (
-                  <div className="flex items-center gap-2 text-xs text-danger">
+                  <div className="flex items-center gap-2 text-xs text-danger-text">
                     <AlertCircle size={12} />
                     <span>Exhausted — requests using this quota are being rejected.</span>
                   </div>

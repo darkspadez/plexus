@@ -39,7 +39,7 @@ export function ModelExtraBody({
           </Badge>
           <Button
             size="sm"
-            variant="secondary"
+            variant="outline"
             className="px-1.5 py-0.5 leading-none"
             onClick={(e) => {
               e.stopPropagation();
@@ -86,7 +86,7 @@ export function ModelExtraBody({
                 aria-label={`Remove ${key}`}
                 className="p-1"
               >
-                <Trash2 size={14} className="text-danger" />
+                <Trash2 size={14} className="text-danger-text" />
               </Button>
             </div>
           )

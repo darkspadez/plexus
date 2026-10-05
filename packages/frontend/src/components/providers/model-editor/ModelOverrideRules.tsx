@@ -65,7 +65,7 @@ export function ModelOverrideRules({ modelId, modelConfig, updateModelConfig }: 
               aria-label="Remove rule"
               className="p-1"
             >
-              <Trash2 size={14} className="text-danger" />
+              <Trash2 size={14} className="text-danger-text" />
             </Button>
           </div>
           {/* Conditions separator */}
@@ -137,7 +137,7 @@ export function ModelOverrideRules({ modelId, modelConfig, updateModelConfig }: 
                 aria-label="Remove condition"
                 className="p-1"
               >
-                <Trash2 size={12} className="text-danger" />
+                <Trash2 size={12} className="text-danger-text" />
               </Button>
             </div>
           ))}
@@ -159,7 +159,7 @@ export function ModelOverrideRules({ modelId, modelConfig, updateModelConfig }: 
         </div>
       ))}
       <Button
-        variant="secondary"
+        variant="outline"
         size="sm"
         onClick={() =>
           applyRules([...rules, { model: modelId, rewriteTo: '', conditions: [{ field: '' }] }])

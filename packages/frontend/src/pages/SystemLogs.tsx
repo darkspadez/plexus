@@ -19,9 +19,9 @@ interface LogEntry {
 }
 
 const LEVEL_CLASS: Record<string, string> = {
-  error: 'text-danger',
-  warn: 'text-accent',
-  info: 'text-info',
+  error: 'text-danger-text',
+  warn: 'text-primary-text',
+  info: 'text-info-text',
   debug: 'text-foreground-subtle',
   verbose: 'text-foreground-subtle',
   silly: 'text-foreground-subtle',
@@ -242,7 +242,7 @@ export const SystemLogs: React.FC = () => {
                 Apply
               </Button>
               <Button
-                variant="secondary"
+                variant="outline"
                 size="md"
                 onClick={resetLoggingLevel}
                 disabled={isUpdatingLevel || currentLevel === startupLevel}
@@ -252,7 +252,7 @@ export const SystemLogs: React.FC = () => {
                 Reset
               </Button>
               <Button
-                variant="secondary"
+                variant="outline"
                 size="md"
                 onClick={() => setIsPaused(!isPaused)}
                 leftIcon={isPaused ? <Play size={14} /> : <Pause size={14} />}
@@ -261,7 +261,7 @@ export const SystemLogs: React.FC = () => {
                 {isPaused ? 'Resume' : 'Pause'}
               </Button>
               <Button
-                variant="secondary"
+                variant="outline"
                 size="md"
                 onClick={clearLogs}
                 leftIcon={<Trash2 size={14} />}
@@ -285,7 +285,7 @@ export const SystemLogs: React.FC = () => {
                   moduleFilter.map((m) => (
                     <span
                       key={m}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-accent/15 text-accent border border-accent/30"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/15 text-primary-text border border-primary/30"
                     >
                       {m}
                       <button
@@ -303,7 +303,7 @@ export const SystemLogs: React.FC = () => {
                             setModuleFilterState(moduleFilter);
                           }
                         }}
-                        className="bg-transparent border-0 p-0 cursor-pointer text-accent/60 hover:text-accent leading-none"
+                        className="bg-transparent border-0 p-0 cursor-pointer text-primary-text/60 hover:text-primary-text leading-none"
                       >
                         ×
                       </button>
@@ -350,7 +350,7 @@ export const SystemLogs: React.FC = () => {
                       // ignore
                     }
                   }}
-                  className="text-xs text-foreground-muted hover:text-danger transition-colors bg-transparent border-0 cursor-pointer"
+                  className="text-xs text-foreground-muted hover:text-danger-text transition-colors bg-transparent border-0 cursor-pointer"
                 >
                   Clear
                 </button>
@@ -367,7 +367,7 @@ export const SystemLogs: React.FC = () => {
               />
             )}
             {logs.map((log, i) => (
-              <div key={i} className="mb-1 break-all py-0.5 px-1 rounded-sm hover:bg-white/5">
+              <div key={i} className="mb-1 break-all py-0.5 px-1 rounded-sm hover:bg-surface-hover">
                 <span className="text-foreground-subtle mr-2">[{log.timestamp}]</span>
                 <span
                   className={clsx(

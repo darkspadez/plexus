@@ -10,7 +10,7 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   /** Small muted metadata rendered in the header row, before the close button. */
   headerMeta?: React.ReactNode;
   /** Muted second line rendered under the title (e.g. "name · id"). */
@@ -22,10 +22,15 @@ interface ModalProps {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Centered dialog — used for size="sm" (confirmations, alerts, small forms)  */
+/* Centered dialog — size="sm" (confirmations, small forms) and "xl" (wide)    */
 /* -------------------------------------------------------------------------- */
 
-const CenteredDialog: React.FC<ModalProps> = ({
+const CENTERED_WIDTH = { sm: 'max-w-md', xl: 'max-w-3xl' } as const;
+// xl is top-aligned so its position stays put while the content height changes.
+const CENTERED_ALIGN = { sm: 'items-center', xl: 'items-start pt-[8vh]' } as const;
+
+const CenteredDialog: React.FC<ModalProps & { size: keyof typeof CENTERED_WIDTH }> = ({
+  size,
   isOpen,
   onClose,
   title,
@@ -51,13 +56,13 @@ const CenteredDialog: React.FC<ModalProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[420] flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease]"
+      className={`fixed inset-0 z-[420] flex ${CENTERED_ALIGN[size]} justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease]`}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       <div
-        className="bg-surface border border-border w-full max-w-md max-h-[92vh] overflow-hidden rounded-lg flex flex-col shadow-md animate-[slideUp_0.3s_ease] sm:max-h-[90vh]"
+        className={`bg-surface border-(length:--theme-border-width) border-border w-full ${CENTERED_WIDTH[size]} max-h-[92vh] overflow-hidden rounded-box flex flex-col shadow-modal animate-[slideUp_0.3s_ease] sm:max-h-[90vh]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 p-4 border-b border-border-strong sm:p-5">
@@ -77,7 +82,7 @@ const CenteredDialog: React.FC<ModalProps> = ({
           )}
           <button
             type="button"
-            className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-md p-1.5 transition-colors duration-150 hover:text-foreground hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-field p-1.5 transition-colors duration-150 hover:text-foreground hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             onClick={onClose}
             aria-label="Close"
           >
@@ -140,7 +145,7 @@ const SheetPanel: React.FC<ModalProps & { size: 'md' | 'lg' }> = ({
         )}
         <button
           type="button"
-          className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-md p-1.5 transition-colors duration-150 hover:text-foreground hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-field p-1.5 transition-colors duration-150 hover:text-foreground hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           onClick={onClose}
           aria-label="Close"
         >
@@ -180,9 +185,10 @@ export const Modal: React.FC<ModalProps> = ({
   headerActions,
   subHeader,
 }) => {
-  if (size === 'sm') {
+  if (size === 'sm' || size === 'xl') {
     return (
       <CenteredDialog
+        size={size}
         isOpen={isOpen}
         onClose={onClose}
         title={title}

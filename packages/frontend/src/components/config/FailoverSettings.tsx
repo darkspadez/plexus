@@ -70,7 +70,7 @@ export function FailoverSettings() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Shield size={16} className="text-accent" />
+              <Shield size={16} className="text-primary-text" />
               <div>
                 <p className="font-sans text-[12px] font-medium text-foreground">Enable Failover</p>
                 <p className="font-sans text-[11px] text-foreground-subtle">
@@ -102,7 +102,7 @@ export function FailoverSettings() {
               {...register('statusCodesText')}
               placeholder="e.g. 429, 500, 502, 503"
               rows={3}
-              className="w-full py-1 px-2 font-mono text-[12px] text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle resize-y"
+              className="w-full py-1 px-2 font-mono text-[12px] text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle resize-y"
             />
           </div>
 
@@ -122,7 +122,7 @@ export function FailoverSettings() {
               {...register('errorsText')}
               placeholder="e.g. ECONNREFUSED, ETIMEDOUT, ENOTFOUND"
               rows={2}
-              className="w-full py-1 px-2 font-mono text-[12px] text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle resize-y"
+              className="w-full py-1 px-2 font-mono text-[12px] text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle resize-y"
             />
           </div>
         </div>

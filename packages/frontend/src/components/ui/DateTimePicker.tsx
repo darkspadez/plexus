@@ -111,7 +111,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
           el.style.left = `${rect.left + window.scrollX}px`;
         }
       }}
-      className="fixed p-3 rounded-lg border border-border bg-surface shadow-md"
+      className="fixed p-3 rounded-box border-(length:--theme-border-width) border-border bg-surface shadow-md"
       style={{
         zIndex: 500,
         minWidth: '280px',
@@ -122,7 +122,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
         <button
           type="button"
           onClick={() => setViewDate(new Date(year, month - 1, 1))}
-          className="p-1 rounded hover:bg-surface-elevated text-foreground-muted hover:text-foreground transition-colors"
+          className="p-1 rounded-sm hover:bg-surface-elevated text-foreground-muted hover:text-foreground transition-colors"
         >
           <ChevronLeft size={16} />
         </button>
@@ -132,7 +132,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
         <button
           type="button"
           onClick={() => setViewDate(new Date(year, month + 1, 1))}
-          className="p-1 rounded hover:bg-surface-elevated text-foreground-muted hover:text-foreground transition-colors"
+          className="p-1 rounded-sm hover:bg-surface-elevated text-foreground-muted hover:text-foreground transition-colors"
         >
           <ChevronRight size={16} />
         </button>
@@ -166,7 +166,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
               className={clsx(
                 'aspect-square flex items-center justify-center rounded text-[13px] transition-colors',
                 isSelected
-                  ? 'bg-accent text-accent-foreground font-medium'
+                  ? 'bg-primary text-primary-foreground font-medium'
                   : 'text-foreground hover:bg-surface-elevated'
               )}
             >
@@ -196,7 +196,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
               setHours(v);
               applyTime(v, minutes);
             }}
-            className="w-12 text-center py-1 rounded-md bg-background border border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 focus:ring-offset-background"
+            className="w-12 text-center py-1 rounded-field bg-background border-(length:--theme-border-width) border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-focus focus:ring-offset-1 focus:ring-offset-background"
           />
           <span className="text-foreground-muted">:</span>
           <input
@@ -215,7 +215,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
               setMinutes(v);
               applyTime(hours, v);
             }}
-            className="w-12 text-center py-1 rounded-md bg-background border border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 focus:ring-offset-background"
+            className="w-12 text-center py-1 rounded-field bg-background border-(length:--theme-border-width) border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-focus focus:ring-offset-1 focus:ring-offset-background"
           />
         </div>
       </div>
@@ -229,9 +229,9 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
         onClick={() => setOpen(!open)}
         className={clsx(
           'w-full sm:w-56 h-8 flex items-center gap-2 pl-3 pr-3',
-          'font-sans text-sm text-left rounded-md border outline-none transition-colors duration-150',
+          'font-sans text-sm text-left rounded-field border-(length:--theme-border-width) outline-none transition-colors duration-150',
           'bg-background border-border text-foreground',
-          'hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+          'hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background'
         )}
       >
         <Calendar size={14} className="shrink-0 text-foreground-muted" />

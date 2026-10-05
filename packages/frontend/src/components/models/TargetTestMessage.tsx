@@ -33,7 +33,10 @@ export const TargetTestMessage: React.FC<TargetTestMessageProps> = ({
       title="Click to dismiss"
     >
       <span
-        className={clsx('break-words text-[11px] italic', isError ? 'text-danger' : 'text-success')}
+        className={clsx(
+          'break-words text-[11px] italic',
+          isError ? 'text-danger-text' : 'text-success-text'
+        )}
       >
         {state.message} [×]
       </span>

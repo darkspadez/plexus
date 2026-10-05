@@ -32,13 +32,18 @@ export const Disclosure: React.FC<DisclosureProps> = ({
   };
 
   return (
-    <div className={cn('border border-border rounded-lg bg-surface overflow-hidden', className)}>
+    <div
+      className={cn(
+        'border-(length:--theme-border-width) border-border rounded-box bg-surface overflow-hidden',
+        className
+      )}
+    >
       <div className="flex flex-wrap items-center">
         <button
           type="button"
           onClick={toggle}
           aria-expanded={open}
-          className="flex-1 basis-52 min-w-0 flex items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+          className="flex-1 basis-52 min-w-0 flex items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
         >
           <ChevronRight
             size={14}

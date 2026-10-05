@@ -174,7 +174,7 @@ function ExternalDataRefresh() {
   return (
     <SectionCard title="External Data Refresh" collapsible defaultOpen={false}>
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <Database size={16} className="text-accent" />
+        <Database size={16} className="text-primary-text" />
         <div className="flex-1 min-w-[14rem]">
           <p className="font-sans text-[11px] text-foreground-muted">
             Force an immediate reload of every interval-fetched resource — OpenRouter, models.dev,
@@ -189,7 +189,7 @@ function ExternalDataRefresh() {
           </p>
         </div>
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           onClick={handleRefresh}
           isLoading={refreshing}
@@ -202,7 +202,7 @@ function ExternalDataRefresh() {
       {refreshing && (
         <div className="mt-3 rounded-md border border-border bg-surface-sunken px-3 py-2">
           <div className="flex items-center gap-2">
-            <Loader2 size={14} className="animate-spin text-accent shrink-0" />
+            <Loader2 size={14} className="animate-spin text-primary-text shrink-0" />
             <span className="font-sans text-[12px] font-medium text-foreground">
               Refreshing external data… {(elapsedMs / 1000).toFixed(1)}s
             </span>
@@ -222,7 +222,7 @@ function ExternalDataRefresh() {
 
       {!refreshing && error && (
         <div className="mt-3 flex items-center gap-2 rounded-md border border-danger/30 bg-danger-subtle px-3 py-2">
-          <XCircle size={14} className="text-danger shrink-0" />
+          <XCircle size={14} className="text-danger-text shrink-0" />
           <span className="font-sans text-[12px] text-foreground">{error}</span>
         </div>
       )}
@@ -231,9 +231,9 @@ function ExternalDataRefresh() {
         <div className="mt-3 rounded-md border border-border bg-surface-sunken px-3 py-2">
           <div className="flex items-center gap-2">
             {result.hadErrors ? (
-              <XCircle size={14} className="text-warning shrink-0" />
+              <XCircle size={14} className="text-warning-text shrink-0" />
             ) : (
-              <CheckCircle2 size={14} className="text-success shrink-0" />
+              <CheckCircle2 size={14} className="text-success-text shrink-0" />
             )}
             <span className="font-sans text-[12px] font-medium text-foreground">
               {result.message} in {formatDuration(result.durationMs)} —{' '}
@@ -244,9 +244,9 @@ function ExternalDataRefresh() {
             {resultRows.map((row) => (
               <li key={row.key} className="flex items-start gap-2">
                 {row.ok ? (
-                  <CheckCircle2 size={12} className="text-success shrink-0 mt-[2px]" />
+                  <CheckCircle2 size={12} className="text-success-text shrink-0 mt-[2px]" />
                 ) : (
-                  <XCircle size={12} className="text-danger shrink-0 mt-[2px]" />
+                  <XCircle size={12} className="text-danger-text shrink-0 mt-[2px]" />
                 )}
                 <span className="font-sans text-[11px] text-foreground-muted">
                   <span className="font-medium text-foreground">{row.name}:</span> {row.detail}
@@ -313,7 +313,7 @@ export function NetworkSettings() {
         <form id="network-form" onSubmit={handleSubmit(onSubmit)}>
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
-              <Network size={16} className="text-accent" />
+              <Network size={16} className="text-primary-text" />
               <div>
                 <p className="font-sans text-[12px] font-medium text-foreground">Trusted Proxies</p>
                 <p className="font-sans text-[11px] text-foreground-subtle">

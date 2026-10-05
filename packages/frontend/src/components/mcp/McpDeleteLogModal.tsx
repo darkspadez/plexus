@@ -22,7 +22,7 @@ export function McpDeleteLogModal({
       title="Confirm Deletion"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button

@@ -178,7 +178,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
       headerMeta={[quota.oauthAccountId, checkedLabel].filter(Boolean).join(' · ') || undefined}
       size="md"
       footer={
-        <Button variant="secondary" size="sm" onClick={onClose}>
+        <Button variant="outline" size="sm" onClick={onClose}>
           Close
         </Button>
       }
@@ -189,7 +189,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
           <Button
             key={r.key}
             size="sm"
-            variant={range === r.key ? 'primary' : 'secondary'}
+            variant={range === r.key ? 'primary' : 'outline'}
             onClick={() => setRange(r.key)}
           >
             {r.label}
@@ -240,7 +240,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
         </div>
         <div className="h-52 w-full">
           {error ? (
-            <div className="h-full flex items-center justify-center text-sm text-danger">
+            <div className="h-full flex items-center justify-center text-sm text-danger-text">
               {error}
             </div>
           ) : loading && chartData.length === 0 ? (

@@ -22,14 +22,14 @@ interface ApiTypeIconProps {
 export const ApiTypeIcon: React.FC<ApiTypeIconProps> = ({ apiType, size, fallback }) => {
   const unknown = fallback ?? <span className="text-[10px] text-foreground-subtle">?</span>;
   if (!apiType) return <>{unknown}</>;
-  if (apiType === 'embeddings') return <Variable size={size} className="text-success" />;
-  if (apiType === 'transcriptions') return <AudioLines size={size} className="text-accent" />;
-  if (apiType === 'speech') return <Volume2 size={size} className="text-warning" />;
-  if (apiType === 'images') return <ImageIcon size={size} className="text-warning" />;
-  if (apiType === 'completions') return <Disc size={size} className="text-info" />;
-  if (apiType === 'raw') return <BadgeQuestionMark size={size} className="text-info" />;
-  if (isDecisionsApiType(apiType)) return <Gavel size={size} className="text-info" />;
-  if (apiType === 'oauth') return <ShieldCheck size={size} className="text-success" />;
+  if (apiType === 'embeddings') return <Variable size={size} className="text-success-text" />;
+  if (apiType === 'transcriptions') return <AudioLines size={size} className="text-primary-text" />;
+  if (apiType === 'speech') return <Volume2 size={size} className="text-warning-text" />;
+  if (apiType === 'images') return <ImageIcon size={size} className="text-warning-text" />;
+  if (apiType === 'completions') return <Disc size={size} className="text-info-text" />;
+  if (apiType === 'raw') return <BadgeQuestionMark size={size} className="text-info-text" />;
+  if (isDecisionsApiType(apiType)) return <Gavel size={size} className="text-info-text" />;
+  if (apiType === 'oauth') return <ShieldCheck size={size} className="text-success-text" />;
 
   return <>{unknown}</>;
 };

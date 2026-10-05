@@ -172,8 +172,8 @@ export function ModelIdentity({
       />
       {decisionsTypeWithoutProtocol && (
         <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
-          <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
-          <span className="text-[11px] text-warning">
+          <AlertTriangle size={14} className="text-warning-text shrink-0 mt-0.5" />
+          <span className="text-[11px] text-warning-text">
             This provider has no System One base URL and this model has no decisions Access Via
             entry, so it cannot serve any requests. Add a systemone base URL to the provider, or
             switch the model type.
@@ -195,7 +195,6 @@ export function ModelIdentity({
                   <label className="flex cursor-pointer items-center gap-[3px]">
                     <input
                       type="checkbox"
-                      className="accent-accent"
                       checked={selected}
                       onChange={() => {
                         if (mCfg.type === 'image') {
@@ -252,7 +251,7 @@ export function ModelIdentity({
                         <button
                           type="button"
                           aria-label="About Responses Lite"
-                          className="flex h-4 w-4 items-center justify-center rounded-full text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                          className="flex h-4 w-4 items-center justify-center rounded-full text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus"
                         >
                           <Info size={12} />
                         </button>
@@ -270,8 +269,8 @@ export function ModelIdentity({
           )}
           {hasMixedDecisionsAccess && (
             <div className="flex items-start gap-2 py-1.5 px-2 bg-info/10 border border-info/30 rounded-sm">
-              <Info size={14} className="text-info shrink-0 mt-0.5" />
-              <span className="text-[11px] text-info">
+              <Info size={14} className="text-info-text shrink-0 mt-0.5" />
+              <span className="text-[11px] text-info-text">
                 This model advertises System One through a legacy Access Via entry. Set{' '}
                 <span className="font-semibold">Model Type: Decisions</span> to make it
                 decisions-only, or it will keep serving that protocol alongside the selected
@@ -284,7 +283,7 @@ export function ModelIdentity({
                     access_via: stripDecisionsAccess(mCfg.access_via),
                   })
                 }
-                className="ml-auto shrink-0 cursor-pointer rounded-sm border border-info/40 px-2 py-0.5 text-[11px] text-info transition-colors hover:bg-info/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                className="ml-auto shrink-0 cursor-pointer rounded-sm border border-info/40 px-2 py-0.5 text-[11px] text-info-text transition-colors hover:bg-info/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus"
               >
                 Remove System One
               </button>
@@ -298,8 +297,8 @@ export function ModelIdentity({
             if (hasOllamaBaseUrl && !hasApiAccess(mCfg.access_via, 'ollama')) {
               return (
                 <div className="flex items-start gap-2 py-1.5 px-2 bg-info/10 border border-info/30 rounded-sm">
-                  <Info size={14} className="text-info shrink-0 mt-0.5" />
-                  <span className="text-[11px] text-info">
+                  <Info size={14} className="text-info-text shrink-0 mt-0.5" />
+                  <span className="text-[11px] text-info-text">
                     Provider has a native Ollama URL — select{' '}
                     <span className="font-semibold">ollama</span> above to use it.
                   </span>
@@ -310,8 +309,8 @@ export function ModelIdentity({
           })()}
           {mCfg.type === 'image' && (
             <div className="flex items-start gap-2 py-1.5 px-2 bg-info/10 border border-info/30 rounded-sm">
-              <Info size={14} className="text-info shrink-0 mt-0.5" />
-              <span className="text-[11px] text-info">
+              <Info size={14} className="text-info-text shrink-0 mt-0.5" />
+              <span className="text-[11px] text-info-text">
                 {isCodexOAuthProvider ? (
                   <>
                     Codex Images is the only image protocol available on a ChatGPT OAuth provider.
@@ -333,8 +332,8 @@ export function ModelIdentity({
             (mCfg.access_via?.length ?? 0) > 0 &&
             !hasApiAccess(mCfg.access_via, CODEX_IMAGE_ACCESS) && (
               <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
-                <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
-                <span className="text-[11px] text-warning">
+                <AlertTriangle size={14} className="text-warning-text shrink-0 mt-0.5" />
+                <span className="text-[11px] text-warning-text">
                   This model still targets an HTTP image protocol, which a ChatGPT OAuth provider
                   cannot serve. Select{' '}
                   <span className="font-semibold">Codex Images (ChatGPT OAuth)</span> above.

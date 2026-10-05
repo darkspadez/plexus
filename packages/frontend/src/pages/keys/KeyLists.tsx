@@ -88,7 +88,7 @@ const rowActions = (
       <Button
         variant="ghost"
         size="icon"
-        className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+        className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
         aria-label={`Disable ${key.key}`}
         onClick={(e) => {
           e?.stopPropagation();
@@ -101,7 +101,7 @@ const rowActions = (
       <Button
         variant="ghost"
         size="icon"
-        className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+        className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
         aria-label={`Delete ${key.key}`}
         onClick={(e) => {
           e?.stopPropagation();
@@ -161,7 +161,7 @@ export const KeyLists = ({
               type="button"
               className={cn(
                 'flex h-6 w-6 shrink-0 items-center justify-center rounded-sm transition-colors',
-                'text-foreground-muted hover:bg-surface-elevated hover:text-accent'
+                'text-foreground-muted hover:bg-surface-elevated hover:text-primary-text'
               )}
               onClick={(e) => {
                 e.stopPropagation();
@@ -187,7 +187,7 @@ export const KeyLists = ({
             return (
               <div className="flex flex-wrap items-center gap-1">
                 {quotaNames.map((n) => (
-                  <Pill key={n} tone="accent" size="sm">
+                  <Pill key={n} tone="primary" size="sm">
                     <Shield size={11} />
                     {n}
                   </Pill>
@@ -266,7 +266,7 @@ export const KeyLists = ({
                   )}
                   <button
                     type="button"
-                    className="text-foreground-muted hover:text-accent p-0.5 rounded"
+                    className="text-foreground-muted hover:text-primary-text p-0.5 rounded"
                     onClick={(e) => {
                       e.stopPropagation();
                       onViewQuotaStatus(row.original.key);

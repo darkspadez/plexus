@@ -5,29 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Plexus</title>
     <!--
-      Boot script — sets data-theme/data-accent before React hydrates so the
-      first paint matches the user's preference (no FOUC). See DESIGN_SYSTEM.md §3.1.
-      Default theme: 'system' (resolves via prefers-color-scheme).
-      Default accent: 'amber'.
+      Boot script: sets <html data-theme="<theme id>"> before React mounts so the
+      first paint matches the saved appearance (no flash). Reads the
+      `plexus.appearance` JSON ({ mode, theme, light, dark }); when it is missing
+      or invalid, falls back to the legacy `plexus.theme` value ('light' or 'dark'),
+      and otherwise to system mode with the Plexus light/dark pair. Any failure
+      sets 'plexus-dark'. Mirrors the parse/resolve rules in src/theme/appearance.ts
+      (parseAppearance / resolveThemeId); keep them in sync. AppearanceContext
+      takes over after mount.
     -->
     <script>
       (function () {
         try {
-          var t = localStorage.getItem('plexus.theme') || 'system';
-          var resolved = t;
-          if (t === 'system') {
-            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-          } else if (t !== 'light' && t !== 'dark') {
-            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          var a = null;
+          try {
+            var v = JSON.parse(localStorage.getItem('plexus.appearance'));
+            if (
+              v &&
+              typeof v === 'object' &&
+              (v.mode === 'single' || v.mode === 'system') &&
+              typeof v.theme === 'string' && v.theme &&
+              typeof v.light === 'string' && v.light &&
+              typeof v.dark === 'string' && v.dark
+            ) {
+              a = v;
+            }
+          } catch (e) {}
+          if (!a) {
+            var legacy = localStorage.getItem('plexus.theme');
+            a = { mode: 'system', theme: 'plexus-dark', light: 'plexus-light', dark: 'plexus-dark' };
+            if (legacy === 'light') {
+              a.mode = 'single';
+              a.theme = 'plexus-light';
+            } else if (legacy === 'dark') {
+              a.mode = 'single';
+              a.theme = 'plexus-dark';
+            }
           }
-          document.documentElement.dataset.theme = resolved;
-
-          var accents = ['blue', 'green', 'orange', 'violet', 'rose', 'amber'];
-          var a = localStorage.getItem('plexus.accent') || 'amber';
-          document.documentElement.dataset.accent = accents.indexOf(a) >= 0 ? a : 'amber';
+          var id = a.theme;
+          if (a.mode === 'system') {
+            id = window.matchMedia('(prefers-color-scheme: dark)').matches ? a.dark : a.light;
+          }
+          document.documentElement.dataset.theme = id;
         } catch (e) {
-          document.documentElement.dataset.theme = 'dark';
-          document.documentElement.dataset.accent = 'amber';
+          document.documentElement.dataset.theme = 'plexus-dark';
         }
       })();
     </script>

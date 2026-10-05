@@ -100,10 +100,10 @@ export function StallDetectionSettings() {
               step={1}
               placeholder="Disabled"
               {...register('ttfbSeconds')}
-              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.ttfbSeconds && (
-              <span className="text-[11px] text-warning">{errors.ttfbSeconds.message}</span>
+              <span className="text-[11px] text-warning-text">{errors.ttfbSeconds.message}</span>
             )}
           </div>
           <div className="flex flex-col gap-1">
@@ -121,10 +121,10 @@ export function StallDetectionSettings() {
               max={10000}
               step={1}
               {...register('ttfbBytes')}
-              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.ttfbBytes && (
-              <span className="text-[11px] text-warning">{errors.ttfbBytes.message}</span>
+              <span className="text-[11px] text-warning-text">{errors.ttfbBytes.message}</span>
             )}
           </div>
           <div className="flex flex-col gap-1">
@@ -143,10 +143,12 @@ export function StallDetectionSettings() {
               step={1}
               placeholder="Disabled"
               {...register('minBytesPerSecond')}
-              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.minBytesPerSecond && (
-              <span className="text-[11px] text-warning">{errors.minBytesPerSecond.message}</span>
+              <span className="text-[11px] text-warning-text">
+                {errors.minBytesPerSecond.message}
+              </span>
             )}
           </div>
           <div className="flex flex-col gap-1">
@@ -163,10 +165,10 @@ export function StallDetectionSettings() {
               max={30}
               step={1}
               {...register('windowSeconds')}
-              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.windowSeconds && (
-              <span className="text-[11px] text-warning">{errors.windowSeconds.message}</span>
+              <span className="text-[11px] text-warning-text">{errors.windowSeconds.message}</span>
             )}
           </div>
           <div className="flex flex-col gap-1">
@@ -184,10 +186,12 @@ export function StallDetectionSettings() {
               max={120}
               step={1}
               {...register('gracePeriodSeconds')}
-              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.gracePeriodSeconds && (
-              <span className="text-[11px] text-warning">{errors.gracePeriodSeconds.message}</span>
+              <span className="text-[11px] text-warning-text">
+                {errors.gracePeriodSeconds.message}
+              </span>
             )}
           </div>
         </div>

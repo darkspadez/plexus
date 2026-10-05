@@ -49,7 +49,7 @@ export const ErrorsByProviderCard: React.FC<ErrorsByProviderCardProps> = ({
                 icon={<AlertOctagon size={14} />}
                 title={label}
                 right={
-                  <span className="font-mono text-xs tabular-nums text-danger">
+                  <span className="font-mono text-xs tabular-nums text-danger-text">
                     {formatPercent(row.errorRate * 100)}
                   </span>
                 }

@@ -223,9 +223,9 @@ export const Quotas = () => {
             <div>
               <div className="flex items-center gap-1.5">
                 {r.meter.kind === 'balance' ? (
-                  <Wallet size={12} className="shrink-0 text-info" />
+                  <Wallet size={12} className="shrink-0 text-info-text" />
                 ) : (
-                  <Gauge size={12} className="shrink-0 text-accent" />
+                  <Gauge size={12} className="shrink-0 text-primary-text" />
                 )}
                 <span className="truncate text-foreground" title={r.meter.label}>
                   {r.meter.label}
@@ -339,7 +339,7 @@ export const Quotas = () => {
         subtitle="Provider balances and rate-quota allowances"
         actions={
           <Button
-            variant="secondary"
+            variant="outline"
             size="md"
             onClick={handleRefreshAll}
             disabled={triggerAllMutation.isPending || checkers.length === 0}
@@ -355,7 +355,7 @@ export const Quotas = () => {
       <PageContainer>
         {loading && checkers.length === 0 ? (
           <div className="flex h-64 items-center justify-center gap-3">
-            <RefreshCw size={20} className="animate-spin text-accent" />
+            <RefreshCw size={20} className="animate-spin text-primary-text" />
             <span className="text-foreground-muted">Loading quotas...</span>
           </div>
         ) : (

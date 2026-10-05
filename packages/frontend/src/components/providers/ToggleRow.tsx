@@ -40,7 +40,7 @@ export function ToggleRow({
           title={warning ? `${description} ${warning}` : description}
         >
           {description}
-          {warning && <span className="ml-1 text-warning">{warning}</span>}
+          {warning && <span className="ml-1 text-warning-text">{warning}</span>}
         </div>
       </div>
       <Switch aria-label={label} checked={checked} onChange={onChange} disabled={disabled} />

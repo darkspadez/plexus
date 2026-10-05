@@ -11,8 +11,8 @@ type BadgeStatus =
   | 'success'
   | 'danger'
   | 'info'
-  | 'violet'
-  | 'cyan';
+  | 'secondary'
+  | 'accent';
 
 interface BadgeProps {
   status: BadgeStatus;
@@ -26,24 +26,22 @@ interface BadgeProps {
   noDot?: boolean;
 }
 
-// Semantic-token-based status classes — work in light + dark + all 6 accents.
-// success/connected → success tokens; danger/error → danger tokens;
-// info/connecting → info tokens; warning → warning tokens;
-// neutral/disconnected → foreground-muted + surface-elevated;
-// violet/cyan → still hard-coded hues because no semantic token exists for them,
-// but these are stable palette values that don't vary by theme or accent.
+// Semantic-token-based status classes - they follow the active theme.
+// success/connected -> success; danger/error -> danger; info/connecting -> info;
+// warning -> warning; secondary/accent -> those theme roles;
+// neutral/disconnected -> foreground-muted + surface-elevated.
 const statusClasses: Record<BadgeStatus, string> = {
-  connected: 'text-success bg-success-subtle border-success/25',
-  success: 'text-success bg-success-subtle border-success/25',
-  connecting: 'text-info bg-info-subtle border-info/25',
-  info: 'text-info bg-info-subtle border-info/25',
+  connected: 'text-success-text bg-success-subtle border-success/25',
+  success: 'text-success-text bg-success-subtle border-success/25',
+  connecting: 'text-info-text bg-info-subtle border-info/25',
+  info: 'text-info-text bg-info-subtle border-info/25',
   disconnected: 'text-foreground-muted bg-surface-elevated border-border',
   neutral: 'text-foreground-muted bg-surface-elevated border-border',
-  error: 'text-danger bg-danger-subtle border-danger/28',
-  danger: 'text-danger bg-danger-subtle border-danger/28',
-  warning: 'text-warning bg-warning-subtle border-warning/28',
-  violet: 'text-[#7C5CFC] bg-[rgba(124,92,252,0.12)] border-[rgba(124,92,252,0.25)]',
-  cyan: 'text-[#0891B2] bg-[rgba(8,145,178,0.12)] border-[rgba(8,145,178,0.25)]',
+  error: 'text-danger-text bg-danger-subtle border-danger/28',
+  danger: 'text-danger-text bg-danger-subtle border-danger/28',
+  warning: 'text-warning-text bg-warning-subtle border-warning/28',
+  secondary: 'text-secondary-text bg-secondary-subtle border-secondary/25',
+  accent: 'text-accent-text bg-accent-subtle border-accent/25',
 };
 
 export const Badge: React.FC<BadgeProps> = ({
@@ -62,7 +60,7 @@ export const Badge: React.FC<BadgeProps> = ({
       title={title}
       style={style}
       className={clsx(
-        'inline-flex items-center gap-1.5 rounded-full border whitespace-nowrap tabular-nums',
+        'inline-flex items-center gap-1.5 rounded-selector border-(length:--theme-border-width) whitespace-nowrap tabular-nums',
         secondaryText ? 'px-2.5 py-1 text-[11px]' : 'px-2.5 py-0.5 text-xs font-medium',
         onClick && 'cursor-pointer hover:opacity-80 transition-opacity duration-150',
         statusClasses[status],

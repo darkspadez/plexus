@@ -280,7 +280,7 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
                 <input
                   type="checkbox"
                   checked={effectiveResponsesExtensions.includes(option.value)}
-                  className="mt-0.5 shrink-0 accent-accent"
+                  className="mt-0.5 shrink-0"
                   onChange={(e) => {
                     const next = new Set(effectiveResponsesExtensions);
                     if (e.target.checked) next.add(option.value);
@@ -375,7 +375,7 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
                   <input
                     type="checkbox"
                     checked={active}
-                    className="mt-0.5 shrink-0 accent-accent"
+                    className="mt-0.5 shrink-0"
                     onChange={() => {
                       const current: any[] = editingProvider.adapter ?? [];
                       const next = active
@@ -452,7 +452,7 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
                     <input
                       type="checkbox"
                       checked={active}
-                      className="mt-0.5 shrink-0 accent-accent"
+                      className="mt-0.5 shrink-0"
                       onChange={toggleActive}
                     />
                     <div>

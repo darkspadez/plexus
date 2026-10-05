@@ -85,7 +85,7 @@ export function TimeoutSettings() {
               max={3600}
               step={1}
               {...register('defaultSeconds', { valueAsNumber: true })}
-              className="w-48 h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+              className="w-48 h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             <span className="text-[11px] text-foreground-subtle tabular-nums">
               {typeof defaultSecondsWatch === 'number' && isFinite(defaultSecondsWatch)
@@ -94,7 +94,7 @@ export function TimeoutSettings() {
             </span>
           </div>
           {errors.defaultSeconds && (
-            <span className="text-[11px] text-warning">{errors.defaultSeconds.message}</span>
+            <span className="text-[11px] text-warning-text">{errors.defaultSeconds.message}</span>
           )}
         </div>
       </form>

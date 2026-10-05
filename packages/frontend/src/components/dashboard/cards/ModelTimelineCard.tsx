@@ -44,7 +44,7 @@ export const ModelTimelineCard: React.FC<ModelTimelineCardProps> = ({
     <Card
       title="Model Stack"
       className="min-w-0"
-      extra={<Clock size={16} className="text-accent" />}
+      extra={<Clock size={16} className="text-primary-text" />}
     >
       {loading ? (
         <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted">
@@ -107,7 +107,11 @@ export const ModelTimelineCard: React.FC<ModelTimelineCardProps> = ({
               />
               <Legend
                 wrapperStyle={{ fontSize: 11 }}
-                formatter={(value) => modelTimeline.seriesLabelMap.get(String(value)) || value}
+                formatter={(value) => (
+                  <span style={{ color: 'var(--foreground-muted)' }}>
+                    {modelTimeline.seriesLabelMap.get(String(value)) || value}
+                  </span>
+                )}
               />
               {modelTimeline.series.map((series) => (
                 <Bar
@@ -122,7 +126,7 @@ export const ModelTimelineCard: React.FC<ModelTimelineCardProps> = ({
                 yAxisId="right"
                 type="monotone"
                 dataKey="avgTtftMs"
-                stroke="var(--warning)"
+                stroke="var(--warning-text)"
                 strokeWidth={2}
                 dot={false}
               />
@@ -130,7 +134,7 @@ export const ModelTimelineCard: React.FC<ModelTimelineCardProps> = ({
                 yAxisId="right"
                 type="monotone"
                 dataKey="avgTps"
-                stroke="var(--success)"
+                stroke="var(--success-text)"
                 strokeWidth={2}
                 dot={false}
               />

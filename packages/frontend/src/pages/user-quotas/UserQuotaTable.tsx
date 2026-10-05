@@ -65,7 +65,7 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
               {row.original.name}
             </span>
             {row.original.quota.shared && (
-              <Pill tone="accent" size="sm">
+              <Pill tone="primary" size="sm">
                 <Users size={10} /> shared
               </Pill>
             )}
@@ -130,7 +130,7 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
         cell: ({ row }) => {
           const count = keysUsingCounts[row.original.name] ?? 0;
           return (
-            <Pill tone={count > 0 ? 'accent' : 'neutral'} size="sm">
+            <Pill tone={count > 0 ? 'primary' : 'neutral'} size="sm">
               {count} key{count !== 1 ? 's' : ''}
             </Pill>
           );
@@ -158,7 +158,7 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
           <Button
             variant="ghost"
             size="icon"
-            className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+            className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
             aria-label={`Delete ${row.original.name}`}
             onClick={(e) => {
               e.stopPropagation();
@@ -192,7 +192,7 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
           <Button
             variant="ghost"
             size="icon"
-            className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+            className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
             aria-label={`Delete ${row.name}`}
             onClick={() => onDelete(row)}
           >

@@ -54,3 +54,18 @@ export {
   RemoteHttpMcpServerConfigSchema,
 } from './mcp';
 export type { McpKey, McpKeyCreate, McpServerConfig } from './mcp';
+
+export {
+  CssColorSchema,
+  CssLengthRemSchema,
+  CUSTOM_THEME_ID_RE,
+  CustomThemeDefSchema,
+  MAX_CUSTOM_THEMES,
+  THEME_CONTENT_COLOR_KEYS,
+  THEME_ID_RE,
+  THEME_REQUIRED_COLOR_KEYS,
+  ThemeDefSchema,
+  UI_THEMES_SETTING_KEY,
+  UiThemesLibrarySchema,
+} from './themes';
+export type { CustomThemeDef, ThemeColorKey, ThemeDef, UiThemesLibrary } from './themes';

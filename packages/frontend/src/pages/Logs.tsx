@@ -308,16 +308,15 @@ const LogTypeCell = React.memo(({ log }: { log: UsageRecord }) => {
           {reasoningEffort}
         </Pill>
       )}
-      {/* Intentional fixed raw-palette glyph hues (not semantic tokens) — the
-          vision/descriptor signals keep a stable identity color for quick
-          visual scanning. */}
+      {/* Vision/descriptor glyphs use role tokens (warning, info) so they
+          follow the active theme. */}
       {log.isVisionFallthrough ? (
         <span title="Vision fallthrough (images converted to text)" className="cursor-help">
-          <ScanSearch size={12} className="text-amber-500" />
+          <ScanSearch size={12} className="text-warning-text" />
         </span>
       ) : log.isDescriptorRequest ? (
         <span title="Descriptor request (generated image description)" className="cursor-help">
-          <Eye size={12} className="text-blue-500" />
+          <Eye size={12} className="text-info-text" />
         </span>
       ) : null}
     </div>
@@ -480,14 +479,14 @@ const LogPerfCell = React.memo(({ log, liveNow, progress }: LogPerfCellProps) =>
 
   const content = (
     <div className="flex flex-col font-mono tabular-nums">
-      <span className={cn('whitespace-nowrap text-sm', isPending && 'text-warning')}>
+      <span className={cn('whitespace-nowrap text-sm', isPending && 'text-warning-text')}>
         {liveDuration}
       </span>
       {secondLineText && (
         <span
           className={cn(
             'hidden whitespace-nowrap text-xs 2xl:inline',
-            secondLineWarn ? 'text-warning' : 'text-foreground-muted'
+            secondLineWarn ? 'text-warning-text' : 'text-foreground-muted'
           )}
           title={tooltipProps ? undefined : secondLineTitle}
         >
@@ -561,7 +560,7 @@ const LogActionsCell = React.memo(({ log, onDebug, onDelete }: LogActionsCellPro
     <button
       type="button"
       onClick={() => onDelete(log.requestId)}
-      className="flex h-6 w-6 items-center justify-center rounded-md border-0 bg-transparent text-foreground-subtle transition-all duration-200 cursor-pointer hover:bg-danger-subtle hover:text-danger"
+      className="flex h-6 w-6 items-center justify-center rounded-md border-0 bg-transparent text-foreground-subtle transition-all duration-200 cursor-pointer hover:bg-danger-subtle hover:text-danger-text"
       aria-label="Delete log"
       title="Delete log"
     >
@@ -1254,7 +1253,7 @@ export const Logs = () => {
             <div className="lg:hidden">
               <Button
                 type="button"
-                variant="secondary"
+                variant="outline"
                 size="sm"
                 className="w-full justify-between sm:w-auto"
                 onClick={() => setIsMobileFiltersOpen(true)}
@@ -1327,10 +1326,12 @@ export const Logs = () => {
               <span
                 className={cn(
                   'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium select-none',
-                  sseStatus === 'connected' && 'bg-success-subtle text-success border-success/20',
+                  sseStatus === 'connected' &&
+                    'bg-success-subtle text-success-text border-success/20',
                   sseStatus === 'reconnecting' &&
-                    'bg-warning-subtle text-warning border-warning/20',
-                  sseStatus === 'disconnected' && 'bg-danger-subtle text-danger border-danger/20'
+                    'bg-warning-subtle text-warning-text border-warning/20',
+                  sseStatus === 'disconnected' &&
+                    'bg-danger-subtle text-danger-text border-danger/20'
                 )}
                 title={
                   sseStatus === 'connected'
@@ -1534,7 +1535,7 @@ export const Logs = () => {
         size="sm"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
               Cancel
             </Button>
             <Button variant="danger" onClick={confirmDelete} disabled={isDeleting}>
@@ -1574,7 +1575,7 @@ export const Logs = () => {
               checked={deleteMode === 'all'}
               onChange={() => setDeleteMode('all')}
             />
-            <label htmlFor="delete-all" style={{ color: 'var(--color-danger)' }}>
+            <label htmlFor="delete-all" style={{ color: 'var(--danger-text)' }}>
               Delete ALL logs (Cannot be undone)
             </label>
           </div>
@@ -1588,7 +1589,7 @@ export const Logs = () => {
         size="sm"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setIsSingleDeleteModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsSingleDeleteModalOpen(false)}>
               Cancel
             </Button>
             <Button variant="danger" onClick={confirmDeleteSingle} disabled={isDeleting}>

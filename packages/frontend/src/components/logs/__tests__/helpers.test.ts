@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getAttemptIndicatorLabel, hasUpstreamRewrite, isDecisionsApiType } from '../helpers';
+import {
+  formatDateSafely,
+  getAttemptIndicatorLabel,
+  hasUpstreamRewrite,
+  isDecisionsApiType,
+} from '../helpers';
 
 describe('isDecisionsApiType', () => {
   it('recognizes the decisions ingress type', () => {
@@ -66,5 +71,15 @@ describe('hasUpstreamRewrite', () => {
         upstreamModel: 'route-model',
       })
     ).toBe(false);
+  });
+});
+
+describe('formatDateSafely', () => {
+  it('uses the local calendar date, not UTC', () => {
+    // Late evening local time: the UTC date can differ depending on the zone.
+    const d = new Date(2026, 9, 4, 23, 30, 15);
+    expect(formatDateSafely(d.toISOString()).date).toBe('2026-10-04');
+    const early = new Date(2026, 0, 5, 0, 10, 0);
+    expect(formatDateSafely(early.toISOString()).date).toBe('2026-01-05');
   });
 });

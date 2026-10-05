@@ -260,8 +260,8 @@ export function ProviderPresetPicker({
 
             {selectedPreset.experimentalApis.length > 0 && (
               <div className="flex items-start gap-2 rounded-sm border border-warning/30 bg-warning/10 px-2 py-1.5">
-                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
-                <span className="text-warning">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning-text" />
+                <span className="text-warning-text">
                   Unverified endpoints, confirm before relying on them:{' '}
                   <span className="font-semibold">
                     {selectedPreset.experimentalApis.join(', ')}
@@ -286,8 +286,8 @@ export function ProviderPresetPicker({
 
             {unresolvedVars.length > 0 && (
               <div className="flex items-start gap-2 rounded-sm border border-warning/30 bg-warning/10 px-2 py-1.5">
-                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
-                <span className="text-warning">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning-text" />
+                <span className="text-warning-text">
                   Unfilled template values ({unresolvedVars.join(', ')}) — fill them in above or
                   edit the URLs directly. Saving is blocked until they are resolved.
                 </span>
@@ -300,8 +300,9 @@ export function ProviderPresetPicker({
               Pre-fills {Object.keys(selectedPreset.apiBaseUrl).join(', ')} endpoints.{' '}
               {selectedPreset.piAiProvider ? (
                 <>
-                  Uses the pi-ai <code className="text-accent">{selectedPreset.piAiProvider}</code>{' '}
-                  catalog; auto-compat requires a matching model ID.
+                  Uses the pi-ai{' '}
+                  <code className="text-primary-text">{selectedPreset.piAiProvider}</code> catalog;
+                  auto-compat requires a matching model ID.
                 </>
               ) : selectedPreset.piAiQuirks ? (
                 <>
@@ -319,7 +320,7 @@ export function ProviderPresetPicker({
                     href={selectedPreset.docsUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-accent hover:underline"
+                    className="inline-flex items-center gap-1 text-accent-text hover:underline"
                   >
                     Provider docs <ExternalLink size={12} />
                   </a>

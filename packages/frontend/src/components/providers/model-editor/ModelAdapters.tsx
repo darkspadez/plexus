@@ -59,7 +59,7 @@ export function ModelAdapters({
                 <input
                   type="checkbox"
                   checked={!suppressionDisabled}
-                  className="mt-0.5 shrink-0 accent-accent"
+                  className="mt-0.5 shrink-0"
                   onChange={() => {
                     const withoutSuppression = modelAdapters.filter(
                       (entry) => getAdapterName(entry) !== GPT5_SUPPRESSION_ADAPTER
@@ -103,7 +103,7 @@ export function ModelAdapters({
               <input
                 type="checkbox"
                 checked={active}
-                className="mt-0.5 shrink-0 accent-accent"
+                className="mt-0.5 shrink-0"
                 onChange={() => {
                   const next = active
                     ? modelAdapters.filter((entry) => getAdapterName(entry) !== adapter.value)

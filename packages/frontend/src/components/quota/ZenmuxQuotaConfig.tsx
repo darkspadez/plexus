@@ -19,7 +19,7 @@ export const ZenmuxQuotaConfig: React.FC<ZenmuxQuotaConfigProps> = ({ options, o
           htmlFor="zenmux-management-api-key"
           className="font-sans text-[13px] font-medium text-foreground-muted"
         >
-          Management API Key <span className="text-danger">*</span>
+          Management API Key <span className="text-danger-text">*</span>
         </label>
         <Input
           id="zenmux-management-api-key"
@@ -34,7 +34,7 @@ export const ZenmuxQuotaConfig: React.FC<ZenmuxQuotaConfigProps> = ({ options, o
             href="https://zenmux.ai/dashboard"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent hover:underline inline-flex items-center gap-1"
+            className="text-accent-text hover:underline inline-flex items-center gap-1"
           >
             Zenmux Dashboard <ExternalLink size={10} />
           </a>

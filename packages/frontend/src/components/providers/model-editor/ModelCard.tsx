@@ -78,7 +78,7 @@ export function ModelCard({
         >
           <span
             className={`break-words text-[11px] italic ${
-              testState.result === 'error' ? 'text-danger' : 'text-success'
+              testState.result === 'error' ? 'text-danger-text' : 'text-success-text'
             }`}
           >
             {testState.message} [×]

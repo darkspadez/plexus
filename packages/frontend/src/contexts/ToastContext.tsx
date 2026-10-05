@@ -125,7 +125,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 {confirmState.message}
               </div>
               <div className="flex items-center justify-end gap-3 px-5 py-4 sm:px-6 border-t border-border">
-                <Button variant="secondary" onClick={() => resolveConfirm(false)}>
+                <Button variant="outline" onClick={() => resolveConfirm(false)}>
                   {confirmState.cancelLabel ?? 'Cancel'}
                 </Button>
                 <Button

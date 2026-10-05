@@ -85,12 +85,12 @@ export function FetchModelsModal({
           </Button>
         </div>
         {fetchError && (
-          <div className="rounded-sm border border-danger/30 bg-danger/10 p-3 text-[13px] text-danger">
+          <div className="rounded-sm border border-danger/30 bg-danger/10 p-3 text-[13px] text-danger-text">
             {fetchError}
           </div>
         )}
         {fetchWarning && (
-          <div className="rounded-sm border border-amber-500/30 bg-amber-500/10 p-3 font-sans text-[13px] text-amber-400">
+          <div className="rounded-sm border border-warning/30 bg-warning/10 p-3 font-sans text-[13px] text-warning-text">
             {fetchWarning}
           </div>
         )}
@@ -132,7 +132,7 @@ export function FetchModelsModal({
                         type="checkbox"
                         checked={selectedModelIds.has(model.id)}
                         onChange={() => onToggleSelection(model.id)}
-                        className="mt-0.5 cursor-pointer accent-accent"
+                        className="mt-0.5 cursor-pointer"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <div className="flex-1">

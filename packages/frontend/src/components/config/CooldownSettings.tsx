@@ -83,7 +83,7 @@ export function CooldownSettings() {
                 min={0.1}
                 step={0.1}
                 {...register('initialMinutes', { valueAsNumber: true })}
-                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
               />
               <span className="text-[11px] text-foreground-subtle tabular-nums whitespace-nowrap">
                 {typeof initialMinutesWatch === 'number' && isFinite(initialMinutesWatch)
@@ -92,7 +92,7 @@ export function CooldownSettings() {
               </span>
             </div>
             {errors.initialMinutes && (
-              <span className="text-[11px] text-warning">{errors.initialMinutes.message}</span>
+              <span className="text-[11px] text-warning-text">{errors.initialMinutes.message}</span>
             )}
           </div>
           <div className="flex flex-col gap-1">
@@ -110,7 +110,7 @@ export function CooldownSettings() {
                 min={0.1}
                 step={0.1}
                 {...register('maxMinutes', { valueAsNumber: true })}
-                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
               />
               <span className="text-[11px] text-foreground-subtle tabular-nums whitespace-nowrap">
                 {typeof maxMinutesWatch === 'number' && isFinite(maxMinutesWatch)
@@ -119,7 +119,7 @@ export function CooldownSettings() {
               </span>
             </div>
             {errors.maxMinutes && (
-              <span className="text-[11px] text-warning">{errors.maxMinutes.message}</span>
+              <span className="text-[11px] text-warning-text">{errors.maxMinutes.message}</span>
             )}
           </div>
         </div>

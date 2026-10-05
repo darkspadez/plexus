@@ -141,11 +141,11 @@ export function ProviderModelsEditor({
           {testState?.loading ? (
             <Loader2 size={14} className="animate-spin text-foreground-muted" />
           ) : testState?.showResult && testState.result === 'success' ? (
-            <CheckCircle size={14} className="text-success" />
+            <CheckCircle size={14} className="text-success-text" />
           ) : testState?.showResult && testState.result === 'error' ? (
-            <XCircle size={14} className="text-danger" />
+            <XCircle size={14} className="text-danger-text" />
           ) : (
-            <Play size={14} className="text-accent opacity-60" />
+            <Play size={14} className="text-primary-text opacity-60" />
           )}
         </div>
         <CopyButton value={`direct/${editingProvider.id}/${mId}`} size="sm" />
@@ -157,7 +157,7 @@ export function ProviderModelsEditor({
             handleRemoveModel(mId);
           }}
           aria-label={`Remove model ${mId}`}
-          className="text-danger p-0.5"
+          className="text-danger-text p-0.5"
         >
           <X size={12} />
         </Button>

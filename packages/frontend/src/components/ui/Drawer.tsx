@@ -69,7 +69,7 @@ export const Drawer: React.FC<DrawerProps> = ({
           // Solid background — glass-bg let underlying page content (Dashboard
           // title, page tabs) bleed through the drawer when open. Backdrop blur
           // alone isn't enough on mobile browsers.
-          'absolute top-0 bottom-0 flex bg-surface-elevated border-border shadow-2xl outline-none',
+          'absolute top-0 bottom-0 flex bg-surface-elevated border-border shadow-modal outline-none',
           panelZ,
           side === 'left' &&
             'left-0 w-[260px] max-w-[85vw] border-r animate-[drawerSlideLeft_250ms_cubic-bezier(0.22,1,0.36,1)] flex-col',

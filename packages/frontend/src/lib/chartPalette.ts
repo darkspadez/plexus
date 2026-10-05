@@ -1,31 +1,17 @@
 /**
- * Chart palette helpers — reads CSS token values at call time so colors
- * respond to theme/accent changes without a page reload.
+ * Chart palette helpers. Return `var(--chart-N)` references so charts recolor
+ * live when the theme changes, with no reload and no stale computed values.
  *
- * chart-1 = accent (primary series)
- * chart-2..5 = fixed secondary palette from tokens.css
+ * chart-1..5 = primary, secondary, accent, info, neutral, contrast-adjusted
+ * and de-duplicated per theme by the theme compiler.
  */
 
-/** Read a CSS custom property from :root at runtime */
-function cssVar(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
-
-/** Returns the 5-color ordered chart palette from CSS tokens */
-export function getChartPalette(): string[] {
-  return [
-    cssVar('--chart-1') || '#D97706',
-    cssVar('--chart-2') || '#7C5CFC',
-    cssVar('--chart-3') || '#16A34A',
-    cssVar('--chart-4') || '#0891B2',
-    cssVar('--chart-5') || '#71717A',
-  ];
-}
+const CHART_COUNT = 5;
 
 /** Get a single chart color by 1-based index (wraps after 5) */
 export function chartColor(index: number): string {
-  const palette = getChartPalette();
-  return palette[(index - 1) % palette.length];
+  const n = ((((index - 1) % CHART_COUNT) + CHART_COUNT) % CHART_COUNT) + 1;
+  return `var(--chart-${n})`;
 }
 
 /** Shared tooltip content style — surface-elevated bg, border, rounded-lg */

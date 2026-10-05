@@ -76,7 +76,7 @@ export const KeyValueEditor: React.FC<KeyValueEditorProps> = ({
                 onChange={(e) => updateValue(key, e.target.value)}
                 placeholder={valuePlaceholder}
                 rows={2}
-                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-background border border-border rounded-md outline-none transition-colors duration-150 placeholder:text-foreground-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background resize-y"
+                className="w-full py-2 px-3 font-sans text-sm text-foreground bg-background border-(length:--theme-border-width) border-border rounded-field outline-none transition-colors duration-150 placeholder:text-foreground-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background resize-y"
               />
             ) : (
               <Input
@@ -90,7 +90,7 @@ export const KeyValueEditor: React.FC<KeyValueEditorProps> = ({
             type="button"
             onClick={() => removeEntry(key)}
             aria-label={`Remove ${key}`}
-            className="inline-flex items-center justify-center h-8 w-8 flex-shrink-0 rounded-md text-foreground-muted hover:text-danger hover:bg-danger-subtle transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="inline-flex items-center justify-center h-8 w-8 flex-shrink-0 rounded-field text-foreground-muted hover:text-danger-text hover:bg-danger-subtle transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <Trash2 size={16} />
           </button>
@@ -98,7 +98,7 @@ export const KeyValueEditor: React.FC<KeyValueEditorProps> = ({
       ))}
       <Button
         type="button"
-        variant="secondary"
+        variant="outline"
         size="sm"
         leftIcon={<Plus size={14} />}
         onClick={addEntry}

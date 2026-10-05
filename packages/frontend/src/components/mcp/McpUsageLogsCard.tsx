@@ -98,17 +98,17 @@ export function McpUsageLogsCard({
               className={cn(
                 'text-xs font-semibold',
                 row.original.method === 'GET'
-                  ? 'text-info'
+                  ? 'text-info-text'
                   : row.original.method === 'POST'
-                    ? 'text-success'
-                    : 'text-danger'
+                    ? 'text-success-text'
+                    : 'text-danger-text'
               )}
             >
               {row.original.method}
             </span>
             <div className="flex items-center gap-1">
               {row.original.is_streamed ? (
-                <Zap size={11} className="text-info" />
+                <Zap size={11} className="text-info-text" />
               ) : (
                 <ZapOff size={11} className="text-foreground-muted" />
               )}
@@ -129,7 +129,7 @@ export function McpUsageLogsCard({
               {row.original.jsonrpc_method || <span className="text-foreground-muted">-</span>}
             </span>
             {row.original.tool_name && (
-              <span className="font-mono text-xs text-info" title={row.original.tool_name}>
+              <span className="font-mono text-xs text-info-text" title={row.original.tool_name}>
                 {row.original.tool_name}
               </span>
             )}
@@ -162,8 +162,8 @@ export function McpUsageLogsCard({
                 className={cn(
                   'inline-flex w-[52px] items-center justify-center gap-1.5 rounded-xl border px-2 py-1 text-xs font-medium',
                   isError || !isSuccess
-                    ? 'border-danger/30 bg-danger-subtle text-danger'
-                    : 'border-success/30 bg-success-subtle text-success'
+                    ? 'border-danger/30 bg-danger-subtle text-danger-text'
+                    : 'border-success/30 bg-success-subtle text-success-text'
                 )}
               >
                 {isError ? <AlertTriangle size={12} /> : <CheckCircle size={12} />}
@@ -171,7 +171,7 @@ export function McpUsageLogsCard({
               </div>
               {log.error_message && (
                 <span
-                  className="block max-w-[160px] truncate text-[11px] text-danger"
+                  className="block max-w-[160px] truncate text-[11px] text-danger-text"
                   title={log.error_message}
                 >
                   {log.error_message}
@@ -192,7 +192,7 @@ export function McpUsageLogsCard({
               e.stopPropagation();
               onDeleteLog(row.original.request_id);
             }}
-            className="cursor-pointer rounded p-1 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger"
+            className="cursor-pointer rounded p-1 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
             title="Delete log"
             aria-label="Delete MCP log"
           >
@@ -262,7 +262,7 @@ export function McpUsageLogsCard({
         <button
           type="button"
           onClick={() => onDeleteLog(row.request_id)}
-          className="cursor-pointer rounded p-1 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger"
+          className="cursor-pointer rounded p-1 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
           aria-label="Delete MCP log"
         >
           <Trash2 size={14} />

@@ -100,7 +100,7 @@ export function McpOAuthClientsCard({
       title="MCP OAuth Clients"
       extra={
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           onClick={onRefresh}
           isLoading={oauthClientsLoading}
@@ -141,7 +141,7 @@ export function McpOAuthClientsCard({
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
-                      <KeyRound size={15} className="text-accent" />
+                      <KeyRound size={15} className="text-primary-text" />
                       <span>{client.clientName || 'Unnamed client'}</span>
                       <Pill
                         size="sm"

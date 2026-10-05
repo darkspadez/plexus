@@ -198,7 +198,7 @@ export function CustomQuotaCheckers() {
                     className={cn(
                       'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors duration-150',
                       selectedId === checker.id
-                        ? 'bg-accent-subtle text-accent'
+                        ? 'bg-primary-subtle text-primary-text'
                         : 'text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
                     )}
                   >
@@ -246,7 +246,7 @@ export function CustomQuotaCheckers() {
               className="mt-3"
             >
               <textarea
-                className="min-h-[420px] w-full rounded-md border border-border bg-surface-sunken p-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:border-accent"
+                className="min-h-[420px] w-full rounded-md border border-border bg-surface-sunken p-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:border-focus"
                 value={draft.code}
                 onChange={(event) => setDraft({ ...draft, code: event.target.value })}
                 spellCheck={false}
@@ -277,7 +277,7 @@ export function CustomQuotaCheckers() {
               </div>
               <Button
                 type="button"
-                variant="secondary"
+                variant="outline"
                 size="sm"
                 isLoading={testing}
                 onClick={test}

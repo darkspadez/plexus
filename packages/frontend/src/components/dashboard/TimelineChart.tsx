@@ -174,9 +174,9 @@ export const TimelineChart: React.FC<TimelineChartProps> = ({
                 yAxisId="left"
                 type="monotone"
                 dataKey="errors"
-                stroke="var(--danger)"
+                stroke="var(--danger-text)"
                 fillOpacity={0.15}
-                fill="var(--danger)"
+                fill="var(--danger-text)"
                 strokeWidth={1.5}
                 isAnimationActive={false}
               />

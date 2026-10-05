@@ -1,7 +1,15 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
 
-export type PillTone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger' | 'info';
+export type PillTone =
+  | 'neutral'
+  | 'primary'
+  | 'secondary'
+  | 'accent'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'info';
 
 export type PillSize = 'sm' | 'default';
 
@@ -13,11 +21,13 @@ export interface PillProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 const toneStyles: Record<PillTone, string> = {
   neutral: 'bg-surface-elevated text-foreground-muted',
-  accent: 'bg-accent-subtle text-accent',
-  success: 'bg-success-subtle text-success',
-  warning: 'bg-warning-subtle text-warning',
-  danger: 'bg-danger-subtle text-danger',
-  info: 'bg-info-subtle text-info',
+  primary: 'bg-primary-subtle text-primary-text',
+  secondary: 'bg-secondary-subtle text-secondary-text',
+  accent: 'bg-accent-subtle text-accent-text',
+  success: 'bg-success-subtle text-success-text',
+  warning: 'bg-warning-subtle text-warning-text',
+  danger: 'bg-danger-subtle text-danger-text',
+  info: 'bg-info-subtle text-info-text',
 };
 
 const sizeStyles: Record<PillSize, string> = {
@@ -26,7 +36,7 @@ const sizeStyles: Record<PillSize, string> = {
 };
 
 /**
- * Tinted-fill, rounded-full chip — the design's signature secondary visual.
+ * Tinted-fill chip with the theme selector radius (rounded-selector) — the design's signature secondary visual.
  * Use this for status, provider, format, model, and delta indicators.
  */
 export const Pill = React.forwardRef<HTMLSpanElement, PillProps>(
@@ -34,7 +44,7 @@ export const Pill = React.forwardRef<HTMLSpanElement, PillProps>(
     <span
       ref={ref}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full font-medium leading-none',
+        'inline-flex items-center gap-1 rounded-selector font-medium leading-none',
         toneStyles[tone],
         sizeStyles[size],
         className

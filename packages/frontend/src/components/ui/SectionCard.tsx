@@ -78,7 +78,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     <div
       id={id}
       className={cn(
-        'border border-border rounded-lg bg-surface overflow-hidden scroll-mt-14',
+        'border-(length:--theme-border-width) border-border rounded-box bg-surface overflow-hidden scroll-mt-14',
         className
       )}
     >
@@ -89,7 +89,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             onClick={toggle}
             aria-expanded={open}
             className={cn(
-              'flex-1 basis-52 min-w-0 flex items-center gap-2 text-left transition-colors duration-150 hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset',
+              'flex-1 basis-52 min-w-0 flex items-center gap-2 text-left transition-colors duration-150 hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset',
               headerPadding
             )}
           >
@@ -109,7 +109,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
               <button
                 type="button"
                 aria-label="More information"
-                className="flex items-center justify-center rounded p-1 text-foreground-muted transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="flex items-center justify-center rounded p-1 text-foreground-muted transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               >
                 <Info size={14} aria-hidden="true" />
               </button>

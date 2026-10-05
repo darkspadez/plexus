@@ -129,7 +129,7 @@ export function ModelPricing({ modelId, modelConfig, updateModelConfig }: Props)
             </span>
             <Button
               size="sm"
-              variant="secondary"
+              variant="outline"
               onClick={() => {
                 const currentRanges = mCfg.pricing.range || [];
                 updateModelConfig(modelId, {
@@ -161,7 +161,7 @@ export function ModelPricing({ modelId, modelConfig, updateModelConfig }: Props)
               <Button
                 size="sm"
                 variant="ghost"
-                className="absolute right-1.5 top-1.5 text-danger p-1"
+                className="absolute right-1.5 top-1.5 text-danger-text p-1"
                 onClick={() => {
                   const r = [...mCfg.pricing.range];
                   r.splice(idx, 1);

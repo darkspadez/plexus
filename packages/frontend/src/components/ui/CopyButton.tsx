@@ -54,8 +54,8 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
         aria-label={copied ? 'Copied' : label}
         title={!canCopy ? 'Copy is not supported in this browser' : copied ? 'Copied!' : label}
         className={clsx(
-          'inline-flex items-center justify-center rounded-md transition-colors duration-150',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+          'inline-flex items-center justify-center rounded-field transition-colors duration-150',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background',
           size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
           !canCopy
             ? 'text-foreground-muted cursor-not-allowed opacity-50'
@@ -63,7 +63,11 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
           className
         )}
       >
-        {copied ? <Check size={iconSize} className="text-success" /> : <Copy size={iconSize} />}
+        {copied ? (
+          <Check size={iconSize} className="text-success-text" />
+        ) : (
+          <Copy size={iconSize} />
+        )}
       </button>
     );
   }
@@ -75,15 +79,15 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
       disabled={!canCopy}
       title={!canCopy ? 'Copy is not supported in this browser' : undefined}
       className={clsx(
-        'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'inline-flex items-center gap-1.5 rounded-field border-(length:--theme-border-width) px-2.5 py-1 text-xs font-medium transition-colors duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         !canCopy
           ? 'border-border/30 bg-surface/30 text-foreground-muted cursor-not-allowed opacity-50'
-          : 'border-border bg-surface text-foreground-muted hover:text-foreground hover:border-accent cursor-pointer',
+          : 'border-border bg-surface text-foreground-muted hover:text-foreground hover:border-primary cursor-pointer',
         className
       )}
     >
-      {copied ? <Check size={iconSize} className="text-success" /> : <Copy size={iconSize} />}
+      {copied ? <Check size={iconSize} className="text-success-text" /> : <Copy size={iconSize} />}
       {copied ? 'Copied' : label}
     </button>
   );

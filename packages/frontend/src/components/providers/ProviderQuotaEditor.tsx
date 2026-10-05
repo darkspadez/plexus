@@ -228,7 +228,7 @@ export function ProviderQuotaEditor({
           )}
 
           {quotaValidationError && (
-            <div className="mt-2 rounded-md border border-danger/30 bg-danger-subtle px-3 py-2 text-xs text-danger">
+            <div className="mt-2 rounded-md border border-danger/30 bg-danger-subtle px-3 py-2 text-xs text-danger-text">
               {quotaValidationError}
             </div>
           )}

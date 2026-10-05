@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import Editor from '@monaco-editor/react';
+import { useMonacoTheme } from '../../hooks/useMonacoTheme';
 import { AlertTriangle, Download, RefreshCw, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { SectionCard } from '../ui/SectionCard';
@@ -20,7 +21,7 @@ class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Er
       return (
         <div className="h-[400px] sm:h-[500px] flex items-center justify-center bg-surface/30 text-foreground-muted rounded-md">
           <div className="text-center p-6">
-            <AlertTriangle className="mx-auto mb-3 text-warning" size={32} />
+            <AlertTriangle className="mx-auto mb-3 text-warning-text" size={32} />
             <p className="text-sm font-semibold mb-1">Editor failed to load</p>
             <p className="font-sans text-[11px] text-foreground-subtle">
               {this.state.error.message}
@@ -31,6 +32,33 @@ class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Er
     }
     return this.props.children;
   }
+}
+
+/**
+ * Mounted only while the card body renders (i.e. expanded), so Monaco and its
+ * theme hook (useMonaco -> loader.init) are not loaded until the user opens it.
+ */
+function SnapshotEditor({ config }: { config: string }) {
+  const monacoTheme = useMonacoTheme();
+  return (
+    <div className="h-[400px] sm:h-[500px] lg:h-[600px] rounded-sm overflow-hidden">
+      <EditorErrorBoundary>
+        <Editor
+          height="100%"
+          defaultLanguage="json"
+          value={config}
+          theme={monacoTheme}
+          options={{
+            readOnly: true,
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            fontSize: 13,
+            fontFamily: "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+          }}
+        />
+      </EditorErrorBoundary>
+    </div>
+  );
 }
 
 interface ConfigurationSnapshotProps {
@@ -58,7 +86,7 @@ export function ConfigurationSnapshot({
       extra={
         <div className="flex items-center gap-2">
           <Button
-            variant="secondary"
+            variant="outline"
             size="sm"
             onClick={onRefresh}
             leftIcon={<RotateCcw size={14} />}
@@ -66,7 +94,7 @@ export function ConfigurationSnapshot({
             Refresh
           </Button>
           <Button
-            variant="secondary"
+            variant="outline"
             size="sm"
             onClick={onRestart}
             isLoading={restarting}
@@ -75,7 +103,7 @@ export function ConfigurationSnapshot({
             Restart
           </Button>
           <Button
-            variant="secondary"
+            variant="outline"
             size="sm"
             onClick={onExport}
             disabled={!loaded}
@@ -86,23 +114,7 @@ export function ConfigurationSnapshot({
         </div>
       }
     >
-      <div className="h-[400px] sm:h-[500px] lg:h-[600px] rounded-sm overflow-hidden">
-        <EditorErrorBoundary>
-          <Editor
-            height="100%"
-            defaultLanguage="json"
-            value={config}
-            theme="vs-dark"
-            options={{
-              readOnly: true,
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              fontSize: 13,
-              fontFamily: '"Fira Code", "Fira Mono", monospace',
-            }}
-          />
-        </EditorErrorBoundary>
-      </div>
+      <SnapshotEditor config={config} />
     </SectionCard>
   );
 }

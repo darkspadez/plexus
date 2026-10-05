@@ -19,7 +19,7 @@ export const OpenRouterQuotaConfig: React.FC<OpenRouterQuotaConfigProps> = ({
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
         <label className="font-sans text-[13px] font-medium text-foreground-muted">
-          Management API Key <span className="text-danger">*</span>
+          Management API Key <span className="text-danger-text">*</span>
         </label>
         <Input
           type="password"
@@ -33,7 +33,7 @@ export const OpenRouterQuotaConfig: React.FC<OpenRouterQuotaConfigProps> = ({
             href="https://openrouter.ai/settings/management-keys"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent hover:underline inline-flex items-center gap-1"
+            className="text-accent-text hover:underline inline-flex items-center gap-1"
           >
             OpenRouter Dashboard <ExternalLink size={10} />
           </a>

@@ -120,7 +120,7 @@ export const KeySheet: React.FC<Props> = ({
     <>
       <Button
         type="button"
-        variant="secondary"
+        variant="outline"
         onClick={() => onOpenChange(false)}
         disabled={isSaving}
       >
@@ -176,7 +176,7 @@ export const KeySheet: React.FC<Props> = ({
             </div>
             <Button
               type="button"
-              variant="secondary"
+              variant="outline"
               onClick={generateKey}
               title="Generate new key"
               className="w-full sm:w-auto"

@@ -15,7 +15,7 @@ export const MiniMaxQuotaConfig: React.FC<MiniMaxQuotaConfigProps> = ({ options,
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
         <label className="font-sans text-[13px] font-medium text-foreground-muted">
-          Group ID <span className="text-danger">*</span>
+          Group ID <span className="text-danger-text">*</span>
         </label>
         <Input
           value={(options.groupid as string) ?? ''}
@@ -26,7 +26,7 @@ export const MiniMaxQuotaConfig: React.FC<MiniMaxQuotaConfigProps> = ({ options,
 
       <div className="flex flex-col gap-1">
         <label className="font-sans text-[13px] font-medium text-foreground-muted">
-          _token Cookie <span className="text-danger">*</span>
+          _token Cookie <span className="text-danger-text">*</span>
         </label>
         <Input
           type="password"

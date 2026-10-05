@@ -84,7 +84,7 @@ export function ImportModelsModal({
               overflowY: 'auto',
               overflowX: 'auto',
               border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'min(var(--theme-radius-field), 0.25rem)',
             }}
           >
             <table className="w-full border-collapse font-sans text-[13px]">
@@ -144,7 +144,7 @@ export function ImportModelsModal({
                         <div className="font-medium">{group.modelId}</div>
                         {group.aliasMatches.length > 0 ? (
                           <>
-                            <span className="inline-flex rounded border border-border px-2 py-0.5 text-label font-medium uppercase tracking-wider text-accent">
+                            <span className="inline-flex rounded border border-border px-2 py-0.5 text-label font-medium uppercase tracking-wider text-primary-text">
                               Existing Alias Match
                             </span>
                             {group.aliasMatches.length === 1 ? (
@@ -153,7 +153,7 @@ export function ImportModelsModal({
                               </div>
                             ) : (
                               <select
-                                className="mt-1 w-full max-w-xs py-1 px-2 font-sans text-xs text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
+                                className="mt-1 w-full max-w-xs py-1 px-2 font-sans text-xs text-foreground bg-surface border border-border rounded-sm outline-none focus:border-focus"
                                 value={selectedAliasId}
                                 onChange={(e) => {
                                   const next = new Map(selectedAliases);

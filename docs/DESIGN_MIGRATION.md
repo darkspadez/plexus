@@ -14,6 +14,7 @@ Tracks pages migrated to the post-refresh design system (semantic background/sur
 | Models | 2026-09-17 | `4be56e1a` | Hand-rolled table replaced by `DataTable` with column meta and controlled row expansion; `AliasMobileCard` kept as the mobile surface so per-target enable/test stay one tap away. |
 | Playground | 2026-10-02 | post-`1d4f9d9c` | Last legacy page: classes remapped onto semantic tokens with nesting fixed (code/tool/reasoning blocks on `surface` inside the `surface-sunken` assistant bubble), composer gains a focus border. Behavior unchanged. |
 | Custom Quota Checkers | 2026-09-17 | `cc6f4760` | New upstream page given design treatment — raw inputs replaced with `Input`/`Select`/`Switch`/`FormField`, empty list on `EmptyState`. |
+| Theme system | 2026-10-04 | (this commit) | The single accent picker is replaced by 37 themes (35 daisyUI + Plexus Light/Dark), compiled from data by `src/theme/compile.ts` into `src/styles/themes.generated.css` (regenerate with `bun run gen:themes`); `accent` is renamed `primary`, and themes also supply secondary / accent / neutral roles with compiled `-text` and `focus` tokens whose contrast is guaranteed (4.5:1 for text, 3:1 for focus) on surface, background, sunken and the role's own subtle tint. Radius tiers (`rounded-box`/`field`/`selector`), border width and depth are theme-driven, and the Appearance modal offers a match-system light/dark pair. |
 
 ## Notes on the upstream merge (`32e83240`, `cc6f4760`)
 
@@ -62,9 +63,6 @@ landed in files this branch had replaced were placed in a follow-up commit.
 
 ## Outstanding
 
-- `text-accent` (accent-colored text on page surfaces) is below 4.5:1 for the warm accents
-  in light theme and for violet in dark theme. Filled accents are fine since
-  `--accent-foreground` became per-accent ink; text likely wants its own `--accent-text` token.
 - `components/chips/ApiFormatChip.tsx` imports `ApiTypeIcon` and `isDecisionsApiType` from
   `components/logs/`; both belong in `chips/` or `lib/`.
 - Upstream-owned files deleted on this branch as dead code — `components/models/AliasTableRow.tsx`,

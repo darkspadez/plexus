@@ -52,7 +52,7 @@ export const Providers = () => {
         actions={
           <div className="flex items-center gap-2">
             <Button
-              variant="secondary"
+              variant="outline"
               leftIcon={<Code2 size={14} />}
               onClick={() => navigate('/providers/custom-checkers')}
               size="md"

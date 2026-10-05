@@ -44,7 +44,7 @@ export function TraceCaptureSettings() {
     <SectionCard title="Trace Capture" collapsible defaultOpen={false}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <AlertTriangle size={16} className="text-accent" />
+          <AlertTriangle size={16} className="text-primary-text" />
           <div>
             <p className="font-sans text-[12px] font-medium text-foreground">
               Capture Trace on Error

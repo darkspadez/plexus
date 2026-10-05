@@ -95,7 +95,7 @@ export function McpOAuthSettings() {
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <LockKeyhole size={16} className="text-accent" />
+            <LockKeyhole size={16} className="text-primary-text" />
             <div>
               <p className="font-sans text-[12px] font-medium text-foreground">
                 Enable OAuth for MCP clients
@@ -126,10 +126,10 @@ export function McpOAuthSettings() {
             value={issuerInput}
             onChange={(event) => setIssuerInput(event.target.value)}
             placeholder="https://your-instance.example.com"
-            className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+            className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
           />
           {!issuerValidation.valid && (
-            <span className="text-[11px] text-warning">{issuerValidation.error}</span>
+            <span className="text-[11px] text-warning-text">{issuerValidation.error}</span>
           )}
           <p className="font-sans text-[11px] text-foreground-subtle leading-relaxed">
             Use the externally reachable URL for this Plexus instance, such as a Tailscale Funnel

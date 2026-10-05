@@ -42,7 +42,7 @@ export const FormField: React.FC<FormFieldProps> = ({
       )}
       <div className={clsx('flex flex-col gap-1', inline && 'min-w-0 flex-1')}>
         {children}
-        {error && <span className="text-xs text-danger">{error}</span>}
+        {error && <span className="text-xs text-danger-text">{error}</span>}
         {!error && hint && <span className="text-xs text-foreground-subtle">{hint}</span>}
       </div>
     </div>

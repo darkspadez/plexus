@@ -149,7 +149,7 @@ export function ProviderOAuthEditor({
           </div>
         )}
 
-        {oauthError && <div className="text-[11px] text-danger">{oauthError}</div>}
+        {oauthError && <div className="text-[11px] text-danger-text">{oauthError}</div>}
 
         {oauthStatus === 'awaiting_select' && oauthSession?.select && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -241,7 +241,7 @@ export function ProviderOAuthEditor({
         )}
 
         {oauthStatus === 'success' && (
-          <div className="text-[11px] text-success">
+          <div className="text-[11px] text-success-text">
             Authentication complete. Tokens stored securely on the server.
           </div>
         )}
@@ -249,7 +249,7 @@ export function ProviderOAuthEditor({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <Button
             size="sm"
-            variant="secondary"
+            variant="outline"
             onClick={onStart}
             isLoading={oauthBusy && !oauthSessionId}
             disabled={oauthBusy || (!!oauthSessionId && !oauthIsTerminal)}

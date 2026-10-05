@@ -29,8 +29,8 @@ export const DeltaChip: React.FC<DeltaChipProps> = ({
     isGood === null
       ? 'text-foreground-muted bg-surface-elevated'
       : isGood
-        ? 'text-success bg-success-subtle'
-        : 'text-danger bg-danger-subtle';
+        ? 'text-success-text bg-success-subtle'
+        : 'text-danger-text bg-danger-subtle';
 
   const Icon = direction === 'flat' ? Minus : direction === 'up' ? ChevronUp : ChevronDown;
 

@@ -4,7 +4,7 @@ import { CloudUpload, CloudDownload, BrainCog, PackageOpen, PencilLine } from 'l
 import { useCurrency } from '../../lib/CurrencyContext';
 import type { UsageRecord } from '../../lib/api';
 import { apiFormatsDiffer, getRoutePath } from './route';
-import { hasUpstreamRewrite } from './helpers';
+import { formatDateSafely, hasUpstreamRewrite } from './helpers';
 import {
   KWH_PER_SLICE,
   formatCostIn,
@@ -93,7 +93,7 @@ function Field({
       <dt className={cn('text-xs text-foreground-muted', className)}>{label}</dt>
       <dd
         className={cn(
-          'flex items-center justify-end gap-1.5 text-right text-xs text-foreground',
+          'flex min-w-0 items-center justify-end gap-1.5 text-right text-xs text-foreground',
           className
         )}
       >
@@ -119,7 +119,7 @@ function formatFullTimestamp(date: string): string {
 function ApiRoute({ incoming, outgoing }: { incoming?: string; outgoing?: string }) {
   if (incoming && outgoing && apiFormatsDiffer(incoming, outgoing)) {
     return (
-      <span className="inline-flex items-center gap-1">
+      <span className="inline-flex min-w-0 flex-wrap items-center justify-end gap-1">
         <ApiFormatChip format={incoming} />
         <span aria-hidden className="text-foreground-subtle">
           →
@@ -160,20 +160,38 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
       ? e2eOutputTokens / (log.durationMs / 1000)
       : null;
 
+  const timestamp = formatDateSafely(log.date);
+
   return (
     <div className="bg-surface-elevated/30 px-6 py-4" data-request-panel={log.requestId}>
-      <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-x-8 gap-y-5 sm:grid-cols-[repeat(2,minmax(0,1fr))] lg:grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(0,1fr))]">
         {/* REQUEST */}
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <GroupLabel>Request</GroupLabel>
-          <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
             <Field label="Request ID">
-              <span className="break-all font-mono">{log.requestId}</span>
-              <CopyButton value={log.requestId} label="Copy request ID" size="sm" />
+              <span className="min-w-0 truncate font-mono" title={log.requestId}>
+                {log.requestId}
+              </span>
+              <CopyButton
+                value={log.requestId}
+                label="Copy request ID"
+                size="sm"
+                className="shrink-0"
+              />
             </Field>
-            <Field label="Source IP">{log.sourceIp || '-'}</Field>
+            <Field label="Source IP">
+              <span className="min-w-0 truncate" title={log.sourceIp || undefined}>
+                {log.sourceIp || '-'}
+              </span>
+            </Field>
             <Field label="Timestamp">
-              <span className="font-mono">{formatFullTimestamp(log.date)}</span>
+              <span
+                className="min-w-0 truncate whitespace-nowrap font-mono"
+                title={formatFullTimestamp(log.date)}
+              >
+                {timestamp.date} {timestamp.time}
+              </span>
             </Field>
             <Field label="Route">
               <ApiRoute incoming={log.incomingApiType} outgoing={log.outgoingApiType} />
@@ -218,7 +236,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
               {log.hasDebug && (
                 <Button
                   size="sm"
-                  variant="secondary"
+                  variant="outline"
                   onClick={() => navigate('/debug', { state: { requestId: log.requestId } })}
                 >
                   View trace
@@ -229,17 +247,15 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
         </div>
 
         {/* TOKENS */}
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <GroupLabel>Tokens</GroupLabel>
-          {/* Intentional fixed per-token-type visual encoding — raw Tailwind palette
-              colors (not semantic tokens) are correct here. Each token category keeps
-              a stable identity color for quick visual scanning, matching the Tokens
-              column on pages/Logs.tsx. Do not migrate to theme tokens. */}
-          <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
+          {/* Per-token-type visual encoding via role tokens (info = input, success =
+              output, secondary = reasoning, critical = cached, accent = cache write). */}
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
             <Field
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  <CloudUpload size={12} className="text-blue-400" aria-hidden />
+                  <CloudUpload size={12} className="text-info-text" aria-hidden />
                   Input
                 </span>
               }
@@ -251,7 +267,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
             <Field
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  <CloudDownload size={12} className="text-green-400" aria-hidden />
+                  <CloudDownload size={12} className="text-success-text" aria-hidden />
                   Output
                 </span>
               }
@@ -263,7 +279,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
             <Field
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  <BrainCog size={12} className="text-purple-400" aria-hidden />
+                  <BrainCog size={12} className="text-secondary-text" aria-hidden />
                   Reasoning
                 </span>
               }
@@ -277,7 +293,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
             <Field
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  <PackageOpen size={12} className="text-orange-400" aria-hidden />
+                  <PackageOpen size={12} className="text-critical-text" aria-hidden />
                   Cached
                 </span>
               }
@@ -289,7 +305,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
             <Field
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  <PencilLine size={12} className="text-fuchsia-400" aria-hidden />
+                  <PencilLine size={12} className="text-accent-text" aria-hidden />
                   Cache write
                 </span>
               }
@@ -307,9 +323,9 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
         </div>
 
         {/* COST */}
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <GroupLabel>Cost</GroupLabel>
-          <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
             <Field label="Input">
               <span className="font-mono tabular-nums">
                 {log.costInput != null
@@ -378,9 +394,9 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
         </div>
 
         {/* PERFORMANCE */}
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <GroupLabel>Performance</GroupLabel>
-          <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
             <Field label="Duration">
               <span className="font-mono tabular-nums">
                 {log.durationMs != null && log.durationMs > 0 ? formatMs(log.durationMs) : '-'}
@@ -405,9 +421,9 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
         </div>
 
         {/* CONVERSATION */}
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <GroupLabel>Conversation</GroupLabel>
-          <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
             <Field label="Messages">
               <span className="font-mono tabular-nums">
                 {log.messageCount == null ? '-' : log.messageCount}
@@ -432,7 +448,11 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
                   ? 'yes'
                   : 'no'}
             </Field>
-            <Field label="Finish reason">{log.finishReason || '-'}</Field>
+            <Field label="Finish reason">
+              <span className="min-w-0 truncate" title={log.finishReason || undefined}>
+                {log.finishReason || '-'}
+              </span>
+            </Field>
           </dl>
         </div>
 
@@ -440,7 +460,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
         {attempts.length > 0 && (
           <div data-attempts className="col-span-full flex flex-col gap-2">
             <GroupLabel>Attempts</GroupLabel>
-            <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 flex-col gap-2">
               {attempts.map((attempt) => (
                 <div
                   key={`${attempt.index}-${attempt.provider}-${attempt.model}`}

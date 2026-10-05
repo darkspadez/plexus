@@ -13,7 +13,7 @@ export function ModelMetadataCard({ loading, onRefresh }: ModelMetadataCardProps
       title="Model Metadata"
       extra={
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           onClick={onRefresh}
           isLoading={loading}

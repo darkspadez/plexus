@@ -42,7 +42,7 @@ export const MetricsOverviewCard: React.FC<MetricsOverviewCardProps> = ({
               <span className="font-sans text-xs font-semibold text-foreground-subtle uppercase tracking-wider">
                 {metric.label}
               </span>
-              <div className="w-8 h-8 rounded-sm flex items-center justify-center bg-surface-elevated text-accent">
+              <div className="w-8 h-8 rounded-sm flex items-center justify-center bg-surface-elevated text-primary-text">
                 {metric.icon}
               </div>
             </div>

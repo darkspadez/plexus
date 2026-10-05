@@ -7,7 +7,7 @@
  *   - Per-page PageHeader sticks below TopBar (top-12 on md+)
  *
  * Mobile (< md):
- *   - Sticky AppBar (48px, hamburger + logo + theme/accent controls)
+ *   - Sticky AppBar (48px, hamburger + logo + Appearance button)
  *   - No sidebar visible; Drawer overlay on hamburger press
  *   - Per-page PageHeader sticks below AppBar (top-12, same offset)
  *

@@ -41,7 +41,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
     <div
       style={{
         gridColumn: '1 / -1',
-        borderTop: '1px solid var(--color-border)',
+        borderTop: '1px solid var(--border)',
         marginTop: '4px',
         paddingTop: '6px',
       }}
@@ -57,11 +57,11 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
         <div
           key={rIdx}
           style={{
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border)',
+            borderRadius: 'min(var(--theme-radius-field), 0.25rem)',
             padding: '6px',
             marginBottom: '4px',
-            background: 'var(--color-surface-sunken)',
+            background: 'var(--surface-sunken)',
           }}
         >
           {/* Source + When condition */}
@@ -90,7 +90,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
             {/* When operator */}
             <div style={{ flex: 0.7 }}>
               <select
-                className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
+                className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-focus"
                 value={rule.when?.op ?? ''}
                 onChange={(e) => {
                   const op = e.target.value;
@@ -168,7 +168,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
               }}
               style={{ padding: '4px' }}
             >
-              <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
+              <Trash2 size={14} style={{ color: 'var(--danger-text)' }} />
             </Button>
           </div>
           {/* Rewrites */}
@@ -208,7 +208,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
               {/* Value type selector */}
               <div style={{ flex: 0.7 }}>
                 <select
-                  className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-accent"
+                  className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-focus"
                   value={
                     rw.value === null
                       ? 'null'
@@ -408,7 +408,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
                 }}
                 style={{ padding: '4px' }}
               >
-                <Trash2 size={12} style={{ color: 'var(--color-danger)' }} />
+                <Trash2 size={12} style={{ color: 'var(--danger-text)' }} />
               </Button>
             </div>
           ))}
@@ -430,7 +430,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
           {/* Strip paths */}
           <div
             style={{
-              borderTop: '1px solid var(--color-border)',
+              borderTop: '1px solid var(--border)',
               margin: '6px 0 4px 0',
             }}
           />
@@ -451,9 +451,9 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
                   className="font-sans text-[11px] text-foreground"
                   style={{
                     padding: '2px 8px',
-                    background: 'var(--color-surface)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'min(var(--theme-radius-field), 0.25rem)',
                   }}
                 >
                   {stripPath}
@@ -472,7 +472,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
                   }}
                   style={{ padding: '2px' }}
                 >
-                  <Trash2 size={10} style={{ color: 'var(--color-danger)' }} />
+                  <Trash2 size={10} style={{ color: 'var(--danger-text)' }} />
                 </Button>
               </div>
             ))}
@@ -507,7 +507,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
         </div>
       ))}
       <Button
-        variant="secondary"
+        variant="outline"
         size="sm"
         onClick={() => {
           const newRule = {

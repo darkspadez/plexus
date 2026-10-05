@@ -272,7 +272,7 @@ export const AdminDashboard: React.FC = () => {
                 href={grafanaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-medium text-accent hover:text-accent/80 transition-colors whitespace-nowrap"
+                className="text-sm font-medium text-accent-text hover:text-accent-text/80 transition-colors whitespace-nowrap"
               >
                 View in Grafana ↗
               </a>

@@ -161,10 +161,10 @@ export function CompactionSettings() {
                 step={0.01}
                 placeholder="e.g. 0.8"
                 {...register('triggerRatio')}
-                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
               />
               {errors.triggerRatio && (
-                <span className="text-[11px] text-warning">{errors.triggerRatio.message}</span>
+                <span className="text-[11px] text-warning-text">{errors.triggerRatio.message}</span>
               )}
             </div>
             <div className="flex flex-col gap-1">
@@ -182,10 +182,10 @@ export function CompactionSettings() {
                 step={1}
                 placeholder="Disabled"
                 {...register('absoluteTriggerTokens')}
-                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
               />
               {errors.absoluteTriggerTokens && (
-                <span className="text-[11px] text-warning">
+                <span className="text-[11px] text-warning-text">
                   {errors.absoluteTriggerTokens.message}
                 </span>
               )}
@@ -204,10 +204,10 @@ export function CompactionSettings() {
                 step={1}
                 placeholder="e.g. 1000"
                 {...register('minTokens')}
-                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
               />
               {errors.minTokens && (
-                <span className="text-[11px] text-warning">{errors.minTokens.message}</span>
+                <span className="text-[11px] text-warning-text">{errors.minTokens.message}</span>
               )}
             </div>
             <div className="flex flex-col gap-1">
@@ -224,10 +224,12 @@ export function CompactionSettings() {
                 step={1}
                 placeholder="e.g. 4"
                 {...register('protectRecent')}
-                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
               />
               {errors.protectRecent && (
-                <span className="text-[11px] text-warning">{errors.protectRecent.message}</span>
+                <span className="text-[11px] text-warning-text">
+                  {errors.protectRecent.message}
+                </span>
               )}
             </div>
           </div>
@@ -250,10 +252,10 @@ export function CompactionSettings() {
                     step={1}
                     placeholder="e.g. 20"
                     {...register('native.maxArrayItems')}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                   />
                   {errors.native?.maxArrayItems && (
-                    <span className="text-[11px] text-warning">
+                    <span className="text-[11px] text-warning-text">
                       {errors.native.maxArrayItems.message}
                     </span>
                   )}
@@ -272,10 +274,10 @@ export function CompactionSettings() {
                     step={1}
                     placeholder="e.g. 500"
                     {...register('native.maxStringChars')}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                   />
                   {errors.native?.maxStringChars && (
-                    <span className="text-[11px] text-warning">
+                    <span className="text-[11px] text-warning-text">
                       {errors.native.maxStringChars.message}
                     </span>
                   )}
@@ -300,7 +302,7 @@ export function CompactionSettings() {
                     type="text"
                     placeholder="http://localhost:8787"
                     {...register('headroom.baseUrl')}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                   />
                 </div>
                 <div className="flex flex-col gap-1 sm:col-span-2">
@@ -315,7 +317,7 @@ export function CompactionSettings() {
                     type="password"
                     placeholder="••••••••"
                     {...register('headroom.apiKey')}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
@@ -334,10 +336,10 @@ export function CompactionSettings() {
                     step={0.01}
                     placeholder="Disabled"
                     {...register('headroom.targetRatio')}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                   />
                   {errors.headroom?.targetRatio && (
-                    <span className="text-[11px] text-warning">
+                    <span className="text-[11px] text-warning-text">
                       {errors.headroom.targetRatio.message}
                     </span>
                   )}
@@ -356,10 +358,10 @@ export function CompactionSettings() {
                     step={1}
                     placeholder="e.g. 30000"
                     {...register('headroom.timeoutMs')}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                   />
                   {errors.headroom?.timeoutMs && (
-                    <span className="text-[11px] text-warning">
+                    <span className="text-[11px] text-warning-text">
                       {errors.headroom.timeoutMs.message}
                     </span>
                   )}

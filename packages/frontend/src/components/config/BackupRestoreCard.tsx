@@ -32,7 +32,7 @@ export function BackupRestoreCard({
     <SectionCard title="Backup & Restore">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 mr-1">
-          <AlertTriangle size={13} className="text-warning shrink-0" />
+          <AlertTriangle size={13} className="text-warning-text shrink-0" />
           <span className="font-sans text-[11px] text-foreground-subtle">
             Sensitive data — store securely
           </span>
@@ -47,7 +47,7 @@ export function BackupRestoreCard({
           Restore
         </Button>
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           onClick={onFullBackupDownload}
           isLoading={fullBackupLoading}
@@ -56,7 +56,7 @@ export function BackupRestoreCard({
           Full Backup
         </Button>
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           onClick={onBackupDownload}
           isLoading={backupLoading}

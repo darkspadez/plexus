@@ -58,7 +58,7 @@ export function VisionFallthroughSelector({ aliases }: Props) {
       <button
         onClick={handleSaveDescriptor}
         disabled={isSavingDescriptor}
-        className="ml-1 text-foreground-muted hover:text-accent transition-colors disabled:opacity-50"
+        className="ml-1 text-foreground-muted hover:text-primary-text transition-colors disabled:opacity-50"
         title="Save descriptor model"
         type="button"
       >

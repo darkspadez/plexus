@@ -26,13 +26,13 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
     flexDirection: 'column',
     gap: '4px',
     fontSize: '12px',
-    color: '#e0e0e0',
+    color: 'var(--foreground)',
     minWidth: '180px',
   };
 
   const headerStyle: React.CSSProperties = {
     fontWeight: 'bold',
-    borderBottom: '1px solid #4a4a4a',
+    borderBottom: '1px solid var(--border)',
     paddingBottom: '4px',
     marginBottom: '4px',
     // textTransform: 'capitalize'
@@ -46,7 +46,7 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
   };
 
   const labelStyle: React.CSSProperties = {
-    color: '#9ca3af',
+    color: 'var(--foreground-muted)',
     textAlign: 'left',
   };
 
@@ -77,7 +77,7 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
       attribution = (
         <div
           style={{
-            borderTop: '1px solid #4a4a4a',
+            borderTop: '1px solid var(--border)',
             paddingTop: '4px',
             marginTop: '4px',
             display: 'flex',
@@ -86,23 +86,23 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
           }}
         >
           {pricingModel ? (
-            <span style={{ color: '#9ca3af', fontSize: '11px' }}>
+            <span style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>
               Pricing model:{' '}
-              <span style={{ fontFamily: 'monospace', color: '#e0e0e0' }}>
+              <span style={{ fontFamily: 'monospace', color: 'var(--foreground)' }}>
                 {String(pricingModel)}
               </span>
             </span>
           ) : null}
           {upstreamModel && upstreamModel !== pricingModel ? (
-            <span style={{ color: '#9ca3af', fontSize: '11px' }}>
+            <span style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>
               Upstream:{' '}
-              <span style={{ fontFamily: 'monospace', color: '#e0e0e0' }}>
+              <span style={{ fontFamily: 'monospace', color: 'var(--foreground)' }}>
                 {String(upstreamModel)}
               </span>
             </span>
           ) : null}
           {pricingFallback && !isProviderReported ? (
-            <span style={{ color: '#fbbf24', fontSize: '11px', fontWeight: 600 }}>
+            <span style={{ color: 'var(--warning-text)', fontSize: '11px', fontWeight: 600 }}>
               Route pricing used — upstream price unavailable
             </span>
           ) : null}
@@ -145,7 +145,9 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
               <span style={valueStyle}>{formatRate(data.output)}</span>
             </div>
           ) : (
-            <div style={{ color: '#9ca3af', fontStyle: 'italic' }}>Range-based configuration</div>
+            <div style={{ color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
+              Range-based configuration
+            </div>
           )}
         </div>
       );
@@ -158,7 +160,12 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
             <span style={valueStyle}>${formatRate(data.amount)}</span>
           </div>
           <div
-            style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '11px', marginTop: '4px' }}
+            style={{
+              color: 'var(--foreground-muted)',
+              fontStyle: 'italic',
+              fontSize: '11px',
+              marginTop: '4px',
+            }}
           >
             Flat fee per API call
           </div>
@@ -177,7 +184,7 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
             {data.cache_savings_usd !== undefined && (
               <>
                 <span style={labelStyle}>Saved:</span>
-                <span style={{ ...valueStyle, color: '#4ade80' }}>
+                <span style={{ ...valueStyle, color: 'var(--success-text)' }}>
                   ${formatRate(data.cache_savings_usd)}
                 </span>
               </>
@@ -198,7 +205,12 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
             )}
           </div>
           <div
-            style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '11px', marginTop: '4px' }}
+            style={{
+              color: 'var(--foreground-muted)',
+              fontStyle: 'italic',
+              fontSize: '11px',
+              marginTop: '4px',
+            }}
           >
             Actual cost reported by provider
           </div>
@@ -208,7 +220,14 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
       content = (
         <div style={containerStyle}>
           <div style={headerStyle}>Pricing Source: OpenRouter</div>
-          <div style={{ ...headerStyle, borderBottom: 'none', fontSize: '11px', color: '#9ca3af' }}>
+          <div
+            style={{
+              ...headerStyle,
+              borderBottom: 'none',
+              fontSize: '11px',
+              color: 'var(--foreground-muted)',
+            }}
+          >
             {data.slug || 'Unknown'}
           </div>
           <div style={gridStyle}>
@@ -221,8 +240,8 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
             <span style={labelStyle}>Cached:</span>
             <span style={valueStyle}>{formatRate(data.input_cache_read)}</span>
 
-            <span style={{ ...labelStyle, color: '#4ade80' }}>Discounted:</span>
-            <span style={{ ...valueStyle, color: '#4ade80' }}>
+            <span style={{ ...labelStyle, color: 'var(--success-text)' }}>Discounted:</span>
+            <span style={{ ...valueStyle, color: 'var(--success-text)' }}>
               {Number(data?.discount) > 0 ? `${(data.discount * 100).toFixed(0)}%` : 'None'}
             </span>
           </div>
@@ -238,7 +257,7 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
       );
     }
   } catch (e) {
-    content = <span style={{ color: '#f87171' }}>Error parsing metadata</span>;
+    content = <span style={{ color: 'var(--danger-text)' }}>Error parsing metadata</span>;
   }
 
   const tooltipContent = costBreakdown ? (
@@ -258,7 +277,7 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
         <span style={valueStyle}>{costBreakdown.cacheWrite}</span>
       </div>
       {source && (
-        <div style={{ borderTop: '1px solid #4a4a4a', paddingTop: '4px', marginTop: '4px' }}>
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '4px', marginTop: '4px' }}>
           {content}
           {attribution}
         </div>
@@ -272,5 +291,9 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
     </>
   );
 
-  return <Tooltip content={tooltipContent}>{children}</Tooltip>;
+  return (
+    <Tooltip content={tooltipContent} variant="surface">
+      {children}
+    </Tooltip>
+  );
 };

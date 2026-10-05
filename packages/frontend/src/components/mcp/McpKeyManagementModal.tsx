@@ -38,7 +38,7 @@ export function McpKeyManagementModal({
       onClose={onClose}
       title={serverName ? `Manage Keys: ${serverName}` : 'Manage Keys'}
       footer={
-        <Button variant="secondary" onClick={onClose}>
+        <Button variant="outline" onClick={onClose}>
           Close
         </Button>
       }
@@ -94,7 +94,7 @@ export function McpKeyManagementModal({
                     <div
                       className={cn(
                         'mt-1 text-xs font-medium',
-                        !key.is_active || isExhausted ? 'text-warning' : 'text-success'
+                        !key.is_active || isExhausted ? 'text-warning-text' : 'text-success-text'
                       )}
                     >
                       {!key.is_active
@@ -106,7 +106,7 @@ export function McpKeyManagementModal({
                   </div>
                   <div className="flex gap-2">
                     {isExhausted && (
-                      <Button size="sm" variant="secondary" onClick={() => onClearCooldown(key.id)}>
+                      <Button size="sm" variant="outline" onClick={() => onClearCooldown(key.id)}>
                         Clear Cooldown
                       </Button>
                     )}

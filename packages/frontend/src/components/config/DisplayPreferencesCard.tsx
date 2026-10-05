@@ -23,7 +23,7 @@ export function DisplayPreferencesCard() {
         />
         {!ratesAvailable && currency !== 'USD' && (
           <p className="flex items-center gap-1.5 font-sans text-[11px] text-foreground-subtle">
-            <Info size={13} className="text-warning shrink-0" aria-hidden="true" />
+            <Info size={13} className="text-warning-text shrink-0" aria-hidden="true" />
             <span>Live exchange rates are unavailable; amounts fall back to USD.</span>
           </p>
         )}

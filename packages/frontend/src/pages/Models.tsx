@@ -102,14 +102,14 @@ function ModelRowActions({ alias, testState, onTest, onEdit, onDelete }: ModelRo
         }}
         title="Test all targets"
         aria-label={`Test ${alias.id}`}
-        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success"
+        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success-text"
       >
         {testState.loading ? (
           <Loader2 size={14} className="animate-spin" />
         ) : testState.error ? (
-          <XCircle size={14} className="text-danger" />
+          <XCircle size={14} className="text-danger-text" />
         ) : testState.success ? (
-          <CheckCircle size={14} className="text-success" />
+          <CheckCircle size={14} className="text-success-text" />
         ) : (
           <Play size={14} />
         )}
@@ -134,7 +134,7 @@ function ModelRowActions({ alias, testState, onTest, onEdit, onDelete }: ModelRo
         }}
         title="Delete"
         aria-label={`Delete ${alias.id}`}
-        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger"
+        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
       >
         <Trash2 size={14} />
       </button>
@@ -393,7 +393,7 @@ export const Models = () => {
         meta: { priority: 'medium' },
         cell: ({ row }) =>
           row.original.metadata ? (
-            <Pill size="sm" tone="accent" className="capitalize">
+            <Pill size="sm" tone="primary" className="capitalize">
               {row.original.metadata.source}
             </Pill>
           ) : (
@@ -463,7 +463,7 @@ export const Models = () => {
               Delete All
             </Button>
             <Button
-              variant="secondary"
+              variant="outline"
               size="md"
               leftIcon={<Download size={14} />}
               onClick={handleOpenImport}
@@ -758,7 +758,7 @@ export const Models = () => {
                           next.splice(idx, 1);
                           setEditingAlias({ ...editingAlias, aliases: next });
                         }}
-                        className="text-danger opacity-60 hover:opacity-100 px-1"
+                        className="text-danger-text opacity-60 hover:opacity-100 px-1"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -766,7 +766,7 @@ export const Models = () => {
                   ))}
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="outline"
                     className="mt-1 w-fit"
                     onClick={() =>
                       setEditingAlias({
@@ -804,7 +804,7 @@ export const Models = () => {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="outline"
                     onClick={() => setIsAutoAddModalOpen(true)}
                     leftIcon={<Zap size={14} />}
                   >

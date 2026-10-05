@@ -33,7 +33,7 @@ export function DeleteProviderModal({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div
             style={{
-              border: '1px solid var(--color-border)',
+              border: '1px solid var(--border)',
               borderRadius: '8px',
               padding: '16px',
               display: 'flex',
@@ -41,7 +41,7 @@ export function DeleteProviderModal({
               gap: '12px',
             }}
           >
-            <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--color-danger)' }}>
+            <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--danger-text)' }}>
               Delete Provider (Cascade)
             </div>
             <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
@@ -81,14 +81,14 @@ export function DeleteProviderModal({
             <Button
               onClick={() => onDelete(true)}
               isLoading={deleteModalLoading}
-              style={{ backgroundColor: 'var(--color-danger)', marginTop: 'auto' }}
+              style={{ backgroundColor: 'var(--danger)', marginTop: 'auto' }}
             >
               Delete (Cascade)
             </Button>
           </div>
           <div
             style={{
-              border: '1px solid var(--color-border)',
+              border: '1px solid var(--border)',
               borderRadius: '8px',
               padding: '16px',
               display: 'flex',
@@ -104,12 +104,12 @@ export function DeleteProviderModal({
               remain but may cause errors.
             </div>
             {affectedAliases.length > 0 && (
-              <div style={{ fontSize: '12px', color: 'var(--color-warning)', fontStyle: 'italic' }}>
+              <div style={{ fontSize: '12px', color: 'var(--warning-text)', fontStyle: 'italic' }}>
                 {affectedAliases.length} model alias(es) will have orphaned targets.
               </div>
             )}
             <Button
-              variant="secondary"
+              variant="outline"
               onClick={() => onDelete(false)}
               isLoading={deleteModalLoading}
               style={{ marginTop: 'auto' }}

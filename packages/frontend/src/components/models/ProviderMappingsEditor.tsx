@@ -45,7 +45,7 @@ interface ProviderMappingsEditorProps {
 }
 
 const SELECT_CLS =
-  'h-9 rounded-md border border-border bg-surface-sunken px-2.5 text-xs text-foreground outline-none transition-colors focus:border-accent disabled:opacity-50';
+  'h-9 rounded-md border border-border bg-surface-sunken px-2.5 text-xs text-foreground outline-none transition-colors focus:border-focus disabled:opacity-50';
 
 const MappingRow: React.FC<{
   rowId: string;
@@ -133,14 +133,14 @@ const MappingRow: React.FC<{
           disabled={!canTest}
           title="Test mapping"
           aria-label="Test mapping"
-          className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success disabled:opacity-40"
+          className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success-text disabled:opacity-40"
         >
           {testState?.loading ? (
             <Loader2 size={14} className="animate-spin" />
           ) : testState?.showResult && testState.result === 'success' ? (
-            <CheckCircle size={14} className="text-success" />
+            <CheckCircle size={14} className="text-success-text" />
           ) : testState?.showResult && testState.result === 'error' ? (
-            <XCircle size={14} className="text-danger" />
+            <XCircle size={14} className="text-danger-text" />
           ) : (
             <Play size={14} />
           )}
@@ -150,7 +150,7 @@ const MappingRow: React.FC<{
           onClick={onDelete}
           title="Delete mapping"
           aria-label="Delete mapping"
-          className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger"
+          className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
         >
           <Trash2 size={14} />
         </button>
@@ -220,7 +220,7 @@ export const ProviderMappingsEditor: React.FC<ProviderMappingsEditorProps> = ({
       <button
         type="button"
         onClick={addBlank}
-        className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-2 text-xs text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
+        className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-2 text-xs text-foreground-muted transition-colors hover:border-primary hover:text-foreground"
       >
         <Plus size={14} />
         Add mapping

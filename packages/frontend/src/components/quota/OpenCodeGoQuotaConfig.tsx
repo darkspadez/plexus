@@ -22,7 +22,7 @@ export const OpenCodeGoQuotaConfig: React.FC<OpenCodeGoQuotaConfigProps> = ({
           htmlFor="opencode-go-workspace-id"
           className="font-sans text-[13px] font-medium text-foreground-muted"
         >
-          Workspace ID <span className="text-danger">*</span>
+          Workspace ID <span className="text-danger-text">*</span>
         </label>
         <Input
           id="opencode-go-workspace-id"
@@ -36,7 +36,7 @@ export const OpenCodeGoQuotaConfig: React.FC<OpenCodeGoQuotaConfigProps> = ({
             href="https://opencode.ai"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent hover:underline inline-flex items-center gap-1"
+            className="text-accent-text hover:underline inline-flex items-center gap-1"
           >
             OpenCode dashboard <ExternalLink size={10} />
           </a>{' '}
@@ -49,7 +49,7 @@ export const OpenCodeGoQuotaConfig: React.FC<OpenCodeGoQuotaConfigProps> = ({
           htmlFor="opencode-go-auth-cookie"
           className="font-sans text-[13px] font-medium text-foreground-muted"
         >
-          Auth Cookie <span className="text-danger">*</span>
+          Auth Cookie <span className="text-danger-text">*</span>
         </label>
         <Input
           id="opencode-go-auth-cookie"

@@ -140,7 +140,7 @@ export function AutoAddModal({
               overflowY: 'auto',
               overflowX: 'auto',
               border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'min(var(--theme-radius-field), 0.25rem)',
             }}
           >
             <table className="w-full border-collapse font-sans text-[13px]">

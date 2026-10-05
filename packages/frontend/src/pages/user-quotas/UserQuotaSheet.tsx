@@ -135,7 +135,7 @@ export const UserQuotaSheet: React.FC<Props> = ({
     <>
       <Button
         type="button"
-        variant="secondary"
+        variant="outline"
         onClick={() => onOpenChange(false)}
         disabled={save.isPending}
       >

@@ -70,7 +70,7 @@ export function GrafanaSettings() {
       <form id="grafana-form" onSubmit={handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <LineChart size={16} className="text-accent" />
+            <LineChart size={16} className="text-primary-text" />
             <div>
               <p className="font-sans text-[12px] font-medium text-foreground">Grafana URL</p>
               <p className="font-sans text-[11px] text-foreground-subtle">
@@ -86,10 +86,10 @@ export function GrafanaSettings() {
               type="text"
               placeholder="https://grafana.example.com"
               {...register('grafanaUrl')}
-              className="w-full max-w-md h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+              className="w-full max-w-md h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.grafanaUrl && (
-              <p className="text-[11px] text-warning mt-1">{errors.grafanaUrl.message}</p>
+              <p className="text-[11px] text-warning-text mt-1">{errors.grafanaUrl.message}</p>
             )}
           </div>
         </div>
