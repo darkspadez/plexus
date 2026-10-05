@@ -1,0 +1,48 @@
+type: object
+description: >
+  A custom admin-UI theme. The id must match `^custom-[a-z0-9-]{1,40}$`.
+  Colors must be hex or rgb/hsl/oklch/oklab/lab/lch/color() values; no
+  additional properties are allowed.
+required: [id, name, colorScheme, colors, radius, border, depth]
+additionalProperties: false
+properties:
+  id:
+    type: string
+    pattern: '^custom-[a-z0-9-]{1,40}$'
+  name:
+    type: string
+    minLength: 1
+    maxLength: 40
+  colorScheme:
+    type: string
+    enum: [light, dark]
+  colors:
+    type: object
+    description: >
+      Required: base-100, base-200, base-300, base-content, primary, secondary,
+      accent, neutral, info, success, warning, error. Optional: the matching
+      `*-content` colors (primary, secondary, accent, neutral, info, success,
+      warning, error), derived automatically when absent.
+    additionalProperties:
+      type: string
+      maxLength: 100
+  radius:
+    type: object
+    required: [box, field, selector]
+    additionalProperties: false
+    properties:
+      box:
+        type: string
+        example: 0.5rem
+      field:
+        type: string
+        example: 0.25rem
+      selector:
+        type: string
+        example: 0.25rem
+  border:
+    type: string
+    enum: [1px, 1.5px, 2px]
+  depth:
+    type: integer
+    enum: [0, 1]

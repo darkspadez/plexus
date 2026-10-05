@@ -23,6 +23,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { AppearanceProvider, useAppearance } from './contexts/AppearanceContext';
+import { CustomThemesSync } from './components/appearance/CustomThemesSync';
 import { VersionReloader } from './components/VersionReloader';
 
 /** App-wide QueryClient — sensible defaults for a server-management UI. */
@@ -204,6 +205,7 @@ const AppShell: React.FC = () => {
       <ToastProvider>
         <AuthProvider>
           <SidebarProvider>
+            <CustomThemesSync />
             <AppRoutes />
             <VersionReloader />
           </SidebarProvider>

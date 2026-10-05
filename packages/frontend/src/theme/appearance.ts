@@ -4,6 +4,8 @@
  * The boot script in index.html mirrors the parse/resolve rules below.
  */
 
+import { DEFAULT_DARK_THEME_ID, DEFAULT_LIGHT_THEME_ID } from './ids';
+
 export type AppearanceMode = 'single' | 'system';
 
 export interface Appearance {
@@ -26,9 +28,9 @@ export const SCALE_PRESETS = [0.875, 0.9375, 1, 1.125, 1.25] as const;
 
 export const DEFAULT_APPEARANCE: Appearance = {
   mode: 'system',
-  theme: 'plexus-dark',
-  light: 'plexus-light',
-  dark: 'plexus-dark',
+  theme: DEFAULT_DARK_THEME_ID,
+  light: DEFAULT_LIGHT_THEME_ID,
+  dark: DEFAULT_DARK_THEME_ID,
   scale: 1,
 };
 
@@ -42,10 +44,10 @@ function snapScale(v: unknown): number {
 
 function fromLegacy(legacyTheme: string | null): Appearance {
   if (legacyTheme === 'light') {
-    return { ...DEFAULT_APPEARANCE, mode: 'single', theme: 'plexus-light' };
+    return { ...DEFAULT_APPEARANCE, mode: 'single', theme: DEFAULT_LIGHT_THEME_ID };
   }
   if (legacyTheme === 'dark') {
-    return { ...DEFAULT_APPEARANCE, mode: 'single', theme: 'plexus-dark' };
+    return { ...DEFAULT_APPEARANCE, mode: 'single', theme: DEFAULT_DARK_THEME_ID };
   }
   return { ...DEFAULT_APPEARANCE };
 }

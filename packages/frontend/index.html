@@ -9,17 +9,33 @@
       first paint matches the saved appearance (no flash). Reads the
       `plexus.appearance` JSON ({ mode, theme, light, dark }); when it is missing
       or invalid, falls back to the legacy `plexus.theme` value ('light' or 'dark'),
-      and otherwise to system mode with the Plexus light/dark pair. Any failure
-      sets 'plexus-dark'. Mirrors the parse/resolve rules in src/theme/appearance.ts
-      (parseAppearance / resolveThemeId); keep them in sync. AppearanceContext
-      takes over after mount.
+      and otherwise to system mode with the Plexus light/dark pair. Each storage
+      read is guarded on its own, so blocked storage behaves like "no value".
+      A `custom-*` id renders only if `plexus.themeCache` holds its CSS, which is
+      injected as <style id="plexus-custom-themes-boot">; otherwise (and for any
+      failure) the Plexus theme for the OS scheme is used. Every non-custom id is
+      assumed built-in. Mirrors parseAppearance / resolveThemeId /
+      resolveRenderedThemeId in src/theme (a vitest evaluates this script against
+      them); keep them in sync. AppearanceContext takes over after mount.
     -->
     <script>
       (function () {
+        var dark = true;
         try {
+          dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        } catch (e) {}
+        var fallback = dark ? 'plexus-dark' : 'plexus-light';
+        try {
+          var read = function (k) {
+            try {
+              return localStorage.getItem(k);
+            } catch (e) {
+              return null;
+            }
+          };
           var a = null;
           try {
-            var v = JSON.parse(localStorage.getItem('plexus.appearance'));
+            var v = JSON.parse(read('plexus.appearance'));
             if (
               v &&
               typeof v === 'object' &&
@@ -32,7 +48,7 @@
             }
           } catch (e) {}
           if (!a) {
-            var legacy = localStorage.getItem('plexus.theme');
+            var legacy = read('plexus.theme');
             a = { mode: 'system', theme: 'plexus-dark', light: 'plexus-light', dark: 'plexus-dark' };
             if (legacy === 'light') {
               a.mode = 'single';
@@ -42,13 +58,37 @@
               a.theme = 'plexus-dark';
             }
           }
-          var id = a.theme;
-          if (a.mode === 'system') {
-            id = window.matchMedia('(prefers-color-scheme: dark)').matches ? a.dark : a.light;
+          var id = a.mode === 'system' ? (dark ? a.dark : a.light) : a.theme;
+          // Inject every cached custom theme (at most 3), not just the resolved
+          // one: in system mode the OS scheme can flip before the list loads.
+          var cache = null;
+          try {
+            cache = JSON.parse(read('plexus.themeCache'));
+          } catch (e) {}
+          var css = '';
+          var cachedResolved = false;
+          if (cache && typeof cache === 'object') {
+            for (var key in cache) {
+              if (
+                Object.prototype.hasOwnProperty.call(cache, key) &&
+                typeof cache[key] === 'string' &&
+                cache[key]
+              ) {
+                css += cache[key] + '\n';
+                if (key === id) cachedResolved = true;
+              }
+            }
           }
+          if (css) {
+            var el = document.createElement('style');
+            el.id = 'plexus-custom-themes-boot';
+            el.textContent = css;
+            document.head.appendChild(el);
+          }
+          if (id.indexOf('custom-') === 0 && !cachedResolved) id = fallback;
           document.documentElement.dataset.theme = id;
         } catch (e) {
-          document.documentElement.dataset.theme = 'plexus-dark';
+          document.documentElement.dataset.theme = fallback;
         }
       })();
     </script>

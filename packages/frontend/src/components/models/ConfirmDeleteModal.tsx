@@ -8,6 +8,8 @@ interface Props {
   onClose: () => void;
   title: string;
   message: React.ReactNode;
+  /** Bold heading above `message`. Defaults to the model-deletion wording. */
+  question?: React.ReactNode;
   confirmLabel?: string;
   onConfirm: () => Promise<void> | void;
   isLoading: boolean;
@@ -18,6 +20,7 @@ export function ConfirmDeleteModal({
   onClose,
   title,
   message,
+  question,
   confirmLabel = 'Delete',
   onConfirm,
   isLoading,
@@ -64,9 +67,10 @@ export function ConfirmDeleteModal({
         </div>
         <div>
           <p className="text-foreground" style={{ marginBottom: '8px', fontWeight: 500 }}>
-            {title === 'Delete Model Alias'
-              ? 'Are you sure you want to delete this alias?'
-              : 'Are you sure you want to delete all configured models?'}
+            {question ??
+              (title === 'Delete Model Alias'
+                ? 'Are you sure you want to delete this alias?'
+                : 'Are you sure you want to delete all configured models?')}
           </p>
           <p className="text-foreground-muted" style={{ fontSize: '14px' }}>
             {message}

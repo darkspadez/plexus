@@ -1,0 +1,81 @@
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+      pattern: '^custom-[a-z0-9-]{1,40}$'
+    description: Custom theme id (must start with `custom-`).
+put:
+  tags:
+    - Management — Config
+  summary: Create or replace a custom UI theme (admin only)
+  description: |
+    Upserts one theme in the library. Existing themes are replaced in place;
+    new themes are appended. The body `id` must equal the path `id`.
+    At most 50 themes may be stored.
+
+    **Admin only** — limited principals receive 403.
+  security:
+    - AdminKey: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/CustomUiTheme.yaml
+  responses:
+    '200':
+      description: The saved theme.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/CustomUiTheme.yaml
+    '400':
+      description: Invalid theme, or body id does not match path id.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              issues:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+    '401':
+      description: Authentication required or invalid credentials.
+    '403':
+      description: Admin privileges required.
+    '409':
+      description: Theme limit (50) reached.
+  operationId: putV0ManagementUithemesByid
+delete:
+  tags:
+    - Management — Config
+  summary: Delete a custom UI theme (admin only)
+  description: |
+    Removes a theme from the library.
+
+    **Admin only** — limited principals receive 403.
+  security:
+    - AdminKey: []
+  responses:
+    '200':
+      description: Theme deleted.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+    '401':
+      description: Authentication required or invalid credentials.
+    '403':
+      description: Admin privileges required.
+    '404':
+      description: Theme not found.
+  operationId: deleteV0ManagementUithemesByid

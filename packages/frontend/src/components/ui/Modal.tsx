@@ -10,7 +10,7 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   /** Small muted metadata rendered in the header row, before the close button. */
   headerMeta?: React.ReactNode;
   /** Muted second line rendered under the title (e.g. "name · id"). */
@@ -22,12 +22,16 @@ interface ModalProps {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Centered dialog — size="sm" (confirmations, small forms) and "xl" (wide)    */
+/* Centered dialog — size="sm" (confirmations), "xl" and "2xl" (wide)       */
 /* -------------------------------------------------------------------------- */
 
-const CENTERED_WIDTH = { sm: 'max-w-md', xl: 'max-w-3xl' } as const;
-// xl is top-aligned so its position stays put while the content height changes.
-const CENTERED_ALIGN = { sm: 'items-center', xl: 'items-start pt-[8vh]' } as const;
+const CENTERED_WIDTH = { sm: 'max-w-md', xl: 'max-w-3xl', '2xl': 'max-w-5xl' } as const;
+// xl and 2xl are top-aligned so their position stays put while the content height changes.
+const CENTERED_ALIGN = {
+  sm: 'items-center',
+  xl: 'items-start pt-[8vh]',
+  '2xl': 'items-start pt-[8vh]',
+} as const;
 
 const CenteredDialog: React.FC<ModalProps & { size: keyof typeof CENTERED_WIDTH }> = ({
   size,
@@ -185,7 +189,7 @@ export const Modal: React.FC<ModalProps> = ({
   headerActions,
   subHeader,
 }) => {
-  if (size === 'sm' || size === 'xl') {
+  if (size === 'sm' || size === 'xl' || size === '2xl') {
     return (
       <CenteredDialog
         size={size}

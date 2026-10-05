@@ -3653,6 +3653,174 @@
         "operationId": "patchV0ManagementSystemsettings"
       }
     },
+    "/v0/management/ui-themes": {
+      "get": {
+        "tags": [
+          "Management — Config"
+        ],
+        "summary": "List custom UI themes",
+        "description": "Returns the shared custom UI theme library stored on this instance\n(system setting `ui.themes`). If the stored value is partly invalid, only\nthe valid, de-duplicated themes are returned.\n\nAvailable to both admin and limited principals.\n",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Theme library.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "version",
+                    "themes"
+                  ],
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "enum": [
+                        1
+                      ]
+                    },
+                    "themes": {
+                      "type": "array",
+                      "maxItems": 50,
+                      "items": {
+                        "$ref": "#/components/schemas/CustomUiTheme"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid credentials."
+          }
+        },
+        "operationId": "getV0ManagementUithemes"
+      }
+    },
+    "/v0/management/ui-themes/{id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^custom-[a-z0-9-]{1,40}$"
+          },
+          "description": "Custom theme id (must start with `custom-`)."
+        }
+      ],
+      "put": {
+        "tags": [
+          "Management — Config"
+        ],
+        "summary": "Create or replace a custom UI theme (admin only)",
+        "description": "Upserts one theme in the library. Existing themes are replaced in place;\nnew themes are appended. The body `id` must equal the path `id`.\nAt most 50 themes may be stored.\n\n**Admin only** — limited principals receive 403.\n",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomUiTheme"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The saved theme.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomUiTheme"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid theme, or body id does not match path id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid credentials."
+          },
+          "403": {
+            "description": "Admin privileges required."
+          },
+          "409": {
+            "description": "Theme limit (50) reached."
+          }
+        },
+        "operationId": "putV0ManagementUithemesByid"
+      },
+      "delete": {
+        "tags": [
+          "Management — Config"
+        ],
+        "summary": "Delete a custom UI theme (admin only)",
+        "description": "Removes a theme from the library.\n\n**Admin only** — limited principals receive 403.\n",
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Theme deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid credentials."
+          },
+          "403": {
+            "description": "Admin privileges required."
+          },
+          "404": {
+            "description": "Theme not found."
+          }
+        },
+        "operationId": "deleteV0ManagementUithemesByid"
+      }
+    },
     "/v0/management/providers": {
       "get": {
         "tags": [
@@ -13809,6 +13977,84 @@
                 "maximum": 60000
               }
             }
+          }
+        }
+      },
+      "CustomUiTheme": {
+        "type": "object",
+        "description": "A custom admin-UI theme. The id must match `^custom-[a-z0-9-]{1,40}$`. Colors must be hex or rgb/hsl/oklch/oklab/lab/lch/color() values; no additional properties are allowed.\n",
+        "required": [
+          "id",
+          "name",
+          "colorScheme",
+          "colors",
+          "radius",
+          "border",
+          "depth"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^custom-[a-z0-9-]{1,40}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "colorScheme": {
+            "type": "string",
+            "enum": [
+              "light",
+              "dark"
+            ]
+          },
+          "colors": {
+            "type": "object",
+            "description": "Required: base-100, base-200, base-300, base-content, primary, secondary, accent, neutral, info, success, warning, error. Optional: the matching `*-content` colors (primary, secondary, accent, neutral, info, success, warning, error), derived automatically when absent.\n",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          "radius": {
+            "type": "object",
+            "required": [
+              "box",
+              "field",
+              "selector"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "box": {
+                "type": "string",
+                "example": "0.5rem"
+              },
+              "field": {
+                "type": "string",
+                "example": "0.25rem"
+              },
+              "selector": {
+                "type": "string",
+                "example": "0.25rem"
+              }
+            }
+          },
+          "border": {
+            "type": "string",
+            "enum": [
+              "1px",
+              "1.5px",
+              "2px"
+            ]
+          },
+          "depth": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
           }
         }
       },

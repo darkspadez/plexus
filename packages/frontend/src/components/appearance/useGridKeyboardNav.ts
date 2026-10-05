@@ -1,7 +1,7 @@
 import React from 'react';
 
 /**
- * Arrow-key focus movement across the buttons of a CSS grid. Left/right step
+ * Arrow-key focus movement across the select buttons of a CSS grid. Left/right step
  * by one; up/down step by the rendered column count. Returns an onKeyDown
  * handler for the grid element.
  */
@@ -17,8 +17,10 @@ export function useGridKeyboardNav(gridRef: React.RefObject<HTMLElement | null>)
         const cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
         delta = e.key === 'ArrowUp' ? -cols : cols;
       }
-      const items = Array.from(grid.querySelectorAll<HTMLElement>('button'));
-      const current = items.indexOf(document.activeElement as HTMLElement);
+      // Only the theme select buttons; the per-tile actions button and its
+      // menu items carry no aria-pressed and stay out of arrow navigation.
+      const items = Array.from(grid.querySelectorAll<HTMLElement>('button[aria-pressed]'));
+      const current = items.indexOf(e.target as HTMLElement);
       if (current === -1) return;
       const next = items[current + delta];
       e.preventDefault();
