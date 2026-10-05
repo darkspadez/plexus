@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { APPEARANCE_STORAGE_KEY, LEGACY_THEME_KEY, parseAppearance } from '../appearance';
+import {
+  APPEARANCE_STORAGE_KEY,
+  LEGACY_THEME_KEY,
+  SCALE_PRESETS,
+  parseAppearance,
+} from '../appearance';
 import { BUILTIN_THEMES } from '../builtin';
 import { THEME_CACHE_STORAGE_KEY, resolveRenderedThemeId } from '../custom';
 
@@ -24,8 +29,16 @@ interface Env {
 function runBoot(env: Env) {
   const appended: { id: string; textContent: string }[] = [];
   const dataset: Record<string, string> = {};
+  const props: Record<string, string> = {};
   const fakeDocument = {
-    documentElement: { dataset, style: { setProperty() {} } },
+    documentElement: {
+      dataset,
+      style: {
+        setProperty(k: string, v: string) {
+          props[k] = v;
+        },
+      },
+    },
     head: { appendChild: (el: { id: string; textContent: string }) => appended.push(el) },
     createElement: () => ({ id: '', textContent: '' }),
     getElementById: () => null,
@@ -47,7 +60,11 @@ function runBoot(env: Env) {
     fakeWindow,
     fakeDocument
   );
-  return { theme: dataset.theme, boot: appended.find((e) => e.id === 'plexus-custom-themes-boot') };
+  return {
+    theme: dataset.theme,
+    scale: props['--ui-scale'],
+    boot: appended.find((e) => e.id === 'plexus-custom-themes-boot'),
+  };
 }
 
 /** What AppearanceContext renders for the same inputs, before custom themes load. */
@@ -69,6 +86,13 @@ function expectedTheme(env: Env): string {
       Object.keys(cache).filter((k) => typeof cache[k] === 'string' && cache[k])
     ),
   });
+}
+
+/** What AppearanceContext applies for the same storage, except 1 is left to the CSS fallback. */
+function expectedScale(env: Env): string | undefined {
+  const get = (k: string) => (env.blocked ? null : (env.storage?.[k] ?? null));
+  const { appearance } = parseAppearance(get(APPEARANCE_STORAGE_KEY), get(LEGACY_THEME_KEY));
+  return appearance.scale === 1 ? undefined : String(appearance.scale);
 }
 
 const app = (o: Record<string, unknown>) =>
@@ -114,6 +138,20 @@ const CASES: { name: string; env: Env; injects?: boolean; contains?: string[] }[
     env: {
       prefersDark: true,
       storage: { [APPEARANCE_STORAGE_KEY]: '{oops', [LEGACY_THEME_KEY]: 'light' },
+    },
+  },
+  {
+    name: 'structurally invalid appearance with scale 1.25 sets no scale',
+    env: {
+      prefersDark: true,
+      storage: { [APPEARANCE_STORAGE_KEY]: JSON.stringify({ mode: 'bogus', scale: 1.25 }) },
+    },
+  },
+  {
+    name: 'valid appearance with scale 1.125',
+    env: {
+      prefersDark: true,
+      storage: { [APPEARANCE_STORAGE_KEY]: app({ scale: 1.125 }) },
     },
   },
   {
@@ -203,8 +241,40 @@ describe('index.html boot script parity', () => {
   it.each(CASES)('$name', ({ env, injects, contains }) => {
     const out = runBoot(env);
     expect(out.theme).toBe(expectedTheme(env));
+    expect(out.scale).toBe(expectedScale(env));
     expect(Boolean(out.boot)).toBe(Boolean(injects));
     if (injects) expect(out.boot!.textContent).toContain('[data-theme=');
     for (const needle of contains ?? []) expect(out.boot!.textContent).toContain(needle);
+  });
+});
+
+describe('index.html boot script UI scale', () => {
+  const withScale = (scale: unknown): Env => ({
+    prefersDark: true,
+    storage: { [APPEARANCE_STORAGE_KEY]: app({ scale }) },
+  });
+
+  // Driven by SCALE_PRESETS so a new preset without a matching index.html
+  // entry fails here.
+  it.each(SCALE_PRESETS.filter((s) => s !== 1).map((s) => [String(s), s] as const))(
+    'preset %s is applied',
+    (value, scale) => {
+      const env = withScale(scale);
+      const out = runBoot(env);
+      expect(out.scale).toBe(value);
+      expect(out.scale).toBe(expectedScale(env));
+    }
+  );
+
+  it.each([
+    ['1 (default)', 1],
+    ['off-preset 0.5', 0.5],
+    ['string', '1.25'],
+    ['missing', undefined],
+  ])('%s is not set', (_name, scale) => {
+    const env = withScale(scale);
+    const out = runBoot(env);
+    expect(out.scale).toBeUndefined();
+    expect(out.scale).toBe(expectedScale(env));
   });
 });

@@ -211,50 +211,48 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
           onClick={() => setIsOpen((o) => !o)}
           className="w-full flex items-center justify-between px-3 py-2 bg-surface-sunken hover:bg-surface-elevated transition-colors duration-150 text-left"
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <BookOpen size={13} className="text-foreground-subtle" />
-            <span className="font-sans text-[13px] font-medium text-foreground-muted">
-              Metadata
-            </span>
-            <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border border-border text-primary-text bg-surface-elevated">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            <BookOpen size="0.8125rem" className="text-foreground-subtle" />
+            <span className="font-sans text-sm font-medium text-foreground-muted">Metadata</span>
+            <span className="inline-flex items-center rounded px-2 py-0.5 text-2xs font-medium border border-border text-primary-text bg-surface-elevated">
               {metadataSource === 'auto' ? 'automatic' : metadataSource}
             </span>
           </div>
           {isOpen ? (
-            <ChevronDown size={14} className="text-foreground-subtle" />
+            <ChevronDown size="0.875rem" className="text-foreground-subtle" />
           ) : (
-            <ChevronRight size={14} className="text-foreground-subtle" />
+            <ChevronRight size="0.875rem" className="text-foreground-subtle" />
           )}
         </button>
 
         {isOpen && (
           <div
             className="px-3 py-3 border-t border-border"
-            style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}
           >
             <div
               className="rounded-sm border border-border bg-surface-sunken px-3 py-3"
-              style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}
+              style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}
             >
               <div>
                 <div
-                  className="font-sans text-[12px] font-medium text-foreground-muted"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  className="font-sans text-xs font-medium text-foreground-muted"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}
                 >
-                  <CheckCircle size={13} className="text-success-text" />
+                  <CheckCircle size="0.8125rem" className="text-success-text" />
                   {metadataStatus.label}
                 </div>
-                <p className="font-sans text-[11px] text-foreground-subtle mt-1">
+                <p className="font-sans text-label text-foreground-subtle mt-1">
                   {metadataStatus.description}
                 </p>
                 {metadataSource === 'auto' && (
                   <div
-                    className="font-sans text-[11px] text-foreground-subtle mt-2"
+                    className="font-sans text-label text-foreground-subtle mt-2"
                     style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                      columnGap: '12px',
-                      rowGap: '4px',
+                      columnGap: '0.75rem',
+                      rowGap: '0.25rem',
                     }}
                   >
                     {isResolvingAutomatically ? (
@@ -314,7 +312,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px',
+                  gap: '0.375rem',
                   flex: '0 0 auto',
                   alignSelf: 'center',
                 }}
@@ -328,7 +326,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                 </Button>
                 {hasManualMetadataSelections && (
                   <Button variant="danger" size="sm" onClick={resetToAutomatic}>
-                    <RotateCcw size={12} />
+                    <RotateCcw size="0.75rem" />
                     Reset to Automatic
                   </Button>
                 )}
@@ -338,19 +336,19 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
             {showAdvancedMetadata && (
               <div
                 className="border-t border-border pt-3"
-                style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}
               >
                 {/* Source selector */}
                 <div>
                   <label
-                    className="font-sans text-[12px] font-medium text-foreground-muted"
-                    style={{ display: 'block', marginBottom: '4px' }}
+                    className="font-sans text-xs font-medium text-foreground-muted"
+                    style={{ display: 'block', marginBottom: '0.25rem' }}
                   >
                     Source
                   </label>
                   <select
                     className="w-full font-sans text-xs text-foreground bg-surface border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-focus"
-                    style={{ padding: '5px 8px', height: '30px' }}
+                    style={{ padding: '0.3125rem 0.5rem', height: '1.875rem' }}
                     value={metadataSource}
                     onChange={(e) => {
                       const source = e.target.value as MetadataSource;
@@ -436,8 +434,8 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                 {isCatalogSource && (
                   <div style={{ position: 'relative' }}>
                     <label
-                      className="font-sans text-[12px] font-medium text-foreground-muted"
-                      style={{ display: 'block', marginBottom: '4px' }}
+                      className="font-sans text-xs font-medium text-foreground-muted"
+                      style={{ display: 'block', marginBottom: '0.25rem' }}
                     >
                       Model
                       {catalogMetadata?.source_path && (
@@ -446,7 +444,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                         </span>
                       )}
                     </label>
-                    <div style={{ position: 'relative', display: 'flex', gap: '4px' }}>
+                    <div style={{ position: 'relative', display: 'flex', gap: '0.25rem' }}>
                       <div ref={metadataInputWrapperRef} style={{ position: 'relative', flex: 1 }}>
                         <Input
                           value={metadataQuery}
@@ -474,17 +472,17 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                           placeholder={`Search ${catalogMetadata?.source ?? 'openrouter'} catalog...`}
                           style={{
                             width: '100%',
-                            paddingRight: isMetadataSearching ? '28px' : undefined,
+                            paddingRight: isMetadataSearching ? '1.75rem' : undefined,
                           }}
                           onBlur={() => setShowMetadataDropdown(false)}
                         />
                         {isMetadataSearching && (
                           <Loader2
-                            size={14}
+                            size="0.875rem"
                             className="animate-spin text-foreground-subtle"
                             style={{
                               position: 'absolute',
-                              right: '8px',
+                              right: '0.5rem',
                               top: '50%',
                               transform: 'translateY(-50%)',
                             }}
@@ -498,12 +496,12 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                           onClick={clearMetadata}
                           style={{
                             color: 'var(--danger-text)',
-                            padding: '4px',
+                            padding: '0.25rem',
                             minHeight: 'auto',
                           }}
                           title="Return to automatic metadata"
                         >
-                          <X size={14} />
+                          <X size="0.875rem" />
                         </Button>
                       )}
                     </div>
@@ -519,10 +517,10 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                     editingAlias.metadata.overrides) && (
                     <div
                       className="rounded-sm border border-border bg-surface-sunken px-3 py-2"
-                      style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}
+                      style={{ fontSize: '0.6875rem', color: 'var(--foreground-muted)' }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <CheckCircle size={12} className="text-success-text" />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                        <CheckCircle size="0.75rem" className="text-success-text" />
                         <span>
                           {editingAlias.metadata.source === 'custom' ? (
                             <>
@@ -563,28 +561,28 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                 {/* Pi model */}
                 <div>
                   <label
-                    className="font-sans text-[12px] font-medium text-foreground-muted"
-                    style={{ display: 'block', marginBottom: '4px' }}
+                    className="font-sans text-xs font-medium text-foreground-muted"
+                    style={{ display: 'block', marginBottom: '0.25rem' }}
                   >
                     Pi model
                   </label>
                   <p
-                    className="font-sans text-[11px] text-foreground-subtle"
-                    style={{ marginBottom: '6px' }}
+                    className="font-sans text-label text-foreground-subtle"
+                    style={{ marginBottom: '0.375rem' }}
                   >
                     Automatic derives the model from enabled targets. Choose a pi-ai model only to
                     override that match and advertise its{' '}
                     <code className="text-primary-text">pi_options</code>.
                   </p>
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
                     {/* Provider dropdown */}
                     <select
                       className="font-sans text-xs text-foreground bg-surface border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-focus"
                       style={{
-                        padding: '5px 8px',
-                        height: '30px',
+                        padding: '0.3125rem 0.5rem',
+                        height: '1.875rem',
                         flex: '0 0 auto',
-                        maxWidth: '160px',
+                        maxWidth: '10rem',
                       }}
                       value={editingAlias.pi_model?.provider ?? ''}
                       onChange={(e) => {
@@ -614,9 +612,9 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                         <select
                           className="w-full font-sans text-xs text-foreground bg-surface border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-focus"
                           style={{
-                            padding: '5px 8px',
-                            height: '30px',
-                            paddingRight: piModelsLoading ? '28px' : undefined,
+                            padding: '0.3125rem 0.5rem',
+                            height: '1.875rem',
+                            paddingRight: piModelsLoading ? '1.75rem' : undefined,
                           }}
                           value={editingAlias.pi_model?.model_id ?? ''}
                           onChange={(e) => {
@@ -636,11 +634,11 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                         </select>
                         {piModelsLoading && (
                           <Loader2
-                            size={14}
+                            size="0.875rem"
                             className="animate-spin text-foreground-subtle"
                             style={{
                               position: 'absolute',
-                              right: '8px',
+                              right: '0.5rem',
                               top: '50%',
                               transform: 'translateY(-50%)',
                               pointerEvents: 'none',
@@ -661,13 +659,13 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                         }}
                         style={{
                           color: 'var(--danger-text)',
-                          padding: '4px',
+                          padding: '0.25rem',
                           minHeight: 'auto',
                           flex: '0 0 auto',
                         }}
                         title="Return to automatic Pi model matching"
                       >
-                        <X size={14} />
+                        <X size="0.875rem" />
                       </Button>
                     )}
                   </div>
@@ -677,13 +675,13 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                     <div
                       className="rounded-sm border border-border bg-surface-sunken px-3 py-2"
                       style={{
-                        fontSize: '11px',
+                        fontSize: '0.6875rem',
                         color: 'var(--foreground-muted)',
-                        marginTop: '6px',
+                        marginTop: '0.375rem',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <CheckCircle size={12} className="text-success-text" />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                        <CheckCircle size="0.75rem" className="text-success-text" />
                         <span>
                           Pi model: <strong>{editingAlias.pi_model.provider}</strong>
                           {' / '}
@@ -701,14 +699,14 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                   !!editingAlias.preferred_api?.length) && (
                   <div>
                     <label
-                      className="font-sans text-[12px] font-medium text-foreground-muted"
-                      style={{ display: 'block', marginBottom: '4px' }}
+                      className="font-sans text-xs font-medium text-foreground-muted"
+                      style={{ display: 'block', marginBottom: '0.25rem' }}
                     >
                       Preferred API
                     </label>
                     <p
-                      className="font-sans text-[11px] text-foreground-subtle"
-                      style={{ marginBottom: '6px' }}
+                      className="font-sans text-label text-foreground-subtle"
+                      style={{ marginBottom: '0.375rem' }}
                     >
                       Advertised in <code className="text-primary-text">/v1/models</code>. Automatic
                       uses Messages for Claude, Responses for GPT, Gemini for Gemini models, and
@@ -716,7 +714,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                     </p>
                     <select
                       className="w-full font-sans text-xs text-foreground bg-surface border border-border rounded-sm outline-none transition-all duration-200 backdrop-blur-md focus:border-focus"
-                      style={{ padding: '5px 8px', height: '30px' }}
+                      style={{ padding: '0.3125rem 0.5rem', height: '1.875rem' }}
                       value={(editingAlias.preferred_api ?? [])[0] ?? ''}
                       onChange={(e) => {
                         const val = e.target.value as PreferredApiValue | '';
@@ -739,7 +737,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
 
                 {/* Override toggle + editable form */}
                 {metadataSource !== 'disabled' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {metadataSource !== 'custom' && (
                       <div
                         style={{
@@ -749,7 +747,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                         }}
                       >
                         <label
-                          className="font-sans text-[12px] font-medium text-foreground-muted"
+                          className="font-sans text-xs font-medium text-foreground-muted"
                           style={{ marginBottom: 0 }}
                         >
                           Override metadata fields
@@ -823,7 +821,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
               border: '1px solid var(--border)',
               borderRadius: 'min(var(--theme-radius-field), 0.25rem)',
               boxShadow: 'var(--elevation-md)',
-              maxHeight: '180px',
+              maxHeight: '11.25rem',
               overflowY: 'auto',
             }}
           >
@@ -839,7 +837,7 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                   display: 'block',
                   width: '100%',
                   textAlign: 'left',
-                  padding: '6px 10px',
+                  padding: '0.375rem 0.625rem',
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
@@ -847,10 +845,8 @@ export function ModelMetadataEditor({ editingAlias, setEditingAlias, isModalOpen
                 }}
                 className="hover:bg-surface-elevated transition-colors"
               >
-                <div className="font-sans text-[12px] font-medium text-foreground">
-                  {result.name}
-                </div>
-                <div className="font-sans text-[10px] text-foreground-subtle">{result.id}</div>
+                <div className="font-sans text-xs font-medium text-foreground">{result.name}</div>
+                <div className="font-sans text-2xs text-foreground-subtle">{result.id}</div>
               </button>
             ))}
           </div>,

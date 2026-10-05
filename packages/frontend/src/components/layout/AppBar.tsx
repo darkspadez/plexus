@@ -26,12 +26,12 @@ export const AppBar: React.FC = () => {
         aria-label="Open navigation"
         className="-ml-1 rounded-md p-2 text-foreground-muted hover:bg-surface-elevated hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-2"
       >
-        <Menu size={20} />
+        <Menu size="1.25rem" />
       </button>
 
       {/* Logo */}
       <div className="flex flex-1 items-center gap-2">
-        <PlexusMark size={20} />
+        <PlexusMark size="1.25rem" />
         <span className="font-sans text-sm font-semibold brand-grad-text">Plexus</span>
       </div>
 

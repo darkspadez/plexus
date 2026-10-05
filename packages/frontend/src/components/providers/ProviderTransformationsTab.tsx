@@ -188,11 +188,11 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
           />
           <div className="flex items-center justify-between gap-3 py-2">
             <div className="min-w-0 flex-1">
-              <div className="font-sans text-[12px] font-medium text-foreground truncate">
+              <div className="font-sans text-xs font-medium text-foreground truncate">
                 Anthropic Tool-ID Normalization
               </div>
               <div
-                className="font-sans text-[11px] text-foreground-subtle truncate"
+                className="font-sans text-label text-foreground-subtle truncate"
                 title={
                   "Rewrites tool ids that violate Anthropic's ^[a-zA-Z0-9_-]+$ charset before dispatch; " +
                   'Anthropic rejects such ids with HTTP 400. Auto enables this only for Anthropic-like ' +
@@ -204,7 +204,7 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
                 Rewrites tool ids that violate Anthropic's charset before dispatch.
               </div>
             </div>
-            <div className="w-[210px] shrink-0">
+            <div className="w-[13.125rem] shrink-0">
               <Select<'auto' | 'on' | 'off'>
                 aria-label="Anthropic Tool-ID Normalization"
                 value={toolIdMode}
@@ -294,14 +294,14 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
                   }}
                 />
                 <div>
-                  <div className="font-sans text-[12px] text-foreground">{option.label}</div>
-                  <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                  <div className="font-sans text-xs text-foreground">{option.label}</div>
+                  <div className="font-sans text-label leading-snug text-foreground-muted">
                     {option.description}
                   </div>
                 </div>
               </label>
             ))}
-            <div className="font-sans text-[11px] leading-snug text-foreground-subtle">
+            <div className="font-sans text-label leading-snug text-foreground-subtle">
               Responses API extensions this provider&apos;s Responses endpoint accepts verbatim.
               Requests using any other extension are flattened to plain function tools and split
               back on the response. The default follows the OAuth provider or Responses endpoint
@@ -327,7 +327,7 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
               setEditingProvider({ ...editingProvider, discount: clamped / 100 });
             }}
             trailingAction={
-              <span className="pointer-events-none text-[11px] text-foreground-subtle">%</span>
+              <span className="pointer-events-none text-label text-foreground-subtle">%</span>
             }
           />
         </div>
@@ -351,7 +351,7 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
         }
       >
         <div className="flex flex-col gap-2">
-          <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+          <div className="font-sans text-label leading-snug text-foreground-muted">
             Adapters rewrite requests and responses to fix provider-specific field-name
             incompatibilities. Applied to every model under this provider unless overridden
             per-model.
@@ -387,10 +387,8 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
                     }}
                   />
                   <div>
-                    <div className="font-sans text-[12px] font-medium text-foreground">
-                      {a.label}
-                    </div>
-                    <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                    <div className="font-sans text-xs font-medium text-foreground">{a.label}</div>
+                    <div className="font-sans text-label leading-snug text-foreground-muted">
                       {a.description}
                     </div>
                   </div>
@@ -456,10 +454,10 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
                       onChange={toggleActive}
                     />
                     <div>
-                      <div className="font-sans text-[12px] font-medium text-foreground">
+                      <div className="font-sans text-xs font-medium text-foreground">
                         Web Search Coercion
                       </div>
-                      <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                      <div className="font-sans text-label leading-snug text-foreground-muted">
                         Coerces server-side web search tool entries to the format expected by this
                         provider.
                       </div>
@@ -566,7 +564,7 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
         }
       >
         <div className="flex flex-col gap-2">
-          <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+          <div className="font-sans text-label leading-snug text-foreground-muted">
             Override global context-compaction for this provider. Empty = inherit. Nested
             native/headroom settings are configurable on the global Config page only (v1).
           </div>
@@ -742,13 +740,13 @@ export function ProviderTransformationsTab({ f }: { f: ProviderFormApi }) {
         }
       >
         <div className="flex flex-col gap-3">
-          <div className="font-sans text-[11px] leading-snug text-foreground-subtle">
+          <div className="font-sans text-label leading-snug text-foreground-subtle">
             Exposes this provider at{' '}
             <code className="font-mono">/raw/{editingProvider.id || 'provider'}/*</code> to
             explicitly authorized keys. Requests bypass routing and all transformations.
           </div>
           {editingProvider.rawPassthrough?.enabled && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px]">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_11.25rem]">
               <DebouncedInput
                 label="Raw Upstream Base URL"
                 value={editingProvider.rawPassthrough.baseUrl}

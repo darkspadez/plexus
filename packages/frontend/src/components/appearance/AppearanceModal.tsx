@@ -10,11 +10,20 @@ import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { SearchInput } from '../ui/SearchInput';
 import { Switch } from '../ui/Switch';
+import { Segmented, type SegmentedItem } from './Segmented';
 import { ThemeEditor } from './ThemeEditor';
 import { ThemeEditorFooter, type EditorPanel } from './ThemeEditorFooter';
 import { ThemeTile, type ThemeTileMenuItem } from './ThemeTile';
 import { useGridKeyboardNav } from './useGridKeyboardNav';
 import { useThemeDraft } from './useThemeDraft';
+
+const SIZE_ITEMS: readonly SegmentedItem<number>[] = [
+  { value: 0.875, label: 'XS', title: '87.5%' },
+  { value: 0.9375, label: 'S', title: '93.75%' },
+  { value: 1, label: 'M', title: '100%' },
+  { value: 1.125, label: 'L', title: '112.5%' },
+  { value: 1.25, label: 'XL', title: '125%' },
+];
 
 type View = { kind: 'grid' } | { kind: 'editor'; mode: 'create' | 'edit'; note?: string };
 
@@ -66,7 +75,7 @@ const ThemeSection: React.FC<ThemeSectionProps> = ({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="m-0 text-[11px] font-medium uppercase tracking-wider text-foreground-muted">
+        <h3 className="m-0 text-label font-medium uppercase tracking-wider text-foreground-muted">
           {title}
         </h3>
         {action}
@@ -131,6 +140,7 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
     resolvedTheme,
     pickTheme,
     setMode,
+    setScale,
   } = useAppearance();
   const { isAdmin } = useAuth();
   const deleteTheme = useDeleteUiTheme();
@@ -152,8 +162,8 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
         '[role="dialog"][aria-label="Appearance"]'
       );
       const target =
-        dialog?.querySelector<HTMLElement>('[aria-pressed="true"]') ??
-        dialog?.querySelector<HTMLElement>('[aria-pressed]') ??
+        dialog?.querySelector<HTMLElement>('[data-tile-id][aria-pressed="true"]') ??
+        dialog?.querySelector<HTMLElement>('[data-tile-id]') ??
         dialog?.querySelector<HTMLElement>('input[type="search"]');
       target?.focus();
     } else {
@@ -221,18 +231,18 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
     const isCustom = broken || customThemes.some((t) => t.id === theme.id);
     const remove: ThemeTileMenuItem = {
       label: 'Delete',
-      icon: <Trash2 size={14} aria-hidden="true" />,
+      icon: <Trash2 size="0.875rem" aria-hidden="true" />,
       danger: true,
       onSelect: () => setDeleteTarget({ id: theme.id, name: theme.name }),
     };
     const edit: ThemeTileMenuItem = {
       label: 'Edit',
-      icon: <Pencil size={14} aria-hidden="true" />,
+      icon: <Pencil size="0.875rem" aria-hidden="true" />,
       onSelect: () => openEditor('edit', theme as CustomThemeDef),
     };
     const dup: ThemeTileMenuItem = {
       label: 'Duplicate',
-      icon: <Copy size={14} aria-hidden="true" />,
+      icon: <Copy size="0.875rem" aria-hidden="true" />,
       onSelect: () => duplicate(theme),
     };
     if (!isCustom) return [dup];
@@ -324,6 +334,15 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
           <ThemeEditor state={draftState} note={view.note} />
         ) : (
           <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-foreground">Size</span>
+              <Segmented
+                label="Interface size"
+                value={appearance.scale}
+                items={SIZE_ITEMS}
+                onChange={setScale}
+              />
+            </div>
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center gap-3">
                 <Switch
@@ -336,11 +355,11 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
               {isSystem ? (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-muted">
                   <span className="inline-flex items-center gap-1.5">
-                    <Sun size={12} aria-hidden="true" />
+                    <Sun size="0.75rem" aria-hidden="true" />
                     Light: {nameOf(appearance.light)}
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <Moon size={12} aria-hidden="true" />
+                    <Moon size="0.75rem" aria-hidden="true" />
                     Dark: {nameOf(appearance.dark)}
                   </span>
                 </div>
@@ -370,7 +389,7 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
                       variant="outline"
                       size="sm"
                       data-new-theme=""
-                      leftIcon={<Plus size={12} aria-hidden="true" />}
+                      leftIcon={<Plus size="0.75rem" aria-hidden="true" />}
                       onClick={() =>
                         openEditor(
                           'create',

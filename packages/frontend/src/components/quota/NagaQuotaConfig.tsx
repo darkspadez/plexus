@@ -15,7 +15,7 @@ export const NagaQuotaConfig: React.FC<NagaQuotaConfigProps> = ({ options, onCha
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-sans text-[13px] font-medium text-foreground-muted">
+        <label className="font-sans text-sm font-medium text-foreground-muted">
           Provisioning API Key <span className="text-danger-text">*</span>
         </label>
         <Input
@@ -24,7 +24,7 @@ export const NagaQuotaConfig: React.FC<NagaQuotaConfigProps> = ({ options, onCha
           onChange={(e) => handleChange('apiKey', e.target.value)}
           placeholder="Enter your Naga provisioning key"
         />
-        <span className="text-[10px] text-foreground-subtle">
+        <span className="text-2xs text-foreground-subtle">
           Required. Use a provisioning key from{' '}
           <a
             href="https://naga.ac/dashboard/provisioning-keys"
@@ -32,13 +32,13 @@ export const NagaQuotaConfig: React.FC<NagaQuotaConfigProps> = ({ options, onCha
             rel="noopener noreferrer"
             className="text-accent-text hover:underline inline-flex items-center gap-1"
           >
-            Naga Dashboard <ExternalLink size={10} />
+            Naga Dashboard <ExternalLink size="0.625rem" />
           </a>
         </span>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="font-sans text-[13px] font-medium text-foreground-muted">
+        <label className="font-sans text-sm font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input
@@ -46,7 +46,7 @@ export const NagaQuotaConfig: React.FC<NagaQuotaConfigProps> = ({ options, onCha
           onChange={(e) => handleChange('endpoint', e.target.value)}
           placeholder="https://api.naga.ac/v1/account/balance"
         />
-        <span className="text-[10px] text-foreground-subtle">
+        <span className="text-2xs text-foreground-subtle">
           Custom endpoint URL. Defaults to Naga's API.
         </span>
       </div>

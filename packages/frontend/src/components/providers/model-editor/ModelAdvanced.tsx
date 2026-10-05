@@ -67,8 +67,8 @@ export function ModelAdvanced({
               }
             />
             <div>
-              <div className="font-sans text-[12px] text-foreground">Auto Compat</div>
-              <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+              <div className="font-sans text-xs text-foreground">Auto Compat</div>
+              <div className="font-sans text-label leading-snug text-foreground-muted">
                 Translates this model's reasoning and generation options using its mapped pi-ai
                 model or the provider's inline quirks. Requires Auto Compat here or on the provider.
               </div>
@@ -76,9 +76,9 @@ export function ModelAdvanced({
           </label>
         </div>
         <div className="flex flex-col gap-0.5">
-          <label className="font-sans text-[11px] font-medium text-foreground-muted">
+          <label className="font-sans text-label font-medium text-foreground-muted">
             Max Concurrency
-            <span className="font-normal text-[10px] text-foreground-subtle ml-1">
+            <span className="font-normal text-2xs text-foreground-subtle ml-1">
               this model only
             </span>
           </label>
@@ -101,7 +101,7 @@ export function ModelAdvanced({
               }
             }}
           />
-          <span className="font-sans text-[11px] text-foreground-subtle italic">
+          <span className="font-sans text-label text-foreground-subtle italic">
             Limit in-flight requests for this model. Leave empty to use the provider-wide limit or
             no limit.
           </span>

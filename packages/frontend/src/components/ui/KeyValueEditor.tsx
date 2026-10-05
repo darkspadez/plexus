@@ -92,7 +92,7 @@ export const KeyValueEditor: React.FC<KeyValueEditorProps> = ({
             aria-label={`Remove ${key}`}
             className="inline-flex items-center justify-center h-8 w-8 flex-shrink-0 rounded-field text-foreground-muted hover:text-danger-text hover:bg-danger-subtle transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <Trash2 size={16} />
+            <Trash2 size="1rem" />
           </button>
         </div>
       ))}
@@ -100,7 +100,7 @@ export const KeyValueEditor: React.FC<KeyValueEditorProps> = ({
         type="button"
         variant="outline"
         size="sm"
-        leftIcon={<Plus size={14} />}
+        leftIcon={<Plus size="0.875rem" />}
         onClick={addEntry}
       >
         {addLabel}

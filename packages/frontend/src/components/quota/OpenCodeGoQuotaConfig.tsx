@@ -20,7 +20,7 @@ export const OpenCodeGoQuotaConfig: React.FC<OpenCodeGoQuotaConfigProps> = ({
       <div className="flex flex-col gap-1">
         <label
           htmlFor="opencode-go-workspace-id"
-          className="font-sans text-[13px] font-medium text-foreground-muted"
+          className="font-sans text-sm font-medium text-foreground-muted"
         >
           Workspace ID <span className="text-danger-text">*</span>
         </label>
@@ -30,7 +30,7 @@ export const OpenCodeGoQuotaConfig: React.FC<OpenCodeGoQuotaConfigProps> = ({
           onChange={(e) => handleChange('workspaceId', e.target.value)}
           placeholder="Your OpenCode Go workspace ID"
         />
-        <span className="text-[10px] text-foreground-subtle">
+        <span className="text-2xs text-foreground-subtle">
           Required. Find it in your{' '}
           <a
             href="https://opencode.ai"
@@ -38,7 +38,7 @@ export const OpenCodeGoQuotaConfig: React.FC<OpenCodeGoQuotaConfigProps> = ({
             rel="noopener noreferrer"
             className="text-accent-text hover:underline inline-flex items-center gap-1"
           >
-            OpenCode dashboard <ExternalLink size={10} />
+            OpenCode dashboard <ExternalLink size="0.625rem" />
           </a>{' '}
           URL (e.g. opencode.ai/workspace/<span className="font-mono">your-id</span>/go).
         </span>
@@ -47,7 +47,7 @@ export const OpenCodeGoQuotaConfig: React.FC<OpenCodeGoQuotaConfigProps> = ({
       <div className="flex flex-col gap-1">
         <label
           htmlFor="opencode-go-auth-cookie"
-          className="font-sans text-[13px] font-medium text-foreground-muted"
+          className="font-sans text-sm font-medium text-foreground-muted"
         >
           Auth Cookie <span className="text-danger-text">*</span>
         </label>
@@ -58,7 +58,7 @@ export const OpenCodeGoQuotaConfig: React.FC<OpenCodeGoQuotaConfigProps> = ({
           onChange={(e) => handleChange('authCookie', e.target.value)}
           placeholder="Your OpenCode auth cookie value"
         />
-        <span className="text-[10px] text-foreground-subtle">
+        <span className="text-2xs text-foreground-subtle">
           Required. Open your browser's DevTools (F12) → Application/Storage → Cookies → opencode.ai
           → copy the <span className="font-mono">auth</span> cookie value. Treat it like a password.
         </span>
@@ -67,7 +67,7 @@ export const OpenCodeGoQuotaConfig: React.FC<OpenCodeGoQuotaConfigProps> = ({
       <div className="flex flex-col gap-1">
         <label
           htmlFor="opencode-go-endpoint"
-          className="font-sans text-[13px] font-medium text-foreground-muted"
+          className="font-sans text-sm font-medium text-foreground-muted"
         >
           Endpoint (optional)
         </label>
@@ -77,7 +77,7 @@ export const OpenCodeGoQuotaConfig: React.FC<OpenCodeGoQuotaConfigProps> = ({
           onChange={(e) => handleChange('endpoint', e.target.value)}
           placeholder="https://opencode.ai/workspace/{id}/go"
         />
-        <span className="text-[10px] text-foreground-subtle">
+        <span className="text-2xs text-foreground-subtle">
           Custom dashboard URL. Defaults to the standard OpenCode Go dashboard.
         </span>
       </div>

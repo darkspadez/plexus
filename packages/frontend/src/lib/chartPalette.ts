@@ -18,15 +18,15 @@ export function chartColor(index: number): string {
 export const TOOLTIP_STYLE = {
   backgroundColor: 'var(--surface-elevated)',
   border: '1px solid var(--border)',
-  borderRadius: '8px',
+  borderRadius: 'min(var(--theme-radius-field), 0.5rem)',
   color: 'var(--foreground)',
-  fontSize: '12px',
+  fontSize: '0.75rem',
 } as const;
 
 /** Shared axis tick style — foreground-subtle, xs text */
 export const AXIS_TICK_STYLE = {
   fill: 'var(--foreground-subtle)',
-  fontSize: 11,
+  fontSize: '0.6875rem',
 };
 
 /** Shared grid props — horizontal only, dashed, border color */

@@ -157,7 +157,7 @@ export const TagSelect: React.FC<TagSelectProps> = ({
       )}
       <div
         className={clsx(
-          'w-full py-2 px-3 font-sans text-sm bg-background border-(length:--theme-border-width) rounded-field outline-none transition-colors duration-150 cursor-text min-h-[38px] flex flex-wrap items-center gap-1.5',
+          'w-full py-2 px-3 font-sans text-sm bg-background border-(length:--theme-border-width) rounded-field outline-none transition-colors duration-150 cursor-text min-h-[2.375rem] flex flex-wrap items-center gap-1.5',
           isOpen
             ? 'border-primary ring-2 ring-primary ring-offset-2 ring-offset-background'
             : 'border-border hover:border-border-strong'
@@ -176,14 +176,14 @@ export const TagSelect: React.FC<TagSelectProps> = ({
               onClick={(e) => handleRemove(tag, e)}
               title={`Remove ${tag}`}
             >
-              <X size={12} />
+              <X size="0.75rem" />
             </button>
           </span>
         ))}
         {isOpen ? (
           <input
             ref={searchInputRef}
-            className="flex-1 min-w-[80px] bg-transparent border-0 outline-none text-foreground text-sm p-0 placeholder:text-foreground-muted"
+            className="flex-1 min-w-[5rem] bg-transparent border-0 outline-none text-foreground text-sm p-0 placeholder:text-foreground-muted"
             value={search}
             onChange={handleSearchChange}
             onKeyDown={handleSearchKeyDown}
@@ -207,7 +207,7 @@ export const TagSelect: React.FC<TagSelectProps> = ({
           </span>
         )}
         <ChevronDown
-          size={14}
+          size="0.875rem"
           className={clsx(
             'text-foreground-muted ml-auto shrink-0 transition-transform duration-150',
             isOpen && 'rotate-180'

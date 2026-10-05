@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import Editor from '@monaco-editor/react';
 import { useMonacoTheme } from '../hooks/useMonacoTheme';
+import { useScaledPx } from '../hooks/useScaledPx';
 import {
   RefreshCw,
   Clock,
@@ -379,7 +380,7 @@ export const Debug: React.FC = () => {
                       selectedCaptureTargetCount > 0 && 'border-primary'
                     )}
                     onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    leftIcon={<Filter size={14} />}
+                    leftIcon={<Filter size="0.875rem" />}
                   >
                     Targets
                     {selectedCaptureTargetCount > 0 && (
@@ -400,7 +401,7 @@ export const Debug: React.FC = () => {
                             onClick={clearCaptureTargets}
                             className="text-xs text-foreground-subtle hover:text-foreground transition-colors flex items-center gap-1"
                           >
-                            <X size={12} />
+                            <X size="0.75rem" />
                             Clear
                           </button>
                         )}
@@ -523,9 +524,9 @@ export const Debug: React.FC = () => {
                     onClick={handleCopyAll}
                     leftIcon={
                       copiedAll ? (
-                        <Check size={14} className="text-success-text" />
+                        <Check size="0.875rem" className="text-success-text" />
                       ) : (
-                        <Copy size={14} />
+                        <Copy size="0.875rem" />
                       )
                     }
                   >
@@ -535,7 +536,7 @@ export const Debug: React.FC = () => {
                     variant="outline"
                     className="flex items-center gap-2"
                     onClick={handleDownloadAll}
-                    leftIcon={<Download size={14} />}
+                    leftIcon={<Download size="0.875rem" />}
                   >
                     Download
                   </Button>
@@ -548,14 +549,14 @@ export const Debug: React.FC = () => {
                   className="flex items-center gap-2"
                   disabled={logs.length === 0}
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size="1rem" />
                   Delete All
                 </Button>
               )}
               <Button
                 onClick={fetchLogs}
                 variant="outline"
-                leftIcon={<RefreshCw size={16} className={clsx(loading && 'animate-spin')} />}
+                leftIcon={<RefreshCw size="1rem" className={clsx(loading && 'animate-spin')} />}
               >
                 Refresh
               </Button>
@@ -566,7 +567,7 @@ export const Debug: React.FC = () => {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-border md:flex-row">
         {/* Left Pane: Request List */}
-        <div className="flex max-h-[34vh] w-full shrink-0 flex-col border-b border-border bg-surface md:max-h-none md:w-[320px] md:border-b-0 md:border-r">
+        <div className="flex max-h-[34vh] w-full shrink-0 flex-col border-b border-border bg-surface md:max-h-none md:w-[20rem] md:border-b-0 md:border-r">
           <div className="border-b border-border p-3 sm:p-4">
             <span className="text-xs font-bold text-foreground-subtle uppercase tracking-wider">
               Recent Requests
@@ -585,7 +586,7 @@ export const Debug: React.FC = () => {
                 <div className="w-full">
                   <div className="flex items-center gap-2 mb-1 justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <Clock size={14} className="text-foreground-subtle" />
+                      <Clock size="0.875rem" className="text-foreground-subtle" />
                       <span className="text-xs font-mono text-foreground-subtle">
                         {new Date(log.createdAt).toLocaleTimeString()}
                       </span>
@@ -595,16 +596,16 @@ export const Debug: React.FC = () => {
                       className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-danger/10 hover:text-danger-text opacity-100 md:opacity-0 md:group-hover:opacity-100"
                       title="Delete log"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size="0.75rem" />
                     </button>
                   </div>
-                  <div className="text-[13px] font-mono text-primary-text whitespace-nowrap overflow-hidden text-ellipsis mt-1">
+                  <div className="text-sm font-mono text-primary-text whitespace-nowrap overflow-hidden text-ellipsis mt-1">
                     {log.requestId?.substring(0, 8) ?? '-'}...
                   </div>
                   <div className="mt-2">
                     <span
                       className={clsx(
-                        'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold',
+                        'inline-flex items-center rounded-md border px-2 py-0.5 text-label font-semibold',
                         getHttpStatusBadgeClasses(log.responseStatus)
                       )}
                     >
@@ -708,14 +709,14 @@ export const Debug: React.FC = () => {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-foreground-subtle gap-4">
-              <Database size={48} opacity={0.2} />
+              <Database size="3rem" opacity={0.2} />
               <p>Select a request trace to inspect details</p>
             </div>
           )}
 
           {loadingDetail && (
             <div className="absolute inset-0 bg-surface-sunken/50 backdrop-blur-sm flex items-center justify-center z-10">
-              <RefreshCw className="animate-spin text-primary-text" size={32} />
+              <RefreshCw className="animate-spin text-primary-text" size="2rem" />
             </div>
           )}
         </div>
@@ -776,6 +777,7 @@ const AccordionPanel: React.FC<{
   const [folded, setFolded] = useState(false);
   const editorRef = useRef<any>(null);
   const monacoTheme = useMonacoTheme();
+  const monacoFontSize = useScaledPx(12);
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -813,8 +815,8 @@ const AccordionPanel: React.FC<{
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex min-w-0 items-center gap-2">
-          {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          <span className={clsx('truncate text-[11px] font-bold uppercase tracking-wider', color)}>
+          {isOpen ? <ChevronDown size="1rem" /> : <ChevronRight size="1rem" />}
+          <span className={clsx('truncate text-label font-bold uppercase tracking-wider', color)}>
             {title}
           </span>
           <button
@@ -822,7 +824,7 @@ const AccordionPanel: React.FC<{
             onClick={handleToggleFold}
             title={folded ? 'Unfold all' : 'Fold all'}
           >
-            {folded ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
+            {folded ? <Maximize2 size="0.75rem" /> : <Minimize2 size="0.75rem" />}
           </button>
         </div>
         <button
@@ -830,16 +832,20 @@ const AccordionPanel: React.FC<{
           onClick={handleCopy}
           title="Copy to clipboard"
         >
-          {copied ? <Check size={14} className="text-success-text" /> : <Copy size={14} />}
+          {copied ? (
+            <Check size="0.875rem" className="text-success-text" />
+          ) : (
+            <Copy size="0.875rem" />
+          )}
         </button>
       </div>
       <div
         className={clsx(
           'overflow-hidden transition-[max-height] duration-300 ease-in-out',
-          isOpen ? 'max-h-[500px]' : 'max-h-0'
+          isOpen ? 'max-h-[31.25rem]' : 'max-h-0'
         )}
       >
-        <div className="h-[280px] bg-surface-sunken sm:h-[400px]">
+        <div className="h-[17.5rem] bg-surface-sunken sm:h-[25rem]">
           <Editor
             height="100%"
             defaultLanguage="json"
@@ -852,7 +858,7 @@ const AccordionPanel: React.FC<{
               readOnly: true,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
-              fontSize: 12,
+              fontSize: monacoFontSize,
               fontFamily: "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
               lineNumbers: 'on',
               folding: true,

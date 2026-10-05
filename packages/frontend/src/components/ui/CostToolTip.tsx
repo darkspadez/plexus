@@ -24,24 +24,24 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
   const containerStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
-    gap: '4px',
-    fontSize: '12px',
+    gap: '0.25rem',
+    fontSize: '0.75rem',
     color: 'var(--foreground)',
-    minWidth: '180px',
+    minWidth: '11.25rem',
   };
 
   const headerStyle: React.CSSProperties = {
     fontWeight: 'bold',
     borderBottom: '1px solid var(--border)',
-    paddingBottom: '4px',
-    marginBottom: '4px',
+    paddingBottom: '0.25rem',
+    marginBottom: '0.25rem',
     // textTransform: 'capitalize'
   };
 
   const gridStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: '60px 1fr',
-    gap: '4px 12px',
+    gridTemplateColumns: '3.75rem 1fr',
+    gap: '0.25rem 0.75rem',
     alignItems: 'center',
   };
 
@@ -78,15 +78,15 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
         <div
           style={{
             borderTop: '1px solid var(--border)',
-            paddingTop: '4px',
-            marginTop: '4px',
+            paddingTop: '0.25rem',
+            marginTop: '0.25rem',
             display: 'flex',
             flexDirection: 'column',
             gap: '2px',
           }}
         >
           {pricingModel ? (
-            <span style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>
+            <span style={{ color: 'var(--foreground-muted)', fontSize: '0.6875rem' }}>
               Pricing model:{' '}
               <span style={{ fontFamily: 'monospace', color: 'var(--foreground)' }}>
                 {String(pricingModel)}
@@ -94,7 +94,7 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
             </span>
           ) : null}
           {upstreamModel && upstreamModel !== pricingModel ? (
-            <span style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>
+            <span style={{ color: 'var(--foreground-muted)', fontSize: '0.6875rem' }}>
               Upstream:{' '}
               <span style={{ fontFamily: 'monospace', color: 'var(--foreground)' }}>
                 {String(upstreamModel)}
@@ -102,7 +102,7 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
             </span>
           ) : null}
           {pricingFallback && !isProviderReported ? (
-            <span style={{ color: 'var(--warning-text)', fontSize: '11px', fontWeight: 600 }}>
+            <span style={{ color: 'var(--warning-text)', fontSize: '0.6875rem', fontWeight: 600 }}>
               Route pricing used — upstream price unavailable
             </span>
           ) : null}
@@ -163,8 +163,8 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
             style={{
               color: 'var(--foreground-muted)',
               fontStyle: 'italic',
-              fontSize: '11px',
-              marginTop: '4px',
+              fontSize: '0.6875rem',
+              marginTop: '0.25rem',
             }}
           >
             Flat fee per API call
@@ -208,8 +208,8 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
             style={{
               color: 'var(--foreground-muted)',
               fontStyle: 'italic',
-              fontSize: '11px',
-              marginTop: '4px',
+              fontSize: '0.6875rem',
+              marginTop: '0.25rem',
             }}
           >
             Actual cost reported by provider
@@ -224,7 +224,7 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
             style={{
               ...headerStyle,
               borderBottom: 'none',
-              fontSize: '11px',
+              fontSize: '0.6875rem',
               color: 'var(--foreground-muted)',
             }}
           >
@@ -252,7 +252,9 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
       content = (
         <div style={containerStyle}>
           <div style={headerStyle}>Source: {source}</div>
-          <pre style={{ fontSize: '11px', overflow: 'auto' }}>{JSON.stringify(data, null, 2)}</pre>
+          <pre style={{ fontSize: '0.6875rem', overflow: 'auto' }}>
+            {JSON.stringify(data, null, 2)}
+          </pre>
         </div>
       );
     }
@@ -261,7 +263,7 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
   }
 
   const tooltipContent = costBreakdown ? (
-    <div style={{ ...containerStyle, minWidth: '200px' }}>
+    <div style={{ ...containerStyle, minWidth: '12.5rem' }}>
       <div style={headerStyle}>Cost breakdown</div>
       <div style={gridStyle}>
         <span style={labelStyle}>Input:</span>
@@ -277,7 +279,13 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({
         <span style={valueStyle}>{costBreakdown.cacheWrite}</span>
       </div>
       {source && (
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '4px', marginTop: '4px' }}>
+        <div
+          style={{
+            borderTop: '1px solid var(--border)',
+            paddingTop: '0.25rem',
+            marginTop: '0.25rem',
+          }}
+        >
           {content}
           {attribution}
         </div>

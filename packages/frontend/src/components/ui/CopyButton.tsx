@@ -43,7 +43,7 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
     }
   };
 
-  const iconSize = size === 'sm' ? 12 : 14;
+  const iconSize = size === 'sm' ? '0.75rem' : '0.875rem';
 
   if (variant === 'icon') {
     return (

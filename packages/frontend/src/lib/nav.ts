@@ -31,7 +31,7 @@ import {
 export interface NavItemDef {
   to: string;
   label: string;
-  icon: ComponentType<{ size?: number; className?: string }>;
+  icon: ComponentType<{ size?: number | string; className?: string }>;
   adminOnly?: boolean;
   limitedOnly?: boolean;
 }

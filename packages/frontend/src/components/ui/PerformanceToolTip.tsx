@@ -34,16 +34,16 @@ export const PerformanceToolTip: React.FC<PerformanceToolTipProps> = ({
           style={{
             display: 'grid',
             gridTemplateColumns: 'auto auto',
-            gap: '4px 12px',
-            minWidth: '180px',
-            fontSize: '12px',
+            gap: '0.25rem 0.75rem',
+            minWidth: '11.25rem',
+            fontSize: '0.75rem',
           }}
         >
           <strong
             style={{
               gridColumn: '1 / -1',
               borderBottom: '1px solid var(--border)',
-              paddingBottom: '4px',
+              paddingBottom: '0.25rem',
               marginBottom: '2px',
             }}
           >

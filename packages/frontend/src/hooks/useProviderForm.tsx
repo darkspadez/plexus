@@ -1287,7 +1287,7 @@ export function useProviderForm() {
         <Badge
           status="error"
           noDot
-          className="cursor-pointer text-[10px] py-0.5 px-2"
+          className="cursor-pointer text-2xs py-0.5"
           onClick={handleQuotaClick}
           title={quota.error}
         >
@@ -1315,7 +1315,7 @@ export function useProviderForm() {
           key={`balance-${meter.key}`}
           status={status}
           title={meter.label}
-          className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2"
+          className="[&_.connection-dot]:hidden cursor-pointer text-2xs py-0.5"
           onClick={handleQuotaClick}
         >
           {formatMeterValue(value, meter.unit, false, { currency, rate, symbol })}
@@ -1336,7 +1336,7 @@ export function useProviderForm() {
           key={`allowance-${meter.key}`}
           status={status}
           title={allowanceSubtext(meter) ?? meter.label}
-          className="[&_.connection-dot]:hidden cursor-pointer text-[10px] py-0.5 px-2"
+          className="[&_.connection-dot]:hidden cursor-pointer text-2xs py-0.5"
           onClick={handleQuotaClick}
         >
           {tag ? `${tag} · ${rounded}%` : `${rounded}%`}

@@ -101,7 +101,7 @@ export function ExplorationSettings() {
           onClick={handleSubmit(onSubmit)}
           isLoading={isSaving}
           disabled={!loaded || !isValid || isSaving}
-          leftIcon={<Save size={14} />}
+          leftIcon={<Save size="0.875rem" />}
         >
           Save
         </Button>
@@ -111,12 +111,12 @@ export function ExplorationSettings() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Radar size={16} className="text-primary-text" />
+              <Radar size="1rem" className="text-primary-text" />
               <div>
-                <p className="font-sans text-[12px] font-medium text-foreground">
+                <p className="font-sans text-xs font-medium text-foreground">
                   Background Exploration
                 </p>
-                <p className="font-sans text-[11px] text-foreground-subtle">
+                <p className="font-sans text-label text-foreground-subtle">
                   Fire background probe requests instead of diverting live traffic. Probes use
                   apiKey=&quot;probe&quot;.
                 </p>
@@ -134,7 +134,7 @@ export function ExplorationSettings() {
               <div className="flex flex-col gap-1">
                 <label
                   htmlFor="bgExplorationStaleness"
-                  className="font-sans text-[12px] font-medium text-foreground"
+                  className="font-sans text-xs font-medium text-foreground"
                 >
                   Staleness Threshold (s){' '}
                   <span className="text-foreground-subtle font-normal">— min 1, default 600</span>
@@ -145,10 +145,10 @@ export function ExplorationSettings() {
                   min={1}
                   step={1}
                   {...register('stalenessThresholdSeconds', { valueAsNumber: true })}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
+                  className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                 />
                 {errors.stalenessThresholdSeconds && (
-                  <span className="text-[11px] text-warning-text">
+                  <span className="text-label text-warning-text">
                     {errors.stalenessThresholdSeconds.message}
                   </span>
                 )}
@@ -156,7 +156,7 @@ export function ExplorationSettings() {
               <div className="flex flex-col gap-1">
                 <label
                   htmlFor="bgExplorationConcurrency"
-                  className="font-sans text-[12px] font-medium text-foreground"
+                  className="font-sans text-xs font-medium text-foreground"
                 >
                   Worker Concurrency{' '}
                   <span className="text-foreground-subtle font-normal">— 1–16, default 2</span>
@@ -168,10 +168,10 @@ export function ExplorationSettings() {
                   max={16}
                   step={1}
                   {...register('workerConcurrency', { valueAsNumber: true })}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
+                  className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                 />
                 {errors.workerConcurrency && (
-                  <span className="text-[11px] text-warning-text">
+                  <span className="text-label text-warning-text">
                     {errors.workerConcurrency.message}
                   </span>
                 )}
@@ -184,7 +184,7 @@ export function ExplorationSettings() {
               <div className="flex flex-col gap-1">
                 <label
                   htmlFor="performanceExplorationRate"
-                  className="font-sans text-[12px] font-medium text-foreground"
+                  className="font-sans text-xs font-medium text-foreground"
                 >
                   Performance Rate{' '}
                   <span className="text-foreground-subtle font-normal">— 0–1, default 0.05</span>
@@ -196,10 +196,10 @@ export function ExplorationSettings() {
                   max={1}
                   step={0.01}
                   {...register('performanceExplorationRate', { valueAsNumber: true })}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
+                  className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                 />
                 {errors.performanceExplorationRate && (
-                  <span className="text-[11px] text-warning-text">
+                  <span className="text-label text-warning-text">
                     {errors.performanceExplorationRate.message}
                   </span>
                 )}
@@ -207,7 +207,7 @@ export function ExplorationSettings() {
               <div className="flex flex-col gap-1">
                 <label
                   htmlFor="latencyExplorationRate"
-                  className="font-sans text-[12px] font-medium text-foreground"
+                  className="font-sans text-xs font-medium text-foreground"
                 >
                   Latency Rate{' '}
                   <span className="text-foreground-subtle font-normal">— 0–1, default 0.05</span>
@@ -219,10 +219,10 @@ export function ExplorationSettings() {
                   max={1}
                   step={0.01}
                   {...register('latencyExplorationRate', { valueAsNumber: true })}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
+                  className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                 />
                 {errors.latencyExplorationRate && (
-                  <span className="text-[11px] text-warning-text">
+                  <span className="text-label text-warning-text">
                     {errors.latencyExplorationRate.message}
                   </span>
                 )}
@@ -230,7 +230,7 @@ export function ExplorationSettings() {
               <div className="flex flex-col gap-1">
                 <label
                   htmlFor="e2ePerformanceExplorationRate"
-                  className="font-sans text-[12px] font-medium text-foreground"
+                  className="font-sans text-xs font-medium text-foreground"
                 >
                   E2E Rate{' '}
                   <span className="text-foreground-subtle font-normal">— 0–1, default 0.05</span>
@@ -242,10 +242,10 @@ export function ExplorationSettings() {
                   max={1}
                   step={0.01}
                   {...register('e2ePerformanceExplorationRate', { valueAsNumber: true })}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
+                  className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
                 />
                 {errors.e2ePerformanceExplorationRate && (
-                  <span className="text-[11px] text-warning-text">
+                  <span className="text-label text-warning-text">
                     {errors.e2ePerformanceExplorationRate.message}
                   </span>
                 )}

@@ -168,18 +168,18 @@ export function CustomQuotaCheckers() {
               variant="ghost"
               size="sm"
               onClick={() => navigate('/providers')}
-              leftIcon={<ArrowLeft size={14} />}
+              leftIcon={<ArrowLeft size="0.875rem" />}
             >
               Providers
             </Button>
-            <Button size="sm" onClick={createChecker} leftIcon={<Plus size={14} />}>
+            <Button size="sm" onClick={createChecker} leftIcon={<Plus size="0.875rem" />}>
               New checker
             </Button>
           </div>
         }
       />
       <PageContainer>
-        <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+        <div className="grid gap-4 lg:grid-cols-[15rem_1fr]">
           <Card className="h-fit" flush>
             {checkers.length === 0 ? (
               <EmptyState
@@ -202,7 +202,7 @@ export function CustomQuotaCheckers() {
                         : 'text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
                     )}
                   >
-                    <Code2 size={14} />
+                    <Code2 size="0.875rem" />
                     <span className="min-w-0 truncate">{checker.displayName || checker.id}</span>
                   </button>
                 ))}
@@ -228,8 +228,8 @@ export function CustomQuotaCheckers() {
 
             <div className="mt-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="font-sans text-[12px] font-medium text-foreground">Enabled</div>
-                <div className="font-sans text-[11px] text-foreground-subtle">
+                <div className="font-sans text-xs font-medium text-foreground">Enabled</div>
+                <div className="font-sans text-label text-foreground-subtle">
                   Providers may select this checker only while it is enabled.
                 </div>
               </div>
@@ -246,7 +246,7 @@ export function CustomQuotaCheckers() {
               className="mt-3"
             >
               <textarea
-                className="min-h-[420px] w-full rounded-md border border-border bg-surface-sunken p-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:border-focus"
+                className="min-h-[26.25rem] w-full rounded-md border border-border bg-surface-sunken p-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:border-focus"
                 value={draft.code}
                 onChange={(event) => setDraft({ ...draft, code: event.target.value })}
                 spellCheck={false}
@@ -282,7 +282,7 @@ export function CustomQuotaCheckers() {
                 isLoading={testing}
                 onClick={test}
                 disabled={!draft.id.trim() || !testProvider}
-                leftIcon={<Code2 size={14} />}
+                leftIcon={<Code2 size="0.875rem" />}
               >
                 Test code
               </Button>
@@ -293,7 +293,12 @@ export function CustomQuotaCheckers() {
 
             <div className="mt-4 flex items-center justify-end gap-2">
               {selectedId && (
-                <Button variant="danger" size="sm" onClick={remove} leftIcon={<Trash2 size={14} />}>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={remove}
+                  leftIcon={<Trash2 size="0.875rem" />}
+                >
                   Delete
                 </Button>
               )}
@@ -302,7 +307,7 @@ export function CustomQuotaCheckers() {
                 isLoading={saving}
                 onClick={save}
                 disabled={!draft.id.trim() || !draft.displayName.trim() || !draft.code.trim()}
-                leftIcon={<Save size={14} />}
+                leftIcon={<Save size="0.875rem" />}
               >
                 Save checker
               </Button>

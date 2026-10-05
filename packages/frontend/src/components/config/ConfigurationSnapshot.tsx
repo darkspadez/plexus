@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import Editor from '@monaco-editor/react';
 import { useMonacoTheme } from '../../hooks/useMonacoTheme';
+import { useScaledPx } from '../../hooks/useScaledPx';
 import { AlertTriangle, Download, RefreshCw, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { SectionCard } from '../ui/SectionCard';
@@ -19,11 +20,11 @@ class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Er
   render() {
     if (this.state.error) {
       return (
-        <div className="h-[400px] sm:h-[500px] flex items-center justify-center bg-surface/30 text-foreground-muted rounded-md">
+        <div className="h-[25rem] sm:h-[31.25rem] flex items-center justify-center bg-surface/30 text-foreground-muted rounded-md">
           <div className="text-center p-6">
-            <AlertTriangle className="mx-auto mb-3 text-warning-text" size={32} />
+            <AlertTriangle className="mx-auto mb-3 text-warning-text" size="2rem" />
             <p className="text-sm font-semibold mb-1">Editor failed to load</p>
-            <p className="font-sans text-[11px] text-foreground-subtle">
+            <p className="font-sans text-label text-foreground-subtle">
               {this.state.error.message}
             </p>
           </div>
@@ -40,8 +41,9 @@ class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Er
  */
 function SnapshotEditor({ config }: { config: string }) {
   const monacoTheme = useMonacoTheme();
+  const monacoFontSize = useScaledPx(13);
   return (
-    <div className="h-[400px] sm:h-[500px] lg:h-[600px] rounded-sm overflow-hidden">
+    <div className="h-[25rem] sm:h-[31.25rem] lg:h-[37.5rem] rounded-sm overflow-hidden">
       <EditorErrorBoundary>
         <Editor
           height="100%"
@@ -52,7 +54,7 @@ function SnapshotEditor({ config }: { config: string }) {
             readOnly: true,
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            fontSize: 13,
+            fontSize: monacoFontSize,
             fontFamily: "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
           }}
         />
@@ -89,7 +91,7 @@ export function ConfigurationSnapshot({
             variant="outline"
             size="sm"
             onClick={onRefresh}
-            leftIcon={<RotateCcw size={14} />}
+            leftIcon={<RotateCcw size="0.875rem" />}
           >
             Refresh
           </Button>
@@ -98,7 +100,7 @@ export function ConfigurationSnapshot({
             size="sm"
             onClick={onRestart}
             isLoading={restarting}
-            leftIcon={<RefreshCw size={14} />}
+            leftIcon={<RefreshCw size="0.875rem" />}
           >
             Restart
           </Button>
@@ -107,7 +109,7 @@ export function ConfigurationSnapshot({
             size="sm"
             onClick={onExport}
             disabled={!loaded}
-            leftIcon={<Download size={14} />}
+            leftIcon={<Download size="0.875rem" />}
           >
             Export JSON
           </Button>

@@ -70,7 +70,7 @@ export function Select<V extends string = string>({
           ))}
         </select>
         <ChevronDown
-          size={14}
+          size="0.875rem"
           className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted"
         />
       </div>

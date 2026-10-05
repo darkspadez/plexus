@@ -80,10 +80,10 @@ export function ModelAdapters({
                   }}
                 />
                 <div>
-                  <div className="font-sans text-[12px] font-medium text-foreground">
+                  <div className="font-sans text-xs font-medium text-foreground">
                     Suppress Unsupported GPT-5 Options
                   </div>
-                  <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                  <div className="font-sans text-label leading-snug text-foreground-muted">
                     Enabled by default. Removes generation options GPT-5 does not accept.
                   </div>
                 </div>
@@ -124,10 +124,8 @@ export function ModelAdapters({
                 }}
               />
               <div>
-                <div className="font-sans text-[12px] font-medium text-foreground">
-                  {adapter.label}
-                </div>
-                <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                <div className="font-sans text-xs font-medium text-foreground">{adapter.label}</div>
+                <div className="font-sans text-label leading-snug text-foreground-muted">
                   {adapter.description}
                 </div>
               </div>

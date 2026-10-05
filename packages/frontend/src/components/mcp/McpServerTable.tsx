@@ -51,7 +51,7 @@ export function McpServerTable({
         }
         return (
           <div className="flex items-center gap-2">
-            <Edit2 size={12} className="opacity-50" />
+            <Edit2 size="0.75rem" className="opacity-50" />
             <span className="font-medium text-foreground">{r.name}</span>
           </div>
         );
@@ -68,7 +68,7 @@ export function McpServerTable({
         }
         const server = servers[r.name];
         return (
-          <div className="max-w-[400px] truncate text-sm text-foreground">
+          <div className="max-w-[25rem] truncate text-sm text-foreground">
             {server.mode === 'local_http'
               ? `${server.launcher} ${server.package} → 127.0.0.1:${server.port}${server.path || '/mcp'}`
               : server.upstream_url}
@@ -96,7 +96,7 @@ export function McpServerTable({
               title="Copy path"
               aria-label={`Copy ${path}`}
             >
-              <Copy size={13} />
+              <Copy size="0.8125rem" />
             </button>
           </div>
         );
@@ -149,7 +149,7 @@ export function McpServerTable({
                 title="Manage load-balanced keys"
                 aria-label={`Manage keys for ${r.name}`}
               >
-                <KeyRound size={14} />
+                <KeyRound size="0.875rem" />
               </Button>
             )}
             <Button
@@ -162,7 +162,7 @@ export function McpServerTable({
               className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
               aria-label={`Delete ${r.name}`}
             >
-              <Trash2 size={14} />
+              <Trash2 size="0.875rem" />
             </Button>
           </div>
         );
@@ -201,7 +201,7 @@ export function McpServerTable({
                   className="text-foreground-muted"
                   aria-label={`Manage keys for ${r.name}`}
                 >
-                  <KeyRound size={14} />
+                  <KeyRound size="0.875rem" />
                 </Button>
               )}
               <Button
@@ -214,7 +214,7 @@ export function McpServerTable({
                 className="text-danger-text"
                 aria-label={`Delete ${r.name}`}
               >
-                <Trash2 size={14} />
+                <Trash2 size="0.875rem" />
               </Button>
             </>
           ) : null

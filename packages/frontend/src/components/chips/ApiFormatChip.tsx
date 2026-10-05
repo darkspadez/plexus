@@ -68,7 +68,7 @@ export const ApiFormatChip: React.FC<ApiFormatChipProps> = ({ format, className 
       <Pill size="sm" className={className}>
         <ApiTypeIcon
           apiType={format}
-          size={10}
+          size="0.625rem"
           fallback={<span aria-hidden className="inline-block size-1.5 rounded-full bg-current" />}
         />
         {format}

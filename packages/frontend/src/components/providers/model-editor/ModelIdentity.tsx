@@ -115,7 +115,7 @@ export function ModelIdentity({
     <div className="flex flex-col gap-1.5">
       {/* Compact Model ID — bypasses Input component's py-2 */}
       <div className="flex flex-col gap-1">
-        <label className="font-sans text-[11px] font-medium text-foreground-muted">Model ID</label>
+        <label className="font-sans text-label font-medium text-foreground-muted">Model ID</label>
         <ModelIdInputCompact modelId={modelId} onCommit={onUpdateModelId} />
       </div>
       <Select
@@ -172,8 +172,8 @@ export function ModelIdentity({
       />
       {decisionsTypeWithoutProtocol && (
         <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
-          <AlertTriangle size={14} className="text-warning-text shrink-0 mt-0.5" />
-          <span className="text-[11px] text-warning-text">
+          <AlertTriangle size="0.875rem" className="text-warning-text shrink-0 mt-0.5" />
+          <span className="text-label text-warning-text">
             This provider has no System One base URL and this model has no decisions Access Via
             entry, so it cannot serve any requests. Add a systemone base URL to the provider, or
             switch the model type.
@@ -183,7 +183,7 @@ export function ModelIdentity({
 
       {(!mCfg.type || mCfg.type === 'text' || mCfg.type === 'image') && (
         <div className="flex flex-col gap-1">
-          <label className="font-sans text-[11px] font-medium text-foreground-muted">
+          <label className="font-sans text-label font-medium text-foreground-muted">
             Access Via
           </label>
           <div className="flex flex-wrap gap-1 justify-start">
@@ -192,7 +192,7 @@ export function ModelIdentity({
               const selected = hasApiAccess(mCfg.access_via, key);
               return (
                 <div key={key} className="flex items-center gap-2">
-                  <label className="flex cursor-pointer items-center gap-[3px]">
+                  <label className="flex cursor-pointer items-center gap-[0.1875rem]">
                     <input
                       type="checkbox"
                       checked={selected}
@@ -213,7 +213,7 @@ export function ModelIdentity({
                     />
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-xl px-1.5 py-0.5 text-[10px] font-medium',
+                        'inline-flex items-center rounded-xl px-1.5 py-0.5 text-2xs font-medium',
                         getApiBadgeClass(option.type),
                         selected ? 'opacity-100' : 'opacity-50'
                       )}
@@ -223,7 +223,7 @@ export function ModelIdentity({
                   </label>
                   {key === 'responses' && selected && (
                     <div className="flex items-center gap-1">
-                      <label className="flex cursor-pointer items-center gap-1.5 font-sans text-[11px] text-foreground-muted">
+                      <label className="flex cursor-pointer items-center gap-1.5 font-sans text-label text-foreground-muted">
                         <input
                           type="checkbox"
                           checked={hasApiAccess(mCfg.access_via, 'responses:lite')}
@@ -253,7 +253,7 @@ export function ModelIdentity({
                           aria-label="About Responses Lite"
                           className="flex h-4 w-4 items-center justify-center rounded-full text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus"
                         >
-                          <Info size={12} />
+                          <Info size="0.75rem" />
                         </button>
                       </Tooltip>
                     </div>
@@ -263,14 +263,14 @@ export function ModelIdentity({
             })}
           </div>
           {(!mCfg.access_via || mCfg.access_via.length === 0) && (
-            <span className="font-sans text-[11px] text-foreground-subtle italic">
+            <span className="font-sans text-label text-foreground-subtle italic">
               empty = use any provider API
             </span>
           )}
           {hasMixedDecisionsAccess && (
             <div className="flex items-start gap-2 py-1.5 px-2 bg-info/10 border border-info/30 rounded-sm">
-              <Info size={14} className="text-info-text shrink-0 mt-0.5" />
-              <span className="text-[11px] text-info-text">
+              <Info size="0.875rem" className="text-info-text shrink-0 mt-0.5" />
+              <span className="text-label text-info-text">
                 This model advertises System One through a legacy Access Via entry. Set{' '}
                 <span className="font-semibold">Model Type: Decisions</span> to make it
                 decisions-only, or it will keep serving that protocol alongside the selected
@@ -283,7 +283,7 @@ export function ModelIdentity({
                     access_via: stripDecisionsAccess(mCfg.access_via),
                   })
                 }
-                className="ml-auto shrink-0 cursor-pointer rounded-sm border border-info/40 px-2 py-0.5 text-[11px] text-info-text transition-colors hover:bg-info/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus"
+                className="ml-auto shrink-0 cursor-pointer rounded-sm border border-info/40 px-2 py-0.5 text-label text-info-text transition-colors hover:bg-info/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus"
               >
                 Remove System One
               </button>
@@ -297,8 +297,8 @@ export function ModelIdentity({
             if (hasOllamaBaseUrl && !hasApiAccess(mCfg.access_via, 'ollama')) {
               return (
                 <div className="flex items-start gap-2 py-1.5 px-2 bg-info/10 border border-info/30 rounded-sm">
-                  <Info size={14} className="text-info-text shrink-0 mt-0.5" />
-                  <span className="text-[11px] text-info-text">
+                  <Info size="0.875rem" className="text-info-text shrink-0 mt-0.5" />
+                  <span className="text-label text-info-text">
                     Provider has a native Ollama URL — select{' '}
                     <span className="font-semibold">ollama</span> above to use it.
                   </span>
@@ -309,8 +309,8 @@ export function ModelIdentity({
           })()}
           {mCfg.type === 'image' && (
             <div className="flex items-start gap-2 py-1.5 px-2 bg-info/10 border border-info/30 rounded-sm">
-              <Info size={14} className="text-info-text shrink-0 mt-0.5" />
-              <span className="text-[11px] text-info-text">
+              <Info size="0.875rem" className="text-info-text shrink-0 mt-0.5" />
+              <span className="text-label text-info-text">
                 {isCodexOAuthProvider ? (
                   <>
                     Codex Images is the only image protocol available on a ChatGPT OAuth provider.
@@ -332,8 +332,8 @@ export function ModelIdentity({
             (mCfg.access_via?.length ?? 0) > 0 &&
             !hasApiAccess(mCfg.access_via, CODEX_IMAGE_ACCESS) && (
               <div className="flex items-start gap-2 py-1.5 px-2 bg-warning/10 border border-warning/30 rounded-sm">
-                <AlertTriangle size={14} className="text-warning-text shrink-0 mt-0.5" />
-                <span className="text-[11px] text-warning-text">
+                <AlertTriangle size="0.875rem" className="text-warning-text shrink-0 mt-0.5" />
+                <span className="text-label text-warning-text">
                   This model still targets an HTTP image protocol, which a ChatGPT OAuth provider
                   cannot serve. Select{' '}
                   <span className="font-semibold">Codex Images (ChatGPT OAuth)</span> above.
@@ -383,7 +383,7 @@ export function ModelIdentity({
             piAiProvider && piModels.length > 0 && piModelCustom[modelId] ? (
               <button
                 type="button"
-                className="font-sans text-[11px] text-foreground-subtle hover:text-foreground px-1 flex-shrink-0"
+                className="font-sans text-label text-foreground-subtle hover:text-foreground px-1 flex-shrink-0"
                 title="Back to list"
                 onClick={() => setPiModelCustom((prev) => ({ ...prev, [modelId]: false }))}
               >

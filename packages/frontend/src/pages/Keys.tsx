@@ -39,7 +39,11 @@ export const Keys = () => {
             <div className="w-full sm:w-64">
               <SearchInput value={search} onChange={setSearch} placeholder="Search keys…" />
             </div>
-            <Button leftIcon={<Plus size={14} />} onClick={keyActions.handleAddNewKey} size="md">
+            <Button
+              leftIcon={<Plus size="0.875rem" />}
+              onClick={keyActions.handleAddNewKey}
+              size="md"
+            >
               Create key
             </Button>
           </>

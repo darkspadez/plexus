@@ -24,6 +24,7 @@ import {
 import { Card } from '../../ui/Card';
 import { formatMs, formatNumber, formatTPS } from '../../../lib/format';
 import type { ModelTimelineBucket, ModelTimelineSeries } from '../liveTypes';
+import { useScaledPx } from '../../../hooks/useScaledPx';
 
 export interface ModelTimelineCardProps {
   loading: boolean;
@@ -40,11 +41,12 @@ export const ModelTimelineCard: React.FC<ModelTimelineCardProps> = ({
   modelTimeline,
   liveWindowMinutes,
 }) => {
+  const yAxisWidth = useScaledPx(60);
   return (
     <Card
       title="Model Stack"
       className="min-w-0"
-      extra={<Clock size={16} className="text-primary-text" />}
+      extra={<Clock size="1rem" className="text-primary-text" />}
     >
       {loading ? (
         <div className="h-48 sm:h-56 flex items-center justify-center text-foreground-muted">
@@ -65,26 +67,28 @@ export const ModelTimelineCard: React.FC<ModelTimelineCardProps> = ({
               <XAxis
                 dataKey="time"
                 stroke="var(--foreground-subtle)"
-                tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                tick={{ fill: 'var(--foreground-subtle)', fontSize: '0.6875rem' }}
               />
               <YAxis
+                width={yAxisWidth}
                 yAxisId="left"
                 stroke="var(--foreground-subtle)"
-                tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                tick={{ fill: 'var(--foreground-subtle)', fontSize: '0.6875rem' }}
                 allowDecimals={false}
               />
               <YAxis
+                width={yAxisWidth}
                 yAxisId="right"
                 orientation="right"
                 stroke="var(--foreground-subtle)"
-                tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                tick={{ fill: 'var(--foreground-subtle)', fontSize: '0.6875rem' }}
                 tickFormatter={(value) => formatNumber(Number(value || 0), 1)}
               />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'var(--surface-elevated)',
                   border: '1px solid var(--border)',
-                  borderRadius: '8px',
+                  borderRadius: 'min(var(--theme-radius-field), 0.5rem)',
                 }}
                 labelStyle={{ color: 'var(--foreground)' }}
                 formatter={(value, name) => {
@@ -106,7 +110,7 @@ export const ModelTimelineCard: React.FC<ModelTimelineCardProps> = ({
                 }}
               />
               <Legend
-                wrapperStyle={{ fontSize: 11 }}
+                wrapperStyle={{ fontSize: '0.6875rem' }}
                 formatter={(value) => (
                   <span style={{ color: 'var(--foreground-muted)' }}>
                     {modelTimeline.seriesLabelMap.get(String(value)) || value}

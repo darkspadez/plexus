@@ -77,7 +77,7 @@ export function ModelCard({
           title="Click to dismiss"
         >
           <span
-            className={`break-words text-[11px] italic ${
+            className={`break-words text-label italic ${
               testState.result === 'error' ? 'text-danger-text' : 'text-success-text'
             }`}
           >

@@ -3,6 +3,7 @@ import { InferenceError } from '../lib/api';
 import { useErrors, useDeleteError, useDeleteAllErrors } from '../hooks/queries/useErrors';
 import Editor from '@monaco-editor/react';
 import { useMonacoTheme } from '../hooks/useMonacoTheme';
+import { useScaledPx } from '../hooks/useScaledPx';
 import {
   RefreshCw,
   Clock,
@@ -140,7 +141,7 @@ export const Errors: React.FC = () => {
                   onClick={handleDeleteAll}
                   variant="danger"
                   size="md"
-                  leftIcon={<Trash2 size={14} />}
+                  leftIcon={<Trash2 size="0.875rem" />}
                   disabled={errors.length === 0}
                 >
                   Delete All
@@ -150,7 +151,7 @@ export const Errors: React.FC = () => {
                 onClick={() => errorsQuery.refetch()}
                 variant="outline"
                 size="md"
-                leftIcon={<RefreshCw size={14} className={clsx(loading && 'animate-spin')} />}
+                leftIcon={<RefreshCw size="0.875rem" className={clsx(loading && 'animate-spin')} />}
               >
                 Refresh
               </Button>
@@ -161,7 +162,7 @@ export const Errors: React.FC = () => {
 
       <div className="mt-3 sm:mt-2 flex min-h-0 flex-1 flex-col overflow-hidden border-t border-border md:flex-row">
         {/* Left Pane: Error List */}
-        <div className="flex max-h-[34vh] w-full shrink-0 flex-col border-b border-border bg-surface md:max-h-none md:w-[320px] md:border-b-0 md:border-r">
+        <div className="flex max-h-[34vh] w-full shrink-0 flex-col border-b border-border bg-surface md:max-h-none md:w-[20rem] md:border-b-0 md:border-r">
           <div className="border-b border-border p-3 sm:p-4">
             <span className="text-xs font-bold text-foreground-subtle uppercase tracking-wider">
               Recent Errors
@@ -180,7 +181,7 @@ export const Errors: React.FC = () => {
                 <div className="w-full">
                   <div className="flex items-center gap-2 mb-1 justify-between">
                     <div className="flex items-center gap-2">
-                      <Clock size={14} className="text-foreground-subtle" />
+                      <Clock size="0.875rem" className="text-foreground-subtle" />
                       <span className="text-xs font-mono text-foreground-subtle">
                         {new Date(err.date).toLocaleTimeString()}
                       </span>
@@ -190,10 +191,10 @@ export const Errors: React.FC = () => {
                       className="bg-transparent border-0 text-foreground-subtle p-1 rounded cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-danger-subtle hover:text-danger-text opacity-100 md:opacity-0 md:group-hover:opacity-100"
                       title="Delete error log"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size="0.75rem" />
                     </button>
                   </div>
-                  <div className="text-[13px] font-mono whitespace-nowrap overflow-hidden text-ellipsis mt-1 text-xs text-foreground-subtle">
+                  <div className="font-mono whitespace-nowrap overflow-hidden text-ellipsis mt-1 text-sm text-foreground-subtle">
                     {err.requestId?.substring(0, 8) ?? '-'}...
                   </div>
                   <div className="mt-1 text-sm text-danger-text truncate" title={err.errorMessage}>
@@ -365,7 +366,7 @@ export const Errors: React.FC = () => {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-foreground-subtle gap-4">
-              <AlertTriangle size={48} opacity={0.2} />
+              <AlertTriangle size="3rem" opacity={0.2} />
               <p>Select an error to inspect details</p>
             </div>
           )}
@@ -427,6 +428,7 @@ const AccordionPanel: React.FC<{
   const [copied, setCopied] = useState(false);
   const [editorHeight, setEditorHeight] = useState(EDITOR_MIN_HEIGHT);
   const monacoTheme = useMonacoTheme();
+  const monacoFontSize = useScaledPx(12);
 
   const editorContent = (() => {
     if (content == null) return '';
@@ -455,8 +457,8 @@ const AccordionPanel: React.FC<{
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-2">
-          {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          <span className={clsx('text-[11px] font-bold uppercase tracking-wider', color)}>
+          {isOpen ? <ChevronDown size="1rem" /> : <ChevronRight size="1rem" />}
+          <span className={clsx('text-label font-bold uppercase tracking-wider', color)}>
             {title}
           </span>
         </div>
@@ -465,7 +467,11 @@ const AccordionPanel: React.FC<{
           onClick={handleCopy}
           title="Copy to clipboard"
         >
-          {copied ? <Check size={14} className="text-success-text" /> : <Copy size={14} />}
+          {copied ? (
+            <Check size="0.875rem" className="text-success-text" />
+          ) : (
+            <Copy size="0.875rem" />
+          )}
         </button>
       </div>
       <div
@@ -492,7 +498,7 @@ const AccordionPanel: React.FC<{
               readOnly: true,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
-              fontSize: 12,
+              fontSize: monacoFontSize,
               fontFamily: "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
               lineNumbers: 'off',
               folding: true,

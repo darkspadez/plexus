@@ -108,7 +108,7 @@ export function AutoAddModal({
       title="Auto Add Targets"
       size="lg"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -118,7 +118,7 @@ export function AutoAddModal({
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="min-w-0 flex-1">
             <Input
@@ -136,14 +136,14 @@ export function AutoAddModal({
         {filteredModels.length > 0 ? (
           <div
             style={{
-              maxHeight: '400px',
+              maxHeight: '25rem',
               overflowY: 'auto',
               overflowX: 'auto',
               border: '1px solid var(--border)',
               borderRadius: 'min(var(--theme-radius-field), 0.25rem)',
             }}
           >
-            <table className="w-full border-collapse font-sans text-[13px]">
+            <table className="w-full border-collapse font-sans text-sm">
               <thead
                 style={{
                   position: 'sticky',
@@ -154,8 +154,8 @@ export function AutoAddModal({
               >
                 <tr>
                   <th
-                    className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
-                    style={{ width: '40px' }}
+                    className="px-4 py-3 text-left font-semibold text-foreground-muted text-label uppercase tracking-wider"
+                    style={{ width: '2.5rem' }}
                   >
                     <input
                       type="checkbox"
@@ -197,10 +197,10 @@ export function AutoAddModal({
                       }}
                     />
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-label uppercase tracking-wider">
                     Provider
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-label uppercase tracking-wider">
                     Model
                   </th>
                 </tr>
@@ -234,8 +234,8 @@ export function AutoAddModal({
                         {alreadyExists && (
                           <span
                             style={{
-                              marginLeft: '8px',
-                              fontSize: '11px',
+                              marginLeft: '0.5rem',
+                              fontSize: '0.6875rem',
                               color: 'var(--foreground-muted)',
                               fontStyle: 'italic',
                             }}

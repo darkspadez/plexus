@@ -30,13 +30,11 @@ export function ToggleRow({
       )}
     >
       <div className="min-w-0 flex-1">
-        <div
-          className={cn('font-sans text-[12px] font-medium text-foreground', !wrap && 'truncate')}
-        >
+        <div className={cn('font-sans text-xs font-medium text-foreground', !wrap && 'truncate')}>
           {label}
         </div>
         <div
-          className={cn('font-sans text-[11px] text-foreground-subtle', !wrap && 'truncate')}
+          className={cn('font-sans text-label text-foreground-subtle', !wrap && 'truncate')}
           title={warning ? `${description} ${warning}` : description}
         >
           {description}

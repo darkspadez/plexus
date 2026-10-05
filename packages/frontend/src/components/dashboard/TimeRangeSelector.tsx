@@ -241,10 +241,10 @@ export function TimeRangeSelector<T extends TimeRange>({
             onClick={() => handleCustomClick(customOption)}
             className="flex items-center gap-1.5"
           >
-            <Calendar size={14} />
+            <Calendar size="0.875rem" />
             {RANGE_LABELS.custom}
             <ChevronDown
-              size={12}
+              size="0.75rem"
               style={{
                 transition: 'transform 0.2s',
                 transform: showCustomPicker ? 'rotate(180deg)' : 'rotate(0deg)',
@@ -253,16 +253,16 @@ export function TimeRangeSelector<T extends TimeRange>({
           </Button>
 
           {showCustomPicker && value === customOption && (
-            <div className="absolute right-0 top-full z-[100] mt-2 min-w-[280px] rounded-lg border border-border bg-surface-elevated p-3 shadow-md">
+            <div className="absolute right-0 top-full z-[100] mt-2 min-w-[17.5rem] rounded-lg border border-border bg-surface-elevated p-3 shadow-md">
               <div className="mb-3">
                 <div className="mb-2">
                   <button
                     onClick={() => setShowPresetDropdown(!showPresetDropdown)}
-                    className="flex w-full cursor-pointer items-center justify-between rounded-[6px] border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground-muted"
+                    className="flex w-full cursor-pointer items-center justify-between rounded-[0.375rem] border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground-muted"
                   >
                     <span>Quick Select</span>
                     <ChevronDown
-                      size={14}
+                      size="0.875rem"
                       style={{
                         transition: 'transform 0.2s',
                         transform: showPresetDropdown ? 'rotate(180deg)' : 'rotate(0deg)',

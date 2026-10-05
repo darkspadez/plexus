@@ -76,7 +76,7 @@ function RowRefreshButton({
       aria-label={`Refresh ${checkerLabel(row.displayName, row.checkerId)}`}
       className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-subtle transition-colors hover:bg-surface-elevated hover:text-foreground disabled:opacity-50"
     >
-      <RefreshCw size={14} className={cn(isRefreshing && 'animate-spin')} />
+      <RefreshCw size="0.875rem" className={cn(isRefreshing && 'animate-spin')} />
     </button>
   );
 }
@@ -177,7 +177,7 @@ export const Quotas = () => {
               <div>
                 {/* desktop: indent + branch connector marks "same provider, continued" */}
                 <div className="hidden md:flex items-center pl-3 text-foreground-subtle">
-                  <CornerDownRight size={14} className="shrink-0" aria-hidden />
+                  <CornerDownRight size="0.875rem" className="shrink-0" aria-hidden />
                 </div>
                 {/* mobile: each card stays self-labeled with the provider name */}
                 <div className="md:hidden">{nameBlock}</div>
@@ -223,9 +223,9 @@ export const Quotas = () => {
             <div>
               <div className="flex items-center gap-1.5">
                 {r.meter.kind === 'balance' ? (
-                  <Wallet size={12} className="shrink-0 text-info-text" />
+                  <Wallet size="0.75rem" className="shrink-0 text-info-text" />
                 ) : (
-                  <Gauge size={12} className="shrink-0 text-primary-text" />
+                  <Gauge size="0.75rem" className="shrink-0 text-primary-text" />
                 )}
                 <span className="truncate text-foreground" title={r.meter.label}>
                   {r.meter.label}
@@ -344,7 +344,10 @@ export const Quotas = () => {
             onClick={handleRefreshAll}
             disabled={triggerAllMutation.isPending || checkers.length === 0}
             leftIcon={
-              <RefreshCw size={14} className={cn(triggerAllMutation.isPending && 'animate-spin')} />
+              <RefreshCw
+                size="0.875rem"
+                className={cn(triggerAllMutation.isPending && 'animate-spin')}
+              />
             }
           >
             Refresh all
@@ -355,7 +358,7 @@ export const Quotas = () => {
       <PageContainer>
         {loading && checkers.length === 0 ? (
           <div className="flex h-64 items-center justify-center gap-3">
-            <RefreshCw size={20} className="animate-spin text-primary-text" />
+            <RefreshCw size="1.25rem" className="animate-spin text-primary-text" />
             <span className="text-foreground-muted">Loading quotas...</span>
           </div>
         ) : (

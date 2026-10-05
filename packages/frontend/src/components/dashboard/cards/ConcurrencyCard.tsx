@@ -21,6 +21,7 @@ import {
 import { Card } from '../../ui/Card';
 import { formatNumber } from '../../../lib/format';
 import { chartColor } from '../../../lib/chartPalette';
+import { useScaledPx } from '../../../hooks/useScaledPx';
 
 export interface ConcurrencyCardProps {
   concurrencyLoading: boolean;
@@ -35,6 +36,7 @@ export const ConcurrencyCard: React.FC<ConcurrencyCardProps> = ({
   totalConcurrentRequests,
   concurrencyProviders,
 }) => {
+  const yAxisWidth = useScaledPx(60);
   return (
     <Card
       title="Concurrency"
@@ -69,12 +71,12 @@ export const ConcurrencyCard: React.FC<ConcurrencyCardProps> = ({
             >
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="time" stroke="var(--foreground-subtle)" />
-              <YAxis stroke="var(--foreground-subtle)" allowDecimals={false} />
+              <YAxis width={yAxisWidth} stroke="var(--foreground-subtle)" allowDecimals={false} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'var(--surface-elevated)',
                   border: '1px solid var(--border)',
-                  borderRadius: '8px',
+                  borderRadius: 'min(var(--theme-radius-field), 0.5rem)',
                 }}
               />
               {concurrencyProviders.map((provider, idx) => (

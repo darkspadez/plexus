@@ -13,14 +13,14 @@ import { isDecisionsApiType } from './helpers';
 
 interface ApiTypeIconProps {
   apiType?: string | null;
-  /** Edge length of the rendered icon in pixels. */
-  size: number;
+  /** Edge length of the rendered icon (number = px, or a CSS length such as "0.875rem"). */
+  size: number | string;
   /** Rendered instead of the "?" glyph when the type has no icon. */
   fallback?: React.ReactNode;
 }
 
 export const ApiTypeIcon: React.FC<ApiTypeIconProps> = ({ apiType, size, fallback }) => {
-  const unknown = fallback ?? <span className="text-[10px] text-foreground-subtle">?</span>;
+  const unknown = fallback ?? <span className="text-2xs text-foreground-subtle">?</span>;
   if (!apiType) return <>{unknown}</>;
   if (apiType === 'embeddings') return <Variable size={size} className="text-success-text" />;
   if (apiType === 'transcriptions') return <AudioLines size={size} className="text-primary-text" />;

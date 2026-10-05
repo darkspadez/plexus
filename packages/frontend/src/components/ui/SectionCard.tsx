@@ -54,23 +54,21 @@ export const SectionCard: React.FC<SectionCardProps> = ({
 
   const showBody = collapsible ? open : true;
 
-  const headerPadding = size === 'sm' ? 'px-3 py-2' : 'px-3 py-2.5 min-h-[44px]';
+  const headerPadding = size === 'sm' ? 'px-3 py-2' : 'px-3 py-2.5 min-h-[2.75rem]';
   const cellPadding = size === 'sm' ? 'px-3 py-2' : 'px-3 py-2 sm:py-2.5';
 
   const titleContent = (
     <>
       {collapsible && (
         <ChevronRight
-          size={14}
+          size="0.875rem"
           className={cn(
             'text-foreground-muted flex-shrink-0 transition-transform duration-150',
             open && 'rotate-90'
           )}
         />
       )}
-      <span className="flex-1 min-w-0 font-sans text-[13px] font-medium text-foreground">
-        {title}
-      </span>
+      <span className="flex-1 min-w-0 font-sans text-sm font-medium text-foreground">{title}</span>
     </>
   );
 
@@ -111,7 +109,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                 aria-label="More information"
                 className="flex items-center justify-center rounded p-1 text-foreground-muted transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               >
-                <Info size={14} aria-hidden="true" />
+                <Info size="0.875rem" aria-hidden="true" />
               </button>
             </Tooltip>
           </div>

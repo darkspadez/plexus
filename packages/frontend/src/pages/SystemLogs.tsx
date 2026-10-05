@@ -224,7 +224,7 @@ export const SystemLogs: React.FC = () => {
           <div className="flex flex-col gap-3 border-b border-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
             <h3 className="font-sans text-h3 font-semibold text-foreground m-0">Live Output</h3>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-              <div className="w-full sm:min-w-[120px]">
+              <div className="w-full sm:min-w-[7.5rem]">
                 <Select
                   value={selectedLevel}
                   onChange={setSelectedLevel}
@@ -246,7 +246,7 @@ export const SystemLogs: React.FC = () => {
                 size="md"
                 onClick={resetLoggingLevel}
                 disabled={isUpdatingLevel || currentLevel === startupLevel}
-                leftIcon={<RotateCcw size={14} />}
+                leftIcon={<RotateCcw size="0.875rem" />}
                 className="w-full sm:w-auto"
               >
                 Reset
@@ -255,7 +255,7 @@ export const SystemLogs: React.FC = () => {
                 variant="outline"
                 size="md"
                 onClick={() => setIsPaused(!isPaused)}
-                leftIcon={isPaused ? <Play size={14} /> : <Pause size={14} />}
+                leftIcon={isPaused ? <Play size="0.875rem" /> : <Pause size="0.875rem" />}
                 className="w-full sm:w-auto"
               >
                 {isPaused ? 'Resume' : 'Pause'}
@@ -264,7 +264,7 @@ export const SystemLogs: React.FC = () => {
                 variant="outline"
                 size="md"
                 onClick={clearLogs}
-                leftIcon={<Trash2 size={14} />}
+                leftIcon={<Trash2 size="0.875rem" />}
                 className="w-full sm:w-auto"
               >
                 Clear
@@ -358,7 +358,7 @@ export const SystemLogs: React.FC = () => {
             </div>
           </div>
 
-          <div className="h-[55vh] min-h-[280px] max-h-[700px] overflow-y-auto bg-surface-sunken p-2 font-mono text-xs text-foreground sm:h-[60vh] sm:min-h-[320px] sm:p-3">
+          <div className="h-[55vh] min-h-[17.5rem] max-h-[43.75rem] overflow-y-auto bg-surface-sunken p-2 font-mono text-xs text-foreground sm:h-[60vh] sm:min-h-[20rem] sm:p-3">
             {logs.length === 0 && (
               <EmptyState
                 variant="dense"
@@ -380,7 +380,7 @@ export const SystemLogs: React.FC = () => {
                 <span>{log.message}</span>
                 {Object.keys(log).filter((k) => !['level', 'message', 'timestamp'].includes(k))
                   .length > 0 && (
-                  <pre className="text-foreground-subtle text-[11px] ml-8 mt-1 whitespace-pre-wrap">
+                  <pre className="text-foreground-subtle text-label ml-8 mt-1 whitespace-pre-wrap">
                     {JSON.stringify(
                       Object.fromEntries(
                         Object.entries(log).filter(

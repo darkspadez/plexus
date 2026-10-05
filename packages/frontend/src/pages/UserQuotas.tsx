@@ -97,14 +97,16 @@ export const UserQuotas: React.FC = () => {
               size="md"
               onClick={() => refetch()}
               disabled={isFetching}
-              leftIcon={<RefreshCw size={13} className={isFetching ? 'animate-spin' : undefined} />}
+              leftIcon={
+                <RefreshCw size="0.8125rem" className={isFetching ? 'animate-spin' : undefined} />
+              }
             >
               <span className="hidden sm:inline">Refresh</span>
             </Button>
             <Button
               size="md"
               onClick={() => setEditing({ name: null, initial: null })}
-              leftIcon={<Plus size={14} />}
+              leftIcon={<Plus size="0.875rem" />}
             >
               Add Quota
             </Button>
@@ -148,7 +150,7 @@ export const UserQuotas: React.FC = () => {
               action={
                 <Button
                   onClick={() => setEditing({ name: null, initial: null })}
-                  leftIcon={<Plus size={14} />}
+                  leftIcon={<Plus size="0.875rem" />}
                 >
                   Add Quota
                 </Button>

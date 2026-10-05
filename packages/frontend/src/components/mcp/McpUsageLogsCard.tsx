@@ -53,7 +53,7 @@ export function McpUsageLogsCard({
             <span className="font-medium text-foreground">
               {new Date(row.original.created_at).toLocaleTimeString()}
             </span>
-            <span className="text-[11px] text-foreground-muted">
+            <span className="text-label text-foreground-muted">
               {new Date(row.original.created_at).toISOString().split('T')[0]}
             </span>
           </div>
@@ -67,7 +67,7 @@ export function McpUsageLogsCard({
           <div className="flex flex-col">
             <span className="font-medium text-foreground">{row.original.api_key || '-'}</span>
             {row.original.attribution && (
-              <span className="text-[11px] text-foreground-muted">{row.original.attribution}</span>
+              <span className="text-label text-foreground-muted">{row.original.attribution}</span>
             )}
           </div>
         ),
@@ -80,7 +80,7 @@ export function McpUsageLogsCard({
           <div className="flex flex-col">
             <span className="font-medium text-foreground">{row.original.server_name}</span>
             <span
-              className="block max-w-[200px] truncate text-[11px] text-foreground-muted"
+              className="block max-w-[12.5rem] truncate text-label text-foreground-muted"
               title={row.original.upstream_url}
             >
               {row.original.upstream_url}
@@ -108,11 +108,11 @@ export function McpUsageLogsCard({
             </span>
             <div className="flex items-center gap-1">
               {row.original.is_streamed ? (
-                <Zap size={11} className="text-info-text" />
+                <Zap size="0.6875rem" className="text-info-text" />
               ) : (
-                <ZapOff size={11} className="text-foreground-muted" />
+                <ZapOff size="0.6875rem" className="text-foreground-muted" />
               )}
-              <span className="text-[10px] text-foreground-muted">
+              <span className="text-2xs text-foreground-muted">
                 {row.original.is_streamed ? 'streamed' : 'buffered'}
               </span>
             </div>
@@ -160,18 +160,18 @@ export function McpUsageLogsCard({
             <div className="flex flex-col gap-1">
               <div
                 className={cn(
-                  'inline-flex w-[52px] items-center justify-center gap-1.5 rounded-xl border px-2 py-1 text-xs font-medium',
+                  'inline-flex w-[3.25rem] items-center justify-center gap-1.5 rounded-xl border px-2 py-1 text-xs font-medium',
                   isError || !isSuccess
                     ? 'border-danger/30 bg-danger-subtle text-danger-text'
                     : 'border-success/30 bg-success-subtle text-success-text'
                 )}
               >
-                {isError ? <AlertTriangle size={12} /> : <CheckCircle size={12} />}
+                {isError ? <AlertTriangle size="0.75rem" /> : <CheckCircle size="0.75rem" />}
                 <span className="font-semibold">{log.response_status ?? '?'}</span>
               </div>
               {log.error_message && (
                 <span
-                  className="block max-w-[160px] truncate text-[11px] text-danger-text"
+                  className="block max-w-[10rem] truncate text-label text-danger-text"
                   title={log.error_message}
                 >
                   {log.error_message}
@@ -196,7 +196,7 @@ export function McpUsageLogsCard({
             title="Delete log"
             aria-label="Delete MCP log"
           >
-            <Trash2 size={14} />
+            <Trash2 size="0.875rem" />
           </button>
         ),
       },
@@ -230,7 +230,7 @@ export function McpUsageLogsCard({
             onClick={onDeleteAll}
             variant="danger"
             size="md"
-            leftIcon={<Trash2 size={14} />}
+            leftIcon={<Trash2 size="0.875rem" />}
             disabled={logs.length === 0}
             type="button"
           >
@@ -265,7 +265,7 @@ export function McpUsageLogsCard({
           className="cursor-pointer rounded p-1 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
           aria-label="Delete MCP log"
         >
-          <Trash2 size={14} />
+          <Trash2 size="0.875rem" />
         </button>
       )}
     />

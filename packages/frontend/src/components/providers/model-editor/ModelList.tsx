@@ -102,11 +102,16 @@ export function ModelList({
             size="sm"
             variant="outline"
             onClick={onOpenFetchModels}
-            leftIcon={<Download size={14} />}
+            leftIcon={<Download size="0.875rem" />}
           >
             Fetch Models
           </Button>
-          <Button size="sm" variant="outline" leftIcon={<Plus size={14} />} onClick={addModel}>
+          <Button
+            size="sm"
+            variant="outline"
+            leftIcon={<Plus size="0.875rem" />}
+            onClick={addModel}
+          >
             Add Model
           </Button>
         </>
@@ -155,7 +160,7 @@ export function ModelList({
               trailingAction={
                 <button
                   type="button"
-                  className="px-1 font-sans text-[11px] text-foreground-subtle hover:text-foreground"
+                  className="px-1 font-sans text-label text-foreground-subtle hover:text-foreground"
                   title="Back to list"
                   onClick={() => setPiProviderCustom(false)}
                 >
@@ -165,10 +170,10 @@ export function ModelList({
             />
           )}
           <div className="flex flex-col gap-1">
-            <label className="font-sans text-[13px] font-medium text-foreground-muted">
+            <label className="font-sans text-sm font-medium text-foreground-muted">
               Model Autosync
             </label>
-            <div className="flex h-[38px] items-center gap-2">
+            <div className="flex h-[2.375rem] items-center gap-2">
               <Switch
                 aria-label="Enable Model Autosync"
                 checked={editingProvider.modelAutosync?.enabled === true}
@@ -185,7 +190,7 @@ export function ModelList({
                   });
                 }}
               />
-              <span className="font-sans text-[11px] text-foreground-muted">every</span>
+              <span className="font-sans text-label text-foreground-muted">every</span>
               <DebouncedInput
                 type="number"
                 min={1}
@@ -204,7 +209,7 @@ export function ModelList({
                 }}
                 className="w-20"
               />
-              <span className="font-sans text-[11px] whitespace-nowrap text-foreground-muted">
+              <span className="font-sans text-label whitespace-nowrap text-foreground-muted">
                 min
               </span>
             </div>
@@ -215,7 +220,7 @@ export function ModelList({
 
         <div className="flex flex-col gap-1.5">
           {modelCount === 0 && (
-            <div className="font-sans text-[11px] italic text-foreground-muted">
+            <div className="font-sans text-label italic text-foreground-muted">
               No models configured. Fetch them from the provider or add one manually.
             </div>
           )}
@@ -232,10 +237,10 @@ export function ModelList({
                   className="min-w-0 flex-1 flex items-center gap-2 rounded-md px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
                   onClick={() => onSelectModel(modelId)}
                 >
-                  <span className="min-w-0 flex-1 truncate font-sans text-[12px] font-medium text-foreground">
+                  <span className="min-w-0 flex-1 truncate font-sans text-xs font-medium text-foreground">
                     {modelId}
                   </span>
-                  <span className="flex-shrink-0 font-sans text-[10px] text-foreground-subtle">
+                  <span className="flex-shrink-0 font-sans text-2xs text-foreground-subtle">
                     {modelConfig.type || 'text'}
                   </span>
                 </button>
@@ -261,13 +266,13 @@ export function ModelList({
                     }
                   >
                     {testState?.loading ? (
-                      <Loader2 size={14} className="animate-spin text-foreground-muted" />
+                      <Loader2 size="0.875rem" className="animate-spin text-foreground-muted" />
                     ) : testState?.showResult && testState.result === 'success' ? (
-                      <CheckCircle size={14} className="text-success-text" />
+                      <CheckCircle size="0.875rem" className="text-success-text" />
                     ) : testState?.showResult && testState.result === 'error' ? (
-                      <XCircle size={14} className="text-danger-text" />
+                      <XCircle size="0.875rem" className="text-danger-text" />
                     ) : (
-                      <Play size={14} className="text-primary-text opacity-60" />
+                      <Play size="0.875rem" className="text-primary-text opacity-60" />
                     )}
                   </div>
                   <CopyButton value={`direct/${editingProvider.id}/${modelId}`} size="sm" />
@@ -281,7 +286,7 @@ export function ModelList({
                     aria-label={`Remove model ${modelId}`}
                     className="text-danger-text p-0.5"
                   >
-                    <X size={12} />
+                    <X size="0.75rem" />
                   </Button>
                 </div>
               </div>

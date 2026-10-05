@@ -36,8 +36,8 @@ export const Switch: React.FC<SwitchProps> = ({
         'disabled:opacity-50 disabled:cursor-not-allowed',
         !disabled && 'cursor-pointer',
         {
-          'h-[18px] w-[30px]': size === 'sm',
-          'h-5 w-[34px]': size === 'md',
+          'h-[1.125rem] w-[1.875rem]': size === 'sm',
+          'h-5 w-[2.125rem]': size === 'md',
         }
       )}
     >

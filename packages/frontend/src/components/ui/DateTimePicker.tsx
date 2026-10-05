@@ -114,7 +114,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
       className="fixed p-3 rounded-box border-(length:--theme-border-width) border-border bg-surface shadow-md"
       style={{
         zIndex: 500,
-        minWidth: '280px',
+        minWidth: '17.5rem',
       }}
     >
       {/* Header */}
@@ -124,7 +124,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
           onClick={() => setViewDate(new Date(year, month - 1, 1))}
           className="p-1 rounded-sm hover:bg-surface-elevated text-foreground-muted hover:text-foreground transition-colors"
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size="1rem" />
         </button>
         <span className="text-sm font-medium text-foreground">
           {viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
@@ -134,14 +134,14 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
           onClick={() => setViewDate(new Date(year, month + 1, 1))}
           className="p-1 rounded-sm hover:bg-surface-elevated text-foreground-muted hover:text-foreground transition-colors"
         >
-          <ChevronRight size={16} />
+          <ChevronRight size="1rem" />
         </button>
       </div>
 
       {/* Day labels */}
       <div className="grid grid-cols-7 mb-1">
         {DAYS.map((d) => (
-          <div key={d} className="text-center text-[11px] font-medium text-foreground-muted py-1">
+          <div key={d} className="text-center text-label font-medium text-foreground-muted py-1">
             {d}
           </div>
         ))}
@@ -164,7 +164,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
               type="button"
               onClick={() => selectDay(day)}
               className={clsx(
-                'aspect-square flex items-center justify-center rounded text-[13px] transition-colors',
+                'aspect-square flex items-center justify-center rounded text-sm transition-colors',
                 isSelected
                   ? 'bg-primary text-primary-foreground font-medium'
                   : 'text-foreground hover:bg-surface-elevated'
@@ -178,7 +178,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
 
       {/* Time selector */}
       <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
-        <Clock size={14} className="text-foreground-muted shrink-0" />
+        <Clock size="0.875rem" className="text-foreground-muted shrink-0" />
         <div className="flex items-center gap-1">
           <input
             type="number"
@@ -234,7 +234,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
           'hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background'
         )}
       >
-        <Calendar size={14} className="shrink-0 text-foreground-muted" />
+        <Calendar size="0.875rem" className="shrink-0 text-foreground-muted" />
         <span className={clsx('flex-1 truncate', !displayValue && 'text-foreground-muted')}>
           {displayValue || placeholder}
         </span>
@@ -248,7 +248,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
             role="button"
             aria-label="Clear"
           >
-            <X size={12} />
+            <X size="0.75rem" />
           </span>
         )}
       </button>

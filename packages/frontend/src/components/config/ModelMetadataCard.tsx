@@ -17,7 +17,7 @@ export function ModelMetadataCard({ loading, onRefresh }: ModelMetadataCardProps
           size="sm"
           onClick={onRefresh}
           isLoading={loading}
-          leftIcon={<RefreshCw size={14} />}
+          leftIcon={<RefreshCw size="0.875rem" />}
         >
           Refresh Metadata
         </Button>

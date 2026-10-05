@@ -61,7 +61,7 @@ export function GrafanaSettings() {
           onClick={handleSubmit(onSubmit)}
           isLoading={saveGrafanaUrl.isPending}
           disabled={!loaded || !isValid || saveGrafanaUrl.isPending}
-          leftIcon={<Save size={14} />}
+          leftIcon={<Save size="0.875rem" />}
         >
           Save
         </Button>
@@ -70,10 +70,10 @@ export function GrafanaSettings() {
       <form id="grafana-form" onSubmit={handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <LineChart size={16} className="text-primary-text" />
+            <LineChart size="1rem" className="text-primary-text" />
             <div>
-              <p className="font-sans text-[12px] font-medium text-foreground">Grafana URL</p>
-              <p className="font-sans text-[11px] text-foreground-subtle">
+              <p className="font-sans text-xs font-medium text-foreground">Grafana URL</p>
+              <p className="font-sans text-label text-foreground-subtle">
                 Base URL of your Grafana instance, used to link out to dashboards from Plexus. Leave
                 blank to hide those links.
               </p>
@@ -86,10 +86,10 @@ export function GrafanaSettings() {
               type="text"
               placeholder="https://grafana.example.com"
               {...register('grafanaUrl')}
-              className="w-full max-w-md h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
+              className="w-full max-w-md h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.grafanaUrl && (
-              <p className="text-[11px] text-warning-text mt-1">{errors.grafanaUrl.message}</p>
+              <p className="text-label text-warning-text mt-1">{errors.grafanaUrl.message}</p>
             )}
           </div>
         </div>

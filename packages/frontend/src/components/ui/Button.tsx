@@ -70,7 +70,7 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={isLoading || disabled}
       {...props}
     >
-      {isLoading && <Loader2 className="animate-spin" size={14} />}
+      {isLoading && <Loader2 className="animate-spin" size="0.875rem" />}
       {!isLoading && leftIcon && <span className="flex items-center">{leftIcon}</span>}
       {children}
     </button>

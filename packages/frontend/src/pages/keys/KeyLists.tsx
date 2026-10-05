@@ -69,7 +69,7 @@ const rowActions = (
           props.onEditKey(key);
         }}
       >
-        <Edit2 size={14} strokeWidth={1.75} />
+        <Edit2 size="0.875rem" strokeWidth={1.75} />
       </Button>
       {(quotaNames || usingDefaults) && (
         <Button
@@ -82,7 +82,7 @@ const rowActions = (
           }}
           title="Reset quota"
         >
-          <RefreshCw size={14} strokeWidth={1.75} />
+          <RefreshCw size="0.875rem" strokeWidth={1.75} />
         </Button>
       )}
       <Button
@@ -96,7 +96,7 @@ const rowActions = (
         }}
         title="Disable key"
       >
-        <Ban size={14} strokeWidth={1.75} />
+        <Ban size="0.875rem" strokeWidth={1.75} />
       </Button>
       <Button
         variant="ghost"
@@ -108,7 +108,7 @@ const rowActions = (
           props.onDeleteKey(key.key);
         }}
       >
-        <Trash2 size={14} strokeWidth={1.75} />
+        <Trash2 size="0.875rem" strokeWidth={1.75} />
       </Button>
     </>
   );
@@ -169,7 +169,11 @@ export const KeyLists = ({
               }}
               title="Copy secret"
             >
-              {copiedKey === row.original.key ? <Check size={14} /> : <Copy size={14} />}
+              {copiedKey === row.original.key ? (
+                <Check size="0.875rem" />
+              ) : (
+                <Copy size="0.875rem" />
+              )}
             </button>
           </div>
         ),
@@ -188,7 +192,7 @@ export const KeyLists = ({
               <div className="flex flex-wrap items-center gap-1">
                 {quotaNames.map((n) => (
                   <Pill key={n} tone="primary" size="sm">
-                    <Shield size={11} />
+                    <Shield size="0.6875rem" />
                     {n}
                   </Pill>
                 ))}
@@ -260,7 +264,7 @@ export const KeyLists = ({
                     })}
                   </span>
                   {status && status.quotas.length > 1 && (
-                    <span className="text-[11px] text-foreground-muted">
+                    <span className="text-label text-foreground-muted">
                       (+{status.quotas.length - 1})
                     </span>
                   )}
@@ -273,7 +277,7 @@ export const KeyLists = ({
                     }}
                     title="View details"
                   >
-                    <BarChart3 size={13} />
+                    <BarChart3 size="0.8125rem" />
                   </button>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-elevated">
@@ -382,7 +386,7 @@ export const KeyLists = ({
         emptyIcon={<Key />}
         emptyAction={
           search ? undefined : (
-            <Button leftIcon={<Plus size={14} />} onClick={onAddNewKey}>
+            <Button leftIcon={<Plus size="0.875rem" />} onClick={onAddNewKey}>
               Create key
             </Button>
           )

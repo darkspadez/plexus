@@ -76,7 +76,7 @@ export function StallDetectionSettings() {
           onClick={handleSubmit(onSubmit)}
           isLoading={saveStall.isPending}
           disabled={!loaded || !isValid || saveStall.isPending}
-          leftIcon={<Save size={14} />}
+          leftIcon={<Save size="0.875rem" />}
         >
           Save
         </Button>
@@ -87,7 +87,7 @@ export function StallDetectionSettings() {
           <div className="flex flex-col gap-1">
             <label
               htmlFor="stallTtfbSeconds"
-              className="font-sans text-[12px] font-medium text-foreground"
+              className="font-sans text-xs font-medium text-foreground"
             >
               TTFB Timeout (s){' '}
               <span className="text-foreground-subtle font-normal">— 5–120, empty = off</span>
@@ -100,16 +100,16 @@ export function StallDetectionSettings() {
               step={1}
               placeholder="Disabled"
               {...register('ttfbSeconds')}
-              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
+              className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.ttfbSeconds && (
-              <span className="text-[11px] text-warning-text">{errors.ttfbSeconds.message}</span>
+              <span className="text-label text-warning-text">{errors.ttfbSeconds.message}</span>
             )}
           </div>
           <div className="flex flex-col gap-1">
             <label
               htmlFor="stallTtfbBytes"
-              className="font-sans text-[12px] font-medium text-foreground"
+              className="font-sans text-xs font-medium text-foreground"
             >
               TTFB Byte Threshold{' '}
               <span className="text-foreground-subtle font-normal">— 50–10,000</span>
@@ -121,17 +121,14 @@ export function StallDetectionSettings() {
               max={10000}
               step={1}
               {...register('ttfbBytes')}
-              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
+              className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.ttfbBytes && (
-              <span className="text-[11px] text-warning-text">{errors.ttfbBytes.message}</span>
+              <span className="text-label text-warning-text">{errors.ttfbBytes.message}</span>
             )}
           </div>
           <div className="flex flex-col gap-1">
-            <label
-              htmlFor="stallMinBps"
-              className="font-sans text-[12px] font-medium text-foreground"
-            >
+            <label htmlFor="stallMinBps" className="font-sans text-xs font-medium text-foreground">
               Min Bytes/sec{' '}
               <span className="text-foreground-subtle font-normal">— 50–5,000, empty = off</span>
             </label>
@@ -143,10 +140,10 @@ export function StallDetectionSettings() {
               step={1}
               placeholder="Disabled"
               {...register('minBytesPerSecond')}
-              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
+              className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.minBytesPerSecond && (
-              <span className="text-[11px] text-warning-text">
+              <span className="text-label text-warning-text">
                 {errors.minBytesPerSecond.message}
               </span>
             )}
@@ -154,7 +151,7 @@ export function StallDetectionSettings() {
           <div className="flex flex-col gap-1">
             <label
               htmlFor="stallWindowSeconds"
-              className="font-sans text-[12px] font-medium text-foreground"
+              className="font-sans text-xs font-medium text-foreground"
             >
               Sliding Window (s) <span className="text-foreground-subtle font-normal">— 3–30</span>
             </label>
@@ -165,16 +162,16 @@ export function StallDetectionSettings() {
               max={30}
               step={1}
               {...register('windowSeconds')}
-              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
+              className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.windowSeconds && (
-              <span className="text-[11px] text-warning-text">{errors.windowSeconds.message}</span>
+              <span className="text-label text-warning-text">{errors.windowSeconds.message}</span>
             )}
           </div>
           <div className="flex flex-col gap-1">
             <label
               htmlFor="stallGraceSeconds"
-              className="font-sans text-[12px] font-medium text-foreground"
+              className="font-sans text-xs font-medium text-foreground"
             >
               Grace Period (s){' '}
               <span className="text-foreground-subtle font-normal">— 0–120, post-TTFB pause</span>
@@ -186,10 +183,10 @@ export function StallDetectionSettings() {
               max={120}
               step={1}
               {...register('gracePeriodSeconds')}
-              className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
+              className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
             {errors.gracePeriodSeconds && (
-              <span className="text-[11px] text-warning-text">
+              <span className="text-label text-warning-text">
                 {errors.gracePeriodSeconds.message}
               </span>
             )}

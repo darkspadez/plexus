@@ -146,7 +146,7 @@ export function ProviderLimitsTab({ f }: { f: ProviderFormApi }) {
             }
           >
             <div className="flex flex-col gap-2">
-              <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+              <div className="font-sans text-label leading-snug text-foreground-muted">
                 Override the global stall detection settings for this provider. Leave empty to use
                 the global setting for each field.
               </div>

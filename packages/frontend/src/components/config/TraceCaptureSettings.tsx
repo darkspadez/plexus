@@ -44,12 +44,10 @@ export function TraceCaptureSettings() {
     <SectionCard title="Trace Capture" collapsible defaultOpen={false}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <AlertTriangle size={16} className="text-primary-text" />
+          <AlertTriangle size="1rem" className="text-primary-text" />
           <div>
-            <p className="font-sans text-[12px] font-medium text-foreground">
-              Capture Trace on Error
-            </p>
-            <p className="font-sans text-[11px] text-foreground-subtle">
+            <p className="font-sans text-xs font-medium text-foreground">Capture Trace on Error</p>
+            <p className="font-sans text-label text-foreground-subtle">
               When enabled, debug traces are stored for requests that write to the inference error
               log or trigger a cooldown, even while global debug tracing is off.
             </p>

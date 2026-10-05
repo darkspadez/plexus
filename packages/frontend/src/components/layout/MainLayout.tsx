@@ -54,7 +54,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
       <div
         className={cn(
           'flex min-h-screen flex-col transition-[margin] duration-300',
-          isCollapsed ? 'md:ml-[64px]' : 'md:ml-[220px]'
+          isCollapsed ? 'md:ml-[4rem]' : 'md:ml-[13.75rem]'
         )}
       >
         {/* Desktop TopBar — hidden on mobile (md:flex in TopBar itself) */}

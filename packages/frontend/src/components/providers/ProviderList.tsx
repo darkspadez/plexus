@@ -43,7 +43,7 @@ export function ProviderList({
         const hasDistinctName = !!displayName && displayName !== p.id;
         return (
           <div className="flex items-center gap-2">
-            <Edit2 size={12} className="shrink-0 text-foreground-subtle" />
+            <Edit2 size="0.75rem" className="shrink-0 text-foreground-subtle" />
             <span className="font-semibold text-foreground">{hasDistinctName ? p.name : p.id}</span>
             {hasDistinctName && <span className="text-xs text-foreground-muted">( {p.id} )</span>}
           </div>
@@ -95,7 +95,7 @@ export function ProviderList({
               onEdit(row.original);
             }}
           >
-            <Edit2 size={14} />
+            <Edit2 size="0.875rem" />
           </Button>
           <Button
             size="sm"
@@ -107,7 +107,7 @@ export function ProviderList({
               onDelete(row.original);
             }}
           >
-            <Trash2 size={14} />
+            <Trash2 size="0.875rem" />
           </Button>
         </div>
       ),
@@ -136,7 +136,7 @@ export function ProviderList({
               onEdit(p);
             }}
           >
-            <Edit2 size={14} />
+            <Edit2 size="0.875rem" />
           </Button>
           <Button
             size="sm"
@@ -148,7 +148,7 @@ export function ProviderList({
               onDelete(p);
             }}
           >
-            <Trash2 size={14} />
+            <Trash2 size="0.875rem" />
           </Button>
         </>
       )}

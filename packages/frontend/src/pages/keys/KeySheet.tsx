@@ -162,9 +162,7 @@ export const KeySheet: React.FC<Props> = ({
 
         {/* Secret */}
         <div className="flex flex-col gap-2">
-          <label className="font-sans text-[13px] font-medium text-foreground-muted">
-            Secret Key
-          </label>
+          <label className="font-sans text-sm font-medium text-foreground-muted">Secret Key</label>
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="min-w-0 flex-1">
               <Input
@@ -181,7 +179,7 @@ export const KeySheet: React.FC<Props> = ({
               title="Generate new key"
               className="w-full sm:w-auto"
             >
-              <RefreshCw size={16} />
+              <RefreshCw size="1rem" />
             </Button>
           </div>
           <p className="text-xs text-foreground-muted">
@@ -210,7 +208,7 @@ export const KeySheet: React.FC<Props> = ({
           )
         ) : (
           <div className="flex flex-col gap-1.5">
-            <span className="font-sans text-[13px] font-medium text-foreground-muted">
+            <span className="font-sans text-sm font-medium text-foreground-muted">
               Expiry (optional)
             </span>
             <div className="flex gap-2">
@@ -326,7 +324,7 @@ export const KeySheet: React.FC<Props> = ({
             <label className="flex items-start gap-2 py-1 cursor-pointer">
               <Switch checked={field.value ?? false} onChange={field.onChange} />
               <div>
-                <div className="text-[13px] text-foreground">Allow Raw Provider Access</div>
+                <div className="text-sm text-foreground">Allow Raw Provider Access</div>
                 <div className="text-xs text-foreground-muted leading-snug">
                   Privileged capability. This key may call any endpoint on raw-enabled providers
                   permitted by its provider allow/deny lists. Model restrictions do not apply.

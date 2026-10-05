@@ -66,7 +66,7 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
             </span>
             {row.original.quota.shared && (
               <Pill tone="primary" size="sm">
-                <Users size={10} /> shared
+                <Users size="0.625rem" /> shared
               </Pill>
             )}
             {defHasScope(row.original.quota) && (
@@ -153,7 +153,7 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
               onEdit(row.original);
             }}
           >
-            <Edit2 size={14} strokeWidth={1.75} />
+            <Edit2 size="0.875rem" strokeWidth={1.75} />
           </Button>
           <Button
             variant="ghost"
@@ -165,7 +165,7 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
               onDelete(row.original);
             }}
           >
-            <Trash2 size={14} strokeWidth={1.75} />
+            <Trash2 size="0.875rem" strokeWidth={1.75} />
           </Button>
         </div>
       ),
@@ -187,7 +187,7 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
             aria-label={`Edit ${row.name}`}
             onClick={() => onEdit(row)}
           >
-            <Edit2 size={14} strokeWidth={1.75} />
+            <Edit2 size="0.875rem" strokeWidth={1.75} />
           </Button>
           <Button
             variant="ghost"
@@ -196,7 +196,7 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
             aria-label={`Delete ${row.name}`}
             onClick={() => onDelete(row)}
           >
-            <Trash2 size={14} strokeWidth={1.75} />
+            <Trash2 size="0.875rem" strokeWidth={1.75} />
           </Button>
         </>
       )}

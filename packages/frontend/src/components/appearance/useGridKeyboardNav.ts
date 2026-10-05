@@ -17,9 +17,9 @@ export function useGridKeyboardNav(gridRef: React.RefObject<HTMLElement | null>)
         const cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
         delta = e.key === 'ArrowUp' ? -cols : cols;
       }
-      // Only the theme select buttons; the per-tile actions button and its
-      // menu items carry no aria-pressed and stay out of arrow navigation.
-      const items = Array.from(grid.querySelectorAll<HTMLElement>('button[aria-pressed]'));
+      // Only the theme select buttons (`data-tile-id`); the per-tile actions
+      // button and its menu items lack it and stay out of arrow navigation.
+      const items = Array.from(grid.querySelectorAll<HTMLElement>('button[data-tile-id]'));
       const current = items.indexOf(e.target as HTMLElement);
       if (current === -1) return;
       const next = items[current + delta];

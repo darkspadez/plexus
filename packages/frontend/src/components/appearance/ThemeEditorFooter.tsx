@@ -181,7 +181,7 @@ export const ThemeEditorFooter: React.FC<ThemeEditorFooterProps> = ({
         <div ref={importRef}>
           <Button
             variant="outline"
-            leftIcon={<Upload size={14} aria-hidden="true" />}
+            leftIcon={<Upload size="0.875rem" aria-hidden="true" />}
             onClick={openImport}
           >
             Import
@@ -190,13 +190,13 @@ export const ThemeEditorFooter: React.FC<ThemeEditorFooterProps> = ({
         <div ref={exportRef} className="relative" onKeyDown={onExportKeyDown}>
           <Button
             variant="outline"
-            leftIcon={<Download size={14} aria-hidden="true" />}
+            leftIcon={<Download size="0.875rem" aria-hidden="true" />}
             aria-haspopup="menu"
             aria-expanded={panel === 'export'}
             onClick={() => onPanelChange(panel === 'export' ? null : 'export')}
           >
             Export
-            <ChevronUp size={14} aria-hidden="true" />
+            <ChevronUp size="0.875rem" aria-hidden="true" />
           </Button>
           {panel === 'export' && (
             <div

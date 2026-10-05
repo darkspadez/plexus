@@ -47,7 +47,7 @@ export function ImportModelsModal({
       title="Import Orphaned Models"
       size="lg"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -61,7 +61,7 @@ export function ImportModelsModal({
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div className="flex justify-end">
           <Button
             variant="ghost"
@@ -80,14 +80,14 @@ export function ImportModelsModal({
         ) : (
           <div
             style={{
-              maxHeight: '500px',
+              maxHeight: '31.25rem',
               overflowY: 'auto',
               overflowX: 'auto',
               border: '1px solid var(--border)',
               borderRadius: 'min(var(--theme-radius-field), 0.25rem)',
             }}
           >
-            <table className="w-full border-collapse font-sans text-[13px]">
+            <table className="w-full border-collapse font-sans text-sm">
               <thead
                 style={{
                   position: 'sticky',
@@ -98,20 +98,20 @@ export function ImportModelsModal({
               >
                 <tr>
                   <th
-                    className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
-                    style={{ width: '40px' }}
+                    className="px-4 py-3 text-left font-semibold text-foreground-muted text-label uppercase tracking-wider"
+                    style={{ width: '2.5rem' }}
                   >
                     {' '}
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-label uppercase tracking-wider">
                     Model / Alias
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-[11px] uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left font-semibold text-foreground-muted text-label uppercase tracking-wider">
                     Providers
                   </th>
                   <th
-                    className="px-4 py-3 text-right font-semibold text-foreground-muted text-[11px] uppercase tracking-wider"
-                    style={{ width: '110px' }}
+                    className="px-4 py-3 text-right font-semibold text-foreground-muted text-label uppercase tracking-wider"
+                    style={{ width: '6.875rem' }}
                   >
                     Actions
                   </th>
@@ -148,7 +148,7 @@ export function ImportModelsModal({
                               Existing Alias Match
                             </span>
                             {group.aliasMatches.length === 1 ? (
-                              <div className="text-[11px] text-foreground-subtle mt-0.5">
+                              <div className="text-label text-foreground-subtle mt-0.5">
                                 {group.aliasMatches[0].alias.id} · {group.aliasMatches[0].reason}
                               </div>
                             ) : (
@@ -204,10 +204,10 @@ export function ImportModelsModal({
                                     setSelectedImports(next);
                                   }}
                                 />
-                                <span className="text-foreground text-[13px]">
+                                <span className="text-foreground text-sm">
                                   {c.provider.name}
                                   {c.model.id !== group.modelId && (
-                                    <span className="text-foreground-subtle ml-1 text-[11px]">
+                                    <span className="text-foreground-subtle ml-1 text-label">
                                       ({c.model.id})
                                     </span>
                                   )}

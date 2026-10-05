@@ -34,7 +34,7 @@ export const TargetTestMessage: React.FC<TargetTestMessageProps> = ({
     >
       <span
         className={clsx(
-          'break-words text-[11px] italic',
+          'break-words text-label italic',
           isError ? 'text-danger-text' : 'text-success-text'
         )}
       >

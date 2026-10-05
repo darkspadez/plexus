@@ -507,18 +507,18 @@ const ToolCard = ({
     </div>
     <div className="grid gap-2 p-2 sm:grid-cols-2">
       <div>
-        <div className="mb-1 font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
+        <div className="mb-1 font-mono text-3xs uppercase tracking-wider text-foreground-subtle">
           Arguments
         </div>
-        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-2 font-mono text-[10px] text-foreground-muted">
+        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-2 font-mono text-2xs text-foreground-muted">
           {JSON.stringify(part.args, null, 2)}
         </pre>
       </div>
       <div>
-        <div className="mb-1 font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
+        <div className="mb-1 font-mono text-3xs uppercase tracking-wider text-foreground-subtle">
           Result
         </div>
-        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-2 font-mono text-[10px] text-foreground-muted">
+        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-2 font-mono text-2xs text-foreground-muted">
           {part.result === undefined ? 'Running…' : String(part.result)}
         </pre>
       </div>
@@ -543,7 +543,7 @@ const AssistantParts = () => (
             <summary className="cursor-pointer font-mono text-label uppercase tracking-wider text-foreground-subtle">
               Reasoning
             </summary>
-            <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-[11px]">
+            <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-label">
               {part.text}
             </pre>
           </details>

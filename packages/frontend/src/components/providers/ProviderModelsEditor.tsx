@@ -139,13 +139,13 @@ export function ProviderModelsEditor({
           title={isNewProvider ? 'Save the provider first to probe models' : 'Test this model'}
         >
           {testState?.loading ? (
-            <Loader2 size={14} className="animate-spin text-foreground-muted" />
+            <Loader2 size="0.875rem" className="animate-spin text-foreground-muted" />
           ) : testState?.showResult && testState.result === 'success' ? (
-            <CheckCircle size={14} className="text-success-text" />
+            <CheckCircle size="0.875rem" className="text-success-text" />
           ) : testState?.showResult && testState.result === 'error' ? (
-            <XCircle size={14} className="text-danger-text" />
+            <XCircle size="0.875rem" className="text-danger-text" />
           ) : (
-            <Play size={14} className="text-primary-text opacity-60" />
+            <Play size="0.875rem" className="text-primary-text opacity-60" />
           )}
         </div>
         <CopyButton value={`direct/${editingProvider.id}/${mId}`} size="sm" />
@@ -159,7 +159,7 @@ export function ProviderModelsEditor({
           aria-label={`Remove model ${mId}`}
           className="text-danger-text p-0.5"
         >
-          <X size={12} />
+          <X size="0.75rem" />
         </Button>
       </>
     );
@@ -176,7 +176,7 @@ export function ProviderModelsEditor({
           <Button
             variant="ghost"
             size="sm"
-            leftIcon={<ArrowLeft size={14} />}
+            leftIcon={<ArrowLeft size="0.875rem" />}
             onClick={() => setSelectedModelId(null)}
           >
             Back to models

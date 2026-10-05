@@ -85,7 +85,7 @@ export function McpOAuthClientsCard({
             variant="danger"
             onClick={() => onRevokeToken(row.original.id)}
             isLoading={revokingTokenId === row.original.id}
-            leftIcon={<ShieldOff size={13} />}
+            leftIcon={<ShieldOff size="0.8125rem" />}
           >
             Revoke
           </Button>
@@ -104,7 +104,7 @@ export function McpOAuthClientsCard({
           size="sm"
           onClick={onRefresh}
           isLoading={oauthClientsLoading}
-          leftIcon={<RefreshCw size={14} />}
+          leftIcon={<RefreshCw size="0.875rem" />}
         >
           Refresh
         </Button>
@@ -141,7 +141,7 @@ export function McpOAuthClientsCard({
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
-                      <KeyRound size={15} className="text-primary-text" />
+                      <KeyRound size="0.9375rem" className="text-primary-text" />
                       <span>{client.clientName || 'Unnamed client'}</span>
                       <Pill
                         size="sm"
@@ -166,7 +166,7 @@ export function McpOAuthClientsCard({
                       {client.redirectUris.map((uri) => (
                         <code
                           key={uri}
-                          className="break-all rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-foreground-muted"
+                          className="break-all rounded-md border border-border bg-surface px-2 py-1 text-label text-foreground-muted"
                         >
                           {uri}
                         </code>
@@ -195,7 +195,7 @@ export function McpOAuthClientsCard({
                         variant="danger"
                         onClick={() => onRevokeToken(token.id)}
                         isLoading={revokingTokenId === token.id}
-                        leftIcon={<ShieldOff size={13} />}
+                        leftIcon={<ShieldOff size="0.8125rem" />}
                       >
                         Revoke
                       </Button>
@@ -210,7 +210,7 @@ export function McpOAuthClientsCard({
                       variant="primary"
                       onClick={() => onToggleClientStatus(client)}
                       isLoading={updatingClientId === client.clientId}
-                      leftIcon={<ShieldCheck size={13} />}
+                      leftIcon={<ShieldCheck size="0.8125rem" />}
                     >
                       Enable
                     </Button>
@@ -220,7 +220,7 @@ export function McpOAuthClientsCard({
                       variant="danger"
                       onClick={() => onToggleClientStatus(client)}
                       isLoading={updatingClientId === client.clientId}
-                      leftIcon={<ShieldOff size={13} />}
+                      leftIcon={<ShieldOff size="0.8125rem" />}
                     >
                       Disable
                     </Button>
@@ -230,7 +230,7 @@ export function McpOAuthClientsCard({
                     variant="danger"
                     onClick={() => onRevokeAllTokens(client.clientId)}
                     isLoading={revokingAllClientId === client.clientId}
-                    leftIcon={<KeyRound size={13} />}
+                    leftIcon={<KeyRound size="0.8125rem" />}
                   >
                     Revoke all tokens
                   </Button>
@@ -239,7 +239,7 @@ export function McpOAuthClientsCard({
                     variant="danger"
                     onClick={() => onDeleteClient(client.clientId)}
                     isLoading={deletingClientId === client.clientId}
-                    leftIcon={<Trash2 size={13} />}
+                    leftIcon={<Trash2 size="0.8125rem" />}
                   >
                     Delete client
                   </Button>

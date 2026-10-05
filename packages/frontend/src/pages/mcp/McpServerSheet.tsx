@@ -412,7 +412,7 @@ export const McpServerSheet: React.FC<Props> = ({
                   onClick={addEnv}
                   className="w-full sm:w-auto"
                 >
-                  <PlusCircle size={16} />
+                  <PlusCircle size="1rem" />
                 </Button>
               </div>
               {Object.keys(env).length > 0 && (
@@ -432,7 +432,7 @@ export const McpServerSheet: React.FC<Props> = ({
                         aria-label={`Remove env var ${key}`}
                         className="p-1 hover:bg-surface rounded"
                       >
-                        <MinusCircle size={14} className="text-danger-text" />
+                        <MinusCircle size="0.875rem" className="text-danger-text" />
                       </button>
                     </div>
                   ))}
@@ -504,7 +504,7 @@ export const McpServerSheet: React.FC<Props> = ({
             onClick={addHeader}
             className="w-full sm:w-auto"
           >
-            <PlusCircle size={16} />
+            <PlusCircle size="1rem" />
           </Button>
         </div>
         {Object.keys(headers).length > 0 && (
@@ -525,7 +525,7 @@ export const McpServerSheet: React.FC<Props> = ({
                   aria-label={`Remove header ${key}`}
                   className="p-1 hover:bg-surface rounded"
                 >
-                  <MinusCircle size={14} className="text-danger-text" />
+                  <MinusCircle size="0.875rem" className="text-danger-text" />
                 </button>
               </div>
             ))}
@@ -534,7 +534,7 @@ export const McpServerSheet: React.FC<Props> = ({
 
         {/* Enabled toggle */}
         <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-surface-elevated p-3">
-          <span className="font-sans text-[13px] font-medium text-foreground">Enabled</span>
+          <span className="font-sans text-sm font-medium text-foreground">Enabled</span>
           <Controller
             control={control}
             name="enabled"

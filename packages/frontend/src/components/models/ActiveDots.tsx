@@ -21,7 +21,7 @@ export const ActiveDots: React.FC<ActiveDotsProps> = ({ states, className }) => 
   }
   const enabled = states.filter((s) => s !== 'disabled').length;
   return (
-    <div className={cn('inline-flex items-center gap-2 text-[11px]', className)}>
+    <div className={cn('inline-flex items-center gap-2 text-label', className)}>
       <div className="flex items-center gap-1">
         {states.map((s, i) => (
           <span
@@ -35,7 +35,7 @@ export const ActiveDots: React.FC<ActiveDotsProps> = ({ states, className }) => 
           />
         ))}
       </div>
-      <span className="font-medium tabular-nums text-foreground-muted">
+      <span className="whitespace-nowrap font-medium tabular-nums text-foreground-muted">
         {enabled}/{states.length} active
       </span>
     </div>

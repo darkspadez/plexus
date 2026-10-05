@@ -37,7 +37,7 @@ export const DeltaChip: React.FC<DeltaChipProps> = ({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[11px] font-medium leading-none tabular-nums',
+        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-label font-medium leading-none tabular-nums',
         tone,
         className
       )}

@@ -27,26 +27,24 @@ export function ModelOverrideRules({ modelId, modelConfig, updateModelConfig }: 
 
   return (
     <div className="mt-1 border-t border-border pt-1.5 sm:col-span-2">
-      <div className="font-sans text-[11px] font-medium text-foreground-muted mb-1">
+      <div className="font-sans text-label font-medium text-foreground-muted mb-1">
         Model Override Rules
       </div>
-      <div className="font-sans text-[10px] leading-snug text-foreground-subtle mb-2">
+      <div className="font-sans text-2xs leading-snug text-foreground-subtle mb-2">
         When ANY condition matches, rewrite the model name. Use dotted paths like reasoning.enabled.
       </div>
       {rules.map((rule: any, rIdx: number) => (
         <div key={rIdx} className="mb-1 rounded-sm border border-border bg-surface-sunken p-1.5">
           {/* Rewrite rule */}
-          <div className="font-sans text-[10px] font-medium text-foreground-subtle mb-1">
-            Rewrite
-          </div>
+          <div className="font-sans text-2xs font-medium text-foreground-subtle mb-1">Rewrite</div>
           <div className="flex items-center gap-1">
             <div
-              className="flex-[2] truncate rounded-sm border border-border bg-surface px-2 py-[5px] font-sans text-[12px] text-foreground-subtle"
+              className="flex-[2] truncate rounded-sm border border-border bg-surface px-2 py-[0.3125rem] font-sans text-xs text-foreground-subtle"
               title={modelId}
             >
               {modelId}
             </div>
-            <span className="font-sans text-[11px] text-foreground-subtle">→</span>
+            <span className="font-sans text-label text-foreground-subtle">→</span>
             <div className="flex-1">
               <DebouncedInput
                 placeholder="Rewrite to (e.g. deepseek-r1-fast)"
@@ -65,20 +63,20 @@ export function ModelOverrideRules({ modelId, modelConfig, updateModelConfig }: 
               aria-label="Remove rule"
               className="p-1"
             >
-              <Trash2 size={14} className="text-danger-text" />
+              <Trash2 size="0.875rem" className="text-danger-text" />
             </Button>
           </div>
           {/* Conditions separator */}
           <div className="mt-1.5 mb-1 border-t border-border" />
-          <div className="font-sans text-[10px] font-medium text-foreground-subtle mb-1">
+          <div className="font-sans text-2xs font-medium text-foreground-subtle mb-1">
             Conditions (any match triggers rewrite)
           </div>
           {/* Condition column headers */}
           <div className="ml-2 mb-0.5 flex gap-1">
-            <span className="flex-1 pl-2 font-sans text-[9px] font-medium text-foreground-subtle">
+            <span className="flex-1 pl-2 font-sans text-3xs font-medium text-foreground-subtle">
               Field path (dotted)
             </span>
-            <span className="flex-1 pl-2 font-sans text-[9px] font-medium text-foreground-subtle">
+            <span className="flex-1 pl-2 font-sans text-3xs font-medium text-foreground-subtle">
               Value (blank = presence check)
             </span>
             {/* spacer for delete button column */}
@@ -137,7 +135,7 @@ export function ModelOverrideRules({ modelId, modelConfig, updateModelConfig }: 
                 aria-label="Remove condition"
                 className="p-1"
               >
-                <Trash2 size={12} className="text-danger-text" />
+                <Trash2 size="0.75rem" className="text-danger-text" />
               </Button>
             </div>
           ))}
@@ -154,7 +152,7 @@ export function ModelOverrideRules({ modelId, modelConfig, updateModelConfig }: 
             }}
             className="ml-2 px-1.5 py-0.5"
           >
-            <Plus size={12} /> <span className="font-sans text-[10px]">Condition</span>
+            <Plus size="0.75rem" /> <span className="font-sans text-2xs">Condition</span>
           </Button>
         </div>
       ))}
@@ -166,7 +164,7 @@ export function ModelOverrideRules({ modelId, modelConfig, updateModelConfig }: 
         }
         className="mt-0.5"
       >
-        <Plus size={12} /> <span className="font-sans text-[10px]">Rule</span>
+        <Plus size="0.75rem" /> <span className="font-sans text-2xs">Rule</span>
       </Button>
     </div>
   );

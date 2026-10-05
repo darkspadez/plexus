@@ -27,7 +27,7 @@ export const GPT5_SUPPRESSION_ADAPTER = 'suppress_unsupported_gpt5_options';
 
 // Consistent compact field class used everywhere in the model editor
 export const FIELD_CLS =
-  'w-full h-[27px] py-0 px-2 font-sans text-[12px] leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-focus';
+  'w-full h-[1.6875rem] py-0 px-2 font-sans text-xs leading-none text-foreground bg-surface border border-border rounded-sm outline-none focus:border-focus';
 
 export function isGpt5Model(modelId: string): boolean {
   return /^gpt-5(?:[.-]|$)/i.test(modelId);

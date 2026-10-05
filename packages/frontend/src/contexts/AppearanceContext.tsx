@@ -6,6 +6,7 @@ import {
   LEGACY_THEME_KEY,
   parseAppearance,
   resolveThemeId,
+  SCALE_PRESETS,
   withMode,
   withThemePicked,
   type Appearance,
@@ -53,6 +54,7 @@ export interface AppearanceContextValue {
    * decides which system-mode slot is rewritten.
    */
   pickTheme: (id: string, scheme?: 'light' | 'dark') => void;
+  setScale: (scale: number) => void;
   setMode: (mode: AppearanceMode) => void;
   setSlot: (slot: 'light' | 'dark', id: string) => void;
 }
@@ -183,6 +185,13 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (root.dataset.accent !== undefined) delete root.dataset.accent;
   }, [resolvedThemeId]);
 
+  // UI scale drives the root font-size (see globals.css); only touch the DOM on change.
+  React.useEffect(() => {
+    const v = String(appearance.scale);
+    const root = document.documentElement;
+    if (root.style.getPropertyValue('--ui-scale') !== v) root.style.setProperty('--ui-scale', v);
+  }, [appearance.scale]);
+
   // Inject compiled custom themes. Waits for the first real load so the boot
   // style (supplying the same CSS) is never removed before replacements exist.
   React.useEffect(() => {
@@ -273,6 +282,11 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     [prefersDark, customThemesLoaded, avail]
   );
 
+  const setScale = React.useCallback((scale: number) => {
+    if (!(SCALE_PRESETS as readonly number[]).includes(scale)) return;
+    setAppearance((prev) => (prev.scale === scale ? prev : { ...prev, scale }));
+  }, []);
+
   const setSlot = React.useCallback((slot: 'light' | 'dark', id: string) => {
     setAppearance((prev) => ({ ...prev, [slot]: id }));
   }, []);
@@ -294,6 +308,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       replaceThemeReferences,
       pickTheme,
       setMode,
+      setScale,
       setSlot,
     }),
     [
@@ -311,6 +326,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       replaceThemeReferences,
       pickTheme,
       setMode,
+      setScale,
       setSlot,
     ]
   );

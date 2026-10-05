@@ -133,7 +133,7 @@ const UserMenu: React.FC = () => {
           role="menu"
           aria-label="User options"
           className={cn(
-            'absolute right-0 top-full z-[100] mt-1 min-w-[180px] rounded-lg border border-border',
+            'absolute right-0 top-full z-[100] mt-1 min-w-[11.25rem] rounded-lg border border-border',
             'bg-surface p-1 shadow-md'
           )}
         >

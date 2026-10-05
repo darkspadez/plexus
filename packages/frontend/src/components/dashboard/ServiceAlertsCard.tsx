@@ -76,11 +76,11 @@ export const ServiceAlertsCard: React.FC<ServiceAlertsCardProps> = ({
               <AlertRow
                 key={group.provider}
                 tone="warning"
-                icon={<AlertTriangle size={14} />}
+                icon={<AlertTriangle size="0.875rem" />}
                 title={group.provider}
                 right={
                   <span className="inline-flex items-center gap-1 font-mono text-xs tabular-nums text-warning-text">
-                    <Timer size={12} />
+                    <Timer size="0.75rem" />
                     <LiveCountdown
                       expiry={group.primary.expiry}
                       lastError={group.primary.lastError}

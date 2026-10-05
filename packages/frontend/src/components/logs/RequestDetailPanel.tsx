@@ -72,7 +72,7 @@ function parseRetryHistory(value: string | null | undefined): RetryAttempt[] {
 /** Section header idiom — matches the Models.tsx expanded-row group label. */
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground-subtle">
+    <div className="text-label font-semibold uppercase tracking-wider text-foreground-subtle">
       {children}
     </div>
   );
@@ -255,7 +255,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
             <Field
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  <CloudUpload size={12} className="text-info-text" aria-hidden />
+                  <CloudUpload size="0.75rem" className="text-info-text" aria-hidden />
                   Input
                 </span>
               }
@@ -267,7 +267,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
             <Field
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  <CloudDownload size={12} className="text-success-text" aria-hidden />
+                  <CloudDownload size="0.75rem" className="text-success-text" aria-hidden />
                   Output
                 </span>
               }
@@ -279,7 +279,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
             <Field
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  <BrainCog size={12} className="text-secondary-text" aria-hidden />
+                  <BrainCog size="0.75rem" className="text-secondary-text" aria-hidden />
                   Reasoning
                 </span>
               }
@@ -293,7 +293,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
             <Field
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  <PackageOpen size={12} className="text-critical-text" aria-hidden />
+                  <PackageOpen size="0.75rem" className="text-critical-text" aria-hidden />
                   Cached
                 </span>
               }
@@ -305,7 +305,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
             <Field
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  <PencilLine size={12} className="text-accent-text" aria-hidden />
+                  <PencilLine size="0.75rem" className="text-accent-text" aria-hidden />
                   Cache write
                 </span>
               }
@@ -318,7 +318,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
             </Field>
           </dl>
           {log.tokensEstimated ? (
-            <div className="text-right text-[10px] text-foreground-subtle">* estimated</div>
+            <div className="text-right text-2xs text-foreground-subtle">* estimated</div>
           ) : null}
         </div>
 
@@ -495,7 +495,7 @@ export const RequestDetailPanel = React.memo(function RequestDetailPanel({
                       </span>
                     )}
                     {attempt.retryable !== undefined && (
-                      <span className="text-[11px] text-foreground-subtle">
+                      <span className="text-label text-foreground-subtle">
                         {attempt.retryable ? 'retryable' : 'not retryable'}
                       </span>
                     )}

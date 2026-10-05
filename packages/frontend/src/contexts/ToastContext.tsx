@@ -113,7 +113,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             aria-modal="true"
           >
             <div
-              className="bg-surface border border-border rounded-xl w-full max-w-[420px] shadow-modal animate-[slideUp_0.2s_ease]"
+              className="bg-surface border border-border rounded-xl w-full max-w-[26.25rem] shadow-modal animate-[slideUp_0.2s_ease]"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-5 sm:p-6 border-b border-border">
@@ -141,7 +141,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 onClick={() => resolveConfirm(false)}
                 aria-label="Close"
               >
-                <X size={16} />
+                <X size="1rem" />
               </button>
             </div>
           </div>,

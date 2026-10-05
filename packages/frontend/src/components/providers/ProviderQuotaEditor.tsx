@@ -180,7 +180,7 @@ export function ProviderQuotaEditor({
     >
       {monitoringOn ? (
         <div className="flex flex-col gap-1">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_120px] sm:items-end">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_7.5rem] sm:items-end">
             <Select
               label="Type"
               value={selectedQuotaCheckerType}
@@ -199,7 +199,7 @@ export function ProviderQuotaEditor({
               onChange={(e) => setQuotaInterval(Math.max(1, parseInt(e.target.value, 10) || 30))}
             />
           </div>
-          <div className="mt-1 font-sans text-[11px] italic text-foreground-muted">
+          <div className="mt-1 font-sans text-label italic text-foreground-muted">
             {isOAuthMode && oauthCheckerType
               ? `Only the '${oauthCheckerType}' checker is available for this OAuth provider.`
               : isOAuthMode
@@ -234,7 +234,7 @@ export function ProviderQuotaEditor({
           )}
         </div>
       ) : (
-        <div className="font-sans text-[11px] italic text-foreground-muted">
+        <div className="font-sans text-label italic text-foreground-muted">
           {monitoringUnavailable
             ? 'No quota checker is available for this OAuth provider type.'
             : editingProvider.quotaChecker?.type

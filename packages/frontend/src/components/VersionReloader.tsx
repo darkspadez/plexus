@@ -134,7 +134,7 @@ export const VersionReloader: React.FC = () => {
   return createPortal(
     <div className="fixed bottom-4 left-1/2 z-(--z-toast) w-max max-w-[92vw] -translate-x-1/2">
       <div className="flex items-center gap-3 rounded-lg border border-info/40 bg-surface-elevated px-4 py-3 shadow-modal">
-        <RefreshCw size={16} className="shrink-0 text-info-text" />
+        <RefreshCw size="1rem" className="shrink-0 text-info-text" />
         <div className="text-xs text-foreground-muted">
           A new version (<span className="text-foreground">{update.label}</span>) is available.
         </div>

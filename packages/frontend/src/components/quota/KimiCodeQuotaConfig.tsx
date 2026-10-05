@@ -14,7 +14,7 @@ export const KimiCodeQuotaConfig: React.FC<KimiCodeQuotaConfigProps> = ({ option
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-sans text-[13px] font-medium text-foreground-muted">
+        <label className="font-sans text-sm font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input
@@ -22,7 +22,7 @@ export const KimiCodeQuotaConfig: React.FC<KimiCodeQuotaConfigProps> = ({ option
           onChange={(e) => handleChange('endpoint', e.target.value)}
           placeholder="https://api.kimi.com/coding/v1/usages"
         />
-        <span className="text-[10px] text-foreground-subtle">
+        <span className="text-2xs text-foreground-subtle">
           Custom endpoint URL. Defaults to Kimi's API.
         </span>
       </div>

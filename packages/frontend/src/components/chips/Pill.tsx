@@ -31,7 +31,7 @@ const toneStyles: Record<PillTone, string> = {
 };
 
 const sizeStyles: Record<PillSize, string> = {
-  sm: 'px-2 py-0.5 text-[11px]',
+  sm: 'px-2 py-0.5 text-label',
   default: 'px-2.5 py-0.5 text-xs',
 };
 

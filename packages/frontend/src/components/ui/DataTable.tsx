@@ -222,7 +222,7 @@ function ExpanderCell<TData>({ row, table }: CellContext<TData, unknown>) {
       className="flex h-6 w-6 items-center justify-center rounded text-foreground-muted transition-colors duration-150 hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
     >
       <ChevronRight
-        size={14}
+        size="0.875rem"
         className={cn('transition-transform duration-150', isRowExpanded && 'rotate-90')}
       />
     </button>
@@ -363,7 +363,7 @@ export function DataTable<TData>({
   const showTitleStrip = Boolean(title || titleExtra);
   const titleStripContent = (
     <>
-      <h3 className="font-sans text-[13px] sm:text-sm font-medium text-foreground m-0 truncate min-w-0">
+      <h3 className="font-sans text-sm font-medium text-foreground m-0 truncate min-w-0">
         {title}
       </h3>
       {titleExtra && <div className="flex items-center gap-2 flex-shrink-0">{titleExtra}</div>}
@@ -547,7 +547,7 @@ export function DataTable<TData>({
           size="sm"
           onClick={() => pagination.onPageChange(currentPage - 1)}
           disabled={currentPage === 0}
-          leftIcon={<ChevronLeft size={14} />}
+          leftIcon={<ChevronLeft size="0.875rem" />}
         >
           Prev
         </Button>
@@ -558,7 +558,7 @@ export function DataTable<TData>({
           disabled={currentPage >= totalPages - 1}
         >
           Next
-          <ChevronRight size={14} />
+          <ChevronRight size="0.875rem" />
         </Button>
       </div>
     </>
@@ -608,11 +608,11 @@ export function DataTable<TData>({
                               {flexRender(h.column.columnDef.header, h.getContext())}
                               {canSort &&
                                 (sorted === 'asc' ? (
-                                  <ArrowUp size={10} />
+                                  <ArrowUp size="0.625rem" />
                                 ) : sorted === 'desc' ? (
-                                  <ArrowDown size={10} />
+                                  <ArrowDown size="0.625rem" />
                                 ) : (
-                                  <ArrowUpDown size={10} className="opacity-40" />
+                                  <ArrowUpDown size="0.625rem" className="opacity-40" />
                                 ))}
                             </span>
                           )}

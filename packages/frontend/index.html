@@ -7,7 +7,7 @@
     <!--
       Boot script: sets <html data-theme="<theme id>"> before React mounts so the
       first paint matches the saved appearance (no flash). Reads the
-      `plexus.appearance` JSON ({ mode, theme, light, dark }); when it is missing
+      `plexus.appearance` JSON ({ mode, theme, light, dark, scale }); when it is missing
       or invalid, falls back to the legacy `plexus.theme` value ('light' or 'dark'),
       and otherwise to system mode with the Plexus light/dark pair. Each storage
       read is guarded on its own, so blocked storage behaves like "no value".
@@ -16,7 +16,10 @@
       failure) the Plexus theme for the OS scheme is used. Every non-custom id is
       assumed built-in. Mirrors parseAppearance / resolveThemeId /
       resolveRenderedThemeId in src/theme (a vitest evaluates this script against
-      them); keep them in sync. AppearanceContext takes over after mount.
+      them); keep them in sync. A preset `scale` other than 1 is also set as
+      the `--ui-scale` custom property on <html> (the root font size follows
+      it); 1 is left to the CSS fallback. AppearanceContext takes over after
+      mount.
     -->
     <script>
       (function () {
@@ -87,6 +90,9 @@
           }
           if (id.indexOf('custom-') === 0 && !cachedResolved) id = fallback;
           document.documentElement.dataset.theme = id;
+          var scales = [0.875, 0.9375, 1, 1.125, 1.25]; // keep in sync with SCALE_PRESETS (src/theme/appearance.ts)
+          if (scales.indexOf(a.scale) !== -1 && a.scale !== 1)
+            document.documentElement.style.setProperty('--ui-scale', String(a.scale));
         } catch (e) {
           document.documentElement.dataset.theme = fallback;
         }

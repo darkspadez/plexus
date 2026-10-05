@@ -136,20 +136,20 @@ export function ProviderOAuthEditor({
       }
     >
       <div className="flex flex-col gap-3">
-        <div className="text-[11px] text-foreground-muted">
+        <div className="text-label text-foreground-muted">
           Tokens are stored securely on the server after login.
         </div>
 
         {credentialAge && oauthCredentialStatus && (
           <div
-            className="text-[11px] text-foreground-muted"
+            className="text-label text-foreground-muted"
             title={describeCredentialDates(oauthCredentialStatus)}
           >
             {credentialAge}
           </div>
         )}
 
-        {oauthError && <div className="text-[11px] text-danger-text">{oauthError}</div>}
+        {oauthError && <div className="text-label text-danger-text">{oauthError}</div>}
 
         {oauthStatus === 'awaiting_select' && oauthSession?.select && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -179,8 +179,8 @@ export function ProviderOAuthEditor({
           <div className="flex flex-col gap-1.5">
             <Input label="Authorization URL" value={oauthSession.authInfo.url} readOnly />
             {oauthSession.authInfo.instructions && (
-              <div className="text-[11px] text-foreground-muted flex items-center gap-1">
-                <Info size={12} />
+              <div className="text-label text-foreground-muted flex items-center gap-1">
+                <Info size="0.75rem" />
                 <span>{oauthSession.authInfo.instructions}</span>
               </div>
             )}
@@ -231,8 +231,8 @@ export function ProviderOAuthEditor({
 
         {oauthSession?.progress && oauthSession.progress.length > 0 && (
           <div className="flex flex-col gap-1">
-            <div className="text-[11px] text-foreground-muted">Progress</div>
-            <div className="text-[11px] text-foreground">
+            <div className="text-label text-foreground-muted">Progress</div>
+            <div className="text-label text-foreground">
               {(oauthSession.progress ?? []).slice(-3).map((message, idx) => (
                 <div key={`${message}-${idx}`}>{message}</div>
               ))}
@@ -241,7 +241,7 @@ export function ProviderOAuthEditor({
         )}
 
         {oauthStatus === 'success' && (
-          <div className="text-[11px] text-success-text">
+          <div className="text-label text-success-text">
             Authentication complete. Tokens stored securely on the server.
           </div>
         )}

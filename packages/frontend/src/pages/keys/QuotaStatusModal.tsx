@@ -78,9 +78,9 @@ export const QuotaStatusModal = ({
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                     {entry.allowed ? (
-                      <Check className="text-success-text shrink-0" size={16} />
+                      <Check className="text-success-text shrink-0" size="1rem" />
                     ) : (
-                      <AlertCircle className="text-danger-text shrink-0" size={16} />
+                      <AlertCircle className="text-danger-text shrink-0" size="1rem" />
                     )}
                     <span className="font-medium text-foreground truncate">{entry.name}</span>
                     {entry.source === 'default' && (
@@ -90,7 +90,7 @@ export const QuotaStatusModal = ({
                     )}
                     {entry.shared && (
                       <Pill tone="primary" size="sm">
-                        <Users size={10} /> shared
+                        <Users size="0.625rem" /> shared
                       </Pill>
                     )}
                     {hasScope(entry.scope) && (
@@ -107,7 +107,7 @@ export const QuotaStatusModal = ({
                       aria-label={`Reset ${entry.name}`}
                       title="Reset usage"
                     >
-                      <RefreshCw size={14} />
+                      <RefreshCw size="0.875rem" />
                     </Button>
                     <span
                       title={
@@ -123,7 +123,7 @@ export const QuotaStatusModal = ({
                         disabled={leaky || recomputing}
                         aria-label={`Recompute ${entry.name}`}
                       >
-                        {leaky ? <Info size={14} /> : <Wrench size={14} />}
+                        {leaky ? <Info size="0.875rem" /> : <Wrench size="0.875rem" />}
                       </Button>
                     </span>
                   </div>
@@ -153,14 +153,14 @@ export const QuotaStatusModal = ({
                 </div>
 
                 {entry.warnAt !== undefined && (
-                  <p className="text-[11px] text-foreground-muted">
+                  <p className="text-label text-foreground-muted">
                     Warns at {Math.round(entry.warnAt * 100)}% usage
                   </p>
                 )}
 
                 {!entry.allowed && (
                   <div className="flex items-center gap-2 text-xs text-danger-text">
-                    <AlertCircle size={12} />
+                    <AlertCircle size="0.75rem" />
                     <span>Exhausted — requests using this quota are being rejected.</span>
                   </div>
                 )}

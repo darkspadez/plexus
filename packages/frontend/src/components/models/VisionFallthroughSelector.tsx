@@ -41,10 +41,10 @@ export function VisionFallthroughSelector({ aliases }: Props) {
 
   return (
     <span className="inline-flex w-full flex-wrap items-center gap-2 rounded-md border border-border bg-surface-sunken px-3 py-1.5 sm:w-auto">
-      <Eye size={14} className="text-foreground-muted" />
+      <Eye size="0.875rem" className="text-foreground-muted" />
       <span className="text-xs font-medium text-foreground-muted">Vision Fall Through:</span>
       <select
-        className="min-w-0 flex-1 cursor-pointer border-none bg-transparent text-xs text-foreground outline-none focus:ring-0 sm:max-w-[140px]"
+        className="min-w-0 flex-1 cursor-pointer border-none bg-transparent text-xs text-foreground outline-none focus:ring-0 sm:max-w-[8.75rem]"
         value={globalDescriptorModel}
         onChange={(e) => setGlobalDescriptorModel(e.target.value)}
       >
@@ -62,7 +62,11 @@ export function VisionFallthroughSelector({ aliases }: Props) {
         title="Save descriptor model"
         type="button"
       >
-        {isSavingDescriptor ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        {isSavingDescriptor ? (
+          <Loader2 size="0.875rem" className="animate-spin" />
+        ) : (
+          <Save size="0.875rem" />
+        )}
       </button>
     </span>
   );

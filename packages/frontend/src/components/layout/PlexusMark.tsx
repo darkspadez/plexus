@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface PlexusMarkProps {
-  size?: number;
+  size?: number | string;
   className?: string;
 }
 

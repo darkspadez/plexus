@@ -72,12 +72,12 @@ export const Drawer: React.FC<DrawerProps> = ({
           'absolute top-0 bottom-0 flex bg-surface-elevated border-border shadow-modal outline-none',
           panelZ,
           side === 'left' &&
-            'left-0 w-[260px] max-w-[85vw] border-r animate-[drawerSlideLeft_250ms_cubic-bezier(0.22,1,0.36,1)] flex-col',
+            'left-0 w-[16.25rem] max-w-[85vw] border-r animate-[drawerSlideLeft_250ms_cubic-bezier(0.22,1,0.36,1)] flex-col',
           side === 'right' && [
             'right-0 w-full border-l animate-[drawerSlideRight_250ms_cubic-bezier(0.22,1,0.36,1)] flex-col',
-            width === 'nav' && 'max-w-[560px]',
-            width === 'md' && 'sm:max-w-[640px]',
-            width === 'lg' && 'sm:max-w-[840px]',
+            width === 'nav' && 'max-w-[35rem]',
+            width === 'md' && 'sm:max-w-[40rem]',
+            width === 'lg' && 'sm:max-w-[52.5rem]',
           ],
           className
         )}

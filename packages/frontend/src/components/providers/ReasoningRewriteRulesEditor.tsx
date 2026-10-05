@@ -42,14 +42,14 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
       style={{
         gridColumn: '1 / -1',
         borderTop: '1px solid var(--border)',
-        marginTop: '4px',
-        paddingTop: '6px',
+        marginTop: '0.25rem',
+        paddingTop: '0.375rem',
       }}
     >
-      <div className="font-sans text-[11px] font-medium text-foreground-muted mb-1">
+      <div className="font-sans text-label font-medium text-foreground-muted mb-1">
         Reasoning Rewrite Rules
       </div>
-      <div className="font-sans text-[10px] text-foreground-muted mb-2" style={{ lineHeight: 1.3 }}>
+      <div className="font-sans text-2xs text-foreground-muted mb-2" style={{ lineHeight: 1.3 }}>
         Map unified reasoning fields to provider-specific formats. Each rule reads a source field
         and writes one or more targets.
       </div>
@@ -59,8 +59,8 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
           style={{
             border: '1px solid var(--border)',
             borderRadius: 'min(var(--theme-radius-field), 0.25rem)',
-            padding: '6px',
-            marginBottom: '4px',
+            padding: '0.375rem',
+            marginBottom: '0.25rem',
             background: 'var(--surface-sunken)',
           }}
         >
@@ -68,9 +68,9 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
           <div
             style={{
               display: 'flex',
-              gap: '4px',
+              gap: '0.25rem',
               alignItems: 'center',
-              marginBottom: '4px',
+              marginBottom: '0.25rem',
             }}
           >
             <div style={{ flex: 2 }}>
@@ -90,7 +90,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
             {/* When operator */}
             <div style={{ flex: 0.7 }}>
               <select
-                className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-focus"
+                className="w-full py-1 pl-2 pr-2 font-sans text-label text-foreground bg-surface border border-border rounded-sm outline-none focus:border-focus"
                 value={rule.when?.op ?? ''}
                 onChange={(e) => {
                   const op = e.target.value;
@@ -166,24 +166,22 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
                 const updated = rules.filter((_: any, i: number) => i !== rIdx);
                 applyRules(updated);
               }}
-              style={{ padding: '4px' }}
+              style={{ padding: '0.25rem' }}
             >
-              <Trash2 size={14} style={{ color: 'var(--danger-text)' }} />
+              <Trash2 size="0.875rem" style={{ color: 'var(--danger-text)' }} />
             </Button>
           </div>
           {/* Rewrites */}
-          <div className="font-sans text-[10px] font-medium text-foreground-muted mb-1">
-            Rewrites
-          </div>
+          <div className="font-sans text-2xs font-medium text-foreground-muted mb-1">Rewrites</div>
           {(rule.rewrites ?? []).map((rw: any, rwIdx: number) => (
             <div
               key={rwIdx}
               style={{
                 display: 'flex',
-                gap: '4px',
+                gap: '0.25rem',
                 alignItems: 'center',
                 marginBottom: '2px',
-                marginLeft: '8px',
+                marginLeft: '0.5rem',
               }}
             >
               <div style={{ flex: 2 }}>
@@ -208,7 +206,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
               {/* Value type selector */}
               <div style={{ flex: 0.7 }}>
                 <select
-                  className="w-full py-1 pl-2 pr-2 font-sans text-[11px] text-foreground bg-surface border border-border rounded-sm outline-none focus:border-focus"
+                  className="w-full py-1 pl-2 pr-2 font-sans text-label text-foreground bg-surface border border-border rounded-sm outline-none focus:border-focus"
                   value={
                     rw.value === null
                       ? 'null'
@@ -273,13 +271,13 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
                 {(() => {
                   if (rw.value === null)
                     return (
-                      <span className="font-sans text-[11px] text-foreground-muted italic">
+                      <span className="font-sans text-label text-foreground-muted italic">
                         null
                       </span>
                     );
                   if (rw.value?.from === 'source')
                     return (
-                      <span className="font-sans text-[11px] text-foreground-muted italic">
+                      <span className="font-sans text-label text-foreground-muted italic">
                         passthrough
                       </span>
                     );
@@ -318,7 +316,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
                   }
                   if (rw.value?.from === 'boolean') {
                     return (
-                      <div style={{ display: 'flex', gap: '4px' }}>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
                         <DebouncedInput
                           placeholder="If true"
                           value={String(rw.value.truthy ?? '')}
@@ -406,9 +404,9 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
                   };
                   applyRules(updated);
                 }}
-                style={{ padding: '4px' }}
+                style={{ padding: '0.25rem' }}
               >
-                <Trash2 size={12} style={{ color: 'var(--danger-text)' }} />
+                <Trash2 size="0.75rem" style={{ color: 'var(--danger-text)' }} />
               </Button>
             </div>
           ))}
@@ -423,34 +421,34 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
               };
               applyRules(updated);
             }}
-            style={{ marginLeft: '8px', padding: '2px 6px' }}
+            style={{ marginLeft: '0.5rem', padding: '2px 0.375rem' }}
           >
-            <Plus size={12} /> <span className="font-sans text-[10px]">Rewrite</span>
+            <Plus size="0.75rem" /> <span className="font-sans text-2xs">Rewrite</span>
           </Button>
           {/* Strip paths */}
           <div
             style={{
               borderTop: '1px solid var(--border)',
-              margin: '6px 0 4px 0',
+              margin: '0.375rem 0 0.25rem 0',
             }}
           />
-          <div className="font-sans text-[10px] font-medium text-foreground-muted mb-1">
+          <div className="font-sans text-2xs font-medium text-foreground-muted mb-1">
             Strip paths (remove from payload after rewrite)
           </div>
           <div
             style={{
               display: 'flex',
-              gap: '4px',
-              marginLeft: '8px',
+              gap: '0.25rem',
+              marginLeft: '0.5rem',
               flexWrap: 'wrap',
             }}
           >
             {(rule.strip ?? []).map((stripPath: string, sIdx: number) => (
               <div key={sIdx} style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
                 <div
-                  className="font-sans text-[11px] text-foreground"
+                  className="font-sans text-label text-foreground"
                   style={{
-                    padding: '2px 8px',
+                    padding: '2px 0.5rem',
                     background: 'var(--surface)',
                     border: '1px solid var(--border)',
                     borderRadius: 'min(var(--theme-radius-field), 0.25rem)',
@@ -472,7 +470,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
                   }}
                   style={{ padding: '2px' }}
                 >
-                  <Trash2 size={10} style={{ color: 'var(--danger-text)' }} />
+                  <Trash2 size="0.625rem" style={{ color: 'var(--danger-text)' }} />
                 </Button>
               </div>
             ))}
@@ -480,8 +478,8 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
           <div
             style={{
               display: 'flex',
-              gap: '4px',
-              marginLeft: '8px',
+              gap: '0.25rem',
+              marginLeft: '0.5rem',
               marginTop: '2px',
             }}
           >
@@ -501,7 +499,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
                   }
                 }
               }}
-              style={{ flex: 1, fontSize: '11px' }}
+              style={{ flex: 1, fontSize: '0.6875rem' }}
             />
           </div>
         </div>
@@ -518,7 +516,7 @@ export function ReasoningRewriteRulesEditor({ adapters, onChange }: Props) {
         }}
         style={{ marginTop: '2px' }}
       >
-        <Plus size={12} /> <span className="font-sans text-[10px]">Rule</span>
+        <Plus size="0.75rem" /> <span className="font-sans text-2xs">Rule</span>
       </Button>
     </div>
   );

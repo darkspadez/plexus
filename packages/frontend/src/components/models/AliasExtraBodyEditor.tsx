@@ -45,38 +45,41 @@ export function AliasExtraBodyEditor({ editingAlias, setEditingAlias }: Props) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '6px',
+          marginBottom: '0.375rem',
         }}
       >
-        <label className="font-sans text-[13px] font-medium text-foreground-muted">
+        <label className="font-sans text-sm font-medium text-foreground-muted">
           Extra Body Fields
         </label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
           <Pill tone="neutral" size="sm">
             {entries.length}
           </Pill>
           <Button
             size="sm"
             variant="outline"
-            style={{ padding: '2px 6px', lineHeight: 1 }}
+            style={{ padding: '2px 0.375rem', lineHeight: 1 }}
             onClick={addKV}
           >
-            <Plus size={14} />
+            <Plus size="0.875rem" />
           </Button>
         </div>
       </div>
-      <p className="font-sans text-[11px] text-foreground-subtle" style={{ marginBottom: '6px' }}>
+      <p
+        className="font-sans text-label text-foreground-subtle"
+        style={{ marginBottom: '0.375rem' }}
+      >
         These key-value pairs are merged into every request dispatched through this alias,
         overriding any provider-level or model-level extra body fields with the same keys.
       </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
         {entries.length === 0 && (
-          <div className="font-sans text-[11px] text-foreground-muted italic">
+          <div className="font-sans text-label text-foreground-muted italic">
             No extra body fields configured.
           </div>
         )}
         {entries.map(([key, val]: [string, any], idx: number) => (
-          <div key={idx} style={{ display: 'flex', gap: '6px' }}>
+          <div key={idx} style={{ display: 'flex', gap: '0.375rem' }}>
             <Input
               placeholder="Field Name"
               value={key}
@@ -102,9 +105,9 @@ export function AliasExtraBodyEditor({ editingAlias, setEditingAlias }: Props) {
               variant="ghost"
               size="sm"
               onClick={() => removeKV(key)}
-              style={{ padding: '4px' }}
+              style={{ padding: '0.25rem' }}
             >
-              <Trash2 size={14} style={{ color: 'var(--danger-text)' }} />
+              <Trash2 size="0.875rem" style={{ color: 'var(--danger-text)' }} />
             </Button>
           </div>
         ))}

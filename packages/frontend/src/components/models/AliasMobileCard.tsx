@@ -92,7 +92,7 @@ export const AliasMobileCard: React.FC<Props> = ({
           className="text-danger-text"
           aria-label={`Delete ${alias.id}`}
         >
-          <Trash2 size={14} />
+          <Trash2 size="0.875rem" />
         </Button>
       </div>
 
@@ -119,7 +119,7 @@ export const AliasMobileCard: React.FC<Props> = ({
               <span className="text-foreground-subtle">No providers</span>
             )}
           </div>
-          <div className="mt-1 text-[11px] text-foreground-subtle">
+          <div className="mt-1 text-label text-foreground-subtle">
             {targetCount} target{targetCount === 1 ? '' : 's'}
           </div>
         </div>
@@ -177,7 +177,7 @@ export const AliasMobileCard: React.FC<Props> = ({
                               : 'text-foreground-muted'
                           }`}
                         >
-                          <Link2 size={12} className="text-primary-text opacity-70" />
+                          <Link2 size="0.75rem" className="text-primary-text opacity-70" />
                           alias: {t.alias}
                         </div>
                       </div>
@@ -223,10 +223,10 @@ export const AliasMobileCard: React.FC<Props> = ({
                         {t.model || 'No model'}
                       </div>
                       {isProviderDisabled && (
-                        <div className="mt-1 text-[11px] text-danger-text">Provider disabled</div>
+                        <div className="mt-1 text-label text-danger-text">Provider disabled</div>
                       )}
                       {cooldown && (
-                        <div className="mt-1 text-[11px] font-medium text-warning-text">
+                        <div className="mt-1 text-label font-medium text-warning-text">
                           Cooldown ({cooldownText})
                         </div>
                       )}
@@ -249,13 +249,13 @@ export const AliasMobileCard: React.FC<Props> = ({
                         aria-label={`Test ${alias.id} target ${i + 1}`}
                       >
                         {testState?.loading ? (
-                          <Loader2 size={14} className="animate-spin" />
+                          <Loader2 size="0.875rem" className="animate-spin" />
                         ) : testState?.showResult && testState.result === 'success' ? (
-                          <CheckCircle size={14} className="text-success-text" />
+                          <CheckCircle size="0.875rem" className="text-success-text" />
                         ) : testState?.showResult && testState.result === 'error' ? (
-                          <AlertTriangle size={14} className="text-danger-text" />
+                          <AlertTriangle size="0.875rem" className="text-danger-text" />
                         ) : (
-                          <Play size={14} />
+                          <Play size="0.875rem" />
                         )}
                       </button>
                       <Switch

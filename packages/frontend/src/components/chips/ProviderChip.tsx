@@ -69,7 +69,7 @@ export const ProviderChip: React.FC<ProviderChipProps> = ({ provider, label, cla
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[11px] font-medium leading-none',
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-label font-medium leading-none',
         className
       )}
       style={{

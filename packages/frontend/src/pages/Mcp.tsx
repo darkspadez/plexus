@@ -438,7 +438,7 @@ export const McpPage: React.FC = () => {
                 title="Download skill as file"
                 aria-label="Download Plexus CLI skill"
               >
-                <Download size={14} />
+                <Download size="0.875rem" />
               </Button>
               <Button
                 variant="outline"
@@ -448,7 +448,7 @@ export const McpPage: React.FC = () => {
                 aria-label="Install Plexus CLI"
                 aria-expanded={isCliInstallOpen}
               >
-                <Package size={14} />
+                <Package size="0.875rem" />
               </Button>
               {isCliInstallOpen && (
                 <div className="absolute right-0 top-full z-[100] mt-1 w-80 rounded-lg border border-border bg-surface p-3 shadow-md">
@@ -485,10 +485,10 @@ export const McpPage: React.FC = () => {
                 title="Download as file"
                 aria-label="Download Plexus REST API skill"
               >
-                <Download size={14} />
+                <Download size="0.875rem" />
               </Button>
             </div>
-            <Button leftIcon={<Plus size={14} />} onClick={handleAddNew} size="md">
+            <Button leftIcon={<Plus size="0.875rem" />} onClick={handleAddNew} size="md">
               Add server
             </Button>
           </>

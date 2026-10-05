@@ -47,14 +47,14 @@ export function ModelExtraBody({
               setIsOpen(true);
             }}
           >
-            <Plus size={14} />
+            <Plus size="0.875rem" />
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-1">
         {Object.entries(modelConfig.extraBody || {}).length === 0 && (
-          <div className="font-sans text-[11px] text-foreground-muted italic">
+          <div className="font-sans text-label text-foreground-muted italic">
             No extra body fields configured.
           </div>
         )}
@@ -86,7 +86,7 @@ export function ModelExtraBody({
                 aria-label={`Remove ${key}`}
                 className="p-1"
               >
-                <Trash2 size={14} className="text-danger-text" />
+                <Trash2 size="0.875rem" className="text-danger-text" />
               </Button>
             </div>
           )

@@ -78,26 +78,26 @@ export function FetchModelsModal({
           <Button
             onClick={onFetch}
             isLoading={isFetchingModels}
-            leftIcon={<Download size={16} />}
+            leftIcon={<Download size="1rem" />}
             className="w-full sm:w-auto"
           >
             Fetch
           </Button>
         </div>
         {fetchError && (
-          <div className="rounded-sm border border-danger/30 bg-danger/10 p-3 text-[13px] text-danger-text">
+          <div className="rounded-sm border border-danger/30 bg-danger/10 p-3 text-sm text-danger-text">
             {fetchError}
           </div>
         )}
         {fetchWarning && (
-          <div className="rounded-sm border border-warning/30 bg-warning/10 p-3 font-sans text-[13px] text-warning-text">
+          <div className="rounded-sm border border-warning/30 bg-warning/10 p-3 font-sans text-sm text-warning-text">
             {fetchWarning}
           </div>
         )}
         {fetchedModels.length > 0 && (
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <label className="font-sans text-[13px] font-medium text-foreground-muted">
+              <label className="font-sans text-sm font-medium text-foreground-muted">
                 Available Models ({fetchedModels.length})
               </label>
               <div className="flex gap-2">
@@ -109,7 +109,7 @@ export function FetchModelsModal({
                 </Button>
               </div>
             </div>
-            <div className="max-h-[400px] overflow-y-auto rounded-sm border border-border bg-background">
+            <div className="max-h-[25rem] overflow-y-auto rounded-sm border border-border bg-background">
               {fetchedModels.map((model) => {
                 const contextLengthK = model.context_length
                   ? `${(model.context_length / 1000).toFixed(0)}K`
@@ -137,9 +137,7 @@ export function FetchModelsModal({
                       />
                       <div className="flex-1">
                         <div className="mb-1 flex items-center gap-2">
-                          <span className="text-[13px] font-semibold text-foreground">
-                            {model.id}
-                          </span>
+                          <span className="text-sm font-semibold text-foreground">{model.id}</span>
                           {model.type === 'image' && <ModelTypeBadge type="image" />}
                           {contextLengthK && (
                             <Pill tone="success" size="sm">
@@ -156,12 +154,10 @@ export function FetchModelsModal({
                           )}
                         </div>
                         {model.name && model.name !== model.id && (
-                          <div className="mb-0.5 text-[12px] text-foreground-muted">
-                            {model.name}
-                          </div>
+                          <div className="mb-0.5 text-xs text-foreground-muted">{model.name}</div>
                         )}
                         {model.description && (
-                          <div className="mt-1 text-[11px] leading-snug text-foreground-subtle">
+                          <div className="mt-1 text-label leading-snug text-foreground-subtle">
                             {model.description.length > 150
                               ? `${model.description.substring(0, 150)}...`
                               : model.description}
@@ -176,7 +172,7 @@ export function FetchModelsModal({
           </div>
         )}
         {!isFetchingModels && fetchedModels.length === 0 && !fetchError && (
-          <div className="p-8 text-center text-[13px] italic text-foreground-muted">
+          <div className="p-8 text-center text-sm italic text-foreground-muted">
             {isOAuthMode
               ? 'Click Fetch to load known OAuth models'
               : 'Enter a URL and click Fetch to load available models'}

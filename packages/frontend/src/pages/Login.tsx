@@ -101,7 +101,7 @@ export const Login: React.FC = () => {
         {/* Logo + wordmark */}
         <div className="mb-6 flex flex-wrap items-center justify-center gap-3 sm:mb-8">
           <div className="animate-float">
-            <PlexusMark size={44} />
+            <PlexusMark size="2.75rem" />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-bold brand-grad-text font-sans tracking-tight">
@@ -142,7 +142,7 @@ export const Login: React.FC = () => {
               </label>
               <div className="relative">
                 <KeyRound
-                  size={16}
+                  size="1rem"
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-subtle pointer-events-none"
                 />
                 <input
@@ -164,12 +164,12 @@ export const Login: React.FC = () => {
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-surface-elevated text-foreground-muted"
                   aria-label={showKey ? 'Hide key' : 'Show key'}
                 >
-                  {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {showKey ? <EyeOff size="0.875rem" /> : <Eye size="0.875rem" />}
                 </button>
               </div>
               {error && (
                 <div className="mt-2 flex items-start gap-2 text-xs text-danger-text bg-danger-subtle border border-danger/30 rounded-lg p-2.5">
-                  <AlertCircle size={14} className="mt-0.5 flex-none" />
+                  <AlertCircle size="0.875rem" className="mt-0.5 flex-none" />
                   <span>{error}</span>
                 </div>
               )}
@@ -177,13 +177,13 @@ export const Login: React.FC = () => {
 
             <Button type="submit" variant="primary" size="lg" className="w-full">
               <span>Access Dashboard</span>
-              <ArrowRight size={14} />
+              <ArrowRight size="0.875rem" />
             </Button>
           </form>
 
-          <div className="mt-6 flex flex-col gap-2 border-t border-border pt-5 text-[11px] text-foreground-subtle sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-6 flex flex-col gap-2 border-t border-border pt-5 text-label text-foreground-subtle sm:flex-row sm:items-center sm:justify-between">
             <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck size={14} />
+              <ShieldCheck size="0.875rem" />
               End-to-end encrypted
             </span>
           </div>

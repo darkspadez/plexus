@@ -90,7 +90,7 @@ const CenteredDialog: React.FC<ModalProps & { size: keyof typeof CENTERED_WIDTH 
             onClick={onClose}
             aria-label="Close"
           >
-            <X size={16} />
+            <X size="1rem" />
           </button>
         </div>
         {subHeader && <div className="flex-shrink-0 px-4 sm:px-5">{subHeader}</div>}
@@ -153,7 +153,7 @@ const SheetPanel: React.FC<ModalProps & { size: 'md' | 'lg' }> = ({
           onClick={onClose}
           aria-label="Close"
         >
-          <X size={16} />
+          <X size="1rem" />
         </button>
       </div>
 

@@ -1,19 +1,18 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import type { CustomThemeDef, ThemeColorKey } from '@plexus/shared';
-import { cn } from '../../lib/cn';
 import { parseColor, toHex } from '../../theme/color';
 import {
   BORDER_PRESETS,
   MAX_THEME_NAME,
   RADIUS_PRESETS,
-  withCurrentOption,
   derivedContentVar,
   type ContentColorKey,
 } from '../../theme/editor';
 import { Input } from '../ui/Input';
 import { Switch } from '../ui/Switch';
 import { Tabs } from '../ui/Tabs';
+import { Segmented } from './Segmented';
 import { ThemePreview } from './ThemePreview';
 import type { ThemeDraft } from './useThemeDraft';
 
@@ -70,50 +69,6 @@ function pickerValue(css: string | undefined): string {
   } catch {
     return '#000000';
   }
-}
-
-interface SegmentedProps<V extends string> {
-  label: string;
-  value: V;
-  options: readonly V[];
-  onChange: (v: V) => void;
-  /** The value the editor opened with; offered as "Current (value)" when it is not a preset. */
-  initial?: string;
-}
-
-/** A row of toggle buttons; the one matching `value` is pressed. */
-function Segmented<V extends string>({
-  label,
-  value,
-  options,
-  onChange,
-  initial,
-}: SegmentedProps<V>) {
-  const items =
-    initial !== undefined
-      ? withCurrentOption(options, initial)
-      : options.map((o) => ({ value: o, label: o }));
-  return (
-    <div role="group" aria-label={label} className="flex flex-wrap gap-1">
-      {items.map((item) => (
-        <button
-          key={item.value}
-          type="button"
-          aria-pressed={item.value === value}
-          onClick={() => onChange(item.value as V)}
-          className={cn(
-            'h-7 rounded-field border-(length:--theme-border-width) px-2.5 text-xs font-medium tabular-nums transition-colors duration-150 cursor-pointer',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-            item.value === value
-              ? 'border-primary bg-primary-subtle text-primary-text'
-              : 'border-border text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
-          )}
-        >
-          {item.label}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 interface ColorRowProps {
@@ -237,7 +192,7 @@ export const ThemeEditor: React.FC<ThemeEditorProps> = ({ state, note }) => {
 
         {COLOR_GROUPS.map((group) => (
           <section key={group.title} className="flex flex-col gap-2.5">
-            <h3 className="m-0 text-[11px] font-medium uppercase tracking-wider text-foreground-muted">
+            <h3 className="m-0 text-label font-medium uppercase tracking-wider text-foreground-muted">
               {group.title}
             </h3>
             {group.rows.map((spec) => (
@@ -247,7 +202,7 @@ export const ThemeEditor: React.FC<ThemeEditorProps> = ({ state, note }) => {
         ))}
 
         <section className="flex flex-col gap-2.5" aria-label="Contrast notes">
-          <h3 className="m-0 text-[11px] font-medium uppercase tracking-wider text-foreground-muted">
+          <h3 className="m-0 text-label font-medium uppercase tracking-wider text-foreground-muted">
             Contrast
           </h3>
           {diagnostics.length === 0 ? (
@@ -256,7 +211,11 @@ export const ThemeEditor: React.FC<ThemeEditorProps> = ({ state, note }) => {
             <ul className="m-0 flex list-none flex-col gap-1 p-0">
               {diagnostics.map((d) => (
                 <li key={d.token} className="flex items-start gap-1.5 text-xs text-warning-text">
-                  <AlertTriangle size={13} className="mt-px flex-shrink-0" aria-hidden="true" />
+                  <AlertTriangle
+                    size="0.8125rem"
+                    className="mt-px flex-shrink-0"
+                    aria-hidden="true"
+                  />
                   <span>
                     {d.token} auto-adjusted for readability (was {d.ratio.toFixed(2)}:1, needs{' '}
                     {d.min}:1)
@@ -268,7 +227,7 @@ export const ThemeEditor: React.FC<ThemeEditorProps> = ({ state, note }) => {
         </section>
 
         <section className="flex flex-col gap-3">
-          <h3 className="m-0 text-[11px] font-medium uppercase tracking-wider text-foreground-muted">
+          <h3 className="m-0 text-label font-medium uppercase tracking-wider text-foreground-muted">
             Shape
           </h3>
           <div className="flex flex-col gap-1">
