@@ -96,6 +96,8 @@ export const OpenRouterSlugInput: React.FC<OpenRouterSlugInputProps> = ({
         }
         break;
       case 'Escape':
+        // Close only the suggestions; the dialog's Escape handler skips defaultPrevented.
+        e.preventDefault();
         setShowSuggestions(false);
         break;
     }

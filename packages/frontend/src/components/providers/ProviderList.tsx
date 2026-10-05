@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { Edit2, Trash2, Server } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Button } from '../ui/Button';
 import { Switch } from '../ui/Switch';
 import { DataTable } from '../ui/DataTable';
+import { useStableCallback } from '../../hooks/useStableCallback';
 import type { Provider } from '../../lib/api';
 
 interface Props {
@@ -24,62 +26,80 @@ const countModels = (p: Provider): number => {
 export function ProviderList({
   providers,
   getQuotaDisplay,
-  onEdit,
-  onToggleEnabled,
-  onDelete,
+  onEdit: onEditProp,
+  onToggleEnabled: onToggleEnabledProp,
+  onDelete: onDeleteProp,
   emptyAction,
 }: Props) {
-  const columns: ColumnDef<Provider>[] = [
-    {
-      id: 'id',
-      header: 'Name / ID',
-      meta: { priority: 'high', mobileTitle: true },
-      cell: ({ row }) => {
-        const p = row.original;
-        // Provider.name falls back to the id when no display name is set
-        // (api.ts maps `display_name || key`), so only treat it as a display
-        // name when it's actually distinct from the id.
-        const displayName = p.name?.trim();
-        const hasDistinctName = !!displayName && displayName !== p.id;
-        return (
-          <div className="flex items-center gap-2">
-            <Edit2 size="0.75rem" className="shrink-0 text-foreground-subtle" />
-            <span className="font-semibold text-foreground">{hasDistinctName ? p.name : p.id}</span>
-            {hasDistinctName && <span className="text-xs text-foreground-muted">( {p.id} )</span>}
-          </div>
-        );
+  // Stable handler identities keep `columns` stable: a column set rebuilt each
+  // render makes flexRender remount every cell, which detaches the action
+  // buttons (and drops the focus a dialog needs to restore).
+  const onEdit = useStableCallback(onEditProp);
+  const onToggleEnabled = useStableCallback(onToggleEnabledProp);
+  const onDelete = useStableCallback(onDeleteProp);
+  const leadingColumns = useMemo<ColumnDef<Provider>[]>(
+    () => [
+      {
+        id: 'id',
+        header: 'Name / ID',
+        meta: { priority: 'high', mobileTitle: true },
+        cell: ({ row }) => {
+          const p = row.original;
+          // Provider.name falls back to the id when no display name is set
+          // (api.ts maps `display_name || key`), so only treat it as a display
+          // name when it's actually distinct from the id.
+          const displayName = p.name?.trim();
+          const hasDistinctName = !!displayName && displayName !== p.id;
+          return (
+            <div className="flex items-center gap-2">
+              <Edit2 size="0.75rem" className="shrink-0 text-foreground-subtle" />
+              <span className="font-semibold text-foreground">
+                {hasDistinctName ? p.name : p.id}
+              </span>
+              {hasDistinctName && <span className="text-xs text-foreground-muted">( {p.id} )</span>}
+            </div>
+          );
+        },
       },
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      meta: { priority: 'medium' },
-      cell: ({ row }) => {
-        const p = row.original;
-        return (
-          <div onClick={(e) => e.stopPropagation()}>
-            <Switch
-              checked={p.enabled !== false}
-              onChange={(val) => onToggleEnabled(p, val)}
-              size="sm"
-            />
-          </div>
-        );
+      {
+        id: 'status',
+        header: 'Status',
+        meta: { priority: 'medium' },
+        cell: ({ row }) => {
+          const p = row.original;
+          return (
+            <div onClick={(e) => e.stopPropagation()}>
+              <Switch
+                checked={p.enabled !== false}
+                onChange={(val) => onToggleEnabled(p, val)}
+                size="sm"
+              />
+            </div>
+          );
+        },
       },
-    },
-    {
-      id: 'models',
-      header: 'Models',
-      meta: { priority: 'medium' },
-      cell: ({ row }) => countModels(row.original),
-    },
-    {
+      {
+        id: 'models',
+        header: 'Models',
+        meta: { priority: 'medium' },
+        cell: ({ row }) => countModels(row.original),
+      },
+    ],
+    [onToggleEnabled]
+  );
+  // Separate memos: the quota cell depends on data that changes often, and must
+  // not give the action buttons a new cell identity (which would remount them).
+  const quotaColumn = useMemo<ColumnDef<Provider>>(
+    () => ({
       id: 'quota',
       header: 'Quota/Balance',
       meta: { priority: 'medium' },
       cell: ({ row }) => getQuotaDisplay(row.original) ?? '-',
-    },
-    {
+    }),
+    [getQuotaDisplay]
+  );
+  const actionsColumn = useMemo<ColumnDef<Provider>>(
+    () => ({
       id: 'actions',
       header: 'Actions',
       meta: { priority: 'low', align: 'right' },
@@ -111,8 +131,13 @@ export function ProviderList({
           </Button>
         </div>
       ),
-    },
-  ];
+    }),
+    [onEdit, onDelete]
+  );
+  const columns = useMemo(
+    () => [...leadingColumns, quotaColumn, actionsColumn],
+    [leadingColumns, quotaColumn, actionsColumn]
+  );
 
   return (
     <DataTable

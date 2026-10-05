@@ -61,16 +61,12 @@ function useEscapeClose(
 
 export const AppearanceButton: React.FC = () => {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const close = useCallback(() => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  }, []);
+  // The dialog's focus hook restores focus to this button on close.
+  const close = useCallback(() => setOpen(false), []);
 
   return (
     <>
       <button
-        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Appearance"

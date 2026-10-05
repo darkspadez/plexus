@@ -184,6 +184,9 @@ export const ThemeTile: React.FC<ThemeTileProps> = ({
                   type="button"
                   role="menuitem"
                   onClick={() => {
+                    // The menu item unmounts; park focus on the trigger so a dialog
+                    // opened by onSelect remembers it (not body) as its opener.
+                    triggerRef.current?.focus();
                     onMenuOpenChange(false);
                     item.onSelect();
                   }}

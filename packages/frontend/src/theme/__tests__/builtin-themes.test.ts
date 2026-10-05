@@ -62,7 +62,13 @@ describe('built-in themes', () => {
         }
         // -subtle is emitted as `rgb(r g b / a)`: composite it over the opaque bgs.
         const tint = parseColor(vars[`${role}-subtle`] as string);
-        for (const bg of ['surface', 'background', 'surface-elevated', 'surface-hover']) {
+        for (const bg of [
+          'surface',
+          'background',
+          'surface-sunken',
+          'surface-elevated',
+          'surface-hover',
+        ]) {
           check(
             `${role}-text on ${role}-subtle over ${bg}`,
             text,

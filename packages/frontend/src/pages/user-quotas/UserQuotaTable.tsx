@@ -10,6 +10,7 @@ import React from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Edit2, Trash2, Users } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { useStableCallback } from '../../hooks/useStableCallback';
 import { Pill } from '../../components/chips/Pill';
 import { DataTable } from '../../components/ui/DataTable';
 import { formatCostIn, formatTokens, formatNumber } from '../../lib/format';
@@ -50,7 +51,14 @@ const formatLimit = (q: UserQuota, cost: FormatCostInOptions): string => {
   }
 };
 
-export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUsingCounts }) => {
+export const UserQuotaTable: React.FC<Props> = ({
+  rows,
+  onEdit: onEditProp,
+  onDelete: onDeleteProp,
+  keysUsingCounts,
+}) => {
+  const onEdit = useStableCallback(onEditProp);
+  const onDelete = useStableCallback(onDeleteProp);
   const { currency, rate, symbol } = useCurrency();
   const columns: ColumnDef<UserQuotaRow>[] = React.useMemo(() => {
     const cols: ColumnDef<UserQuotaRow>[] = [

@@ -136,7 +136,15 @@ export function compileTheme(def: ThemeDef, opts: { selector?: string } = {}): C
   vars['border'] = toHex(mix(surface, bc, 0.12));
   vars['border-strong'] = toHex(mix(surface, bc, 0.25));
 
-  const textBgs = [surface, background, sunken];
+  // Pinned surfaces win over derived ones, and text must fit the FINAL values.
+  const pinned = (token: 'surface-elevated' | 'surface-hover' | 'surface-sunken'): Oklch => {
+    const o = def.overrides?.[token];
+    return o !== undefined ? get(token, o) : parseColor(vars[token] as string);
+  };
+  const elevated = pinned('surface-elevated');
+  const hover = pinned('surface-hover');
+  const sunkenFinal = pinned('surface-sunken');
+  const textBgs = [surface, background, sunkenFinal];
   const foreground = fit('foreground', bc, textBgs, TEXT_MIN);
   const foregroundMuted = fit('foreground-muted', mix(bc, surface, 0.35), textBgs, TEXT_MIN);
   const foregroundSubtle = fit(
@@ -174,13 +182,6 @@ export function compileTheme(def: ThemeDef, opts: { selector?: string } = {}): C
     };
   }
 
-  // Pinned surfaces win over derived ones, and text must fit the FINAL values.
-  const pinned = (token: 'surface-elevated' | 'surface-hover'): Oklch => {
-    const o = def.overrides?.[token];
-    return o !== undefined ? get(token, o) : parseColor(vars[token] as string);
-  };
-  const elevated = pinned('surface-elevated');
-  const hover = pinned('surface-hover');
   const fitBgs = [...textBgs, elevated, hover];
 
   const subtleAlpha = scheme === 'light' ? 0.12 : 0.18;
@@ -202,8 +203,8 @@ export function compileTheme(def: ThemeDef, opts: { selector?: string } = {}): C
         : c;
     vars[`${role}-subtle`] = toCssWithAlpha(subtleBase, subtleAlpha);
     // Text lands on every surface (including elevated and hovered rows) and on the
-    // role's own tint over surface, background, elevated and hover.
-    const tinted = [surface, background, elevated, hover].map((bg) =>
+    // role's own tint over surface, background, sunken, elevated and hover.
+    const tinted = [surface, background, sunkenFinal, elevated, hover].map((bg) =>
       composite(subtleBase, subtleAlpha, bg)
     );
     vars[`${role}-text`] = toHex(fit(`${role}-text`, c, [...fitBgs, ...tinted], TEXT_MIN));

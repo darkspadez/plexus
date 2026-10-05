@@ -158,6 +158,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mode = 'desktop' }) => {
           <button
             type="button"
             onClick={closeMobile}
+            data-dialog-close
             aria-label="Close navigation"
             className="ml-auto p-1.5 rounded-md text-foreground-muted hover:bg-surface-elevated hover:text-foreground transition-colors"
           >

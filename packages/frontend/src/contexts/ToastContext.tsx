@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { X } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 
@@ -93,12 +94,17 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [showToast]
   );
 
+  const panelRef = useRef<HTMLDivElement>(null);
+
   const resolveConfirm = (result: boolean) => {
     if (confirmState) {
       confirmState.resolve(result);
       setConfirmState(null);
     }
   };
+
+  // Focus lands on the Cancel button (data-autofocus); the confirm joins the dialog stack.
+  useDialogFocus(panelRef, confirmState !== null, { onClose: () => resolveConfirm(false) });
 
   return (
     <ToastContext.Provider value={value}>
@@ -107,7 +113,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       {confirmState &&
         createPortal(
           <div
-            className="fixed inset-0 z-[410] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+            className="fixed inset-0 z-[410] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md outline-none"
+            ref={panelRef}
+            tabIndex={-1}
             onClick={() => resolveConfirm(false)}
             role="dialog"
             aria-modal="true"
@@ -125,7 +133,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 {confirmState.message}
               </div>
               <div className="flex items-center justify-end gap-3 px-5 py-4 sm:px-6 border-t border-border">
-                <Button variant="outline" onClick={() => resolveConfirm(false)}>
+                <Button variant="outline" data-autofocus onClick={() => resolveConfirm(false)}>
                   {confirmState.cancelLabel ?? 'Cancel'}
                 </Button>
                 <Button
@@ -139,6 +147,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 type="button"
                 className="absolute top-4 right-4 text-foreground-subtle hover:text-foreground"
                 onClick={() => resolveConfirm(false)}
+                data-dialog-close
                 aria-label="Close"
               >
                 <X size="1rem" />

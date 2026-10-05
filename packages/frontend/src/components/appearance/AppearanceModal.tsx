@@ -157,23 +157,13 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
   const draftState = useThemeDraft(isOpen && view.kind === 'editor');
 
   React.useEffect(() => {
-    if (isOpen) {
-      const dialog = document.querySelector<HTMLElement>(
-        '[role="dialog"][aria-label="Appearance"]'
-      );
-      const target =
-        dialog?.querySelector<HTMLElement>('[data-tile-id][aria-pressed="true"]') ??
-        dialog?.querySelector<HTMLElement>('[data-tile-id]') ??
-        dialog?.querySelector<HTMLElement>('input[type="search"]');
-      target?.focus();
-    } else {
-      setQuery('');
-      setView({ kind: 'grid' });
-      setMenuFor(null);
-      setDeleteTarget(null);
-      setEditorPanel(null);
-      returnFocus.current = null;
-    }
+    if (isOpen) return;
+    setQuery('');
+    setView({ kind: 'grid' });
+    setMenuFor(null);
+    setDeleteTarget(null);
+    setEditorPanel(null);
+    returnFocus.current = null;
   }, [isOpen]);
 
   // Grid <-> editor focus handoff. Re-runs when the custom list changes so a
@@ -250,8 +240,8 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
   };
 
   const handleClose = () => {
-    // A nested confirm or open menu owns this Escape (the dialog also hears it
-    // on `document`).
+    // Only the top dialog hears Escape, so a nested confirm closes alone; this
+    // guard just covers a stray close while the confirm is up.
     if (deleteTarget) return;
     // An open import dialog or export menu owns this Escape; the editor stays.
     if (editorPanel) {
@@ -302,6 +292,13 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
       <Modal
         isOpen={isOpen}
         onClose={handleClose}
+        // On open: the active tile, else the first tile, else search. The Modal's
+        // focus hook restores focus to the Palette button on close.
+        initialFocus={(dialog) =>
+          dialog.querySelector<HTMLElement>('[data-tile-id][aria-pressed="true"]') ??
+          dialog.querySelector<HTMLElement>('[data-tile-id]') ??
+          dialog.querySelector<HTMLElement>('input[type="search"]')
+        }
         title={editing ? (view.mode === 'create' ? 'New theme' : 'Edit theme') : 'Appearance'}
         subtitle={editing ? undefined : `${themes.length} themes · saved automatically`}
         size={editing ? '2xl' : 'xl'}

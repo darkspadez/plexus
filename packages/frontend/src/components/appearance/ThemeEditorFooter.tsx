@@ -261,7 +261,7 @@ export const ThemeEditorFooter: React.FC<ThemeEditorFooterProps> = ({
           <textarea
             id="theme-import-text"
             rows={8}
-            autoFocus
+            data-autofocus
             spellCheck={false}
             value={importText}
             onChange={(e) => {

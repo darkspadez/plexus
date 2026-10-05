@@ -1393,6 +1393,7 @@ export const Logs = () => {
             <button
               type="button"
               onClick={() => setIsMobileFiltersOpen(false)}
+              data-dialog-close
               className="rounded-md border-0 bg-transparent p-1 text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
               aria-label="Close filters"
             >

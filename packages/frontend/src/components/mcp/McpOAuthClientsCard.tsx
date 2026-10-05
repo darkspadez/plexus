@@ -8,6 +8,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { Skeleton } from '../ui/Skeleton';
 import { Pill } from '../chips';
 import { cn } from '../../lib/cn';
+import { useStableCallback } from '../../hooks/useStableCallback';
 import type { McpOAuthClientRecord, McpOAuthTokenRecord } from '../../lib/api';
 
 interface McpOAuthClientsCardProps {
@@ -32,11 +33,12 @@ export function McpOAuthClientsCard({
   deletingClientId,
   revokingAllClientId,
   onRefresh,
-  onRevokeToken,
+  onRevokeToken: onRevokeTokenProp,
   onToggleClientStatus,
   onRevokeAllTokens,
   onDeleteClient,
 }: McpOAuthClientsCardProps) {
+  const onRevokeToken = useStableCallback(onRevokeTokenProp);
   const tokenColumns = React.useMemo<ColumnDef<McpOAuthTokenRecord>[]>(
     () => [
       {

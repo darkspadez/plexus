@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { DataTable } from '../ui/DataTable';
 import { SearchInput } from '../ui/SearchInput';
 import { cn } from '../../lib/cn';
+import { useStableCallback } from '../../hooks/useStableCallback';
 import type { McpLogRecord } from '../../lib/api';
 import { formatMs } from '../../lib/format';
 
@@ -37,9 +38,10 @@ export function McpUsageLogsCard({
   onFiltersChange,
   onSearch,
   onDeleteAll,
-  onDeleteLog,
+  onDeleteLog: onDeleteLogProp,
   onOffsetChange,
 }: McpUsageLogsCardProps) {
+  const onDeleteLog = useStableCallback(onDeleteLogProp);
   const currentPage = Math.floor(logsOffset / logsLimit);
 
   const columns = React.useMemo<ColumnDef<McpLogRecord>[]>(

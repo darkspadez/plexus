@@ -1,9 +1,11 @@
+import { useMemo } from 'react';
 import { Copy, Edit2, KeyRound, PlugZap, Trash2 } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { DataTable } from '../ui/DataTable';
 import { Switch } from '../ui/Switch';
+import { useStableCallback } from '../../hooks/useStableCallback';
 import type { McpServer } from '../../lib/api';
 
 interface McpServerTableProps {
@@ -20,155 +22,174 @@ interface McpServerTableProps {
 }
 
 /** Row model for the servers table: the pinned Plexus Management entry + configured servers. */
-type McpServerRow = { kind: 'management' } | { kind: 'server'; name: string };
+type McpServerRow =
+  | { kind: 'management'; enabled: boolean }
+  | { kind: 'server'; name: string; server: McpServer; path: string };
 
 export function McpServerTable({
   servers,
   serverNames,
   mcpEnabled,
-  onEdit,
-  onManageKeys,
-  onToggleEnabled,
-  onToggleMcpEnabled,
-  onDelete,
+  onEdit: onEditProp,
+  onManageKeys: onManageKeysProp,
+  onToggleEnabled: onToggleEnabledProp,
+  onToggleMcpEnabled: onToggleMcpEnabledProp,
+  onDelete: onDeleteProp,
   mcpPathForServer,
-  onCopyMcpPath,
+  onCopyMcpPath: onCopyMcpPathProp,
 }: McpServerTableProps) {
+  // Stable handlers keep `columns` stable so cells (and their buttons) are not remounted.
+  const onEdit = useStableCallback(onEditProp);
+  const onManageKeys = useStableCallback(onManageKeysProp);
+  const onToggleEnabled = useStableCallback(onToggleEnabledProp);
+  const onToggleMcpEnabled = useStableCallback(onToggleMcpEnabledProp);
+  const onDelete = useStableCallback(onDeleteProp);
+  const onCopyMcpPath = useStableCallback(onCopyMcpPathProp);
+  // Cells read everything off the row, so the columns memo needs only stable
+  // handlers and a server toggle doesn't remount (and unfocus) every cell.
   const rows: McpServerRow[] = [
-    { kind: 'management' },
-    ...serverNames.map((name) => ({ kind: 'server' as const, name })),
+    { kind: 'management', enabled: mcpEnabled },
+    ...serverNames.map((name) => ({
+      kind: 'server' as const,
+      name,
+      server: servers[name],
+      path: mcpPathForServer(name),
+    })),
   ];
 
-  const columns: ColumnDef<McpServerRow>[] = [
-    {
-      id: 'name',
-      header: 'Name',
-      meta: { priority: 'high', mobileTitle: true },
-      cell: ({ row }) => {
-        const r = row.original;
-        if (r.kind === 'management') {
-          return <span className="font-medium text-foreground">Plexus Management</span>;
-        }
-        return (
-          <div className="flex items-center gap-2">
-            <Edit2 size="0.75rem" className="opacity-50" />
-            <span className="font-medium text-foreground">{r.name}</span>
-          </div>
-        );
-      },
-    },
-    {
-      id: 'upstream',
-      header: 'Upstream',
-      meta: { priority: 'medium' },
-      cell: ({ row }) => {
-        const r = row.original;
-        if (r.kind === 'management') {
-          return <span className="text-xs text-foreground-muted">—</span>;
-        }
-        const server = servers[r.name];
-        return (
-          <div className="max-w-[25rem] truncate text-sm text-foreground">
-            {server.mode === 'local_http'
-              ? `${server.launcher} ${server.package} → 127.0.0.1:${server.port}${server.path || '/mcp'}`
-              : server.upstream_url}
-          </div>
-        );
-      },
-    },
-    {
-      id: 'path',
-      header: 'Path',
-      meta: { priority: 'medium' },
-      cell: ({ row }) => {
-        const r = row.original;
-        const path = r.kind === 'management' ? '/mcp/plexus' : mcpPathForServer(r.name);
-        return (
-          <div
-            className="flex items-center gap-2 whitespace-nowrap"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <span className="font-mono text-xs text-foreground">{path}</span>
-            <button
-              type="button"
-              onClick={() => onCopyMcpPath(path)}
-              className="rounded-sm p-1 text-foreground-muted hover:bg-surface-elevated hover:text-foreground"
-              title="Copy path"
-              aria-label={`Copy ${path}`}
-            >
-              <Copy size="0.8125rem" />
-            </button>
-          </div>
-        );
-      },
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      meta: { priority: 'medium' },
-      cell: ({ row }) => {
-        const r = row.original;
-        if (r.kind === 'management') {
+  const columns = useMemo<ColumnDef<McpServerRow>[]>(
+    () => [
+      {
+        id: 'name',
+        header: 'Name',
+        meta: { priority: 'high', mobileTitle: true },
+        cell: ({ row }) => {
+          const r = row.original;
+          if (r.kind === 'management') {
+            return <span className="font-medium text-foreground">Plexus Management</span>;
+          }
           return (
-            <div onClick={(e) => e.stopPropagation()}>
-              <Switch checked={mcpEnabled} onChange={onToggleMcpEnabled} size="sm" />
+            <div className="flex items-center gap-2">
+              <Edit2 size="0.75rem" className="opacity-50" />
+              <span className="font-medium text-foreground">{r.name}</span>
             </div>
           );
-        }
-        const server = servers[r.name];
-        return (
-          <div onClick={(e) => e.stopPropagation()}>
-            <Switch
-              checked={server.enabled !== false}
-              onChange={(val) => onToggleEnabled(r.name, val)}
-              size="sm"
-            />
-          </div>
-        );
+        },
       },
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      meta: { priority: 'low', align: 'right' },
-      cell: ({ row }) => {
-        const r = row.original;
-        if (r.kind === 'management') return null;
-        const server = servers[r.name];
-        return (
-          <div className="flex items-center justify-end gap-1">
-            {server?.mode !== 'local_http' && (
+      {
+        id: 'upstream',
+        header: 'Upstream',
+        meta: { priority: 'medium' },
+        cell: ({ row }) => {
+          const r = row.original;
+          if (r.kind === 'management') {
+            return <span className="text-xs text-foreground-muted">—</span>;
+          }
+          const server = r.server;
+          return (
+            <div className="max-w-[25rem] truncate text-sm text-foreground">
+              {server.mode === 'local_http'
+                ? `${server.launcher} ${server.package} → 127.0.0.1:${server.port}${server.path || '/mcp'}`
+                : server.upstream_url}
+            </div>
+          );
+        },
+      },
+      {
+        id: 'path',
+        header: 'Path',
+        meta: { priority: 'medium' },
+        cell: ({ row }) => {
+          const r = row.original;
+          const path = r.kind === 'management' ? '/mcp/plexus' : r.path;
+          return (
+            <div
+              className="flex items-center gap-2 whitespace-nowrap"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="font-mono text-xs text-foreground">{path}</span>
+              <button
+                type="button"
+                onClick={() => onCopyMcpPath(path)}
+                className="rounded-sm p-1 text-foreground-muted hover:bg-surface-elevated hover:text-foreground"
+                title="Copy path"
+                aria-label={`Copy ${path}`}
+              >
+                <Copy size="0.8125rem" />
+              </button>
+            </div>
+          );
+        },
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        meta: { priority: 'medium' },
+        cell: ({ row }) => {
+          const r = row.original;
+          if (r.kind === 'management') {
+            return (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Switch checked={r.enabled} onChange={onToggleMcpEnabled} size="sm" />
+              </div>
+            );
+          }
+          const server = r.server;
+          return (
+            <div onClick={(e) => e.stopPropagation()}>
+              <Switch
+                checked={server.enabled !== false}
+                onChange={(val) => onToggleEnabled(r.name, val)}
+                size="sm"
+              />
+            </div>
+          );
+        },
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        meta: { priority: 'low', align: 'right' },
+        cell: ({ row }) => {
+          const r = row.original;
+          if (r.kind === 'management') return null;
+          const server = r.server;
+          return (
+            <div className="flex items-center justify-end gap-1">
+              {server?.mode !== 'local_http' && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onManageKeys(r.name);
+                  }}
+                  className="text-foreground-muted hover:text-foreground"
+                  title="Manage load-balanced keys"
+                  aria-label={`Manage keys for ${r.name}`}
+                >
+                  <KeyRound size="0.875rem" />
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onManageKeys(r.name);
+                  onDelete(r.name);
                 }}
-                className="text-foreground-muted hover:text-foreground"
-                title="Manage load-balanced keys"
-                aria-label={`Manage keys for ${r.name}`}
+                className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
+                aria-label={`Delete ${r.name}`}
               >
-                <KeyRound size="0.875rem" />
+                <Trash2 size="0.875rem" />
               </Button>
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(r.name);
-              }}
-              className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
-              aria-label={`Delete ${r.name}`}
-            >
-              <Trash2 size="0.875rem" />
-            </Button>
-          </div>
-        );
+            </div>
+          );
+        },
       },
-    },
-  ];
+    ],
+    [onCopyMcpPath, onToggleMcpEnabled, onToggleEnabled, onManageKeys, onDelete]
+  );
 
   return (
     <Card title="MCP Servers" flush>
