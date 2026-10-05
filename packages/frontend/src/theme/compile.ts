@@ -144,7 +144,7 @@ export function compileTheme(def: ThemeDef, opts: { selector?: string } = {}): C
   const elevated = pinned('surface-elevated');
   const hover = pinned('surface-hover');
   const sunkenFinal = pinned('surface-sunken');
-  const textBgs = [surface, background, sunkenFinal];
+  const textBgs = [surface, background, sunkenFinal, elevated, hover];
   const foreground = fit('foreground', bc, textBgs, TEXT_MIN);
   const foregroundMuted = fit('foreground-muted', mix(bc, surface, 0.35), textBgs, TEXT_MIN);
   const foregroundSubtle = fit(
@@ -182,8 +182,6 @@ export function compileTheme(def: ThemeDef, opts: { selector?: string } = {}): C
     };
   }
 
-  const fitBgs = [...textBgs, elevated, hover];
-
   const subtleAlpha = scheme === 'light' ? 0.12 : 0.18;
   for (const role of ROLES) {
     const { color: c, content } = inputs[role];
@@ -207,7 +205,7 @@ export function compileTheme(def: ThemeDef, opts: { selector?: string } = {}): C
     const tinted = [surface, background, sunkenFinal, elevated, hover].map((bg) =>
       composite(subtleBase, subtleAlpha, bg)
     );
-    vars[`${role}-text`] = toHex(fit(`${role}-text`, c, [...fitBgs, ...tinted], TEXT_MIN));
+    vars[`${role}-text`] = toHex(fit(`${role}-text`, c, [...textBgs, ...tinted], TEXT_MIN));
   }
 
   // Focus indicators are not text: 3:1 (WCAG 1.4.11) on every surface.
@@ -225,7 +223,9 @@ export function compileTheme(def: ThemeDef, opts: { selector?: string } = {}): C
   vars['elevation-md'] = def.depth === 0 ? '0 0 #0000' : elevation.md;
   vars['elevation-lg'] = def.depth === 0 ? '0 0 #0000' : elevation.lg;
 
-  const chartFit = (c: Oklch) => ensureContrast(c, [surface], CHART_MIN_CONTRAST).color;
+  // Distinctness must be measured on the same hex colors the browser renders.
+  const chartFit = (c: Oklch) =>
+    parseColor(toHex(ensureContrast(c, [surface], CHART_MIN_CONTRAST).color));
   const preferred = [
     inputs.primary.color,
     inputs.secondary.color,
@@ -242,16 +242,18 @@ export function compileTheme(def: ThemeDef, opts: { selector?: string } = {}): C
   const usedFallback = new Set<number>();
   const chosen: Oklch[] = [];
   const distinct = (c: Oklch) => chosen.every((o) => deltaE(c, o) >= CHART_MIN_DELTA_E);
-  /** Rotate chart-1's hue in 72 degree steps until a distinct, readable color appears. */
+  /** Try chart-1's lightness first, then alternatives when gamut fitting collapses hues. */
   const synthesize = (): Oklch => {
     const base = chosen[0];
     const chroma = Math.max(base.c, SYNTH_MIN_CHROMA);
-    // Past one full turn the same hues repeat, so nudge each further lap.
-    for (let k = 1; k <= HUE_STEP; k++) {
-      const lap = Math.floor((k - 1) / (360 / HUE_STEP));
-      const hue = (base.h ?? 0) + HUE_STEP * k + lap * 17;
-      const cand = chartFit(oklchInGamut(base.l, chroma, hue));
-      if (distinct(cand)) return cand;
+    for (const lightness of [base.l, 0.5, 0.35, 0.65, 0.2, 0.8]) {
+      // Past one full turn the same hues repeat, so nudge each further lap.
+      for (let k = 1; k <= HUE_STEP; k++) {
+        const lap = Math.floor((k - 1) / (360 / HUE_STEP));
+        const hue = (base.h ?? 0) + HUE_STEP * k + lap * 17;
+        const cand = chartFit(oklchInGamut(lightness, chroma, hue));
+        if (distinct(cand)) return cand;
+      }
     }
     return chartFit(base);
   };

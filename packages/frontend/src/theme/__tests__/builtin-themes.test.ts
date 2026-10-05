@@ -47,7 +47,13 @@ describe('built-in themes', () => {
         const ratio = contrast(fg, bg);
         if (ratio < min) failures.push(`${def.id}: ${label} = ${ratio.toFixed(2)} (< ${min})`);
       };
-      const plain = ['surface', 'background', 'surface-sunken'];
+      const plain = [
+        'surface',
+        'background',
+        'surface-sunken',
+        'surface-elevated',
+        'surface-hover',
+      ];
       for (const bg of plain) {
         check(`foreground on ${bg}`, c('foreground'), c(bg), 4.5);
         check(`foreground-muted on ${bg}`, c('foreground-muted'), c(bg), 4.5);
@@ -57,7 +63,7 @@ describe('built-in themes', () => {
       const alpha = SUBTLE_ALPHA[def.colorScheme];
       for (const role of ROLES) {
         const text = c(`${role}-text`);
-        for (const bg of [...plain, 'surface-elevated', 'surface-hover']) {
+        for (const bg of plain) {
           check(`${role}-text on ${bg}`, text, c(bg), 4.5);
         }
         // -subtle is emitted as `rgb(r g b / a)`: composite it over the opaque bgs.

@@ -390,20 +390,28 @@ describe('compileTheme role overrides feed derivation', () => {
 });
 
 describe('compileTheme chart synthesis', () => {
-  it('synthesizes distinct series for an achromatic theme', () => {
-    const gray = makeDef({
+  it.each([
+    ['light', '#000000'],
+    ['light', '#949494'],
+    ['dark', '#ffffff'],
+    ['dark', '#949494'],
+  ] as const)('synthesizes distinct series for a %s theme with %s roles', (scheme, color) => {
+    const base = scheme === 'dark' ? darkDef() : makeDef();
+    const monochrome = {
+      ...base,
       colors: {
-        primary: '#949494',
-        secondary: '#949494',
-        accent: '#949494',
-        neutral: '#949494',
-        info: '#949494',
-        success: '#949494',
-        warning: '#949494',
-        error: '#949494',
+        ...base.colors,
+        primary: color,
+        secondary: color,
+        accent: color,
+        neutral: color,
+        info: color,
+        success: color,
+        warning: color,
+        error: color,
       },
-    });
-    const { vars } = compileTheme(gray);
+    };
+    const { vars } = compileTheme(monochrome);
     const series = [1, 2, 3, 4, 5].map((i) => c(vars[`chart-${i}`]));
     for (let i = 0; i < 5; i++) {
       expect(contrast(series[i], c(vars['surface']))).toBeGreaterThanOrEqual(3.0);
