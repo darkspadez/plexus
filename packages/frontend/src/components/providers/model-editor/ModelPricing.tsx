@@ -124,12 +124,12 @@ export function ModelPricing({ modelId, modelConfig, updateModelConfig }: Props)
       {mCfg.pricing?.source === 'defined' && (
         <div className="flex flex-col gap-2 bg-surface-sunken p-2 rounded-sm">
           <div className="flex items-center justify-between">
-            <span className="font-sans text-[11px] font-medium text-foreground-muted">
+            <span className="font-sans text-label font-medium text-foreground-muted">
               Pricing Ranges
             </span>
             <Button
               size="sm"
-              variant="secondary"
+              variant="outline"
               onClick={() => {
                 const currentRanges = mCfg.pricing.range || [];
                 updateModelConfig(modelId, {
@@ -148,7 +148,7 @@ export function ModelPricing({ modelId, modelConfig, updateModelConfig }: Props)
                   },
                 });
               }}
-              leftIcon={<Plus size={14} />}
+              leftIcon={<Plus size="0.875rem" />}
             >
               Add Range
             </Button>
@@ -161,7 +161,7 @@ export function ModelPricing({ modelId, modelConfig, updateModelConfig }: Props)
               <Button
                 size="sm"
                 variant="ghost"
-                className="absolute right-1.5 top-1.5 text-danger p-1"
+                className="absolute right-1.5 top-1.5 text-danger-text p-1"
                 onClick={() => {
                   const r = [...mCfg.pricing.range];
                   r.splice(idx, 1);
@@ -170,7 +170,7 @@ export function ModelPricing({ modelId, modelConfig, updateModelConfig }: Props)
                   });
                 }}
               >
-                <X size={14} />
+                <X size="0.875rem" />
               </Button>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {[
@@ -233,7 +233,7 @@ export function ModelPricing({ modelId, modelConfig, updateModelConfig }: Props)
             </div>
           ))}
           {(!mCfg.pricing.range || mCfg.pricing.range.length === 0) && (
-            <div className="text-foreground-subtle italic text-center text-[11px] py-2">
+            <div className="text-foreground-subtle italic text-center text-label py-2">
               No ranges defined.
             </div>
           )}
@@ -258,7 +258,7 @@ export function ModelPricing({ modelId, modelConfig, updateModelConfig }: Props)
               })
             }
           />
-          <span className="font-sans text-[11px] text-foreground-subtle italic">
+          <span className="font-sans text-label text-foreground-subtle italic">
             Flat fee per API call, regardless of token count.
           </span>
         </div>

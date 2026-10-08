@@ -14,7 +14,7 @@ export const KiloQuotaConfig: React.FC<KiloQuotaConfigProps> = ({ options, onCha
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-sans text-[13px] font-medium text-foreground-muted">
+        <label className="font-sans text-sm font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input
@@ -25,7 +25,7 @@ export const KiloQuotaConfig: React.FC<KiloQuotaConfigProps> = ({ options, onCha
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="font-sans text-[13px] font-medium text-foreground-muted">
+        <label className="font-sans text-sm font-medium text-foreground-muted">
           Organization ID (optional)
         </label>
         <Input
@@ -33,7 +33,7 @@ export const KiloQuotaConfig: React.FC<KiloQuotaConfigProps> = ({ options, onCha
           onChange={(e) => handleChange('organizationId', e.target.value)}
           placeholder="org_..."
         />
-        <span className="text-[10px] text-foreground-subtle">
+        <span className="text-2xs text-foreground-subtle">
           If provided, sends `x-kilocode-organizationid` for team balance.
         </span>
       </div>

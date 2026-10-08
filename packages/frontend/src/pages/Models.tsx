@@ -102,16 +102,16 @@ function ModelRowActions({ alias, testState, onTest, onEdit, onDelete }: ModelRo
         }}
         title="Test all targets"
         aria-label={`Test ${alias.id}`}
-        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success"
+        className="rounded-sm p-1.5 text-foreground-muted transition-colors hover:bg-success-subtle hover:text-success-text"
       >
         {testState.loading ? (
-          <Loader2 size={14} className="animate-spin" />
+          <Loader2 size="0.875rem" className="animate-spin" />
         ) : testState.error ? (
-          <XCircle size={14} className="text-danger" />
+          <XCircle size="0.875rem" className="text-danger-text" />
         ) : testState.success ? (
-          <CheckCircle size={14} className="text-success" />
+          <CheckCircle size="0.875rem" className="text-success-text" />
         ) : (
-          <Play size={14} />
+          <Play size="0.875rem" />
         )}
       </button>
       <button
@@ -122,9 +122,9 @@ function ModelRowActions({ alias, testState, onTest, onEdit, onDelete }: ModelRo
         }}
         title="Edit"
         aria-label={`Edit ${alias.id}`}
-        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
+        className="rounded-sm p-1.5 text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
       >
-        <Edit2 size={14} />
+        <Edit2 size="0.875rem" />
       </button>
       <button
         type="button"
@@ -134,9 +134,9 @@ function ModelRowActions({ alias, testState, onTest, onEdit, onDelete }: ModelRo
         }}
         title="Delete"
         aria-label={`Delete ${alias.id}`}
-        className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger"
+        className="rounded-sm p-1.5 text-foreground-muted transition-colors hover:bg-danger-subtle hover:text-danger-text"
       >
-        <Trash2 size={14} />
+        <Trash2 size="0.875rem" />
       </button>
     </div>
   );
@@ -381,7 +381,7 @@ export const Models = () => {
         enableSorting: false,
         meta: { priority: 'medium' },
         cell: ({ row }) => (
-          <span className="text-[11px] capitalize text-foreground-muted">
+          <span className="text-label capitalize text-foreground-muted">
             {selectorLabel(row.original)}
           </span>
         ),
@@ -393,7 +393,7 @@ export const Models = () => {
         meta: { priority: 'medium' },
         cell: ({ row }) =>
           row.original.metadata ? (
-            <Pill size="sm" tone="accent" className="capitalize">
+            <Pill size="sm" tone="primary" className="capitalize">
               {row.original.metadata.source}
             </Pill>
           ) : (
@@ -456,21 +456,21 @@ export const Models = () => {
             <Button
               variant="danger"
               size="md"
-              leftIcon={<Trash2 size={14} />}
+              leftIcon={<Trash2 size="0.875rem" />}
               onClick={() => setIsDeleteAllModalOpen(true)}
               disabled={allAliases.length === 0}
             >
               Delete All
             </Button>
             <Button
-              variant="secondary"
+              variant="outline"
               size="md"
-              leftIcon={<Download size={14} />}
+              leftIcon={<Download size="0.875rem" />}
               onClick={handleOpenImport}
             >
               Import
             </Button>
-            <Button leftIcon={<Plus size={14} />} onClick={handleAddNew} size="md">
+            <Button leftIcon={<Plus size="0.875rem" />} onClick={handleAddNew} size="md">
               Add model
             </Button>
           </>
@@ -504,7 +504,13 @@ export const Models = () => {
               size="sm"
               onClick={() => handleSort(sortField)}
               aria-label={`Sort direction: ${getSortAriaLabel(sortField)}`}
-              leftIcon={sortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+              leftIcon={
+                sortDirection === 'asc' ? (
+                  <ArrowUp size="0.875rem" />
+                ) : (
+                  <ArrowDown size="0.875rem" />
+                )
+              }
             >
               {sortDirection === 'asc' ? 'Asc' : 'Desc'}
             </Button>
@@ -536,7 +542,7 @@ export const Models = () => {
               }
               action={
                 allAliases.length === 0 ? (
-                  <Button leftIcon={<Plus size={14} />} onClick={handleAddNew}>
+                  <Button leftIcon={<Plus size="0.875rem" />} onClick={handleAddNew}>
                     Add model
                   </Button>
                 ) : undefined
@@ -588,7 +594,7 @@ export const Models = () => {
                       onChange={(next) => handleUpdateAlias({ ...alias, aliases: next })}
                     />
                     <div className="flex flex-col gap-2">
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground-subtle">
+                      <div className="text-label font-semibold uppercase tracking-wider text-foreground-subtle">
                         Provider mappings
                         <span className="ml-2 font-normal normal-case text-foreground-subtle">
                           upstream model ID per provider
@@ -627,7 +633,7 @@ export const Models = () => {
                           if (!state?.showMessage || !state.message) return null;
                           return (
                             <div key={key} className="flex flex-col gap-0.5 pl-6">
-                              <span className="font-mono text-[10px] text-foreground-subtle">
+                              <span className="font-mono text-2xs text-foreground-subtle">
                                 {group.name} · {t.provider}/{t.model}
                               </span>
                               <TargetTestMessage
@@ -722,13 +728,13 @@ export const Models = () => {
                 onClick={() => setIsAliasesOpen((o) => !o)}
                 className="w-full flex items-center justify-between px-3 py-2 bg-surface-sunken hover:bg-surface-elevated transition-colors duration-150 text-left"
               >
-                <span className="font-sans text-[13px] font-medium text-foreground-muted">
+                <span className="font-sans text-sm font-medium text-foreground-muted">
                   Additional Aliases
                 </span>
                 {isAliasesOpen ? (
-                  <ChevronDown size={14} className="text-foreground-subtle" />
+                  <ChevronDown size="0.875rem" className="text-foreground-subtle" />
                 ) : (
-                  <ChevronRight size={14} className="text-foreground-subtle" />
+                  <ChevronRight size="0.875rem" className="text-foreground-subtle" />
                 )}
               </button>
               {isAliasesOpen && (
@@ -758,15 +764,15 @@ export const Models = () => {
                           next.splice(idx, 1);
                           setEditingAlias({ ...editingAlias, aliases: next });
                         }}
-                        className="text-danger opacity-60 hover:opacity-100 px-1"
+                        className="text-danger-text opacity-60 hover:opacity-100 px-1"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size="0.875rem" />
                       </button>
                     </div>
                   ))}
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="outline"
                     className="mt-1 w-fit"
                     onClick={() =>
                       setEditingAlias({
@@ -774,7 +780,7 @@ export const Models = () => {
                         aliases: [...(editingAlias.aliases || []), ''],
                       })
                     }
-                    leftIcon={<Plus size={14} />}
+                    leftIcon={<Plus size="0.875rem" />}
                   >
                     Add Alias
                   </Button>
@@ -798,15 +804,15 @@ export const Models = () => {
 
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <label className="font-sans text-[13px] font-medium text-foreground-muted">
+                <label className="font-sans text-sm font-medium text-foreground-muted">
                   Target Groups
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="outline"
                     onClick={() => setIsAutoAddModalOpen(true)}
-                    leftIcon={<Zap size={14} />}
+                    leftIcon={<Zap size="0.875rem" />}
                   >
                     Auto Add
                   </Button>

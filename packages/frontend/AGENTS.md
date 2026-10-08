@@ -25,6 +25,14 @@ For example, replace:
 
 Import icons from `lucide-react` and use them as React components.
 
+## Theme conventions
+
+See "Upstream merges" in [docs/DESIGN_MIGRATION.md](../../docs/DESIGN_MIGRATION.md); `src/__tests__/conventions.test.ts` enforces these.
+
+- Use `variant="outline"` for the grey button; `variant="secondary"` is the theme's secondary color.
+- Use `text-<role>-text` for role-colored text, never raw `text-primary`/`text-danger`.
+- Use rem sizing (`text-label`, `size="0.875rem"`), never `text-[11px]` or `size={14}`.
+
 ## Quota Checker Configuration
 
 Use the **`add-quota-checker`** skill for the complete checklist when adding a new quota checker type.

@@ -31,16 +31,16 @@ export const SearchInput: React.FC<SearchInputProps> = ({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      leadingIcon={<Search size={16} />}
+      leadingIcon={<Search size="1rem" />}
       trailingAction={
         value ? (
           <button
             type="button"
             onClick={handleClear}
             aria-label="Clear search"
-            className="flex items-center justify-center h-7 w-7 rounded-md text-foreground-muted hover:text-foreground hover:bg-surface-elevated transition-colors duration-150"
+            className="flex items-center justify-center h-7 w-7 rounded-field text-foreground-muted hover:text-foreground hover:bg-surface-elevated transition-colors duration-150"
           >
-            <X size={14} />
+            <X size="0.875rem" />
           </button>
         ) : null
       }

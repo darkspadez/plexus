@@ -425,33 +425,33 @@ export const McpPage: React.FC = () => {
           <>
             <div className="relative inline-flex items-center gap-1">
               <Button
-                variant="secondary"
+                variant="outline"
                 size="md"
                 onClick={() => handleCopySkill(plexusCliSkill, 'Plexus CLI Skill')}
               >
                 Plexus CLI Skill
               </Button>
               <Button
-                variant="secondary"
+                variant="outline"
                 size="icon"
                 onClick={() => handleDownloadSkill(plexusCliSkill, 'plexus-cli-SKILL.md')}
                 title="Download skill as file"
                 aria-label="Download Plexus CLI skill"
               >
-                <Download size={14} />
+                <Download size="0.875rem" />
               </Button>
               <Button
-                variant="secondary"
+                variant="outline"
                 size="icon"
                 onClick={() => setIsCliInstallOpen((open) => !open)}
                 title="Install Plexus CLI"
                 aria-label="Install Plexus CLI"
                 aria-expanded={isCliInstallOpen}
               >
-                <Package size={14} />
+                <Package size="0.875rem" />
               </Button>
               {isCliInstallOpen && (
-                <div className="absolute right-0 top-full z-[100] mt-1 w-80 rounded-lg border border-border bg-surface p-3 shadow-[var(--shadow-md)]">
+                <div className="absolute right-0 top-full z-[100] mt-1 w-80 rounded-lg border border-border bg-surface p-3 shadow-md">
                   <p className="mb-2 text-label font-medium uppercase tracking-wider text-foreground-subtle">
                     Install Plexus CLI
                   </p>
@@ -472,23 +472,23 @@ export const McpPage: React.FC = () => {
             </div>
             <div className="inline-flex items-center gap-1">
               <Button
-                variant="secondary"
+                variant="outline"
                 size="md"
                 onClick={() => handleCopySkill(plexusRestApiSkill, 'Plexus REST API Skill')}
               >
                 Plexus REST API Skill
               </Button>
               <Button
-                variant="secondary"
+                variant="outline"
                 size="icon"
                 onClick={() => handleDownloadSkill(plexusRestApiSkill, 'plexus-rest-api-SKILL.md')}
                 title="Download as file"
                 aria-label="Download Plexus REST API skill"
               >
-                <Download size={14} />
+                <Download size="0.875rem" />
               </Button>
             </div>
-            <Button leftIcon={<Plus size={14} />} onClick={handleAddNew} size="md">
+            <Button leftIcon={<Plus size="0.875rem" />} onClick={handleAddNew} size="md">
               Add server
             </Button>
           </>

@@ -28,21 +28,22 @@ export const PerformanceToolTip: React.FC<PerformanceToolTipProps> = ({
 
   return (
     <Tooltip
+      variant="surface"
       content={
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: 'auto auto',
-            gap: '4px 12px',
-            minWidth: '180px',
-            fontSize: '12px',
+            gap: '0.25rem 0.75rem',
+            minWidth: '11.25rem',
+            fontSize: '0.75rem',
           }}
         >
           <strong
             style={{
               gridColumn: '1 / -1',
-              borderBottom: '1px solid #4a4a4a',
-              paddingBottom: '4px',
+              borderBottom: '1px solid var(--border)',
+              paddingBottom: '0.25rem',
               marginBottom: '2px',
             }}
           >
@@ -50,7 +51,7 @@ export const PerformanceToolTip: React.FC<PerformanceToolTipProps> = ({
           </strong>
           {rows.map(([label, value]) => (
             <React.Fragment key={label}>
-              <span style={{ color: '#9ca3af' }}>{label}</span>
+              <span style={{ color: 'var(--foreground-muted)' }}>{label}</span>
               <span style={{ fontFamily: 'monospace', textAlign: 'right' }}>{value}</span>
             </React.Fragment>
           ))}

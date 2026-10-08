@@ -55,7 +55,7 @@ export const ServiceAlertsCard: React.FC<ServiceAlertsCardProps> = ({
       title="Service Alerts"
       extra={
         hasCooldowns && (
-          <Button variant="accent-soft" size="sm" onClick={onClearAll}>
+          <Button variant="soft" size="sm" onClick={onClearAll}>
             Clear all
           </Button>
         )
@@ -76,11 +76,11 @@ export const ServiceAlertsCard: React.FC<ServiceAlertsCardProps> = ({
               <AlertRow
                 key={group.provider}
                 tone="warning"
-                icon={<AlertTriangle size={14} />}
+                icon={<AlertTriangle size="0.875rem" />}
                 title={group.provider}
                 right={
-                  <span className="inline-flex items-center gap-1 font-mono text-xs tabular-nums text-warning">
-                    <Timer size={12} />
+                  <span className="inline-flex items-center gap-1 font-mono text-xs tabular-nums text-warning-text">
+                    <Timer size="0.75rem" />
                     <LiveCountdown
                       expiry={group.primary.expiry}
                       lastError={group.primary.lastError}
@@ -90,7 +90,7 @@ export const ServiceAlertsCard: React.FC<ServiceAlertsCardProps> = ({
                 }
                 action={
                   <Button
-                    variant="accent-soft"
+                    variant="soft"
                     size="sm"
                     onClick={() => onClearSingle(group.provider)}
                     aria-label={`Clear cooldown for ${group.provider}`}

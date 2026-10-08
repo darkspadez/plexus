@@ -7,7 +7,7 @@
  *   - Per-page PageHeader sticks below TopBar (top-12 on md+)
  *
  * Mobile (< md):
- *   - Sticky AppBar (48px, hamburger + logo + theme/accent controls)
+ *   - Sticky AppBar (48px, hamburger + logo + Appearance button)
  *   - No sidebar visible; Drawer overlay on hamburger press
  *   - Per-page PageHeader sticks below AppBar (top-12, same offset)
  *
@@ -54,7 +54,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
       <div
         className={cn(
           'flex min-h-screen flex-col transition-[margin] duration-300',
-          isCollapsed ? 'md:ml-[64px]' : 'md:ml-[220px]'
+          isCollapsed ? 'md:ml-[4rem]' : 'md:ml-[13.75rem]'
         )}
       >
         {/* Desktop TopBar — hidden on mobile (md:flex in TopBar itself) */}

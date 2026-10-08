@@ -14,7 +14,7 @@ export const PoeQuotaConfig: React.FC<PoeQuotaConfigProps> = ({ options, onChang
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
-        <label className="font-sans text-[13px] font-medium text-foreground-muted">
+        <label className="font-sans text-sm font-medium text-foreground-muted">
           Endpoint (optional)
         </label>
         <Input

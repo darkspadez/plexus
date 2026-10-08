@@ -135,7 +135,7 @@ export const UserQuotaSheet: React.FC<Props> = ({
     <>
       <Button
         type="button"
-        variant="secondary"
+        variant="outline"
         onClick={() => onOpenChange(false)}
         disabled={save.isPending}
       >
@@ -235,7 +235,7 @@ export const UserQuotaSheet: React.FC<Props> = ({
         {/* Shared bucket toggle */}
         <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-surface-elevated p-3">
           <div className="min-w-0 flex-1">
-            <div className="font-sans text-[13px] font-medium text-foreground">Shared bucket</div>
+            <div className="font-sans text-sm font-medium text-foreground">Shared bucket</div>
             <p className="mt-1 text-xs text-foreground-muted">
               Pool usage across every key that references this quota into a single counter, instead
               of tracking each key independently.

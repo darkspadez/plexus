@@ -111,7 +111,7 @@ const BreakdownList: React.FC<{
               </span>
             </div>
             <div className="mt-1 h-1 w-full bg-surface-elevated rounded-full overflow-hidden">
-              <div className="h-full bg-accent" style={{ width: `${Math.min(100, pct)}%` }} />
+              <div className="h-full bg-primary" style={{ width: `${Math.min(100, pct)}%` }} />
             </div>
           </div>
         );
@@ -192,7 +192,7 @@ export const OverallTab: React.FC = () => {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-sans text-3xl font-bold text-foreground m-0 mb-2">Overall</h1>
-          <p className="text-[15px] text-foreground-muted m-0">
+          <p className="text-base text-foreground-muted m-0">
             Access, usage, and quota summary for your API key.
           </p>
         </div>
@@ -211,11 +211,11 @@ export const OverallTab: React.FC = () => {
       {/* -------- Row 1: Identity + Quota ------------------------------- */}
       <div
         className="grid gap-4"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' }}
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 20rem), 1fr))' }}
       >
         <Card
           title="Key"
-          extra={<Key size={16} className="text-foreground-subtle" />}
+          extra={<Key size="1rem" className="text-foreground-subtle" />}
           className="min-w-0"
         >
           <dl className="grid grid-cols-1 gap-3 text-sm">
@@ -242,14 +242,14 @@ export const OverallTab: React.FC = () => {
 
         <Card
           title="Quota"
-          extra={<Gauge size={16} className="text-foreground-subtle" />}
+          extra={<Gauge size="1rem" className="text-foreground-subtle" />}
           className="min-w-0"
         >
           {loading && !quotas && !quotaError ? (
             <p className="text-sm text-foreground-subtle">Loading…</p>
           ) : quotaError ? (
-            <div className="flex items-start gap-2 text-sm text-warning">
-              <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+            <div className="flex items-start gap-2 text-sm text-warning-text">
+              <AlertTriangle size="0.875rem" className="mt-0.5 flex-shrink-0" />
               <span>
                 Could not load quota status. If this key has a quota assigned, its current usage is
                 not shown here — try refreshing.
@@ -273,8 +273,8 @@ export const OverallTab: React.FC = () => {
                         </Pill>
                       )}
                       {q.shared && (
-                        <Pill tone="accent" size="sm" className="uppercase tracking-wider">
-                          <Users size={10} /> shared
+                        <Pill tone="primary" size="sm" className="uppercase tracking-wider">
+                          <Users size="0.625rem" /> shared
                         </Pill>
                       )}
                     </div>
@@ -296,8 +296,8 @@ export const OverallTab: React.FC = () => {
                       <span>Resets {formatResetsIn(q.resetsAt)}</span>
                     </div>
                     {!q.allowed && (
-                      <div className="flex items-center gap-2 text-xs text-danger">
-                        <AlertTriangle size={14} />
+                      <div className="flex items-center gap-2 text-xs text-danger-text">
+                        <AlertTriangle size="0.875rem" />
                         <span>
                           Quota exhausted — new requests will be rejected until it resets.
                         </span>
@@ -314,11 +314,11 @@ export const OverallTab: React.FC = () => {
       {/* -------- Row 2: Access (providers / models) -------------------- */}
       <div
         className="grid gap-4"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' }}
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 20rem), 1fr))' }}
       >
         <Card
           title="Allowed providers"
-          extra={<Layers size={16} className="text-foreground-subtle" />}
+          extra={<Layers size="1rem" className="text-foreground-subtle" />}
           className="min-w-0"
         >
           {allowedProviders.length === 0 ? (
@@ -341,7 +341,7 @@ export const OverallTab: React.FC = () => {
 
         <Card
           title="Allowed models"
-          extra={<Boxes size={16} className="text-foreground-subtle" />}
+          extra={<Boxes size="1rem" className="text-foreground-subtle" />}
           className="min-w-0"
         >
           {allowedModels.length === 0 ? (
@@ -367,7 +367,7 @@ export const OverallTab: React.FC = () => {
       {/* -------- Row 3: Token + request totals for selected range ------ */}
       <Card
         title={`Totals (${timeRange})`}
-        extra={<Activity size={16} className="text-foreground-subtle" />}
+        extra={<Activity size="1rem" className="text-foreground-subtle" />}
       >
         {loading && !summary ? (
           <Skeleton height={120} className="w-full" />
@@ -376,7 +376,7 @@ export const OverallTab: React.FC = () => {
         ) : (
           <div
             className="grid gap-6"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))' }}
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 8.75rem), 1fr))' }}
           >
             <Metric label="Requests" value={formatNumber(summary.totalRequests, 0)} />
             <Metric label="Total tokens" value={formatTokens(summary.totalTokens)} />
@@ -404,7 +404,7 @@ export const OverallTab: React.FC = () => {
       {/* -------- Row 4: Per-provider + per-model breakdown ------------- */}
       <div
         className="grid gap-4"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' }}
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 20rem), 1fr))' }}
       >
         <Card title="Requests by provider" className="min-w-0">
           {loading && !providerData.length ? (

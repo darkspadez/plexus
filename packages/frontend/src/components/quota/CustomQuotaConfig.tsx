@@ -80,7 +80,7 @@ export function CustomQuotaConfig({ checkerId, provider, options, onChange }: Pr
           placeholder="Bearer"
         />
         <div className="flex items-center justify-between gap-3 self-end pb-1">
-          <span className="font-sans text-[11px] text-foreground-muted">
+          <span className="font-sans text-label text-foreground-muted">
             Send the provider API key in this header
           </span>
           <Switch
@@ -94,7 +94,7 @@ export function CustomQuotaConfig({ checkerId, provider, options, onChange }: Pr
 
       <FormField label="Additional request headers (JSON)">
         <textarea
-          className="min-h-20 w-full rounded-md border border-border bg-background p-2 font-mono text-[11px] text-foreground outline-none focus:border-accent"
+          className="min-h-20 w-full rounded-md border border-border bg-background p-2 font-mono text-label text-foreground outline-none focus:border-focus"
           value={configuredHeaders}
           onChange={(event) => {
             try {
@@ -112,7 +112,7 @@ export function CustomQuotaConfig({ checkerId, provider, options, onChange }: Pr
 
       <FormField label="Other options (JSON)">
         <textarea
-          className="min-h-28 w-full rounded-md border border-border bg-background p-2 font-mono text-[11px] text-foreground outline-none focus:border-accent"
+          className="min-h-28 w-full rounded-md border border-border bg-background p-2 font-mono text-label text-foreground outline-none focus:border-focus"
           value={optionsText}
           onChange={(event) => updateOptions(event.target.value)}
           spellCheck={false}
@@ -123,19 +123,19 @@ export function CustomQuotaConfig({ checkerId, provider, options, onChange }: Pr
         <Button
           type="button"
           size="sm"
-          variant="secondary"
+          variant="outline"
           isLoading={testing}
           onClick={testChecker}
-          leftIcon={<Play size={13} />}
+          leftIcon={<Play size="0.8125rem" />}
         >
           Test checker
         </Button>
         {testMessage && (
-          <span className="font-sans text-[11px] text-foreground-muted">{testMessage}</span>
+          <span className="font-sans text-label text-foreground-muted">{testMessage}</span>
         )}
       </div>
 
-      <p className="m-0 font-sans text-[11px] italic text-foreground-subtle">
+      <p className="m-0 font-sans text-label italic text-foreground-subtle">
         In checker code, use ctx.fetch(url, init) to apply these settings automatically, or use
         ctx.requestHeaders() with the regular fetch function. The provider API key is inherited from
         the provider above and is never displayed here.

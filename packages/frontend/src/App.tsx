@@ -22,8 +22,8 @@ import { UserQuotas } from './pages/UserQuotas';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { ToastProvider } from './contexts/ToastContext';
-import { ThemeProvider, useTheme } from './contexts/ThemeContext';
-import { AccentProvider } from './contexts/AccentContext';
+import { AppearanceProvider, useAppearance } from './contexts/AppearanceContext';
+import { CustomThemesSync } from './components/appearance/CustomThemesSync';
 import { VersionReloader } from './components/VersionReloader';
 
 /** App-wide QueryClient — sensible defaults for a server-management UI. */
@@ -170,15 +170,42 @@ const AppRoutes = () => {
   );
 };
 
-/** Inner shell — needs to be inside ThemeProvider to call useTheme() for the Toaster. */
+/**
+ * Maps sonner's CSS vars onto theme tokens so toasts follow the active theme.
+ * Sonner's `-text` vars share names with the theme's role-text tokens, so they
+ * read the `--toast-*-text` aliases defined on :root in globals.css (a direct
+ * `--success-text: var(--success-text)` would be a cycle).
+ */
+const toasterRoleVars: Record<string, string> = {};
+for (const [name, role] of [
+  ['success', 'success'],
+  ['error', 'danger'],
+  ['info', 'info'],
+  ['warning', 'warning'],
+] as const) {
+  toasterRoleVars[`--${name}-bg`] =
+    `color-mix(in oklab, var(--${role}) 14%, var(--surface-elevated))`;
+  toasterRoleVars[`--${name}-border`] =
+    `color-mix(in oklab, var(--${role}) 35%, var(--surface-elevated))`;
+  toasterRoleVars[`--${name}-text`] = `var(--toast-${name}-text)`;
+}
+const TOASTER_STYLE = {
+  '--normal-bg': 'var(--surface-elevated)',
+  '--normal-text': 'var(--foreground)',
+  '--normal-border': 'var(--border)',
+  ...toasterRoleVars,
+} as React.CSSProperties;
+
+/** Inner shell — needs to be inside AppearanceProvider to call useAppearance() for the Toaster. */
 const AppShell: React.FC = () => {
-  const { resolved } = useTheme();
+  const { colorScheme } = useAppearance();
   return (
     <>
-      <Toaster theme={resolved} richColors position="top-right" />
+      <Toaster theme={colorScheme} richColors position="top-right" style={TOASTER_STYLE} />
       <ToastProvider>
         <AuthProvider>
           <SidebarProvider>
+            <CustomThemesSync />
             <AppRoutes />
             <VersionReloader />
           </SidebarProvider>
@@ -191,11 +218,9 @@ const AppShell: React.FC = () => {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AccentProvider>
-          <AppShell />
-        </AccentProvider>
-      </ThemeProvider>
+      <AppearanceProvider>
+        <AppShell />
+      </AppearanceProvider>
     </QueryClientProvider>
   );
 };

@@ -10,8 +10,9 @@ interface SkeletonProps {
 
 export const Skeleton: React.FC<SkeletonProps> = ({ className, height, width, rounded = 'md' }) => {
   const style: React.CSSProperties = {};
-  if (height !== undefined) style.height = typeof height === 'number' ? `${height}px` : height;
-  if (width !== undefined) style.width = typeof width === 'number' ? `${width}px` : width;
+  if (height !== undefined)
+    style.height = typeof height === 'number' ? `${height / 16}rem` : height;
+  if (width !== undefined) style.width = typeof width === 'number' ? `${width / 16}rem` : width;
 
   return (
     <div

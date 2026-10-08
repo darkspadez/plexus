@@ -29,22 +29,24 @@ export const Switch: React.FC<SwitchProps> = ({
         if (!disabled) onChange(!checked);
       }}
       className={clsx(
-        'group relative inline-block flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-150 outline-none',
+        'group relative inline-block flex-shrink-0 rounded-selector transition-colors duration-150 outline-none',
+        // Forced-colors drops backgrounds; draw the track as an outline instead.
+        'forced-colors:outline-solid forced-colors:outline-1 forced-colors:focus-visible:outline-2',
         'bg-border-strong',
-        'data-[checked=true]:bg-accent data-[checked=true]:border-transparent',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'data-[checked=true]:bg-secondary',
+        'focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         !disabled && 'cursor-pointer',
         {
-          'h-[18px] w-[30px]': size === 'sm',
-          'h-5 w-[34px]': size === 'md',
+          'h-[1.125rem] w-[1.875rem]': size === 'sm',
+          'h-5 w-[2.125rem]': size === 'md',
         }
       )}
     >
       <span
         aria-hidden="true"
         className={clsx(
-          'absolute top-0 left-0 inline-block rounded-full bg-foreground-muted group-data-[checked=true]:bg-[var(--neutral-50)] transition-transform duration-150',
+          'absolute top-[0.125rem] left-[0.125rem] inline-block rounded-selector forced-colors:outline-solid forced-colors:outline-1 bg-foreground-muted group-data-[checked=true]:bg-secondary-foreground transition-transform duration-150',
           {
             'h-3.5 w-3.5 group-data-[checked=true]:translate-x-3': size === 'sm',
             'h-4 w-4 group-data-[checked=true]:translate-x-3.5': size === 'md',

@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
 
 interface DrawerProps {
   open: boolean;
@@ -25,6 +26,8 @@ interface DrawerProps {
   zTier?: 'drawer' | 'modal';
   /** Aria label for the off-canvas region. */
   'aria-label'?: string;
+  /** Element to focus on open; defaults to the first control that isn't Close. */
+  initialFocus?: (container: HTMLElement) => HTMLElement | null;
 }
 
 export const Drawer: React.FC<DrawerProps> = ({
@@ -36,17 +39,11 @@ export const Drawer: React.FC<DrawerProps> = ({
   width = 'nav',
   zTier = 'drawer',
   'aria-label': ariaLabel = 'Navigation',
+  initialFocus,
 }) => {
   useBodyScrollLock(open);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [open, onClose]);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(panelRef, open, { onClose, initialFocus });
 
   if (!open) return null;
 
@@ -65,19 +62,21 @@ export const Drawer: React.FC<DrawerProps> = ({
         onClick={onClose}
       />
       <div
+        ref={panelRef}
+        tabIndex={-1}
         className={clsx(
           // Solid background — glass-bg let underlying page content (Dashboard
           // title, page tabs) bleed through the drawer when open. Backdrop blur
           // alone isn't enough on mobile browsers.
-          'absolute top-0 bottom-0 flex bg-surface-elevated border-border shadow-2xl outline-none',
+          'absolute top-0 bottom-0 flex bg-surface-elevated border-border shadow-modal outline-none',
           panelZ,
           side === 'left' &&
-            'left-0 w-[260px] max-w-[85vw] border-r animate-[drawerSlideLeft_250ms_cubic-bezier(0.22,1,0.36,1)] flex-col',
+            'left-0 w-[16.25rem] max-w-[85vw] border-r animate-[drawerSlideLeft_250ms_cubic-bezier(0.22,1,0.36,1)] flex-col',
           side === 'right' && [
             'right-0 w-full border-l animate-[drawerSlideRight_250ms_cubic-bezier(0.22,1,0.36,1)] flex-col',
-            width === 'nav' && 'max-w-[560px]',
-            width === 'md' && 'sm:max-w-[640px]',
-            width === 'lg' && 'sm:max-w-[840px]',
+            width === 'nav' && 'max-w-[35rem]',
+            width === 'md' && 'sm:max-w-[40rem]',
+            width === 'lg' && 'sm:max-w-[52.5rem]',
           ],
           className
         )}

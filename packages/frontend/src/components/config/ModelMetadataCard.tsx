@@ -13,11 +13,11 @@ export function ModelMetadataCard({ loading, onRefresh }: ModelMetadataCardProps
       title="Model Metadata"
       extra={
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           onClick={onRefresh}
           isLoading={loading}
-          leftIcon={<RefreshCw size={14} />}
+          leftIcon={<RefreshCw size="0.875rem" />}
         >
           Refresh Metadata
         </Button>

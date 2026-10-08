@@ -15,9 +15,9 @@ export function isKeyDisabled(key: KeyConfig): boolean {
 }
 
 export function getQuotaStatusColor(percent: number): string {
-  if (percent >= 90) return 'var(--color-danger)';
-  if (percent >= 75) return 'var(--color-warning)';
-  return 'var(--color-success)';
+  if (percent >= 90) return 'var(--danger)';
+  if (percent >= 75) return 'var(--warning)';
+  return 'var(--success)';
 }
 
 /** Percentage (0-100) of a single quota status entry's limit currently used. */

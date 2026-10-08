@@ -5,6 +5,8 @@ interface TooltipProps {
   content: React.ReactNode;
   children: React.ReactNode;
   position?: 'bottom' | 'right' | 'top' | 'left';
+  /** `neutral` (default) is the inverted bubble; `surface` is a themed card. */
+  variant?: 'neutral' | 'surface';
 }
 
 const GAP = 8;
@@ -18,7 +20,12 @@ const VIEWPORT_MARGIN = 8;
  * the trigger's real screen coordinates and clamped to stay on-screen, and
  * recomputed on resize/scroll so it tracks the trigger as the page moves.
  */
-export const Tooltip: React.FC<TooltipProps> = ({ content, children, position = 'bottom' }) => {
+export const Tooltip: React.FC<TooltipProps> = ({
+  content,
+  children,
+  position = 'bottom',
+  variant = 'neutral',
+}) => {
   const [isVisible, setIsVisible] = useState(false);
   const [style, setStyle] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -98,7 +105,11 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, position = 
             ref={tooltipRef}
             role="tooltip"
             style={style}
-            className="z-[500] px-2.5 py-1.5 bg-surface-elevated border border-border rounded-md shadow-md max-w-xs text-xs text-foreground pointer-events-none font-sans"
+            className={`z-[500] px-2.5 py-1.5 ${
+              variant === 'surface'
+                ? 'bg-surface-elevated border border-border text-foreground'
+                : 'bg-neutral border border-neutral text-neutral-foreground'
+            } rounded-field shadow-md max-w-xs text-xs pointer-events-none font-sans`}
           >
             {content}
           </div>,

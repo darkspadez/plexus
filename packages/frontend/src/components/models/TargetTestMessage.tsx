@@ -26,14 +26,17 @@ export const TargetTestMessage: React.FC<TargetTestMessageProps> = ({
         onDismiss?.();
       }}
       className={clsx(
-        'w-fit max-w-full cursor-pointer rounded border px-2 py-1 text-left',
+        'w-fit max-w-full cursor-pointer rounded-sm border px-2 py-1 text-left',
         isError ? 'border-danger/30 bg-danger/10' : 'border-success/30 bg-success/10',
         className
       )}
       title="Click to dismiss"
     >
       <span
-        className={clsx('break-words text-[11px] italic', isError ? 'text-danger' : 'text-success')}
+        className={clsx(
+          'break-words text-label italic',
+          isError ? 'text-danger-text' : 'text-success-text'
+        )}
       >
         {state.message} [×]
       </span>

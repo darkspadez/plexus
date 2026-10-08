@@ -497,28 +497,28 @@ const ToolCard = ({
 }: {
   part: Extract<ThreadAssistantMessagePart, { type: 'tool-call' }>;
 }) => (
-  <div className="my-2 overflow-hidden rounded-md border border-accent/40 bg-surface">
-    <div className="flex items-center gap-2 border-b border-accent/20 bg-accent/10 px-3 py-2">
-      <Wrench className="h-3.5 w-3.5 text-accent" />
-      <span className="font-mono text-label font-bold uppercase tracking-wider text-accent">
+  <div className="my-2 overflow-hidden rounded-md border border-primary/40 bg-surface">
+    <div className="flex items-center gap-2 border-b border-primary/20 bg-primary/10 px-3 py-2">
+      <Wrench className="h-3.5 w-3.5 text-primary-text" />
+      <span className="font-mono text-label font-bold uppercase tracking-wider text-primary-text">
         Tool
       </span>
       <span className="font-mono text-xs font-semibold text-foreground">{part.toolName}</span>
     </div>
     <div className="grid gap-2 p-2 sm:grid-cols-2">
       <div>
-        <div className="mb-1 font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
+        <div className="mb-1 font-mono text-3xs uppercase tracking-wider text-foreground-subtle">
           Arguments
         </div>
-        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-2 font-mono text-[10px] text-foreground-muted">
+        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-surface-sunken p-2 font-mono text-2xs text-foreground-muted">
           {JSON.stringify(part.args, null, 2)}
         </pre>
       </div>
       <div>
-        <div className="mb-1 font-mono text-[9px] uppercase tracking-wider text-foreground-subtle">
+        <div className="mb-1 font-mono text-3xs uppercase tracking-wider text-foreground-subtle">
           Result
         </div>
-        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-2 font-mono text-[10px] text-foreground-muted">
+        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-surface-sunken p-2 font-mono text-2xs text-foreground-muted">
           {part.result === undefined ? 'Running…' : String(part.result)}
         </pre>
       </div>
@@ -534,7 +534,7 @@ const AssistantParts = () => (
           return <div className="py-1 text-foreground-subtle">Thinking…</div>;
         }
         return (
-          <MarkdownTextPrimitive className="space-y-2 break-words [&_a]:text-accent [&_code]:rounded [&_code]:bg-surface [&_code]:px-1 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-surface [&_pre]:p-3" />
+          <MarkdownTextPrimitive className="space-y-2 break-words [&_a]:text-accent-text [&_code]:rounded-sm [&_code]:bg-surface [&_code]:px-1 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-surface [&_pre]:p-3" />
         );
       }
       if (part.type === 'reasoning') {
@@ -543,7 +543,7 @@ const AssistantParts = () => (
             <summary className="cursor-pointer font-mono text-label uppercase tracking-wider text-foreground-subtle">
               Reasoning
             </summary>
-            <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-[11px]">
+            <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-label">
               {part.text}
             </pre>
           </details>
@@ -559,7 +559,7 @@ const AssistantParts = () => (
 
 const UserMessage = () => (
   <MessagePrimitive.Root className="mx-auto flex w-full max-w-3xl justify-end px-3 py-2">
-    <div className="max-w-[85%] rounded-lg bg-accent px-3 py-2 text-sm leading-relaxed text-accent-foreground">
+    <div className="max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm leading-relaxed text-primary-foreground">
       <MessagePrimitive.Parts>
         {({ part }) => {
           if (part.type === 'text') return <MessagePartPrimitive.Text />;
@@ -582,13 +582,13 @@ const AssistantMessageView = () => (
           state.message.status?.type === 'incomplete' && state.message.status.reason === 'error'
         }
       >
-        <ErrorPrimitive.Root className="mt-2 rounded-md border border-danger/30 bg-danger/10 p-2 text-xs text-danger">
+        <ErrorPrimitive.Root className="mt-2 rounded-md border border-danger/30 bg-danger/10 p-2 text-xs text-danger-text">
           <ErrorPrimitive.Message />
         </ErrorPrimitive.Root>
       </AuiIf>
     </div>
     <ActionBarPrimitive.Root className="mt-1 flex h-7 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-      <ActionBarPrimitive.Copy className="rounded p-1 text-foreground-subtle hover:bg-surface-sunken hover:text-foreground">
+      <ActionBarPrimitive.Copy className="rounded-sm p-1 text-foreground-subtle hover:bg-surface-sunken hover:text-foreground">
         <Copy className="h-3.5 w-3.5" />
       </ActionBarPrimitive.Copy>
     </ActionBarPrimitive.Root>
@@ -597,15 +597,18 @@ const AssistantMessageView = () => (
 
 const Composer = () => (
   <div className="border-t border-border bg-surface p-3">
-    <ComposerPrimitive.Root className="mx-auto max-w-3xl rounded-lg border border-border focus-within:border-accent bg-surface-sunken p-2">
+    <ComposerPrimitive.Root className="mx-auto max-w-3xl rounded-lg border border-border focus-within:border-focus bg-surface-sunken p-2">
       <ComposerPrimitive.Attachments>
         {({ attachment }) => (
-          <AttachmentPrimitive.Root className="mb-2 inline-flex items-center gap-2 rounded border border-border bg-surface p-1.5 text-xs text-foreground-muted">
+          <AttachmentPrimitive.Root className="mb-2 inline-flex items-center gap-2 rounded-sm border border-border bg-surface p-1.5 text-xs text-foreground-muted">
             {attachment.content?.[0]?.type === 'image' && (
-              <img src={attachment.content[0].image} className="h-10 w-10 rounded object-cover" />
+              <img
+                src={attachment.content[0].image}
+                className="h-10 w-10 rounded-sm object-cover"
+              />
             )}
             <AttachmentPrimitive.Name />
-            <AttachmentPrimitive.Remove className="rounded p-1 hover:bg-surface-sunken">
+            <AttachmentPrimitive.Remove className="rounded-sm p-1 hover:bg-surface-sunken">
               <X className="h-3 w-3" />
             </AttachmentPrimitive.Remove>
           </AttachmentPrimitive.Root>
@@ -621,7 +624,7 @@ const Composer = () => (
           <Paperclip className="h-4 w-4" />
         </ComposerPrimitive.AddAttachment>
         <ThreadPrimitive.If running={false}>
-          <ComposerPrimitive.Send className="rounded-md bg-accent p-2 text-accent-foreground hover:bg-accent/90 disabled:opacity-40">
+          <ComposerPrimitive.Send className="rounded-md bg-primary p-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-40">
             <SendHorizontal className="h-4 w-4" />
           </ComposerPrimitive.Send>
         </ThreadPrimitive.If>
@@ -643,7 +646,7 @@ const PlaygroundThread = ({
     <ThreadPrimitive.Viewport className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <ThreadPrimitive.Empty>
         <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center text-sm text-foreground-muted">
-          <div className="mb-3 rounded-full border border-accent/30 bg-accent/10 p-3 text-accent">
+          <div className="mb-3 rounded-full border border-primary/30 bg-primary/10 p-3 text-primary-text">
             <Wrench className="h-5 w-5" />
           </div>
           <div className="font-medium text-foreground">Plexus simulation is active</div>

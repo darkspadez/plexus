@@ -26,37 +26,37 @@ export function DeleteProviderModal({
       title={`Delete Provider: ${provider.name || provider.id || ''}`}
       size="lg"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div style={{ color: 'var(--foreground-muted)', fontSize: '0.875rem' }}>
           Choose how to delete this provider. The action cannot be undone.
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div
             style={{
-              border: '1px solid var(--color-border)',
-              borderRadius: '8px',
-              padding: '16px',
+              border: '1px solid var(--border)',
+              borderRadius: 'min(var(--theme-radius-field), 0.5rem)',
+              padding: '1rem',
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px',
+              gap: '0.75rem',
             }}
           >
-            <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--color-danger)' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9375rem', color: 'var(--danger-text)' }}>
               Delete Provider (Cascade)
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
+            <div style={{ fontSize: '0.8125rem', color: 'var(--foreground-muted)' }}>
               Removes this provider AND deletes all model alias targets that reference it.
             </div>
             {affectedAliases.length > 0 ? (
-              <div style={{ fontSize: '13px' }}>
-                <div style={{ fontWeight: 500, marginBottom: '4px' }}>
+              <div style={{ fontSize: '0.8125rem' }}>
+                <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
                   This will affect {affectedAliases.length} model alias(es):
                 </div>
                 <ul
                   style={{
                     margin: 0,
-                    paddingLeft: '16px',
-                    fontSize: '12px',
+                    paddingLeft: '1rem',
+                    fontSize: '0.75rem',
                     color: 'var(--foreground-muted)',
                   }}
                 >
@@ -70,7 +70,7 @@ export function DeleteProviderModal({
             ) : (
               <div
                 style={{
-                  fontSize: '12px',
+                  fontSize: '0.75rem',
                   color: 'var(--foreground-muted)',
                   fontStyle: 'italic',
                 }}
@@ -81,35 +81,37 @@ export function DeleteProviderModal({
             <Button
               onClick={() => onDelete(true)}
               isLoading={deleteModalLoading}
-              style={{ backgroundColor: 'var(--color-danger)', marginTop: 'auto' }}
+              style={{ backgroundColor: 'var(--danger)', marginTop: 'auto' }}
             >
               Delete (Cascade)
             </Button>
           </div>
           <div
             style={{
-              border: '1px solid var(--color-border)',
-              borderRadius: '8px',
-              padding: '16px',
+              border: '1px solid var(--border)',
+              borderRadius: 'min(var(--theme-radius-field), 0.5rem)',
+              padding: '1rem',
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px',
+              gap: '0.75rem',
             }}
           >
-            <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--foreground)' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9375rem', color: 'var(--foreground)' }}>
               Delete (Retain Targets)
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
+            <div style={{ fontSize: '0.8125rem', color: 'var(--foreground-muted)' }}>
               Removes only the provider. Model alias targets that reference this provider will
               remain but may cause errors.
             </div>
             {affectedAliases.length > 0 && (
-              <div style={{ fontSize: '12px', color: 'var(--color-warning)', fontStyle: 'italic' }}>
+              <div
+                style={{ fontSize: '0.75rem', color: 'var(--warning-text)', fontStyle: 'italic' }}
+              >
                 {affectedAliases.length} model alias(es) will have orphaned targets.
               </div>
             )}
             <Button
-              variant="secondary"
+              variant="outline"
               onClick={() => onDelete(false)}
               isLoading={deleteModalLoading}
               style={{ marginTop: 'auto' }}

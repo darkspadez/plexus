@@ -18,6 +18,7 @@ import { useCurrency } from '../../lib/CurrencyContext';
 import { Modal } from '../ui/Modal';
 import { TOOLTIP_STYLE, GRID_PROPS, AXIS_TICK_STYLE } from '../../lib/chartPalette';
 import { checkedAgoLabel } from '../../pages/quotas/quota-format';
+import { useScaledPx } from '../../hooks/useScaledPx';
 
 type TimeRange = '1h' | '3h' | '6h' | '12h' | '24h' | '1w' | '4w';
 
@@ -63,6 +64,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
   meter,
   displayName,
 }) => {
+  const yAxisWidth = useScaledPx(60);
   const { currency, rate, symbol } = useCurrency();
   const [range, setRange] = useState<TimeRange>('24h');
   const [rawHistory, setRawHistory] = useState<MeterHistoryRow[]>([]);
@@ -178,7 +180,7 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
       headerMeta={[quota.oauthAccountId, checkedLabel].filter(Boolean).join(' · ') || undefined}
       size="md"
       footer={
-        <Button variant="secondary" size="sm" onClick={onClose}>
+        <Button variant="outline" size="sm" onClick={onClose}>
           Close
         </Button>
       }
@@ -189,13 +191,15 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
           <Button
             key={r.key}
             size="sm"
-            variant={range === r.key ? 'primary' : 'secondary'}
+            variant={range === r.key ? 'primary' : 'outline'}
             onClick={() => setRange(r.key)}
           >
             {r.label}
           </Button>
         ))}
-        {loading && <RefreshCw size={14} className="animate-spin text-foreground-subtle ml-auto" />}
+        {loading && (
+          <RefreshCw size="0.875rem" className="animate-spin text-foreground-subtle ml-auto" />
+        )}
       </div>
 
       {/* Stats row */}
@@ -240,12 +244,12 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
         </div>
         <div className="h-52 w-full">
           {error ? (
-            <div className="h-full flex items-center justify-center text-sm text-danger">
+            <div className="h-full flex items-center justify-center text-sm text-danger-text">
               {error}
             </div>
           ) : loading && chartData.length === 0 ? (
             <div className="h-full flex items-center justify-center gap-2 text-sm text-foreground-muted">
-              <RefreshCw size={16} className="animate-spin" />
+              <RefreshCw size="1rem" className="animate-spin" />
               Loading…
             </div>
           ) : chartData.length === 0 ? (
@@ -274,14 +278,14 @@ export const MeterHistoryModal: React.FC<MeterHistoryModalProps> = ({
                   tick={AXIS_TICK_STYLE}
                   tickLine={false}
                   axisLine={false}
-                  width={60}
+                  width={yAxisWidth}
                   label={
                     yLabel && yLabel !== '%'
                       ? undefined
                       : {
                           value: '%',
                           position: 'insideTopRight',
-                          fontSize: 10,
+                          fontSize: '0.625rem',
                           fill: 'var(--foreground-subtle)',
                         }
                   }

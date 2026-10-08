@@ -1,0 +1,32 @@
+get:
+  tags:
+    - Management — Config
+  summary: List custom UI themes
+  description: |
+    Returns the shared custom UI theme library stored on this instance
+    (system setting `ui.themes`). If the stored value is partly invalid, only
+    the valid, de-duplicated themes are returned.
+
+    Available to both admin and limited principals.
+  security:
+    - AdminKey: []
+  responses:
+    '200':
+      description: Theme library.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [version, themes]
+            properties:
+              version:
+                type: integer
+                enum: [1]
+              themes:
+                type: array
+                maxItems: 50
+                items:
+                  $ref: ../components/schemas/CustomUiTheme.yaml
+    '401':
+      description: Authentication required or invalid credentials.
+  operationId: getV0ManagementUithemes

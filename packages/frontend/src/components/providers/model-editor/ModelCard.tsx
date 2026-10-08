@@ -69,7 +69,7 @@ export function ModelCard({
             e.stopPropagation();
             onDismissTestMessage(testKey);
           }}
-          className={`w-fit max-w-full cursor-pointer rounded border px-2 py-1 text-left ${
+          className={`w-fit max-w-full cursor-pointer rounded-sm border px-2 py-1 text-left ${
             testState.result === 'error'
               ? 'border-danger/30 bg-danger/10'
               : 'border-success/30 bg-success/10'
@@ -77,8 +77,8 @@ export function ModelCard({
           title="Click to dismiss"
         >
           <span
-            className={`break-words text-[11px] italic ${
-              testState.result === 'error' ? 'text-danger' : 'text-success'
+            className={`break-words text-label italic ${
+              testState.result === 'error' ? 'text-danger-text' : 'text-success-text'
             }`}
           >
             {testState.message} [×]

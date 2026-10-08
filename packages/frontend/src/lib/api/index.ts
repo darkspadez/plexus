@@ -2,6 +2,7 @@ import * as usageApi from './usage';
 import * as mcpApi from './mcp';
 import * as aliasesApi from './aliases';
 import * as settingsApi from './settings';
+import * as themesApi from './themes';
 
 export {
   API_BASE,
@@ -21,6 +22,8 @@ export {
   testCustomQuotaChecker,
   normalizeQuotaCheckerInfo,
 } from './settings';
+
+export { getUiThemes, saveUiTheme, deleteUiTheme } from './themes';
 
 export { aliasToConfigPayload } from './aliases';
 
@@ -196,4 +199,9 @@ export const api = {
   patchMcpEnabled: mcpApi.patchMcpEnabled,
   getStallConfig: settingsApi.getStallConfig,
   patchStallConfig: settingsApi.patchStallConfig,
+
+  // UI themes
+  getUiThemes: themesApi.getUiThemes,
+  saveUiTheme: themesApi.saveUiTheme,
+  deleteUiTheme: themesApi.deleteUiTheme,
 };

@@ -157,9 +157,9 @@ export const TagSelect: React.FC<TagSelectProps> = ({
       )}
       <div
         className={clsx(
-          'w-full py-2 px-3 font-sans text-sm bg-background border rounded-md outline-none transition-colors duration-150 cursor-text min-h-[38px] flex flex-wrap items-center gap-1.5',
+          'w-full py-2 px-3 font-sans text-sm bg-background border-(length:--theme-border-width) rounded-field outline-none transition-colors duration-150 cursor-text min-h-[2.375rem] flex flex-wrap items-center gap-1.5',
           isOpen
-            ? 'border-accent ring-2 ring-accent ring-offset-2 ring-offset-background'
+            ? 'border-primary ring-2 ring-primary ring-offset-2 ring-offset-background'
             : 'border-border hover:border-border-strong'
         )}
         onClick={handleContainerClick}
@@ -167,23 +167,23 @@ export const TagSelect: React.FC<TagSelectProps> = ({
         {selected.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-accent-subtle text-accent border border-accent/30 whitespace-nowrap"
+            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-selector bg-primary-subtle text-primary-text border-(length:--theme-border-width) border-primary/30 whitespace-nowrap"
           >
             {tag}
             <button
               type="button"
-              className="bg-transparent border-0 p-0 m-0 cursor-pointer text-accent/70 hover:text-accent leading-none"
+              className="bg-transparent border-0 p-0 m-0 cursor-pointer text-primary-text/70 hover:text-primary-text leading-none"
               onClick={(e) => handleRemove(tag, e)}
               title={`Remove ${tag}`}
             >
-              <X size={12} />
+              <X size="0.75rem" />
             </button>
           </span>
         ))}
         {isOpen ? (
           <input
             ref={searchInputRef}
-            className="flex-1 min-w-[80px] bg-transparent border-0 outline-none text-foreground text-sm p-0 placeholder:text-foreground-muted"
+            className="flex-1 min-w-[5rem] bg-transparent border-0 outline-none text-foreground text-sm p-0 placeholder:text-foreground-muted"
             value={search}
             onChange={handleSearchChange}
             onKeyDown={handleSearchKeyDown}
@@ -207,7 +207,7 @@ export const TagSelect: React.FC<TagSelectProps> = ({
           </span>
         )}
         <ChevronDown
-          size={14}
+          size="0.875rem"
           className={clsx(
             'text-foreground-muted ml-auto shrink-0 transition-transform duration-150',
             isOpen && 'rotate-180'
@@ -217,7 +217,7 @@ export const TagSelect: React.FC<TagSelectProps> = ({
 
       {isOpen && (
         <div className="relative -mt-1">
-          <div className="absolute z-50 w-full max-h-52 overflow-y-auto bg-surface border border-border rounded-md shadow-md">
+          <div className="absolute z-50 w-full max-h-52 overflow-y-auto bg-surface border-(length:--theme-border-width) border-border rounded-box shadow-md">
             {filteredOptions.length === 0 && !showCreateOption && (
               <div className="px-3.5 py-2.5 text-xs text-foreground-muted">
                 {search

@@ -31,7 +31,7 @@ export function McpDeleteLogsModal({
       title="Confirm Deletion"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button
@@ -79,7 +79,7 @@ export function McpDeleteLogsModal({
             checked={deleteLogsMode === 'all'}
             onChange={() => onModeChange('all')}
           />
-          <label htmlFor="mcp-delete-all" className="text-sm text-danger">
+          <label htmlFor="mcp-delete-all" className="text-sm text-danger-text">
             Delete ALL logs (Cannot be undone)
           </label>
         </div>

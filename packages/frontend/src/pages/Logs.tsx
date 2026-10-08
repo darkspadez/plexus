@@ -149,7 +149,7 @@ const PaginationControls = ({
         disabled={offset === 0}
         onClick={() => onOffsetChange(Math.max(0, offset - limit))}
       >
-        <ChevronLeft size={16} />
+        <ChevronLeft size="1rem" />
       </Button>
       <Button
         variant="ghost"
@@ -157,7 +157,7 @@ const PaginationControls = ({
         disabled={offset + limit >= total}
         onClick={() => onOffsetChange(offset + limit)}
       >
-        <ChevronRight size={16} />
+        <ChevronRight size="1rem" />
       </Button>
     </div>
   </div>
@@ -190,7 +190,7 @@ const LogTimeCell = React.memo(({ log }: { log: UsageRecord }) => {
 const LogKeyCell = React.memo(({ log }: { log: UsageRecord }) => (
   <div
     className={cn(
-      'flex min-w-0 max-w-[200px] flex-col 2xl:max-w-none',
+      'flex min-w-0 max-w-[12.5rem] flex-col 2xl:max-w-none',
       log.sourceIp && 'cursor-help'
     )}
     title={log.sourceIp ? `IP: ${log.sourceIp}` : undefined}
@@ -215,7 +215,7 @@ const LogRouteCell = React.memo(({ log }: { log: UsageRecord }) => {
     ? `${log.provider || '-'}:${routeModel} → ${log.upstreamModel}`
     : `${log.provider || '-'}:${routeModel}`;
   return (
-    <div className="flex min-w-0 max-w-[170px] flex-col gap-0.5 whitespace-nowrap 2xl:max-w-none">
+    <div className="flex min-w-0 max-w-[10.625rem] flex-col gap-0.5 whitespace-nowrap 2xl:max-w-none">
       <div className="group/alias flex items-center gap-1.5">
         <span className="min-w-0 truncate font-mono text-sm font-medium">
           {log.incomingModelAlias || '-'}
@@ -235,7 +235,7 @@ const LogRouteCell = React.memo(({ log }: { log: UsageRecord }) => {
             }
             disabled={!isClipboardAvailable()}
           >
-            <Copy size={12} className="text-foreground-muted hover:text-foreground" />
+            <Copy size="0.75rem" className="text-foreground-muted hover:text-foreground" />
           </button>
         )}
       </div>
@@ -263,7 +263,7 @@ const LogRouteCell = React.memo(({ log }: { log: UsageRecord }) => {
             }
             disabled={!isClipboardAvailable()}
           >
-            <Copy size={10} className="text-foreground-muted hover:text-foreground" />
+            <Copy size="0.625rem" className="text-foreground-muted hover:text-foreground" />
           </button>
         )}
       </div>
@@ -295,7 +295,7 @@ const LogTypeCell = React.memo(({ log }: { log: UsageRecord }) => {
         </span>
       ) : routePath === 'passthrough' ? (
         <Pill tone="warning" size="sm" title="Direct/Passthrough">
-          <MoveHorizontal size={10} />
+          <MoveHorizontal size="0.625rem" />
           direct
         </Pill>
       ) : outgoingApiType || incomingApiType ? (
@@ -308,16 +308,15 @@ const LogTypeCell = React.memo(({ log }: { log: UsageRecord }) => {
           {reasoningEffort}
         </Pill>
       )}
-      {/* Intentional fixed raw-palette glyph hues (not semantic tokens) — the
-          vision/descriptor signals keep a stable identity color for quick
-          visual scanning. */}
+      {/* Vision/descriptor glyphs use role tokens (warning, info) so they
+          follow the active theme. */}
       {log.isVisionFallthrough ? (
         <span title="Vision fallthrough (images converted to text)" className="cursor-help">
-          <ScanSearch size={12} className="text-amber-500" />
+          <ScanSearch size="0.75rem" className="text-warning-text" />
         </span>
       ) : log.isDescriptorRequest ? (
         <span title="Descriptor request (generated image description)" className="cursor-help">
-          <Eye size={12} className="text-blue-500" />
+          <Eye size="0.75rem" className="text-info-text" />
         </span>
       ) : null}
     </div>
@@ -327,7 +326,7 @@ const LogTypeCell = React.memo(({ log }: { log: UsageRecord }) => {
 const LogStreamCell = React.memo(({ log }: { log: UsageRecord }) =>
   log.isStreamed ? (
     <Pill tone="info" size="sm" title="Streamed response">
-      <Zap size={10} />
+      <Zap size="0.625rem" />
       streamed
     </Pill>
   ) : null
@@ -480,14 +479,14 @@ const LogPerfCell = React.memo(({ log, liveNow, progress }: LogPerfCellProps) =>
 
   const content = (
     <div className="flex flex-col font-mono tabular-nums">
-      <span className={cn('whitespace-nowrap text-sm', isPending && 'text-warning')}>
+      <span className={cn('whitespace-nowrap text-sm', isPending && 'text-warning-text')}>
         {liveDuration}
       </span>
       {secondLineText && (
         <span
           className={cn(
             'hidden whitespace-nowrap text-xs 2xl:inline',
-            secondLineWarn ? 'text-warning' : 'text-foreground-muted'
+            secondLineWarn ? 'text-warning-text' : 'text-foreground-muted'
           )}
           title={tooltipProps ? undefined : secondLineTitle}
         >
@@ -555,17 +554,17 @@ const LogActionsCell = React.memo(({ log, onDebug, onDelete }: LogActionsCellPro
         aria-label="View trace"
         title="View trace"
       >
-        <Bug size={12} />
+        <Bug size="0.75rem" />
       </button>
     )}
     <button
       type="button"
       onClick={() => onDelete(log.requestId)}
-      className="flex h-6 w-6 items-center justify-center rounded-md border-0 bg-transparent text-foreground-subtle transition-all duration-200 cursor-pointer hover:bg-danger-subtle hover:text-danger"
+      className="flex h-6 w-6 items-center justify-center rounded-md border-0 bg-transparent text-foreground-subtle transition-all duration-200 cursor-pointer hover:bg-danger-subtle hover:text-danger-text"
       aria-label="Delete log"
       title="Delete log"
     >
-      <Trash2 size={12} />
+      <Trash2 size="0.75rem" />
     </button>
   </>
 ));
@@ -1057,7 +1056,7 @@ export const Logs = () => {
       >
         <span>{label}</span>
         <ChevronDown
-          size={12}
+          size="0.75rem"
           style={{
             opacity: isActive ? 1 : 0.35,
             transform: isActive && sortDir === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)',
@@ -1254,11 +1253,11 @@ export const Logs = () => {
             <div className="lg:hidden">
               <Button
                 type="button"
-                variant="secondary"
+                variant="outline"
                 size="sm"
                 className="w-full justify-between sm:w-auto"
                 onClick={() => setIsMobileFiltersOpen(true)}
-                leftIcon={<ListFilter size={15} />}
+                leftIcon={<ListFilter size="0.9375rem" />}
               >
                 <span>Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}</span>
               </Button>
@@ -1289,7 +1288,10 @@ export const Logs = () => {
               </div>
               <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                 <div className="flex w-full min-w-0 items-center gap-1.5 sm:w-auto sm:gap-2">
-                  <PlayCircle size={18} className="shrink-0 text-foreground-muted sm:h-6 sm:w-6" />
+                  <PlayCircle
+                    size="1.125rem"
+                    className="shrink-0 text-foreground-muted sm:h-6 sm:w-6"
+                  />
                   <DateTimePicker
                     value={filters.startDate}
                     onChange={(v) => setFilters((prev) => ({ ...prev, startDate: v }))}
@@ -1298,7 +1300,10 @@ export const Logs = () => {
                   />
                 </div>
                 <div className="flex w-full min-w-0 items-center gap-1.5 sm:w-auto sm:gap-2">
-                  <Circle size={18} className="shrink-0 text-foreground-muted sm:h-6 sm:w-6" />
+                  <Circle
+                    size="1.125rem"
+                    className="shrink-0 text-foreground-muted sm:h-6 sm:w-6"
+                  />
                   <DateTimePicker
                     value={filters.endDate}
                     onChange={(v) => setFilters((prev) => ({ ...prev, endDate: v }))}
@@ -1314,7 +1319,7 @@ export const Logs = () => {
                     title="Clear date filters"
                     aria-label="Clear date filters"
                   >
-                    <X size={14} />
+                    <X size="0.875rem" />
                   </button>
                 )}
               </div>
@@ -1327,10 +1332,12 @@ export const Logs = () => {
               <span
                 className={cn(
                   'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium select-none',
-                  sseStatus === 'connected' && 'bg-success-subtle text-success border-success/20',
+                  sseStatus === 'connected' &&
+                    'bg-success-subtle text-success-text border-success/20',
                   sseStatus === 'reconnecting' &&
-                    'bg-warning-subtle text-warning border-warning/20',
-                  sseStatus === 'disconnected' && 'bg-danger-subtle text-danger border-danger/20'
+                    'bg-warning-subtle text-warning-text border-warning/20',
+                  sseStatus === 'disconnected' &&
+                    'bg-danger-subtle text-danger-text border-danger/20'
                 )}
                 title={
                   sseStatus === 'connected'
@@ -1340,9 +1347,9 @@ export const Logs = () => {
                       : 'Live updates disconnected'
                 }
               >
-                {sseStatus === 'connected' && <Wifi size={12} />}
-                {sseStatus === 'reconnecting' && <Loader size={12} className="animate-spin" />}
-                {sseStatus === 'disconnected' && <WifiOff size={12} />}
+                {sseStatus === 'connected' && <Wifi size="0.75rem" />}
+                {sseStatus === 'reconnecting' && <Loader size="0.75rem" className="animate-spin" />}
+                {sseStatus === 'disconnected' && <WifiOff size="0.75rem" />}
                 <span className="hidden sm:inline">
                   {sseStatus === 'connected'
                     ? 'Live'
@@ -1357,7 +1364,7 @@ export const Logs = () => {
                 onClick={handleDeleteAll}
                 variant="danger"
                 size="md"
-                leftIcon={<Trash2 size={14} />}
+                leftIcon={<Trash2 size="0.875rem" />}
                 disabled={logs.length === 0}
                 type="button"
               >
@@ -1386,10 +1393,11 @@ export const Logs = () => {
             <button
               type="button"
               onClick={() => setIsMobileFiltersOpen(false)}
+              data-dialog-close
               className="rounded-md border-0 bg-transparent p-1 text-foreground-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
               aria-label="Close filters"
             >
-              <X size={18} />
+              <X size="1.125rem" />
             </button>
           </div>
 
@@ -1420,7 +1428,7 @@ export const Logs = () => {
               />
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground-muted">
-                  <PlayCircle size={15} />
+                  <PlayCircle size="0.9375rem" />
                   <span>Start date</span>
                 </div>
                 <DateTimePicker
@@ -1432,7 +1440,7 @@ export const Logs = () => {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground-muted">
-                  <Circle size={15} />
+                  <Circle size="0.9375rem" />
                   <span>End date</span>
                 </div>
                 <DateTimePicker
@@ -1534,7 +1542,7 @@ export const Logs = () => {
         size="sm"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
               Cancel
             </Button>
             <Button variant="danger" onClick={confirmDelete} disabled={isDeleting}>
@@ -1543,10 +1551,10 @@ export const Logs = () => {
           </>
         }
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <p>Select which logs you would like to delete:</p>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <input
               type="radio"
               id="delete-older"
@@ -1560,13 +1568,13 @@ export const Logs = () => {
               min="1"
               value={olderThanDays}
               onChange={(e) => setOlderThanDays(parseInt(e.target.value) || 1)}
-              style={{ width: '60px', padding: '4px 8px' }}
+              style={{ width: '3.75rem', padding: '0.25rem 0.5rem' }}
               disabled={deleteMode !== 'older'}
             />
             <span>days</span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <input
               type="radio"
               id="delete-all"
@@ -1574,7 +1582,7 @@ export const Logs = () => {
               checked={deleteMode === 'all'}
               onChange={() => setDeleteMode('all')}
             />
-            <label htmlFor="delete-all" style={{ color: 'var(--color-danger)' }}>
+            <label htmlFor="delete-all" style={{ color: 'var(--danger-text)' }}>
               Delete ALL logs (Cannot be undone)
             </label>
           </div>
@@ -1588,7 +1596,7 @@ export const Logs = () => {
         size="sm"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setIsSingleDeleteModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsSingleDeleteModalOpen(false)}>
               Cancel
             </Button>
             <Button variant="danger" onClick={confirmDeleteSingle} disabled={isDeleting}>

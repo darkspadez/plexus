@@ -62,7 +62,7 @@ export function TimeoutSettings() {
           onClick={handleSubmit(onSubmit)}
           isLoading={saveTimeout.isPending}
           disabled={!loaded || !isValid || saveTimeout.isPending}
-          leftIcon={<Save size={14} />}
+          leftIcon={<Save size="0.875rem" />}
         >
           Save
         </Button>
@@ -72,7 +72,7 @@ export function TimeoutSettings() {
         <div className="flex flex-col gap-1">
           <label
             htmlFor="timeoutDefaultSeconds"
-            className="font-sans text-[12px] font-medium text-foreground"
+            className="font-sans text-xs font-medium text-foreground"
           >
             Default Timeout (seconds){' '}
             <span className="text-foreground-subtle font-normal">— global default, 1–3600s</span>
@@ -85,16 +85,16 @@ export function TimeoutSettings() {
               max={3600}
               step={1}
               {...register('defaultSeconds', { valueAsNumber: true })}
-              className="w-48 h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+              className="w-48 h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
             />
-            <span className="text-[11px] text-foreground-subtle tabular-nums">
+            <span className="text-label text-foreground-subtle tabular-nums">
               {typeof defaultSecondsWatch === 'number' && isFinite(defaultSecondsWatch)
                 ? formatSeconds(defaultSecondsWatch)
                 : '—'}
             </span>
           </div>
           {errors.defaultSeconds && (
-            <span className="text-[11px] text-warning">{errors.defaultSeconds.message}</span>
+            <span className="text-label text-warning-text">{errors.defaultSeconds.message}</span>
           )}
         </div>
       </form>

@@ -59,7 +59,7 @@ export function ModelAdapters({
                 <input
                   type="checkbox"
                   checked={!suppressionDisabled}
-                  className="mt-0.5 shrink-0 accent-accent"
+                  className="mt-0.5 shrink-0"
                   onChange={() => {
                     const withoutSuppression = modelAdapters.filter(
                       (entry) => getAdapterName(entry) !== GPT5_SUPPRESSION_ADAPTER
@@ -80,10 +80,10 @@ export function ModelAdapters({
                   }}
                 />
                 <div>
-                  <div className="font-sans text-[12px] font-medium text-foreground">
+                  <div className="font-sans text-xs font-medium text-foreground">
                     Suppress Unsupported GPT-5 Options
                   </div>
-                  <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                  <div className="font-sans text-label leading-snug text-foreground-muted">
                     Enabled by default. Removes generation options GPT-5 does not accept.
                   </div>
                 </div>
@@ -103,7 +103,7 @@ export function ModelAdapters({
               <input
                 type="checkbox"
                 checked={active}
-                className="mt-0.5 shrink-0 accent-accent"
+                className="mt-0.5 shrink-0"
                 onChange={() => {
                   const next = active
                     ? modelAdapters.filter((entry) => getAdapterName(entry) !== adapter.value)
@@ -124,10 +124,8 @@ export function ModelAdapters({
                 }}
               />
               <div>
-                <div className="font-sans text-[12px] font-medium text-foreground">
-                  {adapter.label}
-                </div>
-                <div className="font-sans text-[11px] leading-snug text-foreground-muted">
+                <div className="font-sans text-xs font-medium text-foreground">{adapter.label}</div>
+                <div className="font-sans text-label leading-snug text-foreground-muted">
                   {adapter.description}
                 </div>
               </div>

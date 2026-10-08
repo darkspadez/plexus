@@ -52,8 +52,8 @@ interface Props {
 
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
   <div
-    className="font-sans text-[11px] font-semibold uppercase tracking-wide text-foreground-subtle"
-    style={{ marginBottom: '4px' }}
+    className="font-sans text-label font-semibold uppercase tracking-wide text-foreground-subtle"
+    style={{ marginBottom: '0.25rem' }}
   >
     {children}
   </div>
@@ -61,7 +61,7 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => (
 
 const FieldLabel = ({ children }: { children: React.ReactNode }) => (
   <label
-    className="font-sans text-[11px] font-medium text-foreground-muted"
+    className="font-sans text-label font-medium text-foreground-muted"
     style={{ display: 'block', marginBottom: '2px' }}
   >
     {children}
@@ -90,16 +90,16 @@ export function MetadataOverrideForm({
   return (
     <div
       className="rounded-sm border border-border bg-surface-sunken"
-      style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '12px' }}
+      style={{ padding: '0.625rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}
     >
-      <p className="font-sans text-[11px] text-foreground-subtle" style={{ marginBottom: 0 }}>
+      <p className="font-sans text-label text-foreground-subtle" style={{ marginBottom: 0 }}>
         {helperText}
       </p>
 
       {/* Basic */}
       <div>
         <SectionLabel>Basic</SectionLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
           <div>
             <FieldLabel>Name</FieldLabel>
             <Input
@@ -121,7 +121,7 @@ export function MetadataOverrideForm({
             />
           </div>
         </div>
-        <div style={{ marginTop: '6px' }}>
+        <div style={{ marginTop: '0.375rem' }}>
           <FieldLabel>Description</FieldLabel>
           <Input
             value={overrides.description ?? ''}
@@ -136,7 +136,7 @@ export function MetadataOverrideForm({
       {/* Pricing */}
       <div>
         <SectionLabel>Pricing ($/token)</SectionLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
           <div>
             <FieldLabel>Prompt</FieldLabel>
             <Input
@@ -186,7 +186,7 @@ export function MetadataOverrideForm({
       {/* Architecture */}
       <div>
         <SectionLabel>Architecture</SectionLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
           <div>
             <FieldLabel>Input modalities</FieldLabel>
             <TagSelect
@@ -227,7 +227,7 @@ export function MetadataOverrideForm({
       {/* Capabilities */}
       <div>
         <SectionLabel>Capabilities</SectionLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.375rem' }}>
           <div>
             <FieldLabel>Supported parameters</FieldLabel>
             <TagSelect
@@ -240,7 +240,7 @@ export function MetadataOverrideForm({
               }
             />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
             <div>
               <FieldLabel>Top provider context length</FieldLabel>
               <Input

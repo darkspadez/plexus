@@ -60,7 +60,7 @@ export function FailoverSettings() {
           onClick={handleSubmit(onSubmit)}
           isLoading={saveFailover.isPending}
           disabled={!loaded || saveFailover.isPending}
-          leftIcon={<Save size={14} />}
+          leftIcon={<Save size="0.875rem" />}
         >
           Save
         </Button>
@@ -70,10 +70,10 @@ export function FailoverSettings() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Shield size={16} className="text-accent" />
+              <Shield size="1rem" className="text-primary-text" />
               <div>
-                <p className="font-sans text-[12px] font-medium text-foreground">Enable Failover</p>
-                <p className="font-sans text-[11px] text-foreground-subtle">
+                <p className="font-sans text-xs font-medium text-foreground">Enable Failover</p>
+                <p className="font-sans text-label text-foreground-subtle">
                   When enabled, failed requests are automatically retried on the next available
                   provider.
                 </p>
@@ -89,7 +89,7 @@ export function FailoverSettings() {
           <div>
             <label
               htmlFor="retryableStatusCodes"
-              className="font-sans text-[12px] font-medium text-foreground"
+              className="font-sans text-xs font-medium text-foreground"
             >
               Retryable Status Codes
             </label>
@@ -102,14 +102,14 @@ export function FailoverSettings() {
               {...register('statusCodesText')}
               placeholder="e.g. 429, 500, 502, 503"
               rows={3}
-              className="w-full py-1 px-2 font-mono text-[12px] text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle resize-y"
+              className="w-full py-1 px-2 font-mono text-xs text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle resize-y"
             />
           </div>
 
           <div>
             <label
               htmlFor="retryableErrors"
-              className="font-sans text-[12px] font-medium text-foreground"
+              className="font-sans text-xs font-medium text-foreground"
             >
               Retryable Network Errors
             </label>
@@ -122,7 +122,7 @@ export function FailoverSettings() {
               {...register('errorsText')}
               placeholder="e.g. ECONNREFUSED, ETIMEDOUT, ENOTFOUND"
               rows={2}
-              className="w-full py-1 px-2 font-mono text-[12px] text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle resize-y"
+              className="w-full py-1 px-2 font-mono text-xs text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle resize-y"
             />
           </div>
         </div>

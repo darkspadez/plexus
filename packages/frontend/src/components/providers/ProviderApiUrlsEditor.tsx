@@ -13,24 +13,24 @@ const CONNECTION_TYPE_OPTIONS = [
 ];
 
 const CONNECTION_INFO = (
-  <div className="text-[11px] leading-relaxed">
+  <div className="text-label leading-relaxed">
     <span className="italic">API types determine the protocol:</span>
     <ul className="mt-1 list-disc pl-4">
       <li>
         <span className="font-semibold">chat</span> — OpenAI-compatible endpoints, including
-        Ollama&apos;s <code className="text-accent">/v1</code> API
+        Ollama&apos;s <code className="text-primary-text">/v1</code> API
       </li>
       <li>
         <span className="font-semibold">completions</span> — OpenAI text/code completion endpoints
-        (e.g. <code className="text-accent">/v1/completions</code> or FIM models)
+        (e.g. <code className="text-primary-text">/v1/completions</code> or FIM models)
       </li>
       <li>
         <span className="font-semibold">openrouter-images</span> — OpenRouter dedicated image API;
-        use the <code className="text-accent">/api/v1</code> base URL
+        use the <code className="text-primary-text">/api/v1</code> base URL
       </li>
       <li>
         <span className="font-semibold">ollama</span> — Native Ollama API, use the root URL (e.g.{' '}
-        <code className="text-accent">http://localhost:11434</code>)
+        <code className="text-primary-text">http://localhost:11434</code>)
       </li>
     </ul>
   </div>
@@ -51,8 +51,8 @@ function OllamaUrlWarnings({ apiType, url }: { apiType: string; url: string }) {
     <>
       {showOllamaV1Warning && (
         <div className="flex items-start gap-2 rounded-sm border border-warning/28 bg-warning-subtle px-2 py-1.5">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
-          <span className="text-[11px] text-warning">
+          <AlertTriangle size="0.875rem" className="mt-0.5 shrink-0 text-warning-text" />
+          <span className="text-label text-warning-text">
             <span className="font-semibold">native ollama</span> type expects root URL. URLs with{' '}
             <code>/v1</code> are OpenAI-compatible — use <span className="font-semibold">chat</span>{' '}
             type.
@@ -61,8 +61,8 @@ function OllamaUrlWarnings({ apiType, url }: { apiType: string; url: string }) {
       )}
       {showChatOllamaWarning && (
         <div className="flex items-start gap-2 rounded-sm border border-warning/28 bg-warning-subtle px-2 py-1.5">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
-          <span className="text-[11px] text-warning">
+          <AlertTriangle size="0.875rem" className="mt-0.5 shrink-0 text-warning-text" />
+          <span className="text-label text-warning-text">
             This URL contains <code>/api/</code> paths typical of native Ollama. Use{' '}
             <span className="font-semibold">ollama</span> type if native.
           </span>
@@ -163,7 +163,7 @@ export function ProviderApiUrlsEditor({
               onChange={(value) => setEditingProvider({ ...editingProvider, oauthProvider: value })}
               options={OAUTH_PROVIDERS}
             />
-            <div className="text-[11px] leading-normal text-foreground-muted">
+            <div className="text-label leading-normal text-foreground-muted">
               Uses the provider ID as its OAuth account — one login per provider.
             </div>
             {oauthSlot}
@@ -178,7 +178,7 @@ export function ProviderApiUrlsEditor({
               placeholder="sk-..."
             />
             <div className="flex flex-col gap-2">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr] sm:items-end">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[8.75rem_1fr] sm:items-end">
                 <Select
                   label="Type"
                   value={primaryType}
@@ -216,7 +216,7 @@ export function ProviderApiUrlsEditor({
                   )}
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="outline"
                     onClick={(e) => {
                       e.stopPropagation();
                       addAdditionalBaseUrlEntry();
@@ -225,14 +225,14 @@ export function ProviderApiUrlsEditor({
                       Object.prototype.hasOwnProperty.call(getApiBaseUrlMap(), t)
                     )}
                   >
-                    <Plus size={14} />
+                    <Plus size="0.875rem" />
                   </Button>
                 </>
               }
             >
               <div className="flex flex-col gap-2">
                 {additionalBaseUrlEntries.length === 0 && (
-                  <div className="font-sans text-[11px] italic text-foreground-muted">
+                  <div className="font-sans text-label italic text-foreground-muted">
                     No additional base URLs configured.
                   </div>
                 )}
@@ -279,7 +279,7 @@ export function ProviderApiUrlsEditor({
                         aria-label={`Remove ${apiType}`}
                         className={KV_REMOVE_BUTTON_CLASS}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size="1rem" />
                       </button>
                     </div>
                     <OllamaUrlWarnings apiType={apiType} url={typeof url === 'string' ? url : ''} />

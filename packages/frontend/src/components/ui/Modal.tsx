@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { Drawer } from './Drawer';
 
 interface ModalProps {
@@ -10,7 +11,7 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   /** Small muted metadata rendered in the header row, before the close button. */
   headerMeta?: React.ReactNode;
   /** Muted second line rendered under the title (e.g. "name · id"). */
@@ -19,13 +20,24 @@ interface ModalProps {
   headerActions?: React.ReactNode;
   /** Pinned strip between the header and the scrollable body (e.g. a tab bar). */
   subHeader?: React.ReactNode;
+  /** Element to focus when the dialog opens; defaults to the first control that isn't Close. */
+  initialFocus?: (container: HTMLElement) => HTMLElement | null;
 }
 
 /* -------------------------------------------------------------------------- */
-/* Centered dialog — used for size="sm" (confirmations, alerts, small forms)  */
+/* Centered dialog — size="sm" (confirmations), "xl" and "2xl" (wide)       */
 /* -------------------------------------------------------------------------- */
 
-const CenteredDialog: React.FC<ModalProps> = ({
+const CENTERED_WIDTH = { sm: 'max-w-md', xl: 'max-w-3xl', '2xl': 'max-w-5xl' } as const;
+// xl and 2xl are top-aligned so their position stays put while the content height changes.
+const CENTERED_ALIGN = {
+  sm: 'items-center',
+  xl: 'items-start pt-[8vh]',
+  '2xl': 'items-start pt-[8vh]',
+} as const;
+
+const CenteredDialog: React.FC<ModalProps & { size: keyof typeof CENTERED_WIDTH }> = ({
+  size,
   isOpen,
   onClose,
   title,
@@ -35,29 +47,25 @@ const CenteredDialog: React.FC<ModalProps> = ({
   subtitle,
   headerActions,
   subHeader,
+  initialFocus,
 }) => {
   useBodyScrollLock(isOpen);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [isOpen, onClose]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef, isOpen, { onClose, initialFocus });
 
   if (!isOpen) return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[420] flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease]"
+      ref={dialogRef}
+      tabIndex={-1}
+      className={`fixed inset-0 z-[420] flex ${CENTERED_ALIGN[size]} justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm outline-none animate-[fadeIn_0.2s_ease]`}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       <div
-        className="bg-surface border border-border w-full max-w-md max-h-[92vh] overflow-hidden rounded-lg flex flex-col shadow-md animate-[slideUp_0.3s_ease] sm:max-h-[90vh]"
+        className={`bg-surface border-(length:--theme-border-width) border-border w-full ${CENTERED_WIDTH[size]} max-h-[92vh] overflow-hidden rounded-box flex flex-col shadow-modal animate-[slideUp_0.3s_ease] sm:max-h-[90vh]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 p-4 border-b border-border-strong sm:p-5">
@@ -77,11 +85,12 @@ const CenteredDialog: React.FC<ModalProps> = ({
           )}
           <button
             type="button"
-            className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-md p-1.5 transition-colors duration-150 hover:text-foreground hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-field p-1.5 transition-colors duration-150 hover:text-foreground hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             onClick={onClose}
+            data-dialog-close
             aria-label="Close"
           >
-            <X size={16} />
+            <X size="1rem" />
           </button>
         </div>
         {subHeader && <div className="flex-shrink-0 px-4 sm:px-5">{subHeader}</div>}
@@ -100,7 +109,7 @@ const CenteredDialog: React.FC<ModalProps> = ({
 /* -------------------------------------------------------------------------- */
 /* Sheet panel — used for size="md" / size="lg" (forms, lists, detail panels) */
 /* Reuses the main Drawer with side="right" so all existing Drawer behaviours  */
-/* (slide animation, backdrop, Escape-to-close, body scroll lock) are inherited */
+/* (slide animation, backdrop, focus management, Escape-to-close, body scroll lock) are inherited */
 /* -------------------------------------------------------------------------- */
 
 const SheetPanel: React.FC<ModalProps & { size: 'md' | 'lg' }> = ({
@@ -114,6 +123,7 @@ const SheetPanel: React.FC<ModalProps & { size: 'md' | 'lg' }> = ({
   subtitle,
   headerActions,
   subHeader,
+  initialFocus,
 }) => {
   return (
     <Drawer
@@ -123,6 +133,7 @@ const SheetPanel: React.FC<ModalProps & { size: 'md' | 'lg' }> = ({
       width={size}
       zTier="modal"
       aria-label={title}
+      initialFocus={initialFocus}
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border-strong flex-shrink-0">
@@ -140,11 +151,12 @@ const SheetPanel: React.FC<ModalProps & { size: 'md' | 'lg' }> = ({
         )}
         <button
           type="button"
-          className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-md p-1.5 transition-colors duration-150 hover:text-foreground hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="flex-shrink-0 bg-transparent border-0 text-foreground-muted cursor-pointer rounded-field p-1.5 transition-colors duration-150 hover:text-foreground hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           onClick={onClose}
+          data-dialog-close
           aria-label="Close"
         >
-          <X size={16} />
+          <X size="1rem" />
         </button>
       </div>
 
@@ -179,10 +191,12 @@ export const Modal: React.FC<ModalProps> = ({
   subtitle,
   headerActions,
   subHeader,
+  initialFocus,
 }) => {
-  if (size === 'sm') {
+  if (size === 'sm' || size === 'xl' || size === '2xl') {
     return (
       <CenteredDialog
+        size={size}
         isOpen={isOpen}
         onClose={onClose}
         title={title}
@@ -191,6 +205,7 @@ export const Modal: React.FC<ModalProps> = ({
         subtitle={subtitle}
         headerActions={headerActions}
         subHeader={subHeader}
+        initialFocus={initialFocus}
       >
         {children}
       </CenteredDialog>
@@ -208,6 +223,7 @@ export const Modal: React.FC<ModalProps> = ({
       subtitle={subtitle}
       headerActions={headerActions}
       subHeader={subHeader}
+      initialFocus={initialFocus}
     >
       {children}
     </SheetPanel>

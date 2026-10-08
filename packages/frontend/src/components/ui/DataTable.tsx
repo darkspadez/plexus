@@ -219,10 +219,10 @@ function ExpanderCell<TData>({ row, table }: CellContext<TData, unknown>) {
       }}
       aria-expanded={isRowExpanded}
       aria-label="Toggle details"
-      className="flex h-6 w-6 items-center justify-center rounded text-foreground-muted transition-colors duration-150 hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+      className="flex h-6 w-6 items-center justify-center rounded-sm text-foreground-muted transition-colors duration-150 hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
     >
       <ChevronRight
-        size={14}
+        size="0.875rem"
         className={cn('transition-transform duration-150', isRowExpanded && 'rotate-90')}
       />
     </button>
@@ -363,7 +363,7 @@ export function DataTable<TData>({
   const showTitleStrip = Boolean(title || titleExtra);
   const titleStripContent = (
     <>
-      <h3 className="font-sans text-[13px] sm:text-sm font-medium text-foreground m-0 truncate min-w-0">
+      <h3 className="font-sans text-sm font-medium text-foreground m-0 truncate min-w-0">
         {title}
       </h3>
       {titleExtra && <div className="flex items-center gap-2 flex-shrink-0">{titleExtra}</div>}
@@ -373,7 +373,7 @@ export function DataTable<TData>({
   // framing to its parent.
   const desktopFrameClass = cn(
     'overflow-hidden',
-    !frameless && 'rounded-lg border border-border bg-surface'
+    !frameless && 'rounded-box border-(length:--theme-border-width) border-border bg-surface'
   );
   // Framed variants — used inside the desktop frame, and inside the
   // loading/empty frames (which are not breakpoint-split).
@@ -392,10 +392,14 @@ export function DataTable<TData>({
     <div className="flex items-center justify-between gap-2 px-1">{titleStripContent}</div>
   );
   const headerSlotMobile = headerSlot && (
-    <div className="rounded-lg border border-border bg-surface overflow-hidden">{headerSlot}</div>
+    <div className="rounded-box border-(length:--theme-border-width) border-border bg-surface overflow-hidden">
+      {headerSlot}
+    </div>
   );
   const footerSlotMobile = footerSlot && (
-    <div className="rounded-lg border border-border bg-surface overflow-hidden">{footerSlot}</div>
+    <div className="rounded-box border-(length:--theme-border-width) border-border bg-surface overflow-hidden">
+      {footerSlot}
+    </div>
   );
 
   // ── State classification ───────────────────────────────────────────────────
@@ -421,7 +425,7 @@ export function DataTable<TData>({
       return (
         <div
           className={cn(
-            'rounded-lg border border-danger/40 bg-danger-subtle p-4 font-sans text-sm text-danger sm:p-6',
+            'rounded-box border-(length:--theme-border-width) border-danger/40 bg-danger-subtle p-4 font-sans text-sm text-danger-text sm:p-6',
             className
           )}
         >
@@ -432,7 +436,13 @@ export function DataTable<TData>({
 
     if (isEmpty) {
       return (
-        <div className={cn(!frameless && 'rounded-lg border border-border bg-surface', className)}>
+        <div
+          className={cn(
+            !frameless &&
+              'rounded-box border-(length:--theme-border-width) border-border bg-surface',
+            className
+          )}
+        >
           <EmptyState
             icon={emptyIcon}
             title={emptyTitle}
@@ -469,7 +479,7 @@ export function DataTable<TData>({
       bodyMobile = skeletonStack;
     } else if (error) {
       const errorBanner = (
-        <div className="rounded-lg border border-danger/40 bg-danger-subtle p-4 font-sans text-sm text-danger sm:p-6">
+        <div className="rounded-box border-(length:--theme-border-width) border-danger/40 bg-danger-subtle p-4 font-sans text-sm text-danger-text sm:p-6">
           {error}
         </div>
       );
@@ -491,7 +501,7 @@ export function DataTable<TData>({
       // footerSlotMobile so it reads as a contained block, not bare floating
       // text.
       bodyMobile = (
-        <div className="rounded-lg border border-border bg-surface overflow-hidden">
+        <div className="rounded-box border-(length:--theme-border-width) border-border bg-surface overflow-hidden">
           {emptyBody}
         </div>
       );
@@ -533,22 +543,22 @@ export function DataTable<TData>({
       </div>
       <div className="flex items-center gap-2">
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           onClick={() => pagination.onPageChange(currentPage - 1)}
           disabled={currentPage === 0}
-          leftIcon={<ChevronLeft size={14} />}
+          leftIcon={<ChevronLeft size="0.875rem" />}
         >
           Prev
         </Button>
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           onClick={() => pagination.onPageChange(currentPage + 1)}
           disabled={currentPage >= totalPages - 1}
         >
           Next
-          <ChevronRight size={14} />
+          <ChevronRight size="0.875rem" />
         </Button>
       </div>
     </>
@@ -598,11 +608,11 @@ export function DataTable<TData>({
                               {flexRender(h.column.columnDef.header, h.getContext())}
                               {canSort &&
                                 (sorted === 'asc' ? (
-                                  <ArrowUp size={10} />
+                                  <ArrowUp size="0.625rem" />
                                 ) : sorted === 'desc' ? (
-                                  <ArrowDown size={10} />
+                                  <ArrowDown size="0.625rem" />
                                 ) : (
-                                  <ArrowUpDown size={10} className="opacity-40" />
+                                  <ArrowUpDown size="0.625rem" className="opacity-40" />
                                 ))}
                             </span>
                           )}
@@ -747,9 +757,9 @@ export function DataTable<TData>({
                     : undefined
                 }
                 className={cn(
-                  'rounded-lg border border-border bg-surface p-4 flex flex-col gap-2',
+                  'rounded-box border-(length:--theme-border-width) border-border bg-surface p-4 flex flex-col gap-2',
                   onRowClick &&
-                    'cursor-pointer hover:border-accent/40 transition-colors duration-150',
+                    'cursor-pointer hover:border-primary/40 transition-colors duration-150',
                   rowClassName?.(rowData)
                 )}
               >

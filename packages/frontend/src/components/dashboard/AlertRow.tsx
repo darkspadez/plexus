@@ -5,8 +5,8 @@ import { joinAlertMeta } from './alert-rows';
 type AlertTone = 'warning' | 'danger';
 
 const TONE_CLASSES: Record<AlertTone, { tint: string; icon: string }> = {
-  warning: { tint: 'bg-warning-subtle', icon: 'text-warning' },
-  danger: { tint: 'bg-danger-subtle', icon: 'text-danger' },
+  warning: { tint: 'bg-warning-subtle', icon: 'text-warning-text' },
+  danger: { tint: 'bg-danger-subtle', icon: 'text-danger-text' },
 };
 
 interface AlertRowProps {

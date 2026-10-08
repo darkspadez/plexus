@@ -22,7 +22,7 @@ export const Card: React.FC<CardProps> = ({
   return (
     <div
       className={clsx(
-        'bg-surface border border-border rounded-lg overflow-hidden transition-colors duration-150 max-w-full',
+        'bg-surface border-(length:--theme-border-width) border-border rounded-box overflow-hidden transition-colors duration-150 max-w-full',
         className
       )}
       {...props}

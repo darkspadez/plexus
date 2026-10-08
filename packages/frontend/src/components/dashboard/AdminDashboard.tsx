@@ -179,49 +179,49 @@ export const AdminDashboard: React.FC = () => {
       {
         label: 'Total Requests',
         value: formatNumber(windowStats.totalRequests, 0),
-        icon: <Activity size={16} />,
+        icon: <Activity size="1rem" />,
         delta: relativeDeltaChip(deltas.requests),
       },
       {
         label: 'Error Rate',
         value: formatPercent(errorRatePct(windowStats)),
-        icon: <AlertTriangle size={16} />,
+        icon: <AlertTriangle size="1rem" />,
         delta: ppDeltaChip(deltas.errorRate, true),
       },
       {
         label: 'Avg Latency',
         value: formatMs(stats?.avgDurationMs ?? 0),
-        icon: <Timer size={16} />,
+        icon: <Timer size="1rem" />,
         delta: relativeDeltaChip(deltas.avgLatency, true),
       },
       {
         label: 'Active Requests',
         value: formatNumber(activeRequests, 0),
-        icon: <GaugeIcon size={16} />,
+        icon: <GaugeIcon size="1rem" />,
       },
       {
         label: 'Tokens',
         value: formatTokens(stats?.totalTokens ?? 0),
         subtitle: `${formatTokens(windowStats.inputTokens)} in · ${formatTokens(windowStats.outputTokens)} out · ${formatTokens(cachedTotal)} cached`,
-        icon: <Coins size={16} />,
+        icon: <Coins size="1rem" />,
         delta: relativeDeltaChip(deltas.tokens),
       },
       {
         label: 'Cache Hit Rate',
         value: formatPercent(cacheHitRatePct(windowStats)),
-        icon: <DatabaseZap size={16} />,
+        icon: <DatabaseZap size="1rem" />,
         delta: ppDeltaChip(deltas.cacheHit),
       },
       {
         label: 'Cost',
         value: formatCost(stats?.totalCost ?? 0, 2),
-        icon: <DollarSign size={16} />,
+        icon: <DollarSign size="1rem" />,
         delta: relativeDeltaChip(deltas.cost, true),
       },
       {
         label: 'Throughput',
         value: `${formatTPS(stats?.avgTokensPerSec ?? 0)} t/s`,
-        icon: <Zap size={16} />,
+        icon: <Zap size="1rem" />,
         delta: relativeDeltaChip(deltas.throughput),
       },
     ];
@@ -272,7 +272,7 @@ export const AdminDashboard: React.FC = () => {
                 href={grafanaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-medium text-accent hover:text-accent/80 transition-colors whitespace-nowrap"
+                className="text-sm font-medium text-accent-text hover:text-accent-text/80 transition-colors whitespace-nowrap"
               >
                 View in Grafana ↗
               </a>
@@ -314,21 +314,25 @@ export const AdminDashboard: React.FC = () => {
           />
         </div>
 
-        {/* Six columns only fit side by side at xl; below that the tables stack
-            full-width instead of scrolling sideways inside their cards. */}
-        <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
-          <TopUsageCard
-            title="Top Providers"
-            noun="provider"
-            breakdown={summaryQuery.data?.grouped?.provider}
-            loading={summaryQuery.isLoading}
-          />
-          <TopUsageCard
-            title="Top Models"
-            noun="model"
-            breakdown={summaryQuery.data?.grouped?.modelAlias}
-            loading={summaryQuery.isLoading}
-          />
+        {/* Six columns need about 30rem per card. Side by side only when the row
+            is wide enough for two such cards, measured against the row itself
+            (rem container query), so a larger UI scale stacks the tables
+            instead of clipping the last column; the viewport cannot know. */}
+        <div className="@container">
+          <div className="grid grid-cols-1 gap-4 @[61rem]:grid-cols-2">
+            <TopUsageCard
+              title="Top Providers"
+              noun="provider"
+              breakdown={summaryQuery.data?.grouped?.provider}
+              loading={summaryQuery.isLoading}
+            />
+            <TopUsageCard
+              title="Top Models"
+              noun="model"
+              breakdown={summaryQuery.data?.grouped?.modelAlias}
+              loading={summaryQuery.isLoading}
+            />
+          </div>
         </div>
       </PageContainer>
     </div>

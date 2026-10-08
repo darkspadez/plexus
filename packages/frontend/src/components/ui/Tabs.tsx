@@ -63,20 +63,20 @@ export function Tabs<V extends string = string>({
             disabled={item.disabled}
             className={clsx(
               'flex-shrink-0 inline-flex items-center gap-1.5 sm:gap-2 font-sans text-xs sm:text-sm font-medium transition-colors duration-150 whitespace-nowrap',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background',
               'disabled:opacity-40 disabled:cursor-not-allowed',
               variant === 'underline' && 'px-3 py-2 sm:px-4 sm:py-2.5 border-b-2 -mb-px',
-              variant === 'underline' && active && 'text-accent border-accent',
+              variant === 'underline' && active && 'text-primary-text border-primary',
               variant === 'underline' &&
                 !active &&
                 'text-foreground-muted border-transparent hover:text-foreground',
-              variant === 'pills' && 'px-3 py-1.5 sm:px-3.5 rounded-md',
+              variant === 'pills' && 'px-3 py-1.5 sm:px-3.5 rounded-field',
               variant === 'pills' &&
                 active &&
-                'bg-surface text-accent border border-border shadow-sm',
+                'bg-surface text-primary-text border-(length:--theme-border-width) border-border shadow-sm',
               variant === 'pills' &&
                 !active &&
-                'text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
+                'text-foreground-muted border-(length:--theme-border-width) border-transparent hover:bg-surface-elevated hover:text-foreground'
             )}
           >
             {item.label}

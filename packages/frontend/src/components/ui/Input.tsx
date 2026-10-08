@@ -39,10 +39,10 @@ export const Input: React.FC<InputProps> = ({
           id={inputId}
           aria-invalid={!!error}
           className={clsx(
-            'w-full h-8 py-1.5 font-sans text-sm text-foreground bg-background border rounded-md outline-none transition-colors duration-150',
+            'w-full h-8 py-1.5 font-sans text-sm text-foreground bg-background border-(length:--theme-border-width) rounded-field outline-none transition-colors duration-150',
             'placeholder:text-foreground-muted',
             'hover:border-border-strong',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             leadingIcon ? 'pl-9 pr-3' : 'px-3',
             trailingAction ? 'pr-10' : '',
@@ -55,7 +55,7 @@ export const Input: React.FC<InputProps> = ({
           <span className="absolute right-2 flex items-center">{trailingAction}</span>
         )}
       </div>
-      {error && <span className="text-danger text-xs">{error}</span>}
+      {error && <span className="text-danger-text text-xs">{error}</span>}
       {!error && hint && <span className="text-foreground-subtle text-xs">{hint}</span>}
     </div>
   );

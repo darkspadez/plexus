@@ -52,14 +52,14 @@ export const Providers = () => {
         actions={
           <div className="flex items-center gap-2">
             <Button
-              variant="secondary"
-              leftIcon={<Code2 size={14} />}
+              variant="outline"
+              leftIcon={<Code2 size="0.875rem" />}
               onClick={() => navigate('/providers/custom-checkers')}
               size="md"
             >
               Custom Quota Checkers
             </Button>
-            <Button leftIcon={<Plus size={14} />} onClick={f.handleAddNew} size="md">
+            <Button leftIcon={<Plus size="0.875rem" />} onClick={f.handleAddNew} size="md">
               Add provider
             </Button>
           </div>
@@ -74,7 +74,7 @@ export const Providers = () => {
           onToggleEnabled={f.handleToggleEnabled}
           onDelete={f.openDeleteModal}
           emptyAction={
-            <Button leftIcon={<Plus size={14} />} onClick={f.handleAddNew}>
+            <Button leftIcon={<Plus size="0.875rem" />} onClick={f.handleAddNew}>
               Add provider
             </Button>
           }

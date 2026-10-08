@@ -84,16 +84,16 @@ export const Login: React.FC = () => {
       {/* Background mesh */}
       <div className="fixed inset-0 pointer-events-none opacity-50" aria-hidden="true">
         <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" className="w-full h-full">
-          <g stroke="rgba(245,158,11,0.10)" strokeWidth="0.5" fill="none">
+          <g stroke="var(--primary)" strokeOpacity="0.1" strokeWidth="0.5" fill="none">
             <path d="M0 200 C 200 100, 600 300, 800 180" />
             <path d="M0 320 C 220 220, 580 420, 800 300" />
             <path d="M0 440 C 200 340, 600 540, 800 420" />
           </g>
-          <circle cx="160" cy="200" r="3" fill="#F59E0B" opacity="0.7" />
-          <circle cx="380" cy="260" r="3" fill="#FBBF24" opacity="0.7" />
-          <circle cx="640" cy="220" r="3" fill="#F59E0B" opacity="0.7" />
-          <circle cx="240" cy="380" r="3" fill="#FBBF24" opacity="0.5" />
-          <circle cx="560" cy="420" r="3" fill="#F59E0B" opacity="0.5" />
+          <circle cx="160" cy="200" r="3" fill="var(--primary)" fillOpacity="0.7" />
+          <circle cx="380" cy="260" r="3" fill="var(--accent)" fillOpacity="0.7" />
+          <circle cx="640" cy="220" r="3" fill="var(--primary)" fillOpacity="0.7" />
+          <circle cx="240" cy="380" r="3" fill="var(--accent)" fillOpacity="0.5" />
+          <circle cx="560" cy="420" r="3" fill="var(--primary)" fillOpacity="0.5" />
         </svg>
       </div>
 
@@ -101,10 +101,10 @@ export const Login: React.FC = () => {
         {/* Logo + wordmark */}
         <div className="mb-6 flex flex-wrap items-center justify-center gap-3 sm:mb-8">
           <div className="animate-float">
-            <PlexusMark size={44} />
+            <PlexusMark size="2.75rem" />
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold accent-grad-text font-sans tracking-tight">
+            <span className="text-3xl font-bold brand-grad-text font-sans tracking-tight">
               Plexus
             </span>
             <span className="text-label uppercase tracking-[0.18em] text-foreground-subtle font-mono">
@@ -114,7 +114,7 @@ export const Login: React.FC = () => {
         </div>
 
         {/* Card */}
-        <div className="glass-bg rounded-xl p-5 shadow-2xl sm:rounded-2xl sm:p-8">
+        <div className="glass-bg rounded-xl p-5 shadow-modal sm:rounded-box sm:p-8">
           <div className="mb-6">
             <h1 className="font-sans text-2xl font-semibold tracking-tight mb-1.5">Sign in</h1>
             <p className="text-sm text-foreground-muted leading-relaxed">
@@ -142,7 +142,7 @@ export const Login: React.FC = () => {
               </label>
               <div className="relative">
                 <KeyRound
-                  size={16}
+                  size="1rem"
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-subtle pointer-events-none"
                 />
                 <input
@@ -156,7 +156,7 @@ export const Login: React.FC = () => {
                   }}
                   placeholder="sk-admin-•••• or sk-•••••••••••••"
                   autoFocus
-                  className="w-full bg-surface-sunken border border-border rounded-md py-3 pl-10 pr-10 text-foreground font-mono text-sm placeholder:text-foreground-subtle hover:border-border-strong focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-subtle)] focus:outline-none transition-all duration-fast"
+                  className="w-full bg-surface-sunken border border-border rounded-md py-3 pl-10 pr-10 text-foreground font-mono text-sm placeholder:text-foreground-subtle hover:border-border-strong focus:border-focus focus:shadow-[0_0_0_3px_var(--primary-subtle)] focus:outline-none transition-all duration-150"
                 />
                 <button
                   type="button"
@@ -164,12 +164,12 @@ export const Login: React.FC = () => {
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-surface-elevated text-foreground-muted"
                   aria-label={showKey ? 'Hide key' : 'Show key'}
                 >
-                  {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {showKey ? <EyeOff size="0.875rem" /> : <Eye size="0.875rem" />}
                 </button>
               </div>
               {error && (
-                <div className="mt-2 flex items-start gap-2 text-xs text-danger bg-danger-subtle border border-danger/30 rounded-lg p-2.5">
-                  <AlertCircle size={14} className="mt-0.5 flex-none" />
+                <div className="mt-2 flex items-start gap-2 text-xs text-danger-text bg-danger-subtle border border-danger/30 rounded-lg p-2.5">
+                  <AlertCircle size="0.875rem" className="mt-0.5 flex-none" />
                   <span>{error}</span>
                 </div>
               )}
@@ -177,13 +177,13 @@ export const Login: React.FC = () => {
 
             <Button type="submit" variant="primary" size="lg" className="w-full">
               <span>Access Dashboard</span>
-              <ArrowRight size={14} />
+              <ArrowRight size="0.875rem" />
             </Button>
           </form>
 
-          <div className="mt-6 flex flex-col gap-2 border-t border-white/5 pt-5 text-[11px] text-foreground-subtle sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-6 flex flex-col gap-2 border-t border-border pt-5 text-label text-foreground-subtle sm:flex-row sm:items-center sm:justify-between">
             <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck size={14} />
+              <ShieldCheck size="0.875rem" />
               End-to-end encrypted
             </span>
           </div>

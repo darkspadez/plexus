@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "build": "bun run build.ts",
+    "gen:themes": "bun run scripts/gen-theme-css.ts",
     "typecheck": "bun run build && bun x tsc --noEmit",
     "dev": "bun run build.ts --watch",
     "test": "bunx --bun vitest run --config vitest.config.ts"
@@ -12,6 +13,7 @@
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
     "@types/bun": "latest",
+    "@types/culori": "^4.0.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "postcss": "^8.5.28",
@@ -32,6 +34,7 @@
     "@tanstack/react-table": "^8.21.3",
     "@types/human-format": "^1.0.3",
     "clsx": "^2.1.1",
+    "culori": "^4.0.2",
     "fuse.js": "^7.5.0",
     "human-format": "^1.2.1",
     "lucide-react": "^1.48.0",

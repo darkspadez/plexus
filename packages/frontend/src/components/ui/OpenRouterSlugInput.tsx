@@ -96,6 +96,8 @@ export const OpenRouterSlugInput: React.FC<OpenRouterSlugInputProps> = ({
         }
         break;
       case 'Escape':
+        // Close only the suggestions; the dialog's Escape handler skips defaultPrevented.
+        e.preventDefault();
         setShowSuggestions(false);
         break;
     }
@@ -135,7 +137,7 @@ export const OpenRouterSlugInput: React.FC<OpenRouterSlugInputProps> = ({
         <input
           ref={inputRef}
           type="text"
-          className="w-full h-8 py-1.5 px-3 pr-10 font-sans text-sm text-foreground bg-background border border-border rounded-md outline-none transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="w-full h-8 py-1.5 px-3 pr-10 font-sans text-sm text-foreground bg-background border-(length:--theme-border-width) border-border rounded-field outline-none transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           placeholder={placeholder}
           value={inputValue}
           onChange={handleInputChange}
@@ -149,10 +151,10 @@ export const OpenRouterSlugInput: React.FC<OpenRouterSlugInputProps> = ({
         <button
           type="button"
           onClick={toggleDropdown}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-surface-elevated rounded-md transition-colors"
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-surface-elevated rounded-field transition-colors"
         >
           {isLoading ? (
-            <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           ) : (
             <ChevronsUpDown className="w-4 h-4 text-foreground-muted" />
           )}
@@ -161,7 +163,7 @@ export const OpenRouterSlugInput: React.FC<OpenRouterSlugInputProps> = ({
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={suggestionsRef}
-          className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded-md shadow-md z-50 max-h-60 overflow-y-auto"
+          className="absolute top-full left-0 right-0 mt-1 bg-surface border-(length:--theme-border-width) border-border rounded-md shadow-md z-50 max-h-60 overflow-y-auto"
         >
           {suggestions.map((slug, index) => {
             const isSelected = slug === value;
@@ -173,14 +175,14 @@ export const OpenRouterSlugInput: React.FC<OpenRouterSlugInputProps> = ({
                 className={clsx(
                   'px-3.5 py-2.5 cursor-pointer font-sans text-sm transition-colors flex items-center justify-between',
                   isHighlighted
-                    ? 'bg-accent-subtle text-foreground'
+                    ? 'bg-primary-subtle text-foreground'
                     : 'text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
                 )}
                 onClick={() => selectSuggestion(slug)}
                 onMouseEnter={() => setSelectedIndex(index)}
               >
                 <span className={clsx(isSelected && 'font-medium text-foreground')}>{slug}</span>
-                {isSelected && <Check className="w-4 h-4 text-accent" />}
+                {isSelected && <Check className="w-4 h-4 text-primary-text" />}
               </div>
             );
           })}
@@ -189,7 +191,7 @@ export const OpenRouterSlugInput: React.FC<OpenRouterSlugInputProps> = ({
       {showSuggestions && suggestions.length === 0 && !isLoading && inputValue.length >= 2 && (
         <div
           ref={suggestionsRef}
-          className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded-md shadow-md z-50 px-3.5 py-2.5"
+          className="absolute top-full left-0 right-0 mt-1 bg-surface border-(length:--theme-border-width) border-border rounded-md shadow-md z-50 px-3.5 py-2.5"
         >
           <span className="font-sans text-sm text-foreground-muted italic">
             No models found matching "{inputValue}"

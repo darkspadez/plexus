@@ -31,7 +31,7 @@ export const RoutingAliasesEditor: React.FC<RoutingAliasesEditorProps> = ({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground-subtle">
+      <div className="text-label font-semibold uppercase tracking-wider text-foreground-subtle">
         Routing aliases
         <span className="ml-2 font-normal normal-case text-foreground-subtle">
           alternative names clients can call
@@ -44,10 +44,10 @@ export const RoutingAliasesEditor: React.FC<RoutingAliasesEditorProps> = ({
             <button
               type="button"
               onClick={() => onChange(aliases.filter((x) => x !== a))}
-              className="ml-0.5 text-foreground-muted hover:text-danger"
+              className="ml-0.5 text-foreground-muted hover:text-danger-text"
               aria-label={`Remove ${a}`}
             >
-              <X size={10} />
+              <X size="0.625rem" />
             </button>
           </Pill>
         ))}
@@ -65,15 +65,15 @@ export const RoutingAliasesEditor: React.FC<RoutingAliasesEditorProps> = ({
               }
             }}
             placeholder="alias name"
-            className="h-6 w-32 rounded border border-border bg-surface px-2 font-mono text-xs text-foreground outline-none focus:border-accent"
+            className="h-6 w-32 rounded-sm border border-border bg-surface px-2 font-mono text-xs text-foreground outline-none focus:border-focus"
           />
         ) : (
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-label text-foreground-muted transition-colors hover:border-primary hover:text-foreground"
           >
-            <Plus size={11} />
+            <Plus size="0.6875rem" />
             Add alias
           </button>
         )}

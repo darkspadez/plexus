@@ -3,7 +3,7 @@ import { cn } from '../../lib/cn';
 import { Loader2 } from 'lucide-react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'accent-soft' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'outline' | 'soft' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
@@ -24,35 +24,40 @@ export const Button: React.FC<ButtonProps> = ({
       className={cn(
         // Base — shared across all variants
         'inline-flex items-center justify-center gap-2 font-sans text-sm font-medium',
-        'rounded-md whitespace-nowrap select-none cursor-pointer',
+        'rounded-field whitespace-nowrap select-none cursor-pointer',
         'transition-colors duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         'disabled:pointer-events-none disabled:opacity-50',
         '[&_svg]:pointer-events-none [&_svg]:shrink-0',
         // Variants — semantic tokens only
         variant === 'primary' && [
-          'bg-accent text-accent-foreground',
-          'hover:bg-accent/90',
-          'border border-transparent',
+          'bg-primary text-primary-foreground',
+          'hover:bg-primary/90',
+          'border-(length:--theme-border-width) border-transparent',
         ],
         variant === 'secondary' && [
+          'bg-secondary text-secondary-foreground',
+          'hover:bg-secondary/90',
+          'border-(length:--theme-border-width) border-transparent',
+        ],
+        variant === 'outline' && [
           'bg-surface-elevated text-foreground',
-          'border border-border-strong',
+          'border-(length:--theme-border-width) border-border-strong',
           'hover:bg-surface-hover',
         ],
-        variant === 'accent-soft' && [
-          'bg-accent/10 text-accent-text',
-          'border border-accent/40',
-          'hover:bg-accent/20 hover:border-accent/60',
+        variant === 'soft' && [
+          'bg-primary/10 text-primary-text',
+          'border-(length:--theme-border-width) border-primary/40',
+          'hover:bg-primary/20 hover:border-primary/60',
         ],
         variant === 'ghost' && [
           'bg-transparent text-foreground-muted',
-          'border border-transparent',
+          'border-(length:--theme-border-width) border-transparent',
           'hover:bg-surface-elevated hover:text-foreground',
         ],
         variant === 'danger' && [
-          'bg-danger-subtle text-danger',
-          'border border-danger/30',
+          'bg-danger-subtle text-danger-text',
+          'border-(length:--theme-border-width) border-danger/30',
           'hover:bg-danger/20',
         ],
         // Sizes — sm ~28px, md ~32px, lg ~40px, icon square
@@ -65,7 +70,7 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={isLoading || disabled}
       {...props}
     >
-      {isLoading && <Loader2 className="animate-spin" size={14} />}
+      {isLoading && <Loader2 className="animate-spin" size="0.875rem" />}
       {!isLoading && leftIcon && <span className="flex items-center">{leftIcon}</span>}
       {children}
     </button>

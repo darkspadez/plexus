@@ -5,11 +5,11 @@ import { Badge } from '../ui/Badge';
 import { SectionCard } from '../ui/SectionCard';
 
 export const KV_REMOVE_BUTTON_CLASS =
-  'inline-flex items-center justify-center h-8 w-8 flex-shrink-0 rounded-md text-foreground-muted hover:text-danger hover:bg-danger-subtle transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background self-end sm:self-auto';
+  'inline-flex items-center justify-center h-8 w-8 flex-shrink-0 rounded-md text-foreground-muted hover:text-danger-text hover:bg-danger-subtle transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background self-end sm:self-auto';
 
 /** Quiet header text used instead of a zero-count badge. */
 export function NotConfigured() {
-  return <span className="font-sans text-[11px] italic text-foreground-muted">Not configured</span>;
+  return <span className="font-sans text-label italic text-foreground-muted">Not configured</span>;
 }
 
 // Custom Headers / Extra Body Fields — same addKV/updateKV/removeKV semantics (including
@@ -56,21 +56,21 @@ export function KVSection({
           )}
           <Button
             size="sm"
-            variant="secondary"
+            variant="outline"
             onClick={(e) => {
               e.stopPropagation();
               addKV(field);
               setIsOpen(true);
             }}
           >
-            <Plus size={14} />
+            <Plus size="0.875rem" />
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-2">
         {entryList.length === 0 && (
-          <div className="font-sans text-[11px] italic text-foreground-muted">{emptyText}</div>
+          <div className="font-sans text-label italic text-foreground-muted">{emptyText}</div>
         )}
         {entryList.map(([key, val], idx) => (
           <div key={idx} className="flex flex-col gap-1.5 sm:flex-row">
@@ -100,7 +100,7 @@ export function KVSection({
               aria-label={`Remove ${key}`}
               className={KV_REMOVE_BUTTON_CLASS}
             >
-              <Trash2 size={16} />
+              <Trash2 size="1rem" />
             </button>
           </div>
         ))}

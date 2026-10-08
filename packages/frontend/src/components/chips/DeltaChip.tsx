@@ -29,15 +29,15 @@ export const DeltaChip: React.FC<DeltaChipProps> = ({
     isGood === null
       ? 'text-foreground-muted bg-surface-elevated'
       : isGood
-        ? 'text-success bg-success-subtle'
-        : 'text-danger bg-danger-subtle';
+        ? 'text-success-text bg-success-subtle'
+        : 'text-danger-text bg-danger-subtle';
 
   const Icon = direction === 'flat' ? Minus : direction === 'up' ? ChevronUp : ChevronDown;
 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[11px] font-medium leading-none tabular-nums',
+        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-label font-medium leading-none tabular-nums',
         tone,
         className
       )}

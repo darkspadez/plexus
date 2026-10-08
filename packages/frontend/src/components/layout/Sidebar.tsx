@@ -9,8 +9,8 @@
  *   Diagnostics:   Traces · Errors · Playground · System Logs
  *   System:        Settings
  *
- * Semantic tokens only (bg-surface, border-border, text-foreground*, accent
- * vars) so light + dark + all 6 accents render correctly.
+ * Semantic tokens only (bg-surface, border-border, text-foreground*, primary
+ * vars) so every built-in theme renders correctly.
  */
 import React, { useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -40,7 +40,7 @@ const NavItem: React.FC<{ item: NavItemDef; collapsed: boolean }> = ({ item, col
         'group relative flex w-full items-center rounded-md py-1.5 text-sm font-medium no-underline transition-colors',
         collapsed ? 'justify-center px-0' : 'gap-2.5 px-2',
         isActive
-          ? 'bg-accent-subtle text-foreground'
+          ? 'bg-primary-subtle text-foreground'
           : 'text-foreground-muted hover:bg-surface-elevated hover:text-foreground'
       )}
     >
@@ -48,10 +48,10 @@ const NavItem: React.FC<{ item: NavItemDef; collapsed: boolean }> = ({ item, col
       {isActive && (
         <span
           aria-hidden
-          className="pointer-events-none absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-r bg-accent"
+          className="pointer-events-none absolute top-1/2 left-0 h-5 w-[0.1875rem] -translate-y-1/2 rounded-r bg-primary"
         />
       )}
-      <Icon size={16} className="shrink-0" />
+      <Icon size="1rem" className="shrink-0" />
       {!collapsed && <span className="truncate">{item.label}</span>}
     </NavLink>
   );
@@ -127,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mode = 'desktop' }) => {
         isDrawer
           ? 'h-full w-full'
           : 'fixed inset-y-0 left-0 z-[200] hidden h-screen border-r transition-[width] duration-300 md:flex',
-        !isDrawer && (collapsed ? 'w-[64px]' : 'w-[220px]')
+        !isDrawer && (collapsed ? 'w-[4rem]' : 'w-[13.75rem]')
       )}
     >
       {/* ------------------------------------------------------------------ */}
@@ -141,12 +141,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ mode = 'desktop' }) => {
       >
         {/* Collapsed: just the mark */}
         {collapsed ? (
-          <PlexusMark size={28} />
+          <PlexusMark size="1.75rem" />
         ) : (
           <>
-            <PlexusMark size={24} />
+            <PlexusMark size="1.5rem" />
             <div className="flex flex-col leading-tight min-w-0">
-              <span className="font-sans text-lg font-semibold tracking-tight text-foreground truncate accent-grad-text">
+              <span className="font-sans text-lg font-semibold tracking-tight truncate brand-grad-text">
                 Plexus
               </span>
             </div>
@@ -158,10 +158,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ mode = 'desktop' }) => {
           <button
             type="button"
             onClick={closeMobile}
+            data-dialog-close
             aria-label="Close navigation"
             className="ml-auto p-1.5 rounded-md text-foreground-muted hover:bg-surface-elevated hover:text-foreground transition-colors"
           >
-            <PanelLeftClose size={16} />
+            <PanelLeftClose size="1rem" />
           </button>
         )}
       </div>

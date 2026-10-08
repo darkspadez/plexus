@@ -8,6 +8,8 @@ interface Props {
   onClose: () => void;
   title: string;
   message: React.ReactNode;
+  /** Bold heading above `message`. Defaults to the model-deletion wording. */
+  question?: React.ReactNode;
   confirmLabel?: string;
   onConfirm: () => Promise<void> | void;
   isLoading: boolean;
@@ -18,6 +20,7 @@ export function ConfirmDeleteModal({
   onClose,
   title,
   message,
+  question,
   confirmLabel = 'Delete',
   onConfirm,
   isLoading,
@@ -29,7 +32,7 @@ export function ConfirmDeleteModal({
       title={title}
       size="sm"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
           <Button variant="ghost" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>
@@ -43,32 +46,33 @@ export function ConfirmDeleteModal({
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '16px',
+          gap: '1rem',
           alignItems: 'center',
           textAlign: 'center',
-          padding: '16px 0',
+          padding: '1rem 0',
         }}
       >
         <div
           style={{
-            width: '48px',
-            height: '48px',
+            width: '3rem',
+            height: '3rem',
             borderRadius: '50%',
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            backgroundColor: 'var(--danger-subtle)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Trash2 size={24} style={{ color: 'var(--color-danger)' }} />
+          <Trash2 size="1.5rem" style={{ color: 'var(--danger-text)' }} />
         </div>
         <div>
-          <p className="text-foreground" style={{ marginBottom: '8px', fontWeight: 500 }}>
-            {title === 'Delete Model Alias'
-              ? 'Are you sure you want to delete this alias?'
-              : 'Are you sure you want to delete all configured models?'}
+          <p className="text-foreground" style={{ marginBottom: '0.5rem', fontWeight: 500 }}>
+            {question ??
+              (title === 'Delete Model Alias'
+                ? 'Are you sure you want to delete this alias?'
+                : 'Are you sure you want to delete all configured models?')}
           </p>
-          <p className="text-foreground-muted" style={{ fontSize: '14px' }}>
+          <p className="text-foreground-muted" style={{ fontSize: '0.875rem' }}>
             {message}
           </p>
         </div>

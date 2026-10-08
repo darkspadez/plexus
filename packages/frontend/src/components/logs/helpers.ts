@@ -34,7 +34,11 @@ export const formatDateSafely = (dateStr: string | undefined | null) => {
     if (isNaN(d.getTime())) return { time: 'Invalid', date: 'Date' };
     return {
       time: d.toLocaleTimeString(),
-      date: d.toISOString().split('T')[0],
+      date: [
+        d.getFullYear(),
+        String(d.getMonth() + 1).padStart(2, '0'),
+        String(d.getDate()).padStart(2, '0'),
+      ].join('-'),
     };
   } catch {
     return { time: 'Error', date: 'Date' };

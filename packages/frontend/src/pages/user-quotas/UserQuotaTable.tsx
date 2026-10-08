@@ -10,6 +10,7 @@ import React from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Edit2, Trash2, Users } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { useStableCallback } from '../../hooks/useStableCallback';
 import { Pill } from '../../components/chips/Pill';
 import { DataTable } from '../../components/ui/DataTable';
 import { formatCostIn, formatTokens, formatNumber } from '../../lib/format';
@@ -50,7 +51,14 @@ const formatLimit = (q: UserQuota, cost: FormatCostInOptions): string => {
   }
 };
 
-export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUsingCounts }) => {
+export const UserQuotaTable: React.FC<Props> = ({
+  rows,
+  onEdit: onEditProp,
+  onDelete: onDeleteProp,
+  keysUsingCounts,
+}) => {
+  const onEdit = useStableCallback(onEditProp);
+  const onDelete = useStableCallback(onDeleteProp);
   const { currency, rate, symbol } = useCurrency();
   const columns: ColumnDef<UserQuotaRow>[] = React.useMemo(() => {
     const cols: ColumnDef<UserQuotaRow>[] = [
@@ -65,8 +73,8 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
               {row.original.name}
             </span>
             {row.original.quota.shared && (
-              <Pill tone="accent" size="sm">
-                <Users size={10} /> shared
+              <Pill tone="primary" size="sm">
+                <Users size="0.625rem" /> shared
               </Pill>
             )}
             {defHasScope(row.original.quota) && (
@@ -130,7 +138,7 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
         cell: ({ row }) => {
           const count = keysUsingCounts[row.original.name] ?? 0;
           return (
-            <Pill tone={count > 0 ? 'accent' : 'neutral'} size="sm">
+            <Pill tone={count > 0 ? 'primary' : 'neutral'} size="sm">
               {count} key{count !== 1 ? 's' : ''}
             </Pill>
           );
@@ -153,19 +161,19 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
               onEdit(row.original);
             }}
           >
-            <Edit2 size={14} strokeWidth={1.75} />
+            <Edit2 size="0.875rem" strokeWidth={1.75} />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+            className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
             aria-label={`Delete ${row.original.name}`}
             onClick={(e) => {
               e.stopPropagation();
               onDelete(row.original);
             }}
           >
-            <Trash2 size={14} strokeWidth={1.75} />
+            <Trash2 size="0.875rem" strokeWidth={1.75} />
           </Button>
         </div>
       ),
@@ -187,16 +195,16 @@ export const UserQuotaTable: React.FC<Props> = ({ rows, onEdit, onDelete, keysUs
             aria-label={`Edit ${row.name}`}
             onClick={() => onEdit(row)}
           >
-            <Edit2 size={14} strokeWidth={1.75} />
+            <Edit2 size="0.875rem" strokeWidth={1.75} />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+            className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
             aria-label={`Delete ${row.name}`}
             onClick={() => onDelete(row)}
           >
-            <Trash2 size={14} strokeWidth={1.75} />
+            <Trash2 size="0.875rem" strokeWidth={1.75} />
           </Button>
         </>
       )}

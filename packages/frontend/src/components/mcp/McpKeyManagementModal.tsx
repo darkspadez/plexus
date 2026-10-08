@@ -38,7 +38,7 @@ export function McpKeyManagementModal({
       onClose={onClose}
       title={serverName ? `Manage Keys: ${serverName}` : 'Manage Keys'}
       footer={
-        <Button variant="secondary" onClick={onClose}>
+        <Button variant="outline" onClick={onClose}>
           Close
         </Button>
       }
@@ -49,7 +49,7 @@ export function McpKeyManagementModal({
             These keys are load-balanced (round robin) and rotated automatically when a rate limit
             or quota is exceeded. They are injected using the server&apos;s configured{' '}
             <strong>Auth Scheme</strong>:{' '}
-            <span className="rounded bg-surface-sunken px-1 py-0.5 font-mono text-foreground">
+            <span className="rounded-sm bg-surface-sunken px-1 py-0.5 font-mono text-foreground">
               {serverName && authScheme ? authScheme : 'None (keys will not be sent)'}
             </span>
           </p>
@@ -94,7 +94,7 @@ export function McpKeyManagementModal({
                     <div
                       className={cn(
                         'mt-1 text-xs font-medium',
-                        !key.is_active || isExhausted ? 'text-warning' : 'text-success'
+                        !key.is_active || isExhausted ? 'text-warning-text' : 'text-success-text'
                       )}
                     >
                       {!key.is_active
@@ -106,7 +106,7 @@ export function McpKeyManagementModal({
                   </div>
                   <div className="flex gap-2">
                     {isExhausted && (
-                      <Button size="sm" variant="secondary" onClick={() => onClearCooldown(key.id)}>
+                      <Button size="sm" variant="outline" onClick={() => onClearCooldown(key.id)}>
                         Clear Cooldown
                       </Button>
                     )}

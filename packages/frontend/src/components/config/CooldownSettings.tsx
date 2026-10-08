@@ -60,7 +60,7 @@ export function CooldownSettings() {
           onClick={handleSubmit(onSubmit)}
           isLoading={saveCooldown.isPending}
           disabled={!loaded || !isValid || saveCooldown.isPending}
-          leftIcon={<Save size={14} />}
+          leftIcon={<Save size="0.875rem" />}
         >
           Save
         </Button>
@@ -71,7 +71,7 @@ export function CooldownSettings() {
           <div className="flex flex-col gap-1">
             <label
               htmlFor="cooldownInitialMinutes"
-              className="font-sans text-[12px] font-medium text-foreground"
+              className="font-sans text-xs font-medium text-foreground"
             >
               Initial Cooldown (min){' '}
               <span className="text-foreground-subtle font-normal">— C₀, first failure</span>
@@ -83,22 +83,22 @@ export function CooldownSettings() {
                 min={0.1}
                 step={0.1}
                 {...register('initialMinutes', { valueAsNumber: true })}
-                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
               />
-              <span className="text-[11px] text-foreground-subtle tabular-nums whitespace-nowrap">
+              <span className="text-label text-foreground-subtle tabular-nums whitespace-nowrap">
                 {typeof initialMinutesWatch === 'number' && isFinite(initialMinutesWatch)
                   ? formatMinutesToMinSec(initialMinutesWatch)
                   : '—'}
               </span>
             </div>
             {errors.initialMinutes && (
-              <span className="text-[11px] text-warning">{errors.initialMinutes.message}</span>
+              <span className="text-label text-warning-text">{errors.initialMinutes.message}</span>
             )}
           </div>
           <div className="flex flex-col gap-1">
             <label
               htmlFor="cooldownMaxMinutes"
-              className="font-sans text-[12px] font-medium text-foreground"
+              className="font-sans text-xs font-medium text-foreground"
             >
               Maximum Cooldown (min){' '}
               <span className="text-foreground-subtle font-normal">— C_max, upper limit</span>
@@ -110,16 +110,16 @@ export function CooldownSettings() {
                 min={0.1}
                 step={0.1}
                 {...register('maxMinutes', { valueAsNumber: true })}
-                className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-accent placeholder:text-foreground-subtle"
+                className="w-full h-[1.6875rem] py-0 px-2 font-mono text-xs leading-none text-foreground bg-surface-sunken border border-border rounded-sm outline-none focus:border-focus placeholder:text-foreground-subtle"
               />
-              <span className="text-[11px] text-foreground-subtle tabular-nums whitespace-nowrap">
+              <span className="text-label text-foreground-subtle tabular-nums whitespace-nowrap">
                 {typeof maxMinutesWatch === 'number' && isFinite(maxMinutesWatch)
                   ? formatMinutesToMinSec(maxMinutesWatch)
                   : '—'}
               </span>
             </div>
             {errors.maxMinutes && (
-              <span className="text-[11px] text-warning">{errors.maxMinutes.message}</span>
+              <span className="text-label text-warning-text">{errors.maxMinutes.message}</span>
             )}
           </div>
         </div>

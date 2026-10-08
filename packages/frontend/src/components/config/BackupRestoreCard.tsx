@@ -32,8 +32,8 @@ export function BackupRestoreCard({
     <SectionCard title="Backup & Restore">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 mr-1">
-          <AlertTriangle size={13} className="text-warning shrink-0" />
-          <span className="font-sans text-[11px] text-foreground-subtle">
+          <AlertTriangle size="0.8125rem" className="text-warning-text shrink-0" />
+          <span className="font-sans text-label text-foreground-subtle">
             Sensitive data — store securely
           </span>
         </div>
@@ -42,25 +42,25 @@ export function BackupRestoreCard({
           size="sm"
           onClick={onRestoreClick}
           isLoading={restoreLoading}
-          leftIcon={<Upload size={14} />}
+          leftIcon={<Upload size="0.875rem" />}
         >
           Restore
         </Button>
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           onClick={onFullBackupDownload}
           isLoading={fullBackupLoading}
-          leftIcon={<Archive size={14} />}
+          leftIcon={<Archive size="0.875rem" />}
         >
           Full Backup
         </Button>
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           onClick={onBackupDownload}
           isLoading={backupLoading}
-          leftIcon={<HardDrive size={14} />}
+          leftIcon={<HardDrive size="0.875rem" />}
         >
           Config Backup
         </Button>
@@ -69,7 +69,7 @@ export function BackupRestoreCard({
           size="sm"
           onClick={onResetLogs}
           isLoading={resetLogsLoading}
-          leftIcon={<Trash2 size={14} />}
+          leftIcon={<Trash2 size="0.875rem" />}
         >
           Reset All Logs
         </Button>

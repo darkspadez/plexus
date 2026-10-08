@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface PlexusMarkProps {
-  size?: number;
+  size?: number | string;
   className?: string;
 }
 
@@ -20,8 +20,8 @@ export const PlexusMark: React.FC<PlexusMarkProps> = ({ size = 28, className }) 
     >
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="44" y2="44">
-          <stop offset="0%" stopColor="var(--accent)" />
-          <stop offset="100%" stopColor="color-mix(in oklab, var(--accent), black 22%)" />
+          <stop offset="0%" stopColor="var(--primary-text)" />
+          <stop offset="100%" stopColor="var(--accent-text)" />
         </linearGradient>
       </defs>
       <g stroke={`url(#${id})`} strokeWidth="1.6" fill="none">

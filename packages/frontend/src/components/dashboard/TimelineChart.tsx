@@ -11,6 +11,7 @@ import {
 import { Card } from '../ui/Card';
 import type { UsageSummarySeriesPoint } from '../../lib/api';
 import { formatDateLabel, formatNumber, formatTimeLabel, formatTokens } from '../../lib/format';
+import { useScaledPx } from '../../hooks/useScaledPx';
 
 interface TimelineChartProps {
   /** The usage-summary series for the selected range (fetched by `AdminDashboard`). */
@@ -89,6 +90,7 @@ export const TimelineChart: React.FC<TimelineChartProps> = ({
   startDate,
   endDate,
 }) => {
+  const yAxisWidth = useScaledPx(60);
   const chartData = useMemo(() => {
     const points = series ?? [];
     const formatAxisLabel = pickAxisLabelFormatter(points, startDate, endDate);
@@ -129,24 +131,26 @@ export const TimelineChart: React.FC<TimelineChartProps> = ({
               <XAxis
                 dataKey="time"
                 stroke="var(--foreground-subtle)"
-                tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                tick={{ fill: 'var(--foreground-subtle)', fontSize: '0.6875rem' }}
               />
               <YAxis
+                width={yAxisWidth}
                 yAxisId="left"
                 stroke="var(--foreground-subtle)"
-                tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                tick={{ fill: 'var(--foreground-subtle)', fontSize: '0.6875rem' }}
               />
               <YAxis
+                width={yAxisWidth}
                 yAxisId="right"
                 orientation="right"
                 stroke="var(--foreground-subtle)"
-                tick={{ fill: 'var(--foreground-subtle)', fontSize: 11 }}
+                tick={{ fill: 'var(--foreground-subtle)', fontSize: '0.6875rem' }}
               />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'var(--surface-elevated)',
                   border: '1px solid var(--border)',
-                  borderRadius: '8px',
+                  borderRadius: 'min(var(--theme-radius-field), 0.5rem)',
                 }}
                 labelStyle={{ color: 'var(--foreground)' }}
                 formatter={(value, name) => {
@@ -174,9 +178,9 @@ export const TimelineChart: React.FC<TimelineChartProps> = ({
                 yAxisId="left"
                 type="monotone"
                 dataKey="errors"
-                stroke="var(--danger)"
+                stroke="var(--danger-text)"
                 fillOpacity={0.15}
-                fill="var(--danger)"
+                fill="var(--danger-text)"
                 strokeWidth={1.5}
                 isAnimationActive={false}
               />

@@ -69,7 +69,7 @@ const rowActions = (
           props.onEditKey(key);
         }}
       >
-        <Edit2 size={14} strokeWidth={1.75} />
+        <Edit2 size="0.875rem" strokeWidth={1.75} />
       </Button>
       {(quotaNames || usingDefaults) && (
         <Button
@@ -82,13 +82,13 @@ const rowActions = (
           }}
           title="Reset quota"
         >
-          <RefreshCw size={14} strokeWidth={1.75} />
+          <RefreshCw size="0.875rem" strokeWidth={1.75} />
         </Button>
       )}
       <Button
         variant="ghost"
         size="icon"
-        className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+        className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
         aria-label={`Disable ${key.key}`}
         onClick={(e) => {
           e?.stopPropagation();
@@ -96,19 +96,19 @@ const rowActions = (
         }}
         title="Disable key"
       >
-        <Ban size={14} strokeWidth={1.75} />
+        <Ban size="0.875rem" strokeWidth={1.75} />
       </Button>
       <Button
         variant="ghost"
         size="icon"
-        className="text-foreground-muted hover:text-danger hover:bg-danger-subtle"
+        className="text-foreground-muted hover:text-danger-text hover:bg-danger-subtle"
         aria-label={`Delete ${key.key}`}
         onClick={(e) => {
           e?.stopPropagation();
           props.onDeleteKey(key.key);
         }}
       >
-        <Trash2 size={14} strokeWidth={1.75} />
+        <Trash2 size="0.875rem" strokeWidth={1.75} />
       </Button>
     </>
   );
@@ -154,14 +154,14 @@ export const KeyLists = ({
         meta: { priority: 'high' },
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs bg-surface-elevated px-1.5 py-0.5 rounded text-foreground-muted">
+            <span className="font-mono text-xs bg-surface-elevated px-1.5 py-0.5 rounded-sm text-foreground-muted">
               {row.original.secret.substring(0, 5)}...
             </span>
             <button
               type="button"
               className={cn(
                 'flex h-6 w-6 shrink-0 items-center justify-center rounded-sm transition-colors',
-                'text-foreground-muted hover:bg-surface-elevated hover:text-accent'
+                'text-foreground-muted hover:bg-surface-elevated hover:text-primary-text'
               )}
               onClick={(e) => {
                 e.stopPropagation();
@@ -169,7 +169,11 @@ export const KeyLists = ({
               }}
               title="Copy secret"
             >
-              {copiedKey === row.original.key ? <Check size={14} /> : <Copy size={14} />}
+              {copiedKey === row.original.key ? (
+                <Check size="0.875rem" />
+              ) : (
+                <Copy size="0.875rem" />
+              )}
             </button>
           </div>
         ),
@@ -187,8 +191,8 @@ export const KeyLists = ({
             return (
               <div className="flex flex-wrap items-center gap-1">
                 {quotaNames.map((n) => (
-                  <Pill key={n} tone="accent" size="sm">
-                    <Shield size={11} />
+                  <Pill key={n} tone="primary" size="sm">
+                    <Shield size="0.6875rem" />
                     {n}
                   </Pill>
                 ))}
@@ -260,20 +264,20 @@ export const KeyLists = ({
                     })}
                   </span>
                   {status && status.quotas.length > 1 && (
-                    <span className="text-[11px] text-foreground-muted">
+                    <span className="text-label text-foreground-muted">
                       (+{status.quotas.length - 1})
                     </span>
                   )}
                   <button
                     type="button"
-                    className="text-foreground-muted hover:text-accent p-0.5 rounded"
+                    className="text-foreground-muted hover:text-primary-text p-0.5 rounded-sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       onViewQuotaStatus(row.original.key);
                     }}
                     title="View details"
                   >
-                    <BarChart3 size={13} />
+                    <BarChart3 size="0.8125rem" />
                   </button>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-elevated">
@@ -382,7 +386,7 @@ export const KeyLists = ({
         emptyIcon={<Key />}
         emptyAction={
           search ? undefined : (
-            <Button leftIcon={<Plus size={14} />} onClick={onAddNewKey}>
+            <Button leftIcon={<Plus size="0.875rem" />} onClick={onAddNewKey}>
               Create key
             </Button>
           )

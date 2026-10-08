@@ -9,12 +9,11 @@ interface ModelTypeBadgeProps {
 
 const typeToTone: Record<string, PillTone> = {
   text: 'neutral',
-  embeddings: 'success',
-  // transcriptions, speech, image have no semantic token equivalent;
-  // neutral keeps us within the token system. Visual distinction comes from the label.
-  transcriptions: 'info',
+  embeddings: 'secondary',
+  // Type tones spread across the theme roles so each type reads distinctly in every theme.
+  transcriptions: 'accent',
   speech: 'warning',
-  image: 'accent',
+  image: 'primary',
   decisions: 'info',
 };
 

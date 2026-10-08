@@ -20,6 +20,7 @@ import { registerProviderRoutes } from './management/providers';
 import { registerMetricsRoutes } from './management/metrics';
 import { registerSelfRoutes } from './management/self';
 import { authenticate, requireAdmin, ManagementAuthError } from './management/_principal';
+import { registerUiThemeRoutes } from './management/ui-themes';
 import { registerModelRoutes } from './management/models';
 import { registerBackupRoutes } from './management/backup';
 import { registerConcurrencyRoutes } from './management/concurrency';
@@ -85,6 +86,10 @@ export async function registerManagementRoutes(
 
       // Cooldowns: admin can clear any; limited restricted by allowedProviders.
       await registerCooldownRoutes(scoped);
+
+      // UI theme library: GET open to any authenticated key; PUT/DELETE self-gate
+      // with requireAdmin.
+      await registerUiThemeRoutes(scoped);
 
       // Usage / Logs / Errors / Debug: handlers force-inject the limited user's
       // keyName as a filter.
